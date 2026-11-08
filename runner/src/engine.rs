@@ -127,6 +127,7 @@ mod tests {
         Config {
             host_name: "homelab-macbook".into(),
             admission_enabled: true,
+            max_concurrent_jobs: 1,
             repositories: vec![RepositoryConfig {
                 owner: "test".into(),
                 name: "repo".into(),

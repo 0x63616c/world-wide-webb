@@ -2,7 +2,7 @@
 use crate::config::RepositoryConfig;
 use serde::{Deserialize, Serialize};
 
-pub const JOURNAL_VERSION: u32 = 1;
+pub const JOURNAL_VERSION: u32 = 2;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
@@ -88,6 +88,11 @@ pub struct Journal {
     pub last_repository: Option<String>,
     pub retry_after: u64,
     pub active: Option<Attempt>,
+    /// The first attempt remains in `active` to migrate the original journal losslessly.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub additional: Vec<Attempt>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_attempt: Option<String>,
 }
 impl Default for Journal {
     fn default() -> Self {
@@ -97,15 +102,56 @@ impl Default for Journal {
             last_repository: None,
             retry_after: 0,
             active: None,
+            additional: Vec::new(),
+            last_attempt: None,
         }
     }
 }
 impl Journal {
+    pub fn attempts(&self) -> impl Iterator<Item = &Attempt> {
+        self.active.iter().chain(self.additional.iter())
+    }
+    pub fn is_idle(&self) -> bool {
+        self.active.is_none() && self.additional.is_empty()
+    }
+    pub fn project(&self, attempt: Option<Attempt>) -> Self {
+        Self {
+            active: attempt,
+            additional: Vec::new(),
+            last_attempt: None,
+            ..self.clone()
+        }
+    }
+    pub fn migrate(&mut self) {
+        if self.version == 1
+            && self.additional.is_empty()
+            && self.last_attempt.is_none()
+            && self
+                .active
+                .as_ref()
+                .and_then(|a| a.pending.as_ref())
+                .is_none_or(|p| p.ticket == self.sequence)
+        {
+            self.version = JOURNAL_VERSION;
+        }
+    }
     pub fn validate(&self) -> Result<(), &'static str> {
+        if self.active.is_none() && !self.additional.is_empty() {
+            return Err("additional attempts require a primary attempt");
+        }
         if self.version != JOURNAL_VERSION {
             return Err("unsupported journal version");
         }
-        if let Some(a) = &self.active {
+        let mut nonces = std::collections::BTreeSet::new();
+        let mut tickets = std::collections::BTreeSet::new();
+        for a in self.attempts() {
+            if !nonces.insert(&a.nonce)
+                || a.pending
+                    .as_ref()
+                    .is_some_and(|p| !tickets.insert(p.ticket))
+            {
+                return Err("duplicate attempt or intent ticket");
+            }
             if a.nonce.len() != 32
                 || !a
                     .nonce
@@ -123,7 +169,7 @@ impl Journal {
                     .is_some_and(|j| j.repository != a.repository.key())
                 || a.pending
                     .as_ref()
-                    .is_some_and(|p| p.ticket == 0 || p.ticket != self.sequence)
+                    .is_some_and(|p| p.ticket == 0 || p.ticket > self.sequence)
                 || (a.jit_created && a.runner_id.is_none())
                 || (a.vm_booted && !a.vm_created)
                 || (a.guest_prepared && !a.vm_booted)

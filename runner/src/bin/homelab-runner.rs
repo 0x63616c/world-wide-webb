@@ -12,7 +12,7 @@ use std::{
     time::Duration,
 };
 #[derive(Parser)]
-#[command(about = "One-slot disposable Tart runner controller")]
+#[command(about = "Concurrent disposable Tart runner controller")]
 struct Cli {
     #[command(subcommand)]
     command: Command,
@@ -98,7 +98,8 @@ fn read_journal_as(
     if bytes.len() > 1024 * 1024 {
         return Err("journal exceeds bound".into());
     }
-    let journal: Journal = serde_json::from_slice(&bytes).map_err(|_| "journal invalid")?;
+    let mut journal: Journal = serde_json::from_slice(&bytes).map_err(|_| "journal invalid")?;
+    journal.migrate();
     journal.validate()?;
     Ok(journal)
 }
@@ -140,7 +141,7 @@ fn verify_offline_idle_for_owner(
         |_| "offline drain refused: journal lock is unsafe or another controller owns it",
     )?;
     let journal=store.load().map_err(|_|"offline drain refused: journal is invalid; preserve it and restart the existing controller for reconciliation")?;
-    if journal.active.is_some() {
+    if !journal.is_idle() {
         return Err("offline drain refused: active attempt requires restarting the existing controller to reconcile and clean its resources".into());
     }
     Ok(())

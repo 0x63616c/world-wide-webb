@@ -62,6 +62,16 @@
         homelab-mac-mini = mkHost "homelab-mac-mini";
       };
       checks.${system} = {
+        runner-concurrency-limits =
+          let
+            options = self.darwinConfigurations.homelab-macbook.options.homelab.runners;
+            limits = [ options.maxConcurrentJobs.type options.tart.maxMacOSGuests.type ];
+          in
+            assert builtins.all (type: type.check 1 && type.check 2
+              && !(type.check 0) && !(type.check 3) && !(type.check 128)) limits;
+            pkgs.runCommand "homelab-runner-concurrency-limits-check" {} ''
+              touch "$out"
+            '';
         service-assignments =
           let
             haOnly = (self.darwinConfigurations.homelab-macbook.extendModules {

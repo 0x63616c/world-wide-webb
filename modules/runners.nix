@@ -10,6 +10,7 @@ let
     policy = {
       host_name = config.networking.hostName;
       admission_enabled = cfg.admissionEnabled;
+      max_concurrent_jobs = cfg.maxConcurrentJobs;
       repositories = lib.mapAttrsToList (name: repository: {
         owner = builtins.elemAt (lib.splitString "/" name) 0;
         name = builtins.elemAt (lib.splitString "/" name) 1;
@@ -69,8 +70,16 @@ in {
       default = false;
       description = "Allow new jobs. Disabling admission keeps the daemon available to finish cleanup.";
     };
-    maxConcurrentJobs = lib.mkOption { type = lib.types.ints.positive; default = 1; };
-    tart.maxMacOSGuests = lib.mkOption { type = lib.types.ints.positive; default = 1; };
+    maxConcurrentJobs = lib.mkOption {
+      type = lib.types.ints.between 1 2;
+      default = 1;
+      description = "Concurrent jobs per host; macOS supports at most two guest VMs.";
+    };
+    tart.maxMacOSGuests = lib.mkOption {
+      type = lib.types.ints.between 1 2;
+      default = 1;
+      description = "macOS guest capacity per physical Mac (one or two).";
+    };
     githubAppId = lib.mkOption { type = lib.types.str; default = ""; };
     repositories = lib.mkOption {
       type = lib.types.attrsOf repositoryType;
@@ -111,8 +120,8 @@ in {
         fi
       '';
       assertions = [
-        { assertion = cfg.maxConcurrentJobs == 1 && cfg.tart.maxMacOSGuests == 1;
-          message = "The initial runner controller supports one active VM/job per host."; }
+        { assertion = cfg.maxConcurrentJobs <= cfg.tart.maxMacOSGuests;
+          message = "Runner concurrency must fit tart.maxMacOSGuests; macOS supports at most two guests per host."; }
         { assertion = lib.all (name: builtins.length (lib.splitString "/" name) == 2)
             (builtins.attrNames cfg.repositories);
           message = "Runner repository names must use owner/name."; }

@@ -2,6 +2,9 @@
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 
+/// Per-host macOS guest limit enforced by Apple's virtualization platform.
+pub const MAX_MACOS_GUESTS: usize = 2;
+
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct RepositoryConfig {
@@ -42,6 +45,8 @@ impl Default for Deadlines {
 pub struct Config {
     pub host_name: String,
     pub admission_enabled: bool,
+    #[serde(default = "one_job")]
+    pub max_concurrent_jobs: usize,
     pub repositories: Vec<RepositoryConfig>,
     pub image: String,
     pub cpu: u16,
@@ -50,6 +55,10 @@ pub struct Config {
     pub emergency_free_bytes: u64,
     pub deadlines: Deadlines,
 }
+fn one_job() -> usize {
+    1
+}
+
 impl Config {
     pub fn validate(&self) -> Result<(), String> {
         if !crate::names::valid_host(&self.host_name) {
@@ -59,6 +68,9 @@ impl Config {
         }
         if !valid_image_digest(&self.image) {
             return Err("image must be pinned by a sha256 OCI digest".into());
+        }
+        if !(1..=MAX_MACOS_GUESTS).contains(&self.max_concurrent_jobs) {
+            return Err("macOS runner concurrency must be 1 or 2 jobs per host".into());
         }
         if !(1..=8).contains(&self.cpu)
             || !(1024..=16384).contains(&self.memory_mib)

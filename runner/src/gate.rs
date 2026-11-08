@@ -177,7 +177,7 @@ fn check_directory(path: &Path, mode: u32) -> Result<(), GateError> {
     Ok(())
 }
 fn read_record<T: DeserializeOwned>(path: &Path, mode: u32) -> Result<Option<T>, GateError> {
-    let mut file = match OpenOptions::new()
+    let file = match OpenOptions::new()
         .read(true)
         .custom_flags((rustix::fs::OFlags::NOFOLLOW | rustix::fs::OFlags::NONBLOCK).bits() as i32)
         .open(path)
@@ -186,8 +186,17 @@ fn read_record<T: DeserializeOwned>(path: &Path, mode: u32) -> Result<Option<T>,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
         Err(error) => return Err(error.into()),
     };
+    read_open_record(file, mode)
+}
+
+fn read_open_record<T: DeserializeOwned>(
+    mut file: File,
+    mode: u32,
+) -> Result<Option<T>, GateError> {
     let metadata = file.metadata()?;
-    if !metadata.is_file() || metadata.nlink() != 1 || metadata.mode() & 0o7777 != mode {
+    // An atomic rename can unlink the old inode after open but before fstat.
+    // That private, already-open snapshot is safe to read; extra hard links are not.
+    if !metadata.is_file() || metadata.nlink() > 1 || metadata.mode() & 0o7777 != mode {
         return Err(GateError::Permissions);
     }
     let mut bytes = Vec::new();
@@ -273,6 +282,69 @@ mod tests {
             gate.acknowledge(&request, true),
             Err(GateError::HoldChanged)
         ));
+    }
+    #[test]
+    fn opened_ack_remains_valid_after_atomic_replacement_unlinks_its_inode() {
+        let (_root, gate) = fixture();
+        let request = gate.request_hold().unwrap();
+        gate.acknowledge(&request, false).unwrap();
+        let opened = File::open(gate.status_dir.join(ACK)).unwrap();
+        gate.acknowledge(&request, true).unwrap();
+        assert_eq!(opened.metadata().unwrap().nlink(), 0);
+        let previous: Ack = read_open_record(opened, 0o600).unwrap().unwrap();
+        assert!(
+            !previous.idle,
+            "a stale snapshot cannot falsely acknowledge idle"
+        );
+        assert!(gate.read_ack(&request).unwrap().unwrap().idle);
+    }
+    #[test]
+    fn hardlinked_ack_is_still_rejected() {
+        let (root, gate) = fixture();
+        let request = gate.request_hold().unwrap();
+        gate.acknowledge(&request, true).unwrap();
+        fs::hard_link(
+            gate.status_dir.join(ACK),
+            root.path().join("extra-ack-link"),
+        )
+        .unwrap();
+        assert!(matches!(
+            gate.read_ack(&request),
+            Err(GateError::Permissions)
+        ));
+    }
+    #[test]
+    fn concurrent_atomic_ack_replacement_does_not_fail_drain_permission_checks() {
+        use std::sync::{
+            Arc,
+            atomic::{AtomicBool, Ordering},
+        };
+        let (_root, gate) = fixture();
+        let request = gate.request_hold().unwrap();
+        gate.acknowledge(&request, true).unwrap();
+        let stop = Arc::new(AtomicBool::new(false));
+        std::thread::scope(|scope| {
+            let writer_gate = gate.clone();
+            let writer_request = request.clone();
+            let writer_stop = stop.clone();
+            scope.spawn(move || {
+                while !writer_stop.load(Ordering::Relaxed) {
+                    writer_gate.acknowledge(&writer_request, true).unwrap();
+                }
+            });
+            let mut failure = None;
+            for _ in 0..100000 {
+                if let Err(error) = gate.read_ack(&request) {
+                    failure = Some(error);
+                    break;
+                }
+            }
+            stop.store(true, Ordering::Relaxed);
+            assert!(
+                failure.is_none(),
+                "atomic ACK replacement must remain readable: {failure:?}"
+            );
+        });
     }
     #[test]
     fn stale_idle_ack_cannot_drain_a_new_hold() {

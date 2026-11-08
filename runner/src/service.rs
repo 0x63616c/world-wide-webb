@@ -12,7 +12,7 @@ use crate::{
     },
     state::{Attempt, JobIdentity, Journal, Operation, Phase},
     store::Store,
-    tart::{OwnedVmName, RunningVm, Tart, TartConfig, VmState},
+    tart::{LocalVm, OwnedVmName, RunningVm, Tart, TartConfig, VmState},
 };
 use serde::{Deserialize, Serialize};
 use std::{
@@ -40,6 +40,8 @@ pub struct RuntimeConfig {
 pub enum ServiceError {
     #[error("runtime configuration is invalid or unreadable")]
     Configuration,
+    #[error("max_concurrent_jobs must be 1 or 2: macOS supports at most two guests per host")]
+    Concurrency,
     #[error("runtime configuration JSON invalid: {category} at line {line}, column {column}")]
     ConfigurationSyntax {
         category: &'static str,
@@ -87,6 +89,9 @@ impl RuntimeConfig {
         Ok(config)
     }
     pub fn validate(&self) -> Result<(), ServiceError> {
+        if !(1..=crate::config::MAX_MACOS_GUESTS).contains(&self.policy.max_concurrent_jobs) {
+            return Err(ServiceError::Concurrency);
+        }
         self.policy
             .validate()
             .map_err(|_| ServiceError::Configuration)?;
@@ -226,6 +231,23 @@ fn tart_diagnostic(error: &crate::tart::TartError) -> SafeError {
         _ => SafeError::InvalidResponse,
     }
 }
+// Transient resources are isolated by the durable attempt nonce. Secrets never enter the journal.
+#[derive(Default)]
+struct AttemptResources {
+    jit: Option<(String, JitConfig)>,
+    running_vm: Option<(String, RunningVm)>,
+    startup_quiescent: Option<String>,
+    effect_not_before: u64,
+    diagnostic: Option<Summary>,
+    task: Option<BackgroundEffect>,
+    completed: Option<EffectResult>,
+}
+struct BackgroundEffect {
+    ticket: u64,
+    operation: Operation,
+    handle: tokio::task::JoinHandle<Result<(), crate::tart::TartError>>,
+}
+
 pub struct LiveBackend {
     github: GithubApi,
     tart: Tart,
@@ -242,6 +264,16 @@ pub struct LiveBackend {
     startup_quiescent: Option<String>,
     effect_not_before: u64,
     diagnostic: Option<Summary>,
+    fleet_mode: bool,
+    selected_attempt: Option<String>,
+    resources: BTreeMap<String, AttemptResources>,
+    task: Option<BackgroundEffect>,
+    completed: Option<EffectResult>,
+    fleet_owned: Vec<Attempt>,
+    fleet_inventory_permitted: bool,
+    last_inventory_safe: bool,
+    inventory_loaded: bool,
+    inventory_cache: Option<Vec<LocalVm>>,
 }
 impl LiveBackend {
     pub fn new(runtime: RuntimeConfig) -> Result<Self, ServiceError> {
@@ -267,6 +299,16 @@ impl LiveBackend {
             startup_quiescent: None,
             effect_not_before: 0,
             diagnostic: None,
+            fleet_mode: true,
+            selected_attempt: None,
+            resources: BTreeMap::new(),
+            task: None,
+            completed: None,
+            fleet_owned: Vec::new(),
+            fleet_inventory_permitted: true,
+            last_inventory_safe: false,
+            inventory_loaded: false,
+            inventory_cache: None,
         })
     }
     fn diagnostic_for(&mut self, attempt: &Attempt, operation: Operation) -> &mut Summary {
@@ -330,7 +372,12 @@ impl LiveBackend {
     }
     async fn refresh(&mut self, config: &Config, journal: &Journal, now: u64) {
         let mut repositories = config.repositories.clone();
-        if let Some(attempt) = &journal.active {
+        let owned = if self.fleet_mode {
+            self.fleet_owned.clone()
+        } else {
+            journal.attempts().cloned().collect()
+        };
+        for attempt in &owned {
             // Cleanup continues against the saved repository identity even if a
             // new configuration reuses the same owner/name with different IDs.
             repositories.retain(|repo| repo.key() != attempt.repository.key());
@@ -366,7 +413,7 @@ impl LiveBackend {
                 }
             };
             let mut admission_safe = settings_safe;
-            let jobs = if settings_safe && (config.admission_enabled || journal.active.is_some()) {
+            let jobs = if settings_safe && (config.admission_enabled || !owned.is_empty()) {
                 match self.github.discover_jobs(&repo_api).await {
                     Ok(value) => value,
                     Err(error) => {
@@ -464,6 +511,21 @@ impl LiveBackend {
     ) -> Option<EffectResult> {
         let attempt = journal.active.as_ref()?;
         let pending = attempt.pending.as_ref()?;
+        if let Some(result) = &self.completed
+            && result.ticket == pending.ticket
+        {
+            return Some(result.clone());
+        }
+        if self
+            .task
+            .as_ref()
+            .is_some_and(|task| task.ticket == pending.ticket)
+        {
+            return Some(EffectResult {
+                ticket: pending.ticket,
+                outcome: Outcome::Unknown,
+            });
+        }
         let succeeded = || Outcome::Succeeded { runner_id: None };
         let outcome = match pending.operation {
             Operation::CloneVm => {
@@ -566,8 +628,8 @@ impl LiveBackend {
         })
     }
 }
-impl EngineBackend for LiveBackend {
-    async fn observe(&mut self, config: &Config, journal: &Journal, now: u64) -> Observation {
+impl LiveBackend {
+    async fn observe_one(&mut self, config: &Config, journal: &Journal, now: u64) -> Observation {
         if let Some(attempt) = &journal.active
             && self.diagnostic.as_ref().is_none_or(|summary| {
                 summary.nonce != attempt.nonce
@@ -627,35 +689,50 @@ impl EngineBackend for LiveBackend {
             Some(attempt) => self.startup_cleanup_quiescent(attempt).await,
             None => true,
         };
-        let inventory = if starting || !cleanup_quiescent {
+        let inventory = if starting || !cleanup_quiescent || !self.fleet_inventory_permitted {
             None
+        } else if self.fleet_mode && self.inventory_loaded {
+            self.inventory_cache.clone().map(Ok)
         } else {
             Some(self.tart.inventory().await.inspect_err(|error|tracing::warn!(operation="list_vms",category=%error,"VM inventory unavailable; admission blocked")))
         };
+        if self.fleet_mode && !self.inventory_loaded {
+            self.inventory_cache = inventory
+                .as_ref()
+                .and_then(|result| result.as_ref().ok())
+                .cloned();
+            self.inventory_loaded = true;
+        }
         let vm_orphan = inventory.as_ref().is_some_and(|inventory| {
             inventory.as_ref().is_ok_and(|rows| {
                 rows.iter().any(|vm| {
                     (crate::names::parse(&vm.name).is_some()
                         || crate::names::belongs_to_host(&vm.name, &self.runtime.policy.host_name))
-                        && journal
-                            .active
-                            .as_ref()
-                            .is_none_or(|attempt| attempt.vm_name != vm.name)
+                        && !self
+                            .fleet_owned
+                            .iter()
+                            .chain(journal.attempts())
+                            .any(|attempt| attempt.vm_name == vm.name)
                 })
             })
         });
         let runner_orphan = self.snapshots.iter().any(|(repo, snapshot)| {
             snapshot.runners.iter().any(|runner| {
                 crate::names::belongs_to_host(&runner.name, &self.runtime.policy.host_name)
-                    && journal.active.as_ref().is_none_or(|attempt| {
-                        attempt.repository.key() != *repo || attempt.runner_name != runner.name
-                    })
+                    && !self
+                        .fleet_owned
+                        .iter()
+                        .chain(journal.attempts())
+                        .any(|attempt| {
+                            attempt.repository.key() == *repo && attempt.runner_name == runner.name
+                        })
             })
         });
         let inventory_safe = inventory.as_ref().is_some_and(Result::is_ok)
             && self.snapshot_complete
             && !vm_orphan
             && !runner_orphan;
+        self.last_inventory_safe = inventory_safe;
         let root_control =
             std::fs::symlink_metadata(&self.runtime.control_directory).is_ok_and(|metadata| {
                 metadata.is_dir() && metadata.uid() == 0 && metadata.mode() & 0o7777 == 0o755
@@ -675,6 +752,12 @@ impl EngineBackend for LiveBackend {
                     .extend(snapshot.jobs.iter().filter_map(|job| candidate(repo, job)));
             }
         }
+        let reservation_journal = Journal {
+            active: self.fleet_owned.first().cloned(),
+            additional: self.fleet_owned.iter().skip(1).cloned().collect(),
+            ..Journal::default()
+        };
+        crate::scheduler::filter_reserved(&mut observed.candidates, &reservation_journal);
         // Revalidate one oldest eligible candidate per repository before the scheduler's fair choice.
         if journal.active.is_none() && observed.admission_safe && config.admission_enabled {
             for repo in &config.repositories {
@@ -713,7 +796,7 @@ impl EngineBackend for LiveBackend {
                 },
                 _ => VmObservation::Unknown,
             };
-            if starting
+            if (starting || observed.vm == VmObservation::Unknown)
                 && (attempt.vm_booted
                     || attempt.pending.as_ref().is_some_and(|pending| {
                         matches!(
@@ -723,11 +806,19 @@ impl EngineBackend for LiveBackend {
                     }))
                 && let Ok(name) = OwnedVmName::parse(&attempt.vm_name)
             {
-                let remaining = attempt.boot_deadline.saturating_sub(now);
+                let remaining = if starting {
+                    attempt.boot_deadline.saturating_sub(now)
+                } else {
+                    2
+                };
                 if remaining > 0
                     && matches!(
                         tokio::time::timeout(
-                            Duration::from_secs(remaining.min(30)),
+                            Duration::from_secs(remaining.min(if self.fleet_mode {
+                                2
+                            } else {
+                                30
+                            })),
                             self.tart.guest_agent_ready(&name)
                         )
                         .await,
@@ -809,7 +900,8 @@ impl EngineBackend for LiveBackend {
             }
             observed.effect_result = self.pending_outcome(journal, &observed, now, clone_finished);
         }
-        if let Ok(Some(request)) = hold
+        if !self.fleet_mode
+            && let Ok(Some(request)) = hold
             && let Err(error) = self
                 .gate
                 .acknowledge(&request, journal.active.is_none() && inventory_safe)
@@ -818,7 +910,7 @@ impl EngineBackend for LiveBackend {
         }
         observed
     }
-    async fn execute(&mut self, effect: &Effect) -> Outcome {
+    async fn execute_one(&mut self, effect: &Effect) -> Outcome {
         let summary = self.diagnostic_for(&effect.attempt, effect.operation);
         summary.last_operation = effect.operation;
         summary.last_outcome = EffectState::Started;
@@ -828,6 +920,7 @@ impl EngineBackend for LiveBackend {
         self.save_diagnostic();
         let outcome = self.execute_effect(effect).await;
         if matches!(outcome, Outcome::Failed | Outcome::Unknown)
+            && self.task.is_none()
             && self.diagnostic.as_ref().is_none_or(|summary| {
                 summary
                     .latest_failure
@@ -848,6 +941,7 @@ impl EngineBackend for LiveBackend {
         }
         if let Some(summary) = &mut self.diagnostic {
             summary.last_outcome = match outcome {
+                _ if self.task.is_some() => EffectState::Started,
                 Outcome::Succeeded { .. } | Outcome::RecoveredJit { .. } => EffectState::Succeeded,
                 Outcome::Failed => EffectState::Failed,
                 Outcome::Unknown => EffectState::Unknown,
@@ -869,9 +963,60 @@ impl LiveBackend {
             return Outcome::Failed;
         };
         if matches!(effect.operation, Operation::StopVm | Operation::DeleteVm)
-            && !self.startup_cleanup_quiescent(attempt).await
+            && ((!self.fleet_inventory_permitted && self.fleet_mode)
+                || !self.startup_cleanup_quiescent(attempt).await)
         {
             return Outcome::Unknown;
+        }
+        if self.fleet_mode {
+            let tart = self.tart.clone();
+            let attempt = attempt.clone();
+            let operation = effect.operation;
+            let jit = if operation == Operation::StartRunner {
+                self.jit.take()
+            } else {
+                None
+            };
+            if operation != Operation::BootVm
+                && operation != Operation::CreateJit
+                && operation != Operation::DeleteRunner
+            {
+                if self.task.is_some() {
+                    return Outcome::Unknown;
+                }
+                let handle = tokio::spawn(async move {
+                    match operation {
+                        Operation::CloneVm => {
+                            tart.clone_vm(&attempt.image, &name, attempt.cpu, attempt.memory_mib)
+                                .await
+                        }
+                        Operation::PrepareGuest => {
+                            tart.prepare_guest(
+                                &name,
+                                Duration::from_secs(
+                                    attempt.boot_deadline.saturating_sub(unix_now()),
+                                ),
+                            )
+                            .await
+                        }
+                        Operation::StartRunner => match jit {
+                            Some((nonce, jit)) if nonce == attempt.nonce => {
+                                tart.bootstrap(&name, jit.as_bytes()).await
+                            }
+                            _ => Err(crate::tart::TartError::Configuration),
+                        },
+                        Operation::StopVm => tart.stop(&name).await,
+                        Operation::DeleteVm => tart.delete(&name).await,
+                        _ => unreachable!(),
+                    }
+                });
+                self.task = Some(BackgroundEffect {
+                    ticket: effect.ticket,
+                    operation,
+                    handle,
+                });
+                return Outcome::Unknown;
+            }
         }
         let result = match effect.operation {
             Operation::CloneVm => {
@@ -1029,11 +1174,168 @@ impl LiveBackend {
     }
 }
 
+impl LiveBackend {
+    fn select_attempt(&mut self, nonce: Option<&str>) {
+        if self.selected_attempt.as_deref() == nonce {
+            return;
+        }
+        let previous = AttemptResources {
+            jit: self.jit.take(),
+            running_vm: self.running_vm.take(),
+            startup_quiescent: self.startup_quiescent.take(),
+            effect_not_before: self.effect_not_before,
+            diagnostic: self.diagnostic.take(),
+            task: self.task.take(),
+            completed: self.completed.take(),
+        };
+        if let Some(old) = self.selected_attempt.take() {
+            self.resources.insert(old, previous);
+        }
+        let next = nonce
+            .and_then(|key| self.resources.remove(key))
+            .unwrap_or_default();
+        self.jit = next.jit;
+        self.running_vm = next.running_vm;
+        self.startup_quiescent = next.startup_quiescent;
+        self.effect_not_before = next.effect_not_before;
+        self.diagnostic = next.diagnostic;
+        self.task = next.task;
+        self.completed = next.completed;
+        self.selected_attempt = nonce.map(str::to_owned);
+    }
+    async fn poll_effect(&mut self, attempt: &Attempt) {
+        if self.completed.as_ref().is_some_and(|result| {
+            attempt
+                .pending
+                .as_ref()
+                .is_none_or(|p| p.ticket != result.ticket)
+        }) {
+            self.completed = None;
+        }
+        if !self
+            .task
+            .as_ref()
+            .is_some_and(|task| task.handle.is_finished())
+        {
+            return;
+        }
+        let task = self.task.take().expect("finished task exists");
+        let outcome = match task.handle.await {
+            Ok(Ok(())) => {
+                if task.operation == Operation::CloneVm {
+                    self.startup_quiescent = Some(attempt.nonce.clone());
+                }
+                Outcome::Succeeded { runner_id: None }
+            }
+            Ok(Err(error)) => {
+                self.record_failure(attempt, task.operation, tart_diagnostic(&error));
+                self.effect_not_before = unix_now() + self.runtime.policy.deadlines.retry_seconds;
+                if task.operation == Operation::StartRunner
+                    || (task.operation == Operation::CloneVm && error.short_command_terminated())
+                {
+                    Outcome::Failed
+                } else {
+                    Outcome::Unknown
+                }
+            }
+            Err(_) => Outcome::Unknown,
+        };
+        self.diagnostic_for(attempt, task.operation).last_outcome = match outcome {
+            Outcome::Succeeded { .. } => EffectState::Succeeded,
+            Outcome::Failed => EffectState::Failed,
+            _ => EffectState::Unknown,
+        };
+        self.save_diagnostic();
+        // Unknown outcomes must fall back to authoritative reconciliation on the next poll.
+        self.completed = (outcome != Outcome::Unknown).then_some(EffectResult {
+            ticket: task.ticket,
+            outcome,
+        });
+    }
+}
+impl EngineBackend for LiveBackend {
+    async fn observe(&mut self, config: &Config, journal: &Journal, now: u64) -> Observation {
+        if !self.fleet_mode {
+            return self.observe_one(config, journal, now).await;
+        }
+        self.inventory_loaded = false;
+        self.inventory_cache = None;
+        self.fleet_owned = journal.attempts().cloned().collect();
+        self.resources.retain(|nonce, _| {
+            self.fleet_owned
+                .iter()
+                .any(|attempt| &attempt.nonce == nonce)
+        });
+        let mut permitted = true;
+        for attempt in self.fleet_owned.clone() {
+            self.select_attempt(Some(&attempt.nonce));
+            self.poll_effect(&attempt).await;
+            if attempt.phase == Phase::Starting || !self.startup_cleanup_quiescent(&attempt).await {
+                permitted = false;
+            }
+        }
+        self.select_attempt(None);
+        self.fleet_inventory_permitted = permitted;
+        let busy_inventory = self.resources.values().any(|resources| {
+            resources.task.as_ref().is_some_and(|task| {
+                matches!(task.operation, Operation::StopVm | Operation::DeleteVm)
+            })
+        });
+        let mut admission = config.clone();
+        admission.admission_enabled &=
+            journal.attempts().count() < config.max_concurrent_jobs && !busy_inventory;
+        let mut observed = self
+            .observe_one(&admission, &journal.project(None), now)
+            .await;
+        let inventory_safe = self.last_inventory_safe;
+        observed.admission_safe &= admission.admission_enabled;
+        for attempt in self.fleet_owned.clone() {
+            self.select_attempt(Some(&attempt.nonce));
+            let mut policy = config.clone();
+            policy.admission_enabled = false;
+            let observation = self
+                .observe_one(&policy, &journal.project(Some(attempt.clone())), now)
+                .await;
+            observed
+                .attempts
+                .insert(attempt.nonce, Box::new(observation));
+        }
+        self.select_attempt(None);
+        let owned = self
+            .fleet_owned
+            .iter()
+            .map(|attempt| attempt.nonce.as_str())
+            .collect::<Vec<_>>();
+        if diagnostics::prune(&self.runtime.state_directory, &owned).is_err() {
+            tracing::warn!(
+                operation = "prune_diagnostics",
+                "diagnostic retention unavailable"
+            );
+        }
+        if let Ok(Some(request)) = self.gate.read_hold()
+            && let Err(error) = self.gate.acknowledge(
+                &request,
+                journal.is_idle() && inventory_safe && !busy_inventory,
+            )
+        {
+            tracing::warn!(category=%error, "activation hold acknowledgement failed");
+        }
+        observed
+    }
+    async fn execute(&mut self, effect: &Effect) -> Outcome {
+        if self.fleet_mode {
+            self.select_attempt(Some(&effect.attempt.nonce));
+        }
+        self.execute_one(effect).await
+    }
+}
+
 pub async fn run(config_path: &Path) -> Result<(), ServiceError> {
     let runtime = RuntimeConfig::load(config_path)?;
     let store = Store::open(&runtime.state_directory).map_err(|_| ServiceError::State)?;
-    let backend = LiveBackend::new(runtime.clone())?;
+    let mut backend = LiveBackend::new(runtime.clone())?;
     backend.preflight().await?;
+    backend.fleet_mode = true;
     let mut engine = Engine::open(store, backend).map_err(|_| ServiceError::State)?;
     let mut policy = runtime.policy.clone();
     let mut terminate = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
@@ -1054,7 +1356,7 @@ pub async fn run(config_path: &Path) -> Result<(), ServiceError> {
             .map_err(|_| ServiceError::State)?;
         tracing::info!(
             reason = report.reason,
-            active = engine.journal().active.is_some(),
+            active = engine.journal().attempts().count(),
             sequence = engine.journal().sequence,
             runner = engine
                 .journal()
@@ -1075,15 +1377,15 @@ pub async fn run(config_path: &Path) -> Result<(), ServiceError> {
         );
         let pause = if report.changed || report.executed {
             Duration::from_millis(250)
-        } else if engine.journal().active.is_some() {
+        } else if !engine.journal().is_idle() {
             Duration::from_secs(2)
         } else {
             Duration::from_secs(30)
         };
         tokio::select! {
             _=tokio::time::sleep(pause)=>{},
-            _=terminate.recv()=>{tracing::info!(active=engine.journal().active.is_some(),"controller terminating; durable ownership retained for reconciliation");return Ok(());},
-            _=tokio::signal::ctrl_c()=>{tracing::info!(active=engine.journal().active.is_some(),"controller stopping; durable ownership retained for reconciliation");return Ok(());}
+            _=terminate.recv()=>{tracing::info!(active=!engine.journal().is_idle(),"controller terminating; durable ownership retained for reconciliation");return Ok(());},
+            _=tokio::signal::ctrl_c()=>{tracing::info!(active=!engine.journal().is_idle(),"controller stopping; durable ownership retained for reconciliation");return Ok(());}
         }
     }
 }
@@ -1095,11 +1397,18 @@ mod tests {
         config::Deadlines,
         state::{Attempt, Intent, Phase},
     };
+    // Adapter fixtures exercise one attempt directly; production always enables fleet composition.
+    fn single_backend(config: RuntimeConfig) -> Result<LiveBackend, ServiceError> {
+        let mut backend = LiveBackend::new(config)?;
+        backend.fleet_mode = false;
+        Ok(backend)
+    }
     fn runtime() -> RuntimeConfig {
         RuntimeConfig {
             policy: Config {
                 host_name: "homelab-macbook".into(),
                 admission_enabled: true,
+                max_concurrent_jobs: 1,
                 repositories: vec![RepositoryConfig {
                     owner: "test".into(),
                     name: "repo".into(),
@@ -1136,6 +1445,8 @@ mod tests {
         let nonce = "a".repeat(32);
         Journal {
             sequence: 1,
+            additional: Vec::new(),
+            last_attempt: None,
             active: Some(Attempt {
                 nonce: nonce.clone(),
                 vm_name: format!("homelab-job-{nonce}"),
@@ -1172,9 +1483,156 @@ mod tests {
             ..Journal::default()
         }
     }
+
+    fn peer_attempt() -> Attempt {
+        let mut peer = pending(Operation::CloneVm).active.unwrap();
+        peer.nonce = "b".repeat(32);
+        peer.vm_name = format!("homelab-macbook-job-{}", peer.nonce);
+        peer.runner_name = peer.vm_name.clone();
+        peer.phase = Phase::Running;
+        peer.pending = None;
+        peer.guest_prepared = true;
+        peer.jit_created = true;
+        peer.runner_started = true;
+        peer.runner_id = Some(9);
+        peer.candidate.job_id = 3;
+        peer.assigned = Some(peer.candidate.clone());
+        peer.running_deadline = Some(10000);
+        peer
+    }
+    fn fleet_fixture(directory: &Path) -> (LiveBackend, RuntimeConfig, Journal) {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(directory, std::fs::Permissions::from_mode(0o700)).unwrap();
+        let binary = directory.join("fixture");
+        std::fs::write(&binary, b"#!/bin/sh\ncase \"$1\" in\nlist) echo inventory >> \"$HOME/events\"; printf '[]\\n';;\nexec) printf '501\\n';;\nesac\n").unwrap();
+        std::fs::set_permissions(&binary, std::fs::Permissions::from_mode(0o700)).unwrap();
+        let mut config = runtime();
+        config.policy.max_concurrent_jobs = 2;
+        config.state_directory = directory.to_owned();
+        config.control_directory = directory.join("control");
+        config.tart.home = directory.to_owned();
+        config.tart.tart_home = directory.to_owned();
+        config.tart.binary = binary;
+        let mut backend = single_backend(config.clone()).unwrap();
+        backend.fleet_mode = true;
+        backend.next_github_poll = u64::MAX;
+        backend.last_repositories = config.policy.repositories.clone();
+        backend.snapshot_complete = true;
+        backend.snapshots.insert(
+            config.policy.repositories[0].key(),
+            RepositorySnapshot {
+                jobs: vec![],
+                runners: vec![],
+                admission_safe: true,
+            },
+        );
+        let mut journal = pending(Operation::CloneVm);
+        journal.active.as_mut().unwrap().vm_created = false;
+        journal.active.as_mut().unwrap().vm_booted = false;
+        journal.additional.push(peer_attempt());
+        (backend, config, journal)
+    }
+    #[tokio::test]
+    async fn fleet_monitors_peer_while_clone_is_pending_without_inventorying_startup_disks() {
+        let directory = tempfile::tempdir().unwrap();
+        let (mut backend, config, journal) = fleet_fixture(directory.path());
+        let nonce = journal.active.as_ref().unwrap().nonce.clone();
+        backend.select_attempt(Some(&nonce));
+        let release = std::sync::Arc::new(tokio::sync::Notify::new());
+        let wait = release.clone();
+        backend.task = Some(BackgroundEffect {
+            ticket: 1,
+            operation: Operation::CloneVm,
+            handle: tokio::spawn(async move {
+                wait.notified().await;
+                Ok(())
+            }),
+        });
+        backend.select_attempt(None);
+        let observed = tokio::time::timeout(
+            Duration::from_secs(2),
+            backend.observe(&config.policy, &journal, 10),
+        )
+        .await
+        .unwrap();
+        assert!(!observed.admission_safe);
+        assert_eq!(
+            observed.attempts[&nonce]
+                .effect_result
+                .as_ref()
+                .unwrap()
+                .outcome,
+            Outcome::Unknown
+        );
+        assert_eq!(
+            observed.attempts[&journal.additional[0].nonce].vm,
+            VmObservation::Running
+        );
+        assert!(
+            !directory.path().join("events").exists(),
+            "global inventory must not race startup"
+        );
+        release.notify_one();
+        backend.select_attempt(Some(&nonce));
+        tokio::time::timeout(Duration::from_secs(2), async {
+            while !backend.task.as_ref().unwrap().handle.is_finished() {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .unwrap();
+        backend.poll_effect(journal.active.as_ref().unwrap()).await;
+        assert_eq!(
+            backend.completed.as_ref().unwrap().outcome,
+            Outcome::Succeeded { runner_id: None }
+        );
+        backend.select_attempt(Some(&journal.additional[0].nonce));
+        assert!(
+            backend.completed.is_none(),
+            "completion belongs only to its attempt"
+        );
+        backend.select_attempt(Some(&nonce));
+        assert_eq!(backend.completed.as_ref().unwrap().ticket, 1);
+    }
+    #[tokio::test]
+    async fn fleet_cleanup_and_orphan_checks_recognize_every_owned_vm() {
+        let directory = tempfile::tempdir().unwrap();
+        let (mut backend, config, mut journal) = fleet_fixture(directory.path());
+        journal.active = Some(peer_attempt());
+        journal.additional.clear();
+        let mut peer = peer_attempt();
+        peer.nonce = "c".repeat(32);
+        peer.vm_name = format!("homelab-macbook-job-{}", peer.nonce);
+        peer.runner_name = peer.vm_name.clone();
+        peer.runner_id = Some(10);
+        peer.candidate.job_id = 4;
+        peer.assigned = Some(peer.candidate.clone());
+        journal.additional.push(peer);
+        let rows = journal.attempts().map(|a| serde_json::json!({"Source":"local","Name":a.vm_name,"State":"running","Running":true})).collect::<Vec<_>>();
+        // All inventory callers use one authoritative host snapshot per controller observation.
+        let script = format!(
+            "#!/bin/sh\ncase \"$1\" in\nlist) echo inventory >> \"$HOME/events\"; printf '%s' '{}';;\nexec) printf '501\\n';;\nesac\n",
+            serde_json::to_string(&rows).unwrap()
+        );
+        std::fs::write(&config.tart.binary, script).unwrap();
+        let observed = backend.observe(&config.policy, &journal, 10).await;
+        assert!(
+            backend.last_inventory_safe,
+            "owned peers must not be treated as orphans"
+        );
+        assert_eq!(observed.attempts.len(), 2);
+        assert_eq!(
+            std::fs::read_to_string(directory.path().join("events"))
+                .unwrap()
+                .lines()
+                .count(),
+            1
+        );
+        assert_eq!(backend.resources.len(), 2);
+    }
     #[test]
     fn ambiguous_jit_is_reconciled_by_exact_unique_name_and_never_reminted() {
-        let mut backend = LiveBackend::new(runtime()).unwrap();
+        let mut backend = single_backend(runtime()).unwrap();
         let journal = pending(Operation::CreateJit);
         let observed = Observation {
             vm: VmObservation::Running,
@@ -1225,7 +1683,7 @@ mod tests {
     }
     #[test]
     fn boot_requires_positive_running_evidence_and_lost_start_input_is_never_replayed() {
-        let mut backend = LiveBackend::new(runtime()).unwrap();
+        let mut backend = single_backend(runtime()).unwrap();
         let mut observed = Observation {
             vm: VmObservation::Stopped,
             ..Observation::default()
@@ -1276,6 +1734,23 @@ mod tests {
         let mut invalid = config;
         invalid.app_key_file = "relative.pem".into();
         assert!(invalid.validate().is_err());
+    }
+    #[test]
+    fn runtime_rejects_excess_macos_concurrency_before_opening_state_or_credentials() {
+        let file = tempfile::NamedTempFile::new().unwrap();
+        for limit in [0, 3, 128, usize::MAX] {
+            let mut config = runtime();
+            config.policy.max_concurrent_jobs = limit;
+            std::fs::write(file.path(), serde_json::to_vec(&config).unwrap()).unwrap();
+            let error = RuntimeConfig::load(file.path()).unwrap_err();
+            assert!(matches!(error, ServiceError::Concurrency));
+            assert!(error.to_string().contains("at most two guests per host"));
+        }
+        for limit in [1, 2] {
+            let mut config = runtime();
+            config.policy.max_concurrent_jobs = limit;
+            assert!(config.validate().is_ok());
+        }
     }
     #[test]
     fn runner_archive_and_version_are_required_validated_runtime_identity() {
@@ -1361,7 +1836,7 @@ mod tests {
         let mut config = runtime();
         config.tart.tart_home = directory.path().to_owned();
         config.tart.binary = binary;
-        let mut backend = LiveBackend::new(config.clone()).unwrap();
+        let mut backend = single_backend(config.clone()).unwrap();
         let mut journal = pending(Operation::CloneVm);
         journal.active.as_mut().unwrap().vm_created = false;
         journal.active.as_mut().unwrap().vm_booted = false;
@@ -1410,7 +1885,7 @@ mod tests {
     }
     #[test]
     fn recovered_guest_preparation_requires_ready_and_never_replays_installation() {
-        let mut backend = LiveBackend::new(runtime()).unwrap();
+        let mut backend = single_backend(runtime()).unwrap();
         let journal = pending(Operation::PrepareGuest);
         let mut observed = Observation {
             guest: GuestObservation::Ready,
@@ -1448,7 +1923,7 @@ mod tests {
         let mut config = runtime();
         config.tart.binary = binary;
         config.tart.tart_home = directory.path().into();
-        let mut backend = LiveBackend::new(config.clone()).unwrap();
+        let mut backend = single_backend(config.clone()).unwrap();
         backend.last_repositories = config.policy.repositories.clone();
         backend.next_github_poll = u64::MAX;
         backend.snapshot_complete = true;
@@ -1525,7 +2000,7 @@ mod tests {
             saved.assigned.as_ref().unwrap().url(),
             "https://github.com/test/repo/actions/runs/7/job/42"
         );
-        let mut restarted = LiveBackend::new(backend.runtime.clone()).unwrap();
+        let mut restarted = single_backend(backend.runtime.clone()).unwrap();
         let recovered = restarted.diagnostic_for(&attempt, Operation::DeleteRunner);
         assert_eq!(recovered.guest.as_ref().unwrap().exit_code, Some(5));
         assert_eq!(
