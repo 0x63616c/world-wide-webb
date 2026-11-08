@@ -513,12 +513,6 @@ private struct CompetitionResultScreen: View {
             medalIcon(medal)
           }
         }
-        if result.population >= 20, let percentile = result.percentile {
-          Text(
-            String(
-              localized: "results.percentile",
-              defaultValue: "More folds than \(percentile)% of participants"))
-        }
         Text(result.start..<result.end, format: .interval.day().month().year())
           .foregroundStyle(.secondary)
       }
@@ -614,9 +608,7 @@ private struct ResultShareCard: View {
 }
 
 @ViewBuilder private func medalIcon(_ medal: CompetitionMedal) -> some View {
-  Image(systemName: "crown.fill")
-    .foregroundStyle(medal == .gold ? Color.yellow : medal == .silver ? Color.gray : Color.brown)
-    .accessibilityLabel(medal.title)
+  CompetitionCrown(medal: medal).frame(width: 28, height: 24)
 }
 
 struct ParticipantMenu: View {

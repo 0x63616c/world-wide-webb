@@ -1452,14 +1452,6 @@ private struct LeaderboardScreen: View {
             .frame(minWidth: 44, minHeight: 44)
             .accessibilityLabel(String(localized: "results.share", defaultValue: "Share result"))
           }
-          if value.population >= 20, let percentile = current.percentile ?? value.percentile {
-            Text(
-              String(
-                localized: "results.percentile",
-                defaultValue: "More folds than \(percentile)% of participants")
-            )
-            .font(.caption).foregroundStyle(.secondary)
-          }
           if value.pendingFolds > 0 {
             Text(
               String(
@@ -1497,11 +1489,11 @@ private struct LeaderboardRow: View {
 private struct CrownedAvatar: View {
   let entry: LeaderboardEntry
   let size: CGFloat
-  private var medal: (String, Color)? {
+  private var medal: CompetitionMedal? {
     switch entry.rank {
-    case 1: (String(localized: "medal.gold", defaultValue: "Gold"), .yellow)
-    case 2: (String(localized: "medal.silver", defaultValue: "Silver"), .gray)
-    case 3: (String(localized: "medal.bronze", defaultValue: "Bronze"), .brown)
+    case 1: .gold
+    case 2: .silver
+    case 3: .bronze
     default: nil
     }
   }
@@ -1509,13 +1501,20 @@ private struct CrownedAvatar: View {
     ApprovedAvatarImage(data: entry.approvedAvatarData, url: entry.approvedAvatarURL)
       .frame(width: size, height: size)
       .clipShape(Circle())
-      .overlay(alignment: .topTrailing) {
-        if let medal {
-          Image(systemName: "crown.fill").font(.caption).foregroundStyle(medal.1)
-            .offset(x: 4, y: -7)
+      .overlay {
+        if let medal, size >= 48 {
+          PodiumRing(medal: medal, size: size)
         }
       }
-      .accessibilityLabel(medal?.0 ?? String(localized: "profile.avatar", defaultValue: "Avatar"))
+      .overlay(alignment: .topTrailing) {
+        if let medal {
+          CompetitionCrown(medal: medal)
+            .frame(width: size >= 60 ? 38 : size >= 48 ? 30 : 22)
+            .offset(x: size >= 48 ? 8 : 5, y: size >= 48 ? -14 : -9)
+        }
+      }
+      .accessibilityLabel(
+        medal?.title ?? String(localized: "profile.avatar", defaultValue: "Avatar"))
   }
 }
 

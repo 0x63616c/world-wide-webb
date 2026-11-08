@@ -76,7 +76,7 @@ Use native motion and a simple animated device illustration. Respect Reduce Moti
 
 ### Today
 
-Default order: today's folds; time unfolded; seven-day trend. A compact setup/sync status appears only when helpful. An Edit Summary sheet allows selection and reordering of opens, closes, cycles, lifetime folds, equivalent travel, and competition percentile. Competition cards are absent until the user joins.
+Default order: today's folds; time unfolded; seven-day trend. A compact setup/sync status appears only when helpful. An Edit Summary sheet allows selection and reordering of opens, closes, cycles, lifetime folds, equivalent travel, and competition rank. Competition cards are absent until the user joins.
 
 ### History
 
@@ -140,15 +140,13 @@ Overlay tasteful gold, silver, and bronze crowns on top-ranked avatars for the s
 
 Allow 24 hours after a weekly/monthly period ends for valid late uploads. Attribute events to periods by validated event time; require durable server receipt before the cutoff. During that window results are provisional. Finalization includes only submissions received before the cutoff and approved by finalization; quarantined submissions remain excluded. Later arrivals or approvals can still enter personal history and all-time competition, subject to validation, but never automatically reopen finalized periods. Historical changes require an explicit audited correction. Then send finalized results.
 
-### Percentiles
+### Competition comparisons
 
-Use the selected leaderboard's population and period; do not maintain a separate confusing seven-day cohort. Include opted-in, eligible, non-banned accounts with at least one accepted fold in that period. All-time includes accounts with a positive accepted total.
-
-Display “More folds than X% of participants,” using the number of other participants with strictly lower totals divided by all other participants. Equal scores receive equal values. Round to whole percentages; show participant count and omit the percentage comparison below 20 eligible participants, without placeholder text. This is a usage comparison, not a health score.
+Owner decision, November 8: do not display percentile or “More folds than X%” comparisons anywhere in the app. Show folds, rank, participant count and medals. Existing backend percentile fields may remain for older clients; the current app does not model or render them.
 
 ### Historical results
 
-Your Results lives in the Leaderboard tab and shows finalized weekly/monthly rank, score, participant count, comparison, and medals, with period navigation. Store finalized snapshots rather than recomputing them from live totals. Show provisional status before finalization.
+Your Results lives in the Leaderboard tab and shows finalized weekly/monthly rank, score, participant count, and medals, with period navigation. Store finalized snapshots rather than recomputing them from live totals. Show provisional status before finalization.
 
 On reset, leaving competition, or account deletion, remove that person's public scores and their own result history, remove public identity references from historical entries and cached share data, and cancel queued result notifications. A reset may retain the current profile for future participation, but must remove its association with erased results. Leaving/deletion also removes avatar assets and cached derivatives. Preserve other users' already-earned results; anonymize/remove affected public entries rather than silently rerank historical awards. Confirmed cheating can trigger an explicit, audited period correction and medal reissue. Never send duplicate original award notifications after a correction.
 
