@@ -408,7 +408,12 @@ pub fn check_once(config: &Config, deadline: Instant) -> Result<(), HealthError>
                 if facts.backend_state != "Running"
                     || !facts.local_node.online
                     || facts.addresses.is_empty()
-                    || facts.health.is_some_and(|health| !health.is_empty())
+                    // This sidecar intentionally does not accept peers' subnet routes.
+                    || facts.health.is_some_and(|health| {
+                        health.iter().any(|warning| {
+                            warning != "Some peers are advertising routes but --accept-routes is false"
+                        })
+                    })
                 {
                     return Err(HealthError::TailscaleNotReady);
                 }

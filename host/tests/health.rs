@@ -168,6 +168,27 @@ fn running_tunnel_and_sidecar_are_not_sufficient() {
 }
 
 #[test]
+fn tailscale_allows_only_the_intentionally_declined_routes_advisory() {
+    let fixture = Fixture::new(vec![Service::Bambuddy]);
+    let advisory = "Some peers are advertising routes but --accept-routes is false";
+    for health in [Value::Null, json!([]), json!([advisory])] {
+        fixture.change("tailscale.json", "Health", health);
+        assert_eq!(fixture.check(), Ok(()));
+    }
+    for health in [
+        json!([advisory, "another warning"]),
+        json!([format!("{advisory}.")]),
+        json!(["another warning"]),
+    ] {
+        fixture.change("tailscale.json", "Health", health);
+        assert_eq!(fixture.check(), Err(HealthError::TailscaleNotReady));
+    }
+    fixture.change("tailscale.json", "Health", json!([advisory]));
+    fixture.change("tailscale.json", "Self", json!({"Online": false}));
+    assert_eq!(fixture.check(), Err(HealthError::TailscaleNotReady));
+}
+
+#[test]
 fn deadline_bounds_probes_and_retry_sleep_without_starting_expired_work() {
     let fixture = Fixture::new(vec![Service::Cloudflared]);
     assert_eq!(
