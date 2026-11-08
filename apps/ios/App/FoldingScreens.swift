@@ -892,7 +892,6 @@ private struct SetupScreen: View {
       GeometryReader { geometry in
         ScrollView {
           VStack(spacing: 20) {
-            Spacer(minLength: 12)
             FoldIllustration(open: hinge.map { $0 != .closed } ?? !closing, success: passed)
               .id(step)
               .frame(height: 180)
@@ -993,10 +992,9 @@ private struct SetupScreen: View {
               Button(
                 String(localized: "setup.checkSetup", defaultValue: "Check setup"), action: open)
             }
-            Spacer(minLength: 12)
           }
           .frame(maxWidth: 520)
-          .frame(minHeight: geometry.size.height)
+          .frame(minHeight: geometry.size.height, alignment: .center)
           .padding(.horizontal, 24)
           .frame(maxWidth: .infinity)
         }
@@ -1126,7 +1124,9 @@ private struct FoldIllustration: View {
       RoundedRectangle(cornerRadius: 12).fill(.quaternary).overlay(
         RoundedRectangle(cornerRadius: 12).stroke(.secondary, lineWidth: 2)
       )
-      .rotation3DEffect(.degrees(expanded ? 0 : -70), axis: (x: 0, y: 1, z: 0), anchor: .leading)
+      .rotation3DEffect(
+        .degrees(expanded ? 0 : -70), axis: (x: 0, y: 1, z: 0),
+        anchor: .leading, perspective: 0)
     }
     .frame(width: 170, height: 160)
     .overlay {

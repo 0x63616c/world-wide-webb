@@ -56,6 +56,8 @@ targets:
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
         ITSAppUsesNonExemptEncryption: false
+        UIBackgroundModes:
+          - remote-notification
         FoldingAPIOrigin: '$(FOLDING_API_ORIGIN)'
         FoldingEnvironment: '$(FOLDING_ENVIRONMENT)'
         FoldingSourceCommit: '$(FOLDING_SOURCE_COMMIT)'

@@ -60,7 +60,7 @@ import struct FoldingData.SetupProgress
     scenario = value("--folding-screenshot-scenario", default: "today")
     locale = value("--folding-screenshot-locale", default: "en")
     let appearance = value("--folding-screenshot-appearance", default: "light")
-    guard ["today", "history", "leaderboard", "settings", "tipjar"].contains(scenario),
+    guard ["today", "history", "leaderboard", "settings", "setup", "tipjar"].contains(scenario),
       ["en", "de", "fr", "es", "es-419", "ja", "ko", "pt-BR", "zh-Hans", "zh-Hant"].contains(
         locale) || (scenario == "tipjar" && locale == "en-US"),
       ["light", "dark"].contains(appearance)
@@ -163,6 +163,14 @@ import struct FoldingData.SetupProgress
     case "history": model.selectedTab = .history
     case "leaderboard": model.selectedTab = .leaderboard
     case "settings": model.sheet = .settings
+    case "setup":
+      model.setup = try JSONDecoder().decode(
+        SetupProgress.self,
+        from: Data(
+          setupJSON.replacingOccurrences(
+            of: "\"step\":\"complete\"", with: "\"step\":\"openingReady\""
+          ).utf8))
+      model.showInitialSetup = true
     default: break
     }
     self.model = model

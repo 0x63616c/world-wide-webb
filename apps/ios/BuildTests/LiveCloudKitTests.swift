@@ -25,6 +25,15 @@
       let sourceSync = PrivateSyncCoordinator(journal: sourceJournal, mirror: source)
 
       let now = Int64(Date().timeIntervalSince1970 * 1000)
+      // Repeated probes share the same CloudKit container. Import any earlier reset
+      // before creating this run's generation; an event in .initial is otherwise stale.
+      let sourceImportDeadline = Date().addingTimeInterval(60)
+      while Date() < sourceImportDeadline {
+        _ = try await sourceSync.synchronize(nowMS: now)
+        if try await sourceJournal.currentGeneration().revision > 0 { break }
+        try await Task.sleep(for: .seconds(3))
+      }
+      let probeGeneration = try await sourceJournal.reset(nowMS: now + 1)
       let exported = expectation(
         forNotification: NSPersistentCloudKitContainer.eventChangedNotification,
         object: nil
@@ -39,9 +48,9 @@
       }
       _ = try await sourceJournal.record(
         Observation(
-          generation: .initial, transition: .open, observedAtMS: now,
-          timezoneID: "UTC"), nowMS: now)
-      _ = try await sourceSync.synchronize(nowMS: now + 1)
+          generation: probeGeneration, transition: .open, observedAtMS: now + 2,
+          timezoneID: "UTC"), nowMS: now + 2)
+      _ = try await sourceSync.synchronize(nowMS: now + 3)
       await fulfillment(of: [exported], timeout: 60)
 
       // A fresh store schedules its initial import after the source export has finished.
@@ -56,7 +65,7 @@
       let deadline = Date().addingTimeInterval(90)
       var imported = false
       while Date() < deadline {
-        _ = try await destinationSync.synchronize(nowMS: now + 2)
+        _ = try await destinationSync.synchronize(nowMS: now + 4)
         if try await destinationJournal.summary().folds == 1 {
           imported = true
           break
@@ -78,8 +87,8 @@
         return cloudEvent.storeIdentifier == destination.storeID
           && cloudEvent.type == .export && cloudEvent.endDate != nil && cloudEvent.succeeded
       }
-      let generation = try await destinationJournal.reset(nowMS: now + 3)
-      _ = try await destinationSync.synchronize(nowMS: now + 4)
+      let generation = try await destinationJournal.reset(nowMS: now + 5)
+      _ = try await destinationSync.synchronize(nowMS: now + 6)
       await fulfillment(of: [resetExported], timeout: 60)
 
       let thirdJournal = try TrackingStore(
@@ -91,7 +100,7 @@
       var resetImported = false
       let resetDeadline = Date().addingTimeInterval(90)
       while Date() < resetDeadline {
-        _ = try await thirdSync.synchronize(nowMS: now + 5)
+        _ = try await thirdSync.synchronize(nowMS: now + 7)
         if try await thirdJournal.currentGeneration() == generation,
           try await thirdJournal.summary().folds == 0
         {

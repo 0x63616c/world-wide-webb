@@ -683,18 +683,10 @@ import struct FoldingData.SetupProgress
     await configurePush()
     guard identity == accountChangeRevision, !accountChanging else { return }
     do {
-      try await runtime.cleanupExports()
-    } catch is CancellationError {
-      return
-    } catch {
-      guard identity == accountChangeRevision, !accountChanging else { return }
-      presentation.error = String(
-        localized: "error.tryAgain", defaultValue: "Something went wrong. Try again.")
-    }
-    guard identity == accountChangeRevision, !accountChanging else { return }
-    do {
       try await refresh()
       guard identity == accountChangeRevision, !accountChanging else { return }
+      // Expired share files are housekeeping. A transient failure must not interrupt setup.
+      try? await runtime.cleanupExports()
       if presentation.history != nil {
         await presentation.requestHistory(using: actions)
       }
