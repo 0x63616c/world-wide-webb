@@ -122,6 +122,7 @@ struct TrackingProvider<Configuration: TrackingConfiguration>: AppIntentTimeline
 struct TrackingWidgetView: View {
   let entry: TrackingEntry
   @Environment(\.widgetFamily) private var family
+  @Environment(\.colorScheme) private var colorScheme
   @Environment(\.widgetRenderingMode) private var renderingMode
   var body: some View {
     Group {
@@ -198,14 +199,7 @@ struct TrackingWidgetView: View {
   }
   private func accent(_ snapshot: WidgetTrackingSnapshot) -> Color {
     guard renderingMode == .fullColor else { return .primary }
-    switch snapshot.accent {
-    case "teal": return .teal
-    case "green": return .green
-    case "orange": return .orange
-    case "pink": return .pink
-    case "purple": return .purple
-    default: return .blue
-    }
+    return colorScheme == .dark ? .white : .black
   }
 }
 

@@ -260,7 +260,7 @@ actor TrackingRuntime {
           generatedAtMS: now, homeDayEndMS: today.endMS,
           folds: today.folds, unfoldedMS: today.completeDurationMS + today.runningDurationMS,
           dailyLimit: preferences.dailyLimit, trend: snapshot.days.map(\.folds),
-          accent: preferences.accent.rawValue, setupComplete: setup.step == .complete))
+          accent: "monochrome", setupComplete: setup.step == .complete))
       WidgetCenter.shared.reloadAllTimelines()
     } catch {
       // Widget maintenance must never make a committed observation report failure.

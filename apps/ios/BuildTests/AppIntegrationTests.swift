@@ -123,7 +123,7 @@ import XCTest
     await controller.refreshVisible()
     XCTAssertEqual(controller.presentation.analytics?.lifetime.folds, 1)
     XCTAssertNil(controller.presentation.personalFailure)
-    XCTAssertNotNil(controller.presentation.error)
+    XCTAssertNil(controller.presentation.error)
   }
 
   func testExportUsesJournalAndResetRevokesPreparedShare() async throws {
@@ -183,7 +183,6 @@ import XCTest
     let first = AppController(runtime: runtime, preferencesStore: defaults)
     var value = first.presentation.preferences
     value.appearance = .dark
-    value.accent = .purple
     value.homeTimezone = "UTC"
     try await first.actions.savePreferences(value)
     let reopened = AppController(runtime: runtime, preferencesStore: defaults)

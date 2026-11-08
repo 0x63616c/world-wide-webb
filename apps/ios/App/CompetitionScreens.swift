@@ -335,9 +335,9 @@ struct CompetitionProfileScreen: View {
             .font(.system(size: 48, weight: .medium))
         }
       }
-      .foregroundStyle(.white)
+      .foregroundStyle(FoldingTint.onTint)
       .frame(maxWidth: .infinity, maxHeight: .infinity)
-      .background(model.preferences.accent.color)
+      .background(FoldingTint.color)
     } else {
       ApprovedAvatarImage(
         data: model.competitionProfile?.approvedAvatarData,

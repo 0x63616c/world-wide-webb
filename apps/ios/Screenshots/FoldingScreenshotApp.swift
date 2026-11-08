@@ -27,7 +27,7 @@ import struct FoldingData.SetupProgress
           }
           .allowsHitTesting(false)
           .preferredColorScheme(.light)
-          .tint(FoldingAccent.blue.color)
+          .tint(FoldingTint.color)
         } else {
           FoldingRootView(model: fixture.model, actions: fixture.actions)
         }

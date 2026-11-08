@@ -75,19 +75,19 @@ struct FoldingRootView: View {
     }
     .tabViewStyle(.tabBarOnly)
     .tabBarMinimizeBehavior(.never)
-    .tint(model.preferences.accent.color)
+    .tint(FoldingTint.color)
     .environment(\.timeZone, TimeZone(identifier: model.preferences.homeTimezone) ?? .current)
     .preferredColorScheme(model.preferences.appearance.scheme)
     .sheet(item: ordinarySheet, onDismiss: model.didDismissSheet) { sheet in
       sheetContent(sheet)
         .preferredColorScheme(model.preferences.appearance.scheme)
-        .tint(model.preferences.accent.color)
+        .tint(FoldingTint.color)
         .modifier(FoldingFeedback(model: model, presentsAlert: true))
     }
     .fullScreenCover(isPresented: setupPresented, onDismiss: model.didDismissSheet) {
       SetupScreen(model: model, actions: actions)
         .preferredColorScheme(model.preferences.appearance.scheme)
-        .tint(model.preferences.accent.color)
+        .tint(FoldingTint.color)
         .modifier(FoldingFeedback(model: model, presentsAlert: true))
     }
     .modifier(FoldingFeedback(model: model, presentsAlert: model.sheet == nil))
@@ -226,7 +226,7 @@ private struct TodayScreen: View {
           VStack(alignment: .leading, spacing: 4) {
             Text(today.folds, format: .number).font(
               .system(.largeTitle, design: .rounded, weight: .bold)
-            ).monospacedDigit().foregroundStyle(model.preferences.accent.color)
+            ).monospacedDigit().foregroundStyle(FoldingTint.color)
             Text(String(localized: "metric.folds", defaultValue: "Folds")).foregroundStyle(
               .secondary)
           }
@@ -361,7 +361,7 @@ private struct TodayScreen: View {
             )
             .foregroundStyle(
               day.startMS == snapshot.days.last?.startMS
-                ? model.preferences.accent.color : model.preferences.accent.color.opacity(0.55)
+                ? FoldingTint.color : FoldingTint.color.opacity(0.55)
             )
             .cornerRadius(5)
             .accessibilityLabel(day.date)
@@ -516,7 +516,7 @@ private struct HistoryScreen: View {
           )
           .foregroundStyle(
             selectedDate.map({ bin.start <= $0 && $0 < bin.end }) == false
-              ? model.preferences.accent.color.opacity(0.4) : model.preferences.accent.color
+              ? FoldingTint.color.opacity(0.4) : FoldingTint.color
           )
           .cornerRadius(4)
           .accessibilityLabel(bin.label).accessibilityValue(bin.folds.formatted())
@@ -625,27 +625,7 @@ private struct SettingsScreen: View {
           ) {
             ForEach(FoldingAppearance.allCases) { Text($0.title).tag($0) }
           }
-          VStack(alignment: .leading, spacing: 12) {
-            Text(String(localized: "settings.accent", defaultValue: "Accent"))
-            HStack(spacing: 0) {
-              ForEach(FoldingAccent.allCases) { accent in
-                Button {
-                  preference(\.accent).wrappedValue = accent
-                } label: {
-                  Image(
-                    systemName: model.preferences.accent == accent
-                      ? "checkmark.circle.fill" : "circle.fill"
-                  )
-                  .font(.title2)
-                  .foregroundStyle(accent.color)
-                  .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(accent.title)
-                .accessibilityAddTraits(model.preferences.accent == accent ? .isSelected : [])
-              }
-            }
-          }
+
         }
         Section(String(localized: "tab.today", defaultValue: "Today")) {
           Button(String(localized: "today.editSummary", defaultValue: "Edit Summary")) {
@@ -747,7 +727,7 @@ private struct SettingsScreen: View {
       .disabled(model.operation != nil)
       .navigationTitle(String(localized: "settings.title", defaultValue: "Settings"))
       .navigationBarTitleDisplayMode(.inline)
-      .tint(model.preferences.accent.color)
+      .tint(FoldingTint.color)
       .alert(
         String(localized: "reset.title", defaultValue: "Reset history?"),
         isPresented: $resetConfirmation

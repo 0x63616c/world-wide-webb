@@ -4,6 +4,21 @@ import XCTest
 @testable import Folding
 
 @MainActor final class PresentationTests: XCTestCase {
+  func testLegacyAccentIsIgnoredWithoutLosingPreferences() throws {
+    var preferences = FoldingPreferences()
+    preferences.appearance = .dark
+    preferences.dailyLimit = 250
+    var json = try XCTUnwrap(
+      JSONSerialization.jsonObject(with: JSONEncoder().encode(preferences)) as? [String: Any])
+    json["accent"] = "purple"
+    let decoded = try JSONDecoder().decode(
+      FoldingPreferences.self, from: JSONSerialization.data(withJSONObject: json))
+    XCTAssertEqual(decoded, preferences)
+    let encoded = try XCTUnwrap(
+      JSONSerialization.jsonObject(with: JSONEncoder().encode(decoded)) as? [String: Any])
+    XCTAssertNil(encoded["accent"])
+  }
+
   func testWidgetLinkPreservesSetupAndRejectsUntrustedDestinations() {
     let model = FoldingPresentation()
     model.present(.setup)

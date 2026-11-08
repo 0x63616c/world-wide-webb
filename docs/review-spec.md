@@ -86,11 +86,11 @@ Offer day, week, month, and all-time ranges, an accessible chart, and session de
 
 Ship small and medium Home Screen widgets and rectangular/circular Lock Screen widgets. Supported choices are today's folds, time unfolded, weekly trend where space permits, and daily threshold progress. Use appropriate layouts for each family rather than squeezing every metric into every size.
 
-Each widget has its own metric selection. Follow app accent preferences where system rendering allows, and respect the system's tinted/monochrome appearance. Tapping opens the relevant app destination. Updates are best-effort within WidgetKit limits, not guaranteed live fold-by-fold refreshes.
+Each widget has its own metric selection. Use black tint in light mode and white tint in dark mode where system rendering allows, and respect the system's tinted/monochrome appearance. Tapping opens the relevant app destination. Updates are best-effort within WidgetKit limits, not guaranteed live fold-by-fold refreshes.
 
 ### Appearance
 
-System appearance is the default; Light and Dark overrides are available. Offer a restrained palette of accessible accent colors. Use native typography, controls, navigation, sheets, and chart interactions; Liquid Glass belongs on appropriate system surfaces rather than every card.
+System appearance is the default; Light and Dark overrides are available. Use white tint in dark mode and black tint in light mode, with no tint setting. Use native typography, controls, navigation, sheets, and chart interactions; Liquid Glass belongs on appropriate system surfaces rather than every card.
 
 Layouts adapt deliberately between outer and inner displays: small count cards pair in two columns, charts expand, and History places chart and sessions side by side when space allows. Equivalent travel defaults to the device's usual unit, with metres/feet override in Settings. Support Dynamic Type, VoiceOver, increased contrast, Reduce Motion, and non-color status cues.
 

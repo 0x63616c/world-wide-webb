@@ -30,9 +30,9 @@ Internal URLs use a small allowlist: `folding://today`, `folding://history?date=
 
 ## 3. Layout and appearance defaults
 
-Use system semantic colors, dynamic text styles, native grouped backgrounds, and safe areas. V1 accent choices are blue (default), teal, green, orange, pink, and purple using platform semantic colors with light/dark/high-contrast variants tested in assets. Accent colors do not recolor primary body text or imply status without a label/icon.
+Use system semantic colors, dynamic text styles, native grouped backgrounds, and safe areas. Tint is automatically black in light mode and white in dark mode; there is no accent setting. Accent colors do not recolor primary body text or imply status without a label/icon.
 
-Appearance preference is `system`, `light`, or `dark`; apply the optional `preferredColorScheme` at the app scene/sheet root. Widget appearance remains system controlled. Store appearance, accent, ordered summary metrics, home timezone, and threshold preferences through a versioned settings interface; produce an App Group-readable widget preference snapshot.
+Appearance preference is `system`, `light`, or `dark`; apply the optional `preferredColorScheme` at the app scene/sheet root. Widget appearance remains system controlled. Store appearance, ordered summary metrics, home timezone, and threshold preferences through a versioned settings interface; produce an App Group-readable widget preference snapshot.
 
 Start with a spacing scale of 4, 8, 12, 16, 24, and 32 points. Use 16-point compact content margins and a centered content width capped at 720 points on larger layouts. Summary sections can use two columns when effective content width is at least 600 points and Dynamic Type is below accessibility sizes; otherwise use one column. Preserve reading order across reflow. Do not infer inner/outer display from hard-coded phone model names or fixed pixel dimensions.
 
@@ -107,7 +107,7 @@ Your Results lists finalized week/month summaries with period, rank, score, and 
 
 ## 8. Settings, destructive actions, and notifications
 
-Use native grouped Form sections in this order: Appearance; Today; Tracking; Notifications; Competition (if joined); Data; Support. Appearance holds System/Light/Dark and accent choices. Tracking holds setup/test status, last event, Run setup again, home timezone, tracking phone, and daily limit. Data holds Export and Reset history. Support holds tip jar, contact, privacy, and version/build.
+Use native grouped Form sections in this order: Appearance; Today; Tracking; Notifications; Competition (if joined); Data; Support. Appearance holds System/Light/Dark only. Tracking holds setup/test status, last event, Run setup again, home timezone, tracking phone, and daily limit. Data holds Export and Reset history. Support holds tip jar, contact, privacy, and version/build.
 
 Daily limit defaults to 100 folds with alerts off; changing the value does not enable notifications. Weekly and monthly settings are native pickers with Off / All results / Podium only. On the first enable action, request system permission; a denied result leaves the preference off and offers an Open Settings action. Do not repeatedly request permission on every foreground. If permission is later revoked, preserve the chosen category but display “Notifications off” with a settings link.
 

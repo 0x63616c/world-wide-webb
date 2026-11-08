@@ -22,29 +22,15 @@ enum FoldingAppearance: String, Codable, CaseIterable, Identifiable {
   }
 }
 
-enum FoldingAccent: String, Codable, CaseIterable, Identifiable {
-  case blue, teal, green, orange, pink, purple
-  var id: Self { self }
-  var color: Color {
-    switch self {
-    case .blue: .blue
-    case .teal: .teal
-    case .green: .green
-    case .orange: .orange
-    case .pink: .pink
-    case .purple: .purple
-    }
-  }
-  var title: String {
-    switch self {
-    case .blue: String(localized: "accent.blue", defaultValue: "Blue")
-    case .teal: String(localized: "accent.teal", defaultValue: "Teal")
-    case .green: String(localized: "accent.green", defaultValue: "Green")
-    case .orange: String(localized: "accent.orange", defaultValue: "Orange")
-    case .pink: String(localized: "accent.pink", defaultValue: "Pink")
-    case .purple: String(localized: "accent.purple", defaultValue: "Purple")
-    }
-  }
+enum FoldingTint {
+  static let color = Color(
+    uiColor: UIColor { traits in
+      traits.userInterfaceStyle == .dark ? .white : .black
+    })
+  static let onTint = Color(
+    uiColor: UIColor { traits in
+      traits.userInterfaceStyle == .dark ? .black : .white
+    })
 }
 
 enum SummaryMetric: String, Codable, CaseIterable, Identifiable {
@@ -70,7 +56,6 @@ enum SummaryMetric: String, Codable, CaseIterable, Identifiable {
 struct FoldingPreferences: Codable, Equatable {
   var schemaVersion = 1
   var appearance: FoldingAppearance = .system
-  var accent: FoldingAccent = .blue
   var metrics: [SummaryMetric] = [.timeUnfolded, .trend]
   var homeTimezone = TimeZone.current.identifier
   var dailyLimit = 100

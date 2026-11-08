@@ -210,3 +210,7 @@ This supersedes pending-state descriptions in earlier chronological checkpoints 
 - App Store territory availability is configured and read back. Small and medium tip products have verified ten-locale metadata, US prices and availability. Large-tip reconciliation is in progress. Apple still reports incomplete metadata until reviewer assets and remaining requirements are satisfied; no purchase/submission acceptance is claimed (#40).
 
 GitHub #28, #32 and #40 checklists reflect these partial completions. CI and physical-device deferrals remain unchanged. No build has been submitted to Apple.
+
+## Automatic tint update
+
+- [ ] [#50 — Automatic white/dark and black/light tint](https://github.com/0x63616c/folding/issues/50): implemented; 74 core tests, 29 app-hosted simulator tests and 199-key × 10-locale validation pass. Appearance capture and signed TestFlight distribution in progress. App Store submission/device acceptance remain separate.
