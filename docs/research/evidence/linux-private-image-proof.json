@@ -1,0 +1,37 @@
+{
+  "base": "ghcr.io/cirruslabs/ubuntu@sha256:97166c84ea5f102be33d2959f70e83861a36bd749f1715ab669d93e6c9f31476",
+  "image": "ghcr.io/0x63616c/homelab-linux-runner@sha256:c1d4c31b2576eda6adff0889e350efddda73e38a0153743f1972b5c994bcd78c",
+  "tart": "2.41.1",
+  "helper": "homelab-runner 0.1.0",
+  "source_revision": "39e0ddf39010bb0f95a4cf7d9837edba61b81093",
+  "cargo_lock_sha256": "606b68a61c4bfb1dd6641136be626c2a96da2eb96d5e8d4612245c16ec8288df",
+  "package_visibility": "private",
+  "cache_receipt": {
+    "schema": 1,
+    "image": "ghcr.io/0x63616c/homelab-linux-runner@sha256:c1d4c31b2576eda6adff0889e350efddda73e38a0153743f1972b5c994bcd78c",
+    "disk_sha256": "734c48bbb378617ea91c8f5c6596004591b5e67bc6cea9a9f02f9db086cef165",
+    "sizes": {
+      "config.json": 211,
+      "disk.img": 24000000000,
+      "nvram.bin": 131072,
+      "manifest.json": 16364
+    }
+  },
+  "guest_checks": [
+    "uid=1000(admin) gid=109(admin) groups=109(admin),111(docker)",
+    "aarch64",
+    "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+    "rustfmt 1.10.0-stable (58cf8f9c35 2026-10-13)",
+    "clippy 0.1.99 (58cf8f9c35 2026-10-13)",
+    "aarch64",
+    "homelab-runner 0.1.0",
+    "123",
+    "active",
+    "active",
+    "200"
+  ],
+  "native_nix_build_exit": 0,
+  "github_job_exercised": false,
+  "tart_home": "/var/lib/_runner/linux-canary/tart",
+  "production_cache_staged": false
+}

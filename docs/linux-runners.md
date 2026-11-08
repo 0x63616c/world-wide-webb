@@ -146,7 +146,6 @@ rollback.
 ## Validation status
 
 Implementation checks and native Linux image evidence are recorded in
-[Linux runner validation](research/linux-runner-validation.md). Linux remains off
-in the checked-in host profile until an image digest has passed promotion and the
-four-guest load gate. The shared capacity and macOS ceiling are separately defined;
+[Linux runner validation](research/linux-runner-validation.md). The candidate host profile pins the private image. Merge and activation remain
+gated on the recorded native job, recovery, network and load checks. The shared capacity and macOS ceiling are separately defined;
 leaving Linux off does not permit a third macOS guest.

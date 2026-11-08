@@ -1,9 +1,10 @@
 # Linux runner validation
 
-November 8, 2026. Implementation is on `codex/linux-runners`, based on private main
-`676d662`. The existing production controller was not replaced or activated by
-these checks. Linux admission remains off pending image promotion and mixed-load
-validation.
+November 8, 2026. Implementation is on `codex/linux-runners`, including private
+main `0bf8d4c`. The production controller is held idle during real canary validation. A separate
+controller uses its own journal and VM inventory, with four shared slots and at
+most two macOS guests. Persistent Linux admission remains off pending completion
+of the real mixed-load and recovery gates.
 
 ## Source checks
 
@@ -86,10 +87,43 @@ a verified offline cache bundle. The MacBook receives image content only, with
 no registry credential. Bundle checks cover path/link rejection, sparse allocation,
 manifest identity, raw metadata and uncompressed disk chunk integrity.
 
+## Private candidate and real GitHub canary
+
+The final private candidate was built from reviewed image source `39e0ddf` and
+published at `ghcr.io/0x63616c/homelab-linux-runner@sha256:c1d4c31b2576eda6adff0889e350efddda73e38a0153743f1972b5c994bcd78c`.
+The package API confirms private visibility. A fresh authenticated operator-side
+pull was verified and packed; the MacBook installed it as UID451 in the temporary
+canary inventory `/var/lib/_runner/linux-canary/tart`, verified every manifest-bound
+byte again, and cloned it without registry credentials. The production inventory
+`/var/lib/_runner/tart` is not yet preloaded. Its booted
+proof clone had Rust 1.99.1, Rustfmt/Clippy, Docker group access and aarch64 Docker,
+Python venv support, the native helper and public GitHub HTTPS. The clone was then
+stopped and deleted. See [private image proof](evidence/linux-private-image-proof.json).
+
+The real canary at app revision `0dc16a972` is
+[run 42524243431](https://github.com/0x63616c/world-wide-webb/actions/runs/42524243431).
+Both Linux baseline jobs passed through actual JIT registration, checkout, native
+tool checks, Rust compilation/tests, artifact upload and disposable guest cleanup.
+Their measured build/test times were 42.4 and 43.4 seconds. These short jobs do
+not establish four simultaneous build workloads: some finish while later guests
+are still starting, and GitHub may assign a different eligible job than the
+controller's initial candidate. The follow-up `fd6c5e4b6` uses release builds and
+adds a macOS-only baseline before the mixed cohort. Both macOS cohorts run the
+production iPad build/unit tests and iPhone policy checks, with the same supported
+Xcode selection and XcodeGen setup as ordinary Apple CI. Both workflow revisions pass
+the explicit route audit; their changes passed independent final review and local
+lint, Rust/operations checks and iPad/iPhone build/unit-policy checks.
+
+Ten-second host samples independently record journal ownership, CPU/RAM
+reservations, VM processes, free space, pressure, swap and thermal status. Assess
+actual overlap and throughput from these samples and per-job timing artifacts;
+a successful matrix alone is insufficient evidence of concurrency.
+
 ## Remaining acceptance gates
 
-- Build and inspect the immutable derived image from the final reviewed source;
-  verify private registry visibility and credential-free cache staging/clone.
+- Before merge or activation, preload and verify the pinned private cache in the
+  production inventory `/var/lib/_runner/tart`, and prove a credential-free clone
+  there. Temporary canary staging does not satisfy production cache readiness.
 - Exercise preparation/JIT/job completion/cancellation and restart cleanup through
   the actual updated controller, including mixed macOS/Linux ownership.
 - Repeat network controls with macOS/Linux peers and record any remaining IPv6

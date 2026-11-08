@@ -21,6 +21,14 @@
     cpuBudget = 12;
     memoryBudgetMiB = 24576;
     tart.maxMacOSGuests = 2;
+    linux = {
+      enable = true;
+      image = "ghcr.io/0x63616c/homelab-linux-runner@sha256:c1d4c31b2576eda6adff0889e350efddda73e38a0153743f1972b5c994bcd78c";
+      routingAuditApproved = true;
+      cpu = 2;
+      memoryMiB = 4096;
+      diskGrowthBytes = 25769803776;
+    };
     admissionEnabled = true;
     githubAppId = "5662381";
     repositories."0x63616c/world-wide-webb" = {
