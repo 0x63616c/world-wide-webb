@@ -1,0 +1,19 @@
+default:
+    @just --list
+
+# Format Rust source.
+format:
+    cargo fmt
+
+# Run deterministic lifecycle and adapter tests without credentials or VMs.
+test:
+    cargo test --locked
+
+# Check formatting and deny compiler/linter warnings.
+check:
+    cargo fmt --check
+    cargo clippy --locked --all-targets -- -D warnings
+
+# Build controller and guest helper.
+build:
+    cargo build --locked --release --bins

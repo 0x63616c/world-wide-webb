@@ -1,0 +1,16 @@
+{
+  "observed_at": "2026-11-08T23:20:34.630056+00:00",
+  "merged_commit": "d9ec62505935ef7d3f8bad215511c48ae56419af",
+  "current": "/nix/store/c3j7lwrbif2yjygbqx4l4r12z7p58wzq-darwin-system-26.11.ff0e21a",
+  "controller_binary": "/nix/store/4mlaqaky54iym4jxxarpyjp5bsd4qy0i-homelab-runner-0.1.0/bin/homelab-runner",
+  "matches_reviewed_native_build": true,
+  "max_total": 4,
+  "max_mac": 2,
+  "linux_image": "ghcr.io/0x63616c/homelab-linux-runner@sha256:c1d4c31b2576eda6adff0889e350efddda73e38a0153743f1972b5c994bcd78c",
+  "updater_loaded": true,
+  "updater_running": true,
+  "transaction_absent": true,
+  "hold_absent": true,
+  "profile": "/nix/store/c3j7lwrbif2yjygbqx4l4r12z7p58wzq-darwin-system-26.11.ff0e21a",
+  "profile_matches_current_verified": true
+}

@@ -1,0 +1,29 @@
+{
+  "workflow_run_id": 42446859203,
+  "job_id": 128627566426,
+  "vm_name": "homelab-job-5816be1f3b724a8b9d8e2f350dab2588",
+  "fault": "SIGKILL of only the controller process during Running, then launchctl kickstart",
+  "launchd_abandon_process_group": true,
+  "controller_before_pid": 18877,
+  "controller_after_pid": 19162,
+  "recovered_phase": "Running",
+  "same_vm_after_restart": true,
+  "guest_rpc_after_restart": {"exit_code": 0, "uid": 501},
+  "job_progress_after_restart": [
+    "XcodeGen installation completed",
+    "Swift format validation completed",
+    "Swift package tests completed"
+  ],
+  "job_result": "failure",
+  "independent_job_failure": "tools/check integration could not find cargo on the stock image",
+  "update_hold": {
+    "busy_drain_returned_timeout": true,
+    "hold_remained_present": true,
+    "matching_idle_acknowledgement_after_cleanup": true
+  },
+  "limits": [
+    "This proves controller restart continuity, not successful ordinary Apple CI.",
+    "The replacement binary had not yet been installed at this observation.",
+    "This does not prove VM survival across host reboot."
+  ]
+}

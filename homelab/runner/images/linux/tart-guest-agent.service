@@ -1,0 +1,15 @@
+[Unit]
+Description=Tart guest control channel
+After=network.target
+
+[Service]
+Type=simple
+User=admin
+Group=admin
+Environment=HOME=/home/admin
+ExecStart=/usr/local/bin/tart-guest-agent --run-rpc
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

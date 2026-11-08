@@ -1,0 +1,27 @@
+{
+  "old_package": "/nix/store/vsa98p7k7g2yd6jaii2z34wc7vahdzhv-homelab-runner-0.1.0",
+  "new_package": "/nix/store/qpkr2806rjpcpny1dlp7bxpjpv0w50xj-homelab-runner-0.1.0",
+  "generated_plist_check": "/nix/store/njwyj5qx8w5ncmf7rzk9hnwxbg7vh8g3-homelab-runner-process-survival-check",
+  "enabled_generation_build": "/nix/store/d1bmbbs5179f32adg3jqnc92jryk787w-darwin-system-26.11.ff0e21a",
+  "generation_activated": false,
+  "gate": {
+    "busy_job_drain_waited": true,
+    "hold_remained_active": true,
+    "matching_idle_ack_after_cleanup": true,
+    "journal_idle_before_replacement": true,
+    "replacement_started_while_hold_active": true,
+    "hold_released_after_replacement": true
+  },
+  "replacement_controller_pid": 22249,
+  "replacement_process_group_preservation": true,
+  "subsequent_workflow_run_id": 42447523011,
+  "subsequent_job_id": 128629564539,
+  "subsequent_vm": "homelab-job-811a791ec52e45e1b5b285da68022f64",
+  "subsequent_job_observed": "in_progress",
+  "typed_summary_matches_subsequent_attempt": true,
+  "typed_summary_size_bytes": 324,
+  "limits": [
+    "The individual drain/replacement/release operations were exercised through the same Rust commands used by the activation hooks; this was not a full darwin-rebuild activation.",
+    "Ordinary Apple CI had not yet completed at this observation."
+  ]
+}

@@ -1,0 +1,27 @@
+name: www-tunnel
+
+services:
+  cloudflared:
+    image: cloudflare/cloudflared@sha256:faa8e0a1475f137c910be6025f43c8e4092fdd35461b31e19fd1390657a1ff39
+    restart: unless-stopped
+    user: "450:450"
+    network_mode: host
+    command:
+      - tunnel
+      - --no-autoupdate
+      - --metrics
+      - 127.0.0.1:20241
+      - run
+      - --token-file
+      - /run/secrets/TUNNEL_TOKEN
+    volumes:
+      - type: bind
+        source: ${TUNNEL_TOKEN_FILE:?Set the readable token file}
+        target: /run/secrets/TUNNEL_TOKEN
+        read_only: true
+        bind: {create_host_path: false}
+    mem_limit: 128m
+    stop_grace_period: 30s
+    logging:
+      driver: json-file
+      options: {max-size: 10m, max-file: '3'}

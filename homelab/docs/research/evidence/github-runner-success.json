@@ -1,0 +1,27 @@
+{
+  "repository": "0x63616c/world-wide-webb",
+  "workflow_run_id": 42445968840,
+  "job_id": 128624851199,
+  "workflow_commit": "ddd637eafeb354f6c174dc893be424ebf1f2dc61",
+  "runner_name": "homelab-job-1f297e6c7c7b44e5bb5d6ce4b91cf9f4",
+  "package": "/nix/store/vsa98p7k7g2yd6jaii2z34wc7vahdzhv-homelab-runner-0.1.0",
+  "runner_version": "2.338.2",
+  "result": "success",
+  "checks": ["arm64", "non-root runner process", "xcodebuild -version", "successful completion"],
+  "cleanup": {
+    "controller_active_attempt": false,
+    "exact_vm_directory_absent": true,
+    "exact_github_runner_registration_matches": 0
+  },
+  "enabled_host_build": {
+    "runner_enabled": true,
+    "admission_enabled": false,
+    "result": "/nix/store/jn5rf0xny3p62362zlcw9b9ja91xd302-darwin-system-26.11.ff0e21a",
+    "activated": false
+  },
+  "limits": [
+    "This smoke workflow does not prove ordinary repository Apple CI.",
+    "A GUI session was present on the physical host; unattended cold boot is not established.",
+    "Separate cancellation proof is recorded in github-runner-cancellation.json."
+  ]
+}
