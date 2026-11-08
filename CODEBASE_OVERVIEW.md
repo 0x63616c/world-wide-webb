@@ -1,7 +1,7 @@
 # Codebase overview
 
 World Wide Webb is a native SwiftUI home-control app, backed by one Rust service and SQLite.
-The iPad design is the shared starting point for iPhone/Duo and Mac Catalyst. The clock and slide-up
+The iPad design is the shared starting point for iPhone/Duo. The clock and slide-up
 launcher lead into Calendar, Weather, Lights, Climate, Walks, Tesla, Wi-Fi, Sonos, Timer, Photo Booth and Settings.
 Calendar, camera capture, notifications and system alarms use Apple frameworks where appropriate.
 
@@ -43,5 +43,5 @@ proof that production has cut over.
 ## Checks
 
 Run `bash tools/setup`, `lefthook install`, then the applicable `bash tools/check <area>` commands.
-`bash tools/test_apple.sh` builds the actual iPad target and runs its native unit tests. XcodeGen creates the
+`bash tools/test_apple.sh` builds the shared iOS target, runs iPad native unit tests and checks iPhone platform/layout policy. XcodeGen creates the
 ignored project from `apple/project.yml`. Required CI aggregates selected Apple/image/infra jobs fail-closed.

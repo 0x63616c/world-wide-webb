@@ -1,5 +1,10 @@
 # GitHub tracking drafts — publish only at the final publication step
 
+> Latest approved scope (2026-11-07): ship only the shared iPad/iPhone/Duo app. Mac app support and
+> distribution are cancelled; retain Mac mini backend hosting and macOS development/CI tooling.
+> Historical Mac deliverables below are superseded. Visual evidence stays outside Git.
+
+
 Project: **Native + Rust reset**. Status fields: Todo / In progress / Review / Done.
 Fields: work package, dependency, acceptance evidence. Repository: 0x63616c/world-wide-webb.
 Keep one umbrella issue and four large work issues; these are not separate PRs.

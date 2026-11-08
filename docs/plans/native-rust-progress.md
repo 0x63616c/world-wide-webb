@@ -52,7 +52,7 @@ and Photo Booth. They exposed lowercase climate action names against Swift's cap
 normalizes the Rust wire response and adds a real mock-HA → Rust → typed Swift climate regression.
 Apple's first signed upload was rejected with 90474: its validator requires the unqualified full-screen flag
 for the declared landscape-only iPad policy. The follow-up sets that flag, retaining phone orientations and
-shared resizable Mac layout. Successful processing remains a separate acceptance gate in issue #941.
+the shared phone layout. Build 170 subsequently processed successfully in TestFlight.
 
 The first release stopped safely at macOS SQLite preflight: a copied WAL database with no sidecars could
 not be read with `mode=ro`. A disposable copy reproduced it. Clean journal preparation allowed deployment;
@@ -75,8 +75,23 @@ tunnel RSS25.75–33.64 MiB / meanCPU0.405%. PostgreSQL logical size371,889,855 
 media171,712 KiB /1,705 files. The fresh imported SQLite file is370,655,232 bytes before new worker writes.
 These storage measures differ and do not by themselves establish savings.
 
-Issue #941 must record the final deployed follow-up revision, live Swift climate success, Apple processing,
-post-cutover NAS SQLite/media/state restore and comparable after measurements before closure. Physical iPad
-background/AlarmKit acceptance and the agreed signed Mac distribution artifact also need explicit evidence;
-a simulator or unsigned Catalyst build does not certify those. Keep broader active-workload benchmark limits
-visible instead of inventing before numbers. Phone/Duo and Mac interaction acceptance comes last.
+Follow-up PR #944 deployed revision `7c2c39939eac9c3ee254a2f7cc5dfa4e487bb41f`. Main CI,
+mini deployment, OpenTofu apply and TestFlight build 170 all passed. Live typed Swift climate reads and
+all retained API reads passed. A fresh NAS backup was downloaded and restored: SQLite integrity/foreign keys,
+all 135 media references and encrypted infrastructure recovery passed. Issue #941 is closed with evidence.
+Calum confirmed physical iPad, iPhone and iPhone Duo working after enabling Tailscale on the iPad.
+
+After: Rust RSS20.54–27.92 MiB; a 66.7-second cgroup CPU delta averaged2.206% of one core. These are
+short production observations, not a matched-workload benchmark. The Rust image is37,243,236 bytes versus
+59,784,598 bytes for Bun. Current SQLite is371,118,080 bytes plus4,120,032 bytes WAL; media1,708 files /
+174,711,537 logical bytes. Twenty loopback alarm reads had p50 0.673ms /p95 1.156ms and no errors.
+
+Calum subsequently removed Mac app support. The final cleanup disables Catalyst and iOS-on-Mac/Vision
+compatibility, removes Mac window/fallback code and obsolete prototype scripts, retires the Mac download,
+and restricts TestFlight groups to iPad/iPhone. App Store Mac/Vision compatibility was already disabled.
+Historical Mac verification above records past work, not a supported product. Mac mini hosting stays.
+The final delivery cleanup publishes and deploys the same CI-tested immutable image, exercises the real
+Swift/Rust contract in CI, and separates native validation from TestFlight publication selection.
+
+Physical locked-screen/background AlarmKit acceptance remains unverified in issue #940. Do not treat
+foreground unit tests or simulator interaction tests as proof of system alarm delivery.
