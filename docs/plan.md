@@ -8,6 +8,21 @@ read-only inventory; refresh it before execution because other work is ongoing.
 Writing/reviewing this plan does not deploy anything or authorize an agent to
 wipe a machine.
 
+### Route change approved during execution
+
+Calum explicitly chose **backup → owner wipe/setup → restore directly onto the
+Mini**, accepting service downtime throughout the rebuild. This supersedes all
+MacBook evacuation, Mini-off service checks, MacBook production reboot and
+return-migration requirements below. The MacBook remains a recovery rehearsal
+and storage workspace; do not move live services onto it. Existing completed
+restore evidence remains useful. Finish fresh off-Mini recovery copies and
+Docker-service recovery only, stop Mini writers, and hand off the version-checked
+wipe/admin/Remote Login/CLI instructions. Calum explicitly excluded personal
+files, local project work and custom settings from preservation; do not spend
+time archiving those. Preserve service data, credentials, identities and network
+recovery configuration. Restore the retained services directly
+onto the newly enrolled Mini afterward. Penpot recovery remains optional.
+
 ### Agreed end state and responsibilities
 
 - **Mac mini:** runs all retained home services under this repository's managed
