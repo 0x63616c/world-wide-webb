@@ -229,7 +229,7 @@ ENV.delete("R_PROFILE_UUID")
 
 raise "profile unexpectedly regenerated" if profile[:force]
 
-Dir[File.expand_path("../apps/*/fastlane/metadata", __dir__)].sort.each do |metadata|
+Dir[File.expand_path("../apps/tendr/fastlane/metadata", __dir__)].sort.each do |metadata|
   limits = { "name" => 30, "subtitle" => 30, "keywords" => 100, "promotional_text" => 170, "description" => 4000, "release_notes" => 4000 }
   limits.each do |field, limit|
     text = File.read(File.join(metadata, "en-US", "#{field}.txt"))

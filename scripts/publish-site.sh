@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Publish site/ to the gh-pages branch (GitHub Pages, branch-based). Each app lives at
-# site/<app>/ and is served at /<repo>/<app>/ (privacy at /<app>/privacy/, support at /<app>/support/).
+# Publish sites/ to the gh-pages branch (GitHub Pages, branch-based). Each app lives at
+# sites/<app>/ and is served at /<repo>/<app>/ (privacy at /<app>/privacy/, support at /<app>/support/).
 #
-# While site/.legacy-root names an app, that app is also mirrored at the site root. This keeps
+# While sites/.legacy-root names an app, that app is also mirrored at the site root. This keeps
 # Tendr's original URLs (https://0x63616c.github.io/tendr/, /privacy/, /support/) working until the
-# repository is renamed; see docs/RENAME.md. Only site/ is published, so planning docs stay private.
+# repository is renamed; see docs/RENAME.md. Only sites/ is published, so planning docs stay private.
 # Uses [skip ci] so the push does not start CI or TestFlight.
-# site/.retain lists app directories to preserve from origin/gh-pages when absent from
+# sites/.retain lists app directories to preserve from origin/gh-pages when absent from
 # the new build. Built directories always win; remove retained names only with Calum's OK.
 set -euo pipefail
 root="$(git rev-parse --show-toplevel)"
@@ -27,7 +27,7 @@ staging=$(mktemp -d)
 trap 'rm -rf "$staging"; git -C "$root" worktree remove --force "$tmp" >/dev/null 2>&1 || true' EXIT
 "$root/scripts/build-site.sh" "$staging"
 cp -R "$staging/." "$tmp/"
-if [[ -f "$root/site/.retain" ]]; then
+if [[ -f "$root/sites/.retain" ]]; then
   while IFS= read -r name || [[ -n "$name" ]]; do
     [[ -z "$name" || "$name" == \#* ]] && continue
     [[ "$name" =~ ^[a-z][a-z0-9-]*$ ]] || { echo "Invalid retained app: $name" >&2; exit 1; }
@@ -35,7 +35,7 @@ if [[ -f "$root/site/.retain" ]]; then
       [[ "$(git -C "$root" cat-file -t "origin/gh-pages:$name" 2>/dev/null || true)" == tree ]]; then
       git -C "$tmp" checkout origin/gh-pages -- "$name"
     fi
-  done < "$root/site/.retain"
+  done < "$root/sites/.retain"
 fi
 git -C "$tmp" add -A
 if git -C "$tmp" diff --cached --quiet; then echo "gh-pages already up to date"; exit 0; fi

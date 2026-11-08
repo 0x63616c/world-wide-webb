@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Scaffolds a new -r app from templates/new-app.
 #   scripts/new-app.sh <Name> <bundle-suffix>
-#   scripts/new-app.sh Samplr samplr      → apps/samplr, bundle ID com.calumwebb.samplr, site/samplr
+#   scripts/new-app.sh Samplr samplr      → apps/samplr, bundle ID com.calumwebb.samplr, sites/samplr
 #
 # Creates the XcodeGen project (RDesign, launch screen, placeholder icon, Home and Settings with
 # privacy and support links, a screenshot UI test), apps/<app>/app.yml for fastlane and CI,
@@ -22,13 +22,13 @@ slug=$(printf '%s' "$raw" | tr '[:upper:]' '[:lower:]')
 bundle="com.calumwebb.$suffix"
 dest="apps/$slug"
 [[ ! -e "$dest" ]] || fail "$dest already exists"
-[[ ! -e "site/$slug" ]] || fail "site/$slug already exists"
+[[ ! -e "sites/$slug" ]] || fail "sites/$slug already exists"
 repo=$(basename -s .git "$(git remote get-url origin 2>/dev/null || echo apps)")
 pages="https://0x63616c.github.io/$repo/$slug/"
 
 cp -R templates/new-app/app "$dest"
-cp -R templates/new-app/site "site/$slug"
-find "$dest" "site/$slug" -type f \( -name '*.swift' -o -name '*.yml' -o -name '*.json' -o -name '*.txt' -o -name '*.md' -o -name '*.html' -o -name '*.plist' \) -print0 |
+cp -R templates/new-app/site "sites/$slug"
+find "$dest" "sites/$slug" -type f \( -name '*.swift' -o -name '*.yml' -o -name '*.json' -o -name '*.txt' -o -name '*.md' -o -name '*.html' -o -name '*.plist' \) -print0 |
   while IFS= read -r -d '' file; do
     sed -i.bak \
       -e "s#__NAME__#$name#g" -e "s#__SLUG__#$slug#g" -e "s#__BUNDLE_ID__#$bundle#g" \
@@ -40,7 +40,7 @@ find "$dest" "site/$slug" -type f \( -name '*.swift' -o -name '*.yml' -o -name '
 marker='<!-- apps: scripts/new-app.sh adds a card per app above this line -->'
 card="<a class=\"card\" href=\"./$slug/\"><h2>$name</h2><span>New app</span></a>"
 sed -i.bak "s#$marker#$card\\
-$marker#" site/index.html && rm -f site/index.html.bak
+$marker#" sites/index.html && rm -f sites/index.html.bak
 
 if command -v xcodegen >/dev/null; then
   (cd "$dest" && xcodegen generate --quiet)
@@ -50,7 +50,7 @@ else
 fi
 
 cat <<EOF
-Created $name ($bundle) in $dest and site/$slug. $generated
+Created $name ($bundle) in $dest and sites/$slug. $generated
 
 Done for you: RDesign, launch screen, placeholder icon, Settings with privacy and support links,
 screenshot UI test, app.yml (fastlane + CI), metadata skeleton, screenshots.json and site pages.
@@ -62,6 +62,6 @@ Still needs a person:
   3. Create the "Owner Preview" internal TestFlight group for the app (or change testflight_group).
   4. Replace the placeholder icon and launch glyph in $dest/App/Assets.xcassets.
   5. Write the listing in $dest/fastlane/metadata, the screenshot headlines in
-     $dest/screenshots.json, and review site/$slug/privacy before publishing (scripts/publish-site.sh).
+     $dest/screenshots.json, and review sites/$slug/privacy before publishing (scripts/publish-site.sh).
   6. Commit and push: CI builds the app; TestFlight uploads start once testflight is true.
 EOF

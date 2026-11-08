@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "shared_verify": ["scripts/ci/**", ".github/**", "lefthook.yml", "scripts/dev", "fastlane/**", "Gemfile", "Gemfile.lock"],
+  "units": {
+    "tendr.native": {"paths": ["apps/tendr/**"], "delivery": "testflight"},
+    "airmiles.native": {"paths": ["apps/airmiles/**"], "delivery": null},
+    "folding.native": {"paths": ["apps/folding/apps/ios/**", "apps/folding/cloudkit/**", "apps/folding/fastlane/**"], "delivery": "testflight"},
+    "folding.backend": {"paths": ["apps/folding/backend/**"], "delivery": "worker"},
+    "folding.contracts": {"paths": ["apps/folding/contracts/**"], "verify_dependents": ["folding.native", "folding.backend"], "delivery": null},
+    "folding.tooling": {"paths": ["apps/folding/scripts/**", "apps/folding/.github/**", "apps/folding/Makefile", "apps/folding/justfile", "apps/folding/package.json", "apps/folding/bun.lock", "apps/folding/rust-toolchain.toml"], "verify_dependents": ["folding.native", "folding.backend", "folding.contracts"], "delivery": null},
+    "callkeep.native": {"paths": ["apps/callkeep/**"], "delivery": "homebrew"},
+    "control-center.native": {"paths": ["apps/control-center/apple/**"], "delivery": "testflight"},
+    "control-center.server": {"paths": ["apps/control-center/server/**", "apps/control-center/Cargo.*", "apps/control-center/rust-toolchain.toml", "apps/control-center/Dockerfile", "apps/control-center/.dockerignore", "apps/control-center/deploy/**"], "delivery": "container"},
+    "control-center.contracts": {"paths": ["apps/control-center/contracts/**"], "verify_dependents": ["control-center.native", "control-center.server"], "delivery": null},
+    "control-center.tooling": {"paths": ["apps/control-center/tools/**", "apps/control-center/scripts/**", "apps/control-center/deny.toml", "apps/control-center/.swift-format"], "verify_dependents": ["control-center.native", "control-center.server", "control-center.contracts"], "delivery": null},
+    "sites.tendr": {"paths": ["sites/tendr/**", "sites/.legacy-root/**"], "delivery": "site"},
+    "sites.folding": {"paths": ["sites/folding/**"], "delivery": "site"},
+    "cloudflare.home": {"paths": ["infra/cloudflare/home/**"], "delivery": "infra"},
+    "cloudflare.folding": {"paths": ["infra/cloudflare/folding/**"], "delivery": "infra"},
+    "homelab.config": {"paths": ["homelab/**", "homelab.json", "flake.nix", "flake.lock", ".sops.yaml", "secrets/**", "bootstrap/**"], "exclude": ["homelab/cli/**"], "delivery": "host-promotion"},
+    "homelab.cli": {"paths": ["homelab/cli/**"], "verify_dependents": ["homelab.config"], "delivery": "homebrew"},
+    "templates": {"paths": ["templates/**", "scripts/new-app.sh"], "delivery": null}
+  }
+}

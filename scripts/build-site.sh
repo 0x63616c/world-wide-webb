@@ -6,11 +6,11 @@ cd "$(dirname "$0")/.."
 out=${1:?usage: build-site.sh <empty-output-directory>}
 mkdir -p "$out"
 [[ -z "$(ls -A "$out")" ]] || { echo "Output directory must be empty" >&2; exit 1; }
-cp -R site/. "$out/"
-if [[ -f site/.legacy-root ]]; then
-  legacy=$(tr -d '[:space:]' < site/.legacy-root)
-  [[ "$legacy" =~ ^[a-z][a-z0-9-]*$ && -d "site/$legacy" ]] || { echo "Invalid legacy app" >&2; exit 1; }
-  cp -R "site/$legacy/." "$out/"
+cp -R sites/. "$out/"
+if [[ -f sites/.legacy-root ]]; then
+  legacy=$(tr -d '[:space:]' < sites/.legacy-root)
+  [[ "$legacy" =~ ^[a-z][a-z0-9-]*$ && -d "sites/$legacy" ]] || { echo "Invalid legacy app" >&2; exit 1; }
+  cp -R "sites/$legacy/." "$out/"
 fi
 rm -f "$out/README.md" "$out/.legacy-root" "$out/.retain"
 touch "$out/.nojekyll"

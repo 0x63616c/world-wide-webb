@@ -129,9 +129,9 @@ do {
         try write(render(.launch, pixels: 120 * scale, inset: ringInset), to: "\(launch)/LaunchGlyph\(scale == 1 ? "" : "@\(scale)x").png")
     }
 
-    try write(render(.dark, pixels: 256), to: "site/tendr/assets/icon-256.png")
-    try write(render(.dark, pixels: 180), to: "site/tendr/assets/apple-touch-icon.png")
-    try write(render(.dark, pixels: 64), to: "site/tendr/assets/favicon-64.png")
+    try write(render(.dark, pixels: 256), to: "sites/tendr/assets/icon-256.png")
+    try write(render(.dark, pixels: 180), to: "sites/tendr/assets/apple-touch-icon.png")
+    try write(render(.dark, pixels: 64), to: "sites/tendr/assets/favicon-64.png")
 } catch {
     FileHandle.standardError.write(Data("render-icon: \(error)\n".utf8))
     exit(1)

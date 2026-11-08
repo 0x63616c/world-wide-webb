@@ -29,11 +29,11 @@ with tempfile.TemporaryDirectory(prefix="publish-site-") as directory:
     (root / "scripts").mkdir()
     for script in ["build-site.sh", "publish-site.sh"]:
         shutil.copy2(ROOT / "scripts" / script, root / "scripts" / script)
-    write("site/.retain", "# Keep retired apps\n\noldapp\nretired\nsamplr\nmissing")
-    write("site/.legacy-root", "samplr\n")
-    write("site/README.md", "Private publishing instructions\n")
-    write("site/samplr/index.html", "New Samplr\n")
-    write("site/samplr/privacy/index.html", "New privacy\n")
+    write("sites/.retain", "# Keep retired apps\n\noldapp\nretired\nsamplr\nmissing")
+    write("sites/.legacy-root", "samplr\n")
+    write("sites/README.md", "Private publishing instructions\n")
+    write("sites/samplr/index.html", "New Samplr\n")
+    write("sites/samplr/privacy/index.html", "New privacy\n")
     git("add", ".")
     git("commit", "-qm", "Source fixture")
     git("push", "-q", "origin", "main")
@@ -76,7 +76,7 @@ with tempfile.TemporaryDirectory(prefix="publish-site-") as directory:
     assert git("status", "--porcelain") == ""
 
     # Removing the opt-in file permits previously retained pages to disappear.
-    (root / "site/.retain").unlink()
+    (root / "sites/.retain").unlink()
     git("add", ".")
     git("commit", "-qm", "Remove retention fixture")
     assert "Published site" in publish()

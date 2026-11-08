@@ -1,4 +1,4 @@
-name: CI
+name: Tendr CI
 
 # Builds and tests only what changed: each affected app (apps/<app>/), RDesign when packages/
 # changes, and the new-app template when it or its script changes. macOS jobs run on GitHub-hosted
@@ -13,7 +13,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: tendr-ci-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
@@ -89,9 +89,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: RDesign tests (macOS)
-        run: swift test --package-path packages/RDesign
+        run: swift test --package-path apps/tendr/Packages/RDesign
       - name: rframe builds
-        run: swift build --package-path packages/RDesign -c release --product rframe
+        run: swift build --package-path apps/tendr/Packages/RDesign -c release --product rframe
 
   app:
     needs: changes

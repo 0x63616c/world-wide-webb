@@ -9,4 +9,4 @@ dir=$(ruby scripts/app-config.rb "$app" dir)
 raw=${2:-build/screenshots/$app/raw}
 out=${3:-$dir/fastlane/screenshots/en-US}
 overview=${4:-build/screenshots/$app/overview.png}
-swift run --package-path packages/RDesign -c release rframe "$dir/screenshots.json" "$raw" "$out" "$overview"
+swift run --package-path "$dir/Packages/RDesign" -c release rframe "$dir/screenshots.json" "$raw" "$out" "$overview"

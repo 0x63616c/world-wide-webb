@@ -25,6 +25,6 @@ for dir in apps/*/; do
     echo "Updated $file"
   done
 done
-rm -f site/.legacy-root
-echo "Removed site/.legacy-root: the site root is now the app index."
+rm -f sites/.legacy-root
+echo "Removed sites/.legacy-root: the site root is now the app index."
 echo "Next: commit, run scripts/publish-site.sh, and include the URL change in the next Tendr release."

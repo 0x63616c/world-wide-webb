@@ -1,0 +1,82 @@
+"""Product isolation and real Git comparison semantics."""
+
+import importlib.util
+import json
+import subprocess
+import tempfile
+import unittest
+from pathlib import Path
+
+SPEC = importlib.util.spec_from_file_location("selection", Path(__file__).with_name("select.py"))
+selection = importlib.util.module_from_spec(SPEC)
+SPEC.loader.exec_module(selection)
+CONFIG = json.loads(selection.CONFIG.read_text())
+
+
+class SelectionTests(unittest.TestCase):
+    def test_native_change_only_releases_its_product(self):
+        result = selection.select(["apps/folding/apps/ios/App/FoldingScreens.swift"], CONFIG)
+        self.assertEqual(result["verify"], ["folding.native"])
+        self.assertEqual(result["delivery_candidates"], ["folding.native"])
+
+    def test_contracts_verify_clients_without_unproven_delivery(self):
+        result = selection.select(["apps/folding/contracts/api.json"], CONFIG)
+        self.assertEqual(result["verify"], ["folding.backend", "folding.contracts", "folding.native"])
+        self.assertEqual(result["delivery_candidates"], [])
+
+    def test_tooling_verifies_but_does_not_ship(self):
+        result = selection.select([".github/workflows/ci.yml"], CONFIG)
+        self.assertEqual(set(result["verify"]), set(CONFIG["units"]))
+        self.assertEqual(result["delivery_candidates"], [])
+
+    def test_docs_do_not_activate_hosts_or_ship_apps(self):
+        result = selection.select(["README.md", "homelab/docs/current-state.md", ".agents/skills/new/SKILL.md"], CONFIG)
+        self.assertEqual(result["verify"], [])
+        self.assertEqual(result["delivery_candidates"], [])
+
+    def test_listing_markdown_is_not_treated_as_documentation(self):
+        result = selection.select(["apps/tendr/fastlane/metadata/review.md"], CONFIG)
+        self.assertEqual(result["delivery_candidates"], ["tendr.native"])
+
+    def test_cli_change_verifies_host_without_activating_it(self):
+        result = selection.select(["homelab/cli/src/lib.rs"], CONFIG)
+        self.assertEqual(result["verify"], ["homelab.cli", "homelab.config"])
+        self.assertEqual(result["delivery_candidates"], ["homelab.cli"])
+
+    def test_unknown_path_requires_verification_without_shipping(self):
+        result = selection.select(["new-root-tool.toml"], CONFIG)
+        self.assertEqual(set(result["verify"]), set(CONFIG["units"]))
+        self.assertEqual(result["unmapped"], ["new-root-tool.toml"])
+        self.assertEqual(result["delivery_candidates"], [])
+
+    def test_force_is_verification_only(self):
+        result = selection.select([], CONFIG, force=True)
+        self.assertEqual(set(result["verify"]), set(CONFIG["units"]))
+        self.assertEqual(result["delivery_candidates"], [])
+
+    def test_deleted_and_renamed_paths_keep_both_owners(self):
+        with tempfile.TemporaryDirectory() as directory:
+            repo = Path(directory)
+
+            def git(*args):
+                return subprocess.check_output(["git", *args], cwd=repo, text=True).strip()
+
+            git("init", "-q")
+            git("config", "user.name", "Test")
+            git("config", "user.email", "test@example.invalid")
+            (repo / "apps/tendr").mkdir(parents=True)
+            (repo / "apps/tendr/old.swift").write_text("let a = 1\n")
+            git("add", ".")
+            git("commit", "-qm", "base")
+            base = git("rev-parse", "HEAD")
+            (repo / "apps/callkeep").mkdir()
+            (repo / "apps/tendr/old.swift").rename(repo / "apps/callkeep/new.swift")
+            git("add", ".")
+            git("commit", "-qm", "move")
+            paths = selection.changed_paths(base, git("rev-parse", "HEAD"), "push", repo)
+            result = selection.select(paths, CONFIG)
+            self.assertEqual(result["delivery_candidates"], ["callkeep.native", "tendr.native"])
+
+
+if __name__ == "__main__":
+    unittest.main()
