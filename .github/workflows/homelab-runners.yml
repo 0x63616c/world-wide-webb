@@ -30,16 +30,45 @@ jobs:
       - name: Run representative Rust build and tests
         env:
           CARGO_BUILD_JOBS: '2'
-        run: python3 tools/measure_runner_job.py --cohort baseline --slot ${{ matrix.slot }} -- cargo test --locked --workspace
+        run: python3 tools/measure_runner_job.py --cohort baseline --slot ${{ matrix.slot }} -- cargo test --locked --workspace --release
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: runner-baseline-${{ matrix.slot }}
           path: runner-measurement.json
           if-no-files-found: error
+  baseline-macos:
+    name: macOS baseline ${{ matrix.slot }}
+    needs: baseline
+    strategy:
+      fail-fast: false
+      matrix:
+        slot: [1, 2]
+    runs-on: [self-hosted, macOS, ARM64, homelab-tart]
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions-rust-lang/setup-rust-toolchain@a188e68d0fd2bd36ad51dccb2b07ba6e75105f30
+        with:
+          cache: false
+          build-warnings: ''
+      - name: Exercise Apple package and real Swift/Rust contract
+        env:
+          CARGO_BUILD_JOBS: '4'
+        run: >-
+          python3 tools/measure_runner_job.py --cohort baseline-macos --slot ${{ matrix.slot }} --
+          bash -c 'bash tools/check apple && bash tools/check integration'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: runner-baseline-macos-${{ matrix.slot }}
+          path: runner-measurement.json
+          if-no-files-found: error
   four-linux:
     name: Four Linux ${{ matrix.slot }}
-    needs: baseline
+    needs: baseline-macos
     strategy:
       fail-fast: false
       matrix:
@@ -53,7 +82,7 @@ jobs:
       - name: Run identical Rust build and tests
         env:
           CARGO_BUILD_JOBS: '2'
-        run: python3 tools/measure_runner_job.py --cohort four-linux --slot ${{ matrix.slot }} -- cargo test --locked --workspace
+        run: python3 tools/measure_runner_job.py --cohort four-linux --slot ${{ matrix.slot }} -- cargo test --locked --workspace --release
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -76,7 +105,7 @@ jobs:
       - name: Run Rust build and tests alongside macOS guests
         env:
           CARGO_BUILD_JOBS: '2'
-        run: python3 tools/measure_runner_job.py --cohort mixed-linux --slot ${{ matrix.slot }} -- cargo test --locked --workspace
+        run: python3 tools/measure_runner_job.py --cohort mixed-linux --slot ${{ matrix.slot }} -- cargo test --locked --workspace --release
       - uses: actions/upload-artifact@v4
         if: always()
         with:
