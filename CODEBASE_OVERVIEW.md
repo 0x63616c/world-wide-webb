@@ -14,7 +14,7 @@ Calendar, camera capture, notifications and system alarms use Apple frameworks w
 - `apple/Extensions`: alarm widget and retained walk activity source. `apple/project.yml` defines build targets.
 - `apple/Tests`: production unit/UI tests. `apple/Resources`: actual shared asset catalogs.
 - `server/src/features`: retained domain behavior and explicit SQL. `integrations`: Home Assistant transport.
-- `server/src/workers`: supervised scheduled work. `server/migrations`: ordered SQLite schema.
+- `server/src/runtime.rs`: supervised scheduled work. `server/migrations`: ordered SQLite schema.
 - `server/tests`: real HTTP, persistence, integration and concurrent-behavior tests.
 - `deploy/mini`: Rust Compose, immutable release/recovery, consistent snapshots and NAS verification.
 - `infra/cloudflare`: pinned OpenTofu HCL, encrypted state/plan configuration and mocked route tests.
@@ -22,7 +22,7 @@ Calendar, camera capture, notifications and system alarms use Apple frameworks w
 - `.github/workflows`: selected required CI, tested image deployment, Cloudflare apply and signed TestFlight delivery.
 
 The web app, Expo shell, Bun/TypeScript backend, JavaScript workspaces and Pulumi implementation are removed.
-Their history remains in Git. Historical design/recovery material is marked as such; current instructions are
+Their history remains in Git. Historical recovery material is marked as such; archived screenshots/design reviews are removed; current instructions are
 `AGENTS.md`, this map, the migration progress tracker and `docs/runbooks/native-rust-cutover.md`.
 
 ## Runtime and boundaries

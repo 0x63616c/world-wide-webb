@@ -5,10 +5,11 @@ The shared clock-first interface retains the iPad app's components and slide-up 
 
 Start with [CODEBASE_OVERVIEW.md](CODEBASE_OVERVIEW.md) for source locations and
 [AGENTS.md](AGENTS.md) for workflow rules. Migration status is recorded in
-[the progress tracker](docs/plans/native-rust-progress.md); production is unchanged until final cutover.
+[the progress tracker](docs/plans/native-rust-progress.md) and [delivery issue #941](https://github.com/0x63616c/world-wide-webb/issues/941).
 
 Install the pinned Rust toolchain, OpenTofu, Xcode 26.4 or newer, XcodeGen and standalone Lefthook.
-`bash tools/setup` fetches Rust dependencies. `bash tools/check` runs maintained-stack checks;
+`bash tools/setup` fetches Rust dependencies. `bash tools/check dependencies` downloads the checksum-verified,
+pinned cargo-deny binary on first use and checks advisories, licenses and sources. `bash tools/check` runs maintained-stack checks;
 `bash tools/test_apple.sh` builds and tests the production iPad app.
 
 Build the service with `cargo build --locked -p www-server`. For local experiments, use an isolated data

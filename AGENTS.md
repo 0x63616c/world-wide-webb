@@ -8,10 +8,11 @@ Read `CODEBASE_OVERVIEW.md` for the map. Production-cutover status and evidence 
 Calum approved the native Swift + Rust/SQLite + OpenTofu reset in `docs/plans/native-rust-reset.md`.
 The primary agent implements everything. Subagents are allowed only for one independent final review.
 Keep implementation, verification, review fixes and commits local until the complete candidate is reviewed.
-Then publish the drafted GitHub issues/project and one PR, satisfy required checks, merge and verify delivery.
+The main replacement landed in PR #943. Keep follow-up fixes local through verification and final review,
+then publish, pass required checks, merge and verify delivery.
 Calum chose a Tailscale-only API: all devices on the Tailnet are trusted, with no app login or credential entry.
-Complete and review this replacement before updating PR #943. Before cutover, read the resumed-writer warning
-in the progress tracker; never deploy its stale SQLite rehearsal.
+Production uses the fresh frozen-writer SQLite import; original PostgreSQL and media archives are retained.
+Consult issue #941 and the progress tracker for current deployment and Apple-delivery evidence.
 Documentation follows working code. Prioritize iPad fidelity, database/Photo Booth preservation and Rust;
 exercise iPhone/Duo and Mac last. They remain in scope. Legacy wake images are not a blocker.
 
@@ -49,7 +50,8 @@ For SwiftUI changes use `swiftui-expert-skill`, `apple-hig`, `animation-patterns
 
 `tools/check` exposes `lint`, `rust`, `ops`, `apple`, `integration` and `infra`. Run relevant checks, then
 `tools/test_apple.sh` for the production iPad build/unit tests. Use existing UI tests for interaction evidence.
-Pinned linters cover Rust, Python, Swift, shell and workflow files. Pre-commit guards formatting/syntax,
+Pinned linters cover Rust, Python, Swift, shell and workflow files. `tools/check dependencies` enforces
+cargo-deny advisories, licenses, dependency constraints and allowed sources. Pre-commit guards formatting/syntax,
 private information, encrypted secrets and worktree rules; pre-push runs Rust and operations tests.
 
 ## Credentials
@@ -67,7 +69,7 @@ commit only; their wrapper publishes. Never bypass required checks or merge a re
 
 PRs need Conventional Commit titles and accurate validation. Visual evidence is optional; keep screenshots
 and recordings outside Git. Calum explicitly removed the mandatory screenshot requirement. Existing screenshot
-archives are scheduled for removal after the core cutover. Avoid private media in shared evidence.
+archives were removed after the core cutover; production assets and fixtures remain. Avoid private media in shared evidence.
 Main merge deliberately deploys the tested immutable revision. Verify backend revision/health/worker ownership,
 retained integrations, Apple processing, migrated data/media, fresh NAS backup restore and comparable after metrics.
 Keep tracking issues open until their acceptance evidence exists. Report unverified work honestly.

@@ -1,9 +1,6 @@
-> Historical reference from before the native/Rust reset. Current operations and source locations are
-> defined by `CODEBASE_OVERVIEW.md` and `docs/runbooks/native-rust-cutover.md` at the repository root.
-
 # Native Swift / Rust cutover
 
-This runbook describes the remaining production transition; it does not certify that it has occurred.
+This runbook describes production transition and recovery; execution evidence is recorded separately.
 The authoritative acceptance record is `docs/plans/native-rust-progress.md`. Keep private data outside Git.
 Calum accepts downtime and replacement of stateless infrastructure; database and Photo Booth preservation
 are mandatory. Retain original PostgreSQL dumps, full media and encrypted recovery archives.
@@ -69,6 +66,10 @@ image before release; a local host without Docker cannot certify that step.
 Inspect migrations before image rollback. To return to the old stack, first stop Rust, restore a known-consistent
 old database/media/runtime snapshot and verify the old image before re-enabling its single writer. Do not run
 old PostgreSQL writers against an earlier stale snapshot or discard new writes without reconciliation.
+
+Cold copied WAL databases may lack sidecars on macOS. The shared `read_database` helper opens an existing
+database with `mode=rw` for SQLite bookkeeping and enables `query_only` before any SQL, so preflight and
+backup can read it without allowing SQL writes. Never use `immutable=1` against a live WAL database.
 
 `backup.py` defaults to SQLite; explicit PostgreSQL mode exists for retained recovery archives. It backs up
 independent services, app media/runtime and encrypted OpenTofu state, uploads to NAS and reads back SHA-256.
