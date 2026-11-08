@@ -1,6 +1,6 @@
 The route is **final verified service backups → you wipe and enroll the Mini → we restore directly onto it**. Home services will be unavailable during the rebuild. Personal files, local projects and custom settings are excluded as requested; Penpot is optional.
 
-Wait for our explicit **ready to erase** handoff confirming final off-Mini backups and independent recovery credentials. Services have not yet been restored onto a rebuilt Mini.
+**Pre-wipe verification passed.** The final Docker checkpoint and normal backup are verified off the Mini; its containers and Docker engines are stopped. Services have not yet been restored onto a rebuilt Mini.
 
 You then:
 
@@ -13,3 +13,5 @@ You then:
 Your manually created 1Password administrator item is not automatically canonical; do not assume the CLI will overwrite it or adopt old SSH bindings.
 
 After enrollment, we restore **Control Center SQLite + media; Hindsight dump + Codex home/provider state; HA configuration; Bambuddy app/studio data + Tailscale identity; tunnel credentials/routing**, then verify services and backups. Penpot data is restored only if retained.
+
+Use the latest encrypted `docker-prewipe-20261108T152439Z.tar.gz.age` checkpoint for authoritative app data. Its Hindsight restore verified31 banks,6,495 memories and1,587 documents. The normal `20261108T150608Z` backup supplies logical fallback and service configuration.
