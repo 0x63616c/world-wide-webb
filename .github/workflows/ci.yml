@@ -79,10 +79,15 @@ jobs:
   apple:
     needs: changes
     if: needs.changes.outputs.apple == 'true'
-    runs-on: macos-26
+    runs-on: [self-hosted, macOS, ARM64, homelab-tart]
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v5
+      - name: Install pinned Rust
+        uses: actions-rust-lang/setup-rust-toolchain@a188e68d0fd2bd36ad51dccb2b07ba6e75105f30 # v2
+        with:
+          cache: false
+          build-warnings: ""
       - name: Select supported Xcode
         id: xcode
         run: |
