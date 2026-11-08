@@ -1425,7 +1425,7 @@ private struct LeaderboardScreen: View {
                       participantID: first.id, model: model, actions: actions)
                   } label: {
                     VStack(spacing: 8) {
-                      CrownedAvatar(entry: first, size: rank == 1 ? 64 : 48)
+                      CompetitionAvatar(entry: first, size: rank == 1 ? 64 : 48)
                       Text(first.displayName).font(.caption).lineLimit(2)
                       if let badge = first.featuredBadge {
                         MilestoneBadgeArtwork(badge: badge, size: 24)
@@ -1499,14 +1499,6 @@ private struct LeaderboardScreen: View {
             .frame(minWidth: 44, minHeight: 44)
             .accessibilityLabel(String(localized: "results.share", defaultValue: "Share result"))
           }
-          if value.population >= 20, let percentile = current.percentile ?? value.percentile {
-            Text(
-              String(
-                localized: "results.percentile",
-                defaultValue: "More folds than \(percentile)% of participants")
-            )
-            .font(.caption).foregroundStyle(.secondary)
-          }
           if value.pendingFolds > 0 {
             Text(
               String(
@@ -1531,7 +1523,7 @@ private struct LeaderboardRow: View {
       Text(entry.rank, format: .number).font(.subheadline.monospacedDigit()).foregroundStyle(
         .secondary
       ).frame(minWidth: 24, alignment: .trailing)
-      CrownedAvatar(entry: entry, size: 36)
+      CompetitionAvatar(entry: entry, size: 36)
       Text(entry.displayName).fontWeight(entry.isCurrentUser ? .semibold : .regular).lineLimit(2)
       if let badge = entry.featuredBadge { MilestoneBadgeArtwork(badge: badge, size: 24) }
       Spacer(minLength: 8)
@@ -1542,14 +1534,14 @@ private struct LeaderboardRow: View {
   }
 }
 
-private struct CrownedAvatar: View {
+private struct CompetitionAvatar: View {
   let entry: LeaderboardEntry
   let size: CGFloat
-  private var medal: (String, Color)? {
+  private var medal: CompetitionMedal? {
     switch entry.rank {
-    case 1: (String(localized: "medal.gold", defaultValue: "Gold"), .yellow)
-    case 2: (String(localized: "medal.silver", defaultValue: "Silver"), .gray)
-    case 3: (String(localized: "medal.bronze", defaultValue: "Bronze"), .brown)
+    case 1: .gold
+    case 2: .silver
+    case 3: .bronze
     default: nil
     }
   }
@@ -1557,13 +1549,13 @@ private struct CrownedAvatar: View {
     ApprovedAvatarImage(data: entry.approvedAvatarData, url: entry.approvedAvatarURL)
       .frame(width: size, height: size)
       .clipShape(Circle())
-      .overlay(alignment: .topTrailing) {
-        if let medal {
-          Image(systemName: "crown.fill").font(.caption).foregroundStyle(medal.1)
-            .offset(x: 4, y: -7)
+      .overlay {
+        if let medal, size >= 48 {
+          PodiumRing(medal: medal, size: size)
         }
       }
-      .accessibilityLabel(medal?.0 ?? String(localized: "profile.avatar", defaultValue: "Avatar"))
+      .accessibilityLabel(
+        medal?.title ?? String(localized: "profile.avatar", defaultValue: "Avatar"))
   }
 }
 

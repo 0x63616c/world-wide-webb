@@ -54,7 +54,7 @@ The Milestones screen lists every currently earned badge, newest first with stab
 
 Tap a badge for its larger artwork, name and requirement. Owner detail additionally shows the earned calendar date when backed by eligible event history. Feature on Profile selects it; the current selection offers Remove from Profile. One optional featured badge per profile; a new unlock never changes the selection. Show a selected state and let users switch from either badge detail or Edit Profile. Public badge details have no editing controls.
 
-Show the featured badge below the profile name and as one small symbol beside the name in leaderboard rows/podium participant details where readable. Gold/silver/bronze rank crowns remain a separate avatar overlay. Supply accessible badge names and do not bake crowns/badges into the uploaded avatar. No paid or user-created badges in this release.
+Show the featured badge below the profile name and as one small symbol beside the name in leaderboard rows/podium participant details where readable. Existing podium rings remain separate from earned profile badges. Supply accessible badge names and do not bake crowns/badges into the uploaded avatar. No paid or user-created badges in this release.
 
 Only the service may decide which badges are earned. A feature request accepts an earned catalog ID or null, rejects another participant's/unearned/unknown badge, and returns the authoritative selection. Persist changes across devices. Failed saves retain the last confirmed public selection and offer Retry; an offline choice is not falsely shown as publicly saved.
 

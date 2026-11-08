@@ -149,7 +149,6 @@ struct LeaderboardEntry: Identifiable, Sendable {
   let approvedAvatarURL: URL?
   let isCurrentUser: Bool
   var approvedAvatarData: Data? = nil
-  var percentile: Int? = nil
   var featuredBadge: MilestoneBadge? = nil
 }
 
@@ -160,7 +159,6 @@ struct LeaderboardPresentation: Sendable {
   let pendingFolds: Int
   let updatedAt: Date
   var population: Int = 0
-  var percentile: Int? = nil
   var nextCursor: String? = nil
   var snapshotVersion: String? = nil
   var periodID: String? = nil
@@ -556,7 +554,7 @@ enum ExportChoice { case json, csv }
           periodTitle: page.periodTitle,
           entries: previous.entries + page.entries.filter { !known.contains($0.id) },
           currentUser: page.currentUser, pendingFolds: page.pendingFolds, updatedAt: page.updatedAt,
-          population: page.population, percentile: page.percentile,
+          population: page.population,
           nextCursor: page.nextCursor, snapshotVersion: page.snapshotVersion,
           periodID: page.periodID)
       }

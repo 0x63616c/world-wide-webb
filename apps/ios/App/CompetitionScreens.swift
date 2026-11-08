@@ -464,7 +464,7 @@ struct CompetitionResultsScreen: View {
                 Text(result.folds, format: .number).foregroundStyle(.secondary)
               }
               Spacer()
-              if let medal = result.medal { medalIcon(medal) }
+              if let medal = result.medal { Text(medal.title) }
               Text(result.rank, format: .number).monospacedDigit()
             }
           }
@@ -522,17 +522,7 @@ private struct CompetitionResultScreen: View {
           String(localized: "results.participants", defaultValue: "Participants"),
           value: result.population.formatted())
         if let medal = result.medal {
-          Label {
-            Text(medal.title)
-          } icon: {
-            medalIcon(medal)
-          }
-        }
-        if result.population >= 20, let percentile = result.percentile {
-          Text(
-            String(
-              localized: "results.percentile",
-              defaultValue: "More folds than \(percentile)% of participants"))
+          Text(medal.title)
         }
         Text(result.start..<result.end, format: .interval.day().month().year())
           .foregroundStyle(.secondary)
@@ -613,7 +603,6 @@ private struct ResultShareCard: View {
             Image(systemName: "person.crop.circle.fill").resizable().foregroundStyle(.secondary)
           }
         }.frame(width: 76, height: 76).clipShape(Circle())
-        if let medal = share.result.medal { medalIcon(medal).offset(y: -10) }
       }.padding(.top, 12)
       Text(share.nickname).font(.headline)
       LabeledContent(
@@ -626,12 +615,6 @@ private struct ResultShareCard: View {
         .caption)
     }.padding().foregroundStyle(.primary)
   }
-}
-
-@ViewBuilder private func medalIcon(_ medal: CompetitionMedal) -> some View {
-  Image(systemName: "crown.fill")
-    .foregroundStyle(medal == .gold ? Color.yellow : medal == .silver ? Color.gray : Color.brown)
-    .accessibilityLabel(medal.title)
 }
 
 struct ParticipantMenu: View {
@@ -751,11 +734,6 @@ private struct LiveCompetitionShareScreen: View {
       Text("Folding").font(.title.bold())
       ApprovedAvatarImage(data: entry.approvedAvatarData, url: nil)
         .frame(width: 76, height: 76).clipShape(Circle())
-        .overlay(alignment: .top) {
-          if (1...3).contains(entry.rank) {
-            medalIcon(entry.rank == 1 ? .gold : entry.rank == 2 ? .silver : .bronze).offset(y: -12)
-          }
-        }.padding(.top, 12)
       Text(entry.displayName).font(.headline)
       Text(board.periodTitle).font(.subheadline)
       LabeledContent(

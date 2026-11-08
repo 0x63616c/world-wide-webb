@@ -103,7 +103,7 @@ Use a native segmented picker: Week / Month / All Time. The header shows period/
 
 Rows contain numerical rank, avatar, nickname, fold total, and optional crown. Crown rendering uses gold/silver/bronze asset variants plus accessible “Gold/Silver/Bronze” values. Public score is server accepted folds; pending uploads appear separately as “N pending” in the user's status, never optimistically added. Pin the user's position with `safeAreaInset` where it does not obscure rows or tab controls. Hide the pinned row when not eligible; show a concise reason in the account detail when needed.
 
-A leaderboard failure with cached results keeps those results visible and offers Retry with an updated timestamp in details. An initial failure shows a compact error state. Empty periods show “No folds yet”; comparison below the minimum population follows the spec. Banned users see the restriction and appeal/account actions, not a fake empty leaderboard.
+A leaderboard failure with cached results keeps those results visible and offers Retry with an updated timestamp in details. An initial failure shows a compact error state. Empty periods show “No folds yet”; percentile comparisons and comparison placeholders are omitted. Banned users see the restriction and appeal/account actions, not a fake empty leaderboard.
 
 Profile uses a native form and `PhotosPicker` for avatar selection. Decode/crop locally for preview, then upload through the protected backend command. Display the sanitized image after processing; names/photos do not wait for admin approval. Failed uploads retain the draft for retry without replacing the public image. Reporting and retrospective admin removal/ban controls handle abuse.
 
@@ -222,3 +222,5 @@ keeps static thanks.
 For a confirmed unsupported build, replace the complete root UI with the required-update screen; do not use a dismissible sheet over setup/navigation. Use one concise heading ("A newer version is required"), an Update button and external support; omit repeated instructions, data reassurance and manual recheck. Unknown policy during a connection failure does not block UI; a cached confirmed requirement survives restart/offline. Preserve local history and background observation queues. This owner-selected behavior supersedes earlier non-blocking-handshake guidance; see [client compatibility](client-compatibility.md).
 
 Admin Operations is the sole owner of required-update policy: one Minimum build number field (0 = off), existing audited Save, and a one-minute propagation hint. No deployment-variable override.
+
+Owner refinement, November 8: avatars and share cards display no crowns. The podium retains the larger centered winner and metal-colored rings, with gold-only shimmer/particles and a static Reduce Motion fallback. Silver/bronze rings stay still.

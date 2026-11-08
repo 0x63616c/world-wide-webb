@@ -148,7 +148,7 @@ import struct FoldingData.SetupProgress
         isCurrentUser: false),
       LeaderboardEntry(
         id: "sample-mika", rank: 3, displayName: "Mika", folds: 96, approvedAvatarURL: nil,
-        isCurrentUser: true, percentile: 82),
+        isCurrentUser: true),
       LeaderboardEntry(
         id: "sample-rowan", rank: 4, displayName: "Rowan", folds: 82, approvedAvatarURL: nil,
         isCurrentUser: false),
@@ -158,7 +158,7 @@ import struct FoldingData.SetupProgress
     ]
     let board = LeaderboardPresentation(
       periodTitle: now.formatted(.dateTime.month(.wide).year()), entries: entries,
-      currentUser: entries[2], pendingFolds: 0, updatedAt: now, population: 124, percentile: 82)
+      currentUser: entries[2], pendingFolds: 0, updatedAt: now, population: 124)
     let setupJSON = """
       {"schemaVersion":1,"flowID":"33333333-3333-3333-3333-333333333333",
        "deviceID":"11111111-1111-1111-1111-111111111111",

@@ -35,7 +35,6 @@ struct CompetitionResult: Identifiable, Hashable, Sendable {
   let folds: Int
   let rank: Int
   let population: Int
-  let percentile: Int?
   let medal: CompetitionMedal?
 }
 enum CompetitionMedal: String, Sendable {
