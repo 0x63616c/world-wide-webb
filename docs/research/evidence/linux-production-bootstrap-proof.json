@@ -1,0 +1,86 @@
+{
+  "schema": 1,
+  "observed_at": "2026-11-08T22:47:18.973445+00:00",
+  "merged_commit": "5a7ce6b017d632fe664c6102e980492bb94c901e",
+  "current": "/nix/store/gnipk2h6crb6b3rvqh9valj597b70rb3-darwin-system-26.11.ff0e21a",
+  "profile": "/nix/store/gnipk2h6crb6b3rvqh9valj597b70rb3-darwin-system-26.11.ff0e21a",
+  "transaction_absent": true,
+  "controller_binary": "/nix/store/9p9fv81ads5gn49b7z9y70yf9x1986d4-homelab-runner-0.1.0/bin/homelab-runner",
+  "max_total": 4,
+  "max_mac": 2,
+  "cpu_budget": 12,
+  "memory_budget_mib": 24576,
+  "linux_image": "ghcr.io/0x63616c/homelab-linux-runner@sha256:c1d4c31b2576eda6adff0889e350efddda73e38a0153743f1972b5c994bcd78c",
+  "tart_home": "/var/lib/_runner/tart",
+  "journal_version": 3,
+  "attempts": [
+    {
+      "nonce": "051eeb4530ca45e494ef85fedcbacc2d",
+      "platform": "macos-arm64",
+      "phase": "Running",
+      "assigned": {
+        "repository": "0x63616c/world-wide-webb",
+        "run_id": 42528327661,
+        "run_attempt": 2,
+        "job_id": 128886913547
+      },
+      "runner_id": 66
+    },
+    {
+      "nonce": "44e481795548477b98ad43724feac7a6",
+      "platform": "linux-arm64",
+      "phase": "Running",
+      "assigned": {
+        "repository": "0x63616c/world-wide-webb",
+        "run_id": 42528327661,
+        "run_attempt": 2,
+        "job_id": 128886913273
+      },
+      "runner_id": 67
+    }
+  ],
+  "guest_status": {
+    "macos-arm64": {
+      "schema": 1,
+      "attempt_id": "051eeb4530ca45e494ef85fedcbacc2d",
+      "phase": "executing",
+      "updated_at": 1794177866,
+      "exit_code": null,
+      "reason": null
+    },
+    "linux-arm64": {
+      "schema": 1,
+      "attempt_id": "44e481795548477b98ad43724feac7a6",
+      "phase": "executing",
+      "updated_at": 1794177890,
+      "exit_code": null,
+      "reason": null
+    }
+  },
+  "terminal_jobs": [
+    {
+      "id": 128886913273,
+      "status": "completed",
+      "conclusion": "cancelled",
+      "run_attempt": 2
+    },
+    {
+      "id": 128886913547,
+      "status": "completed",
+      "conclusion": "cancelled",
+      "run_attempt": 2
+    }
+  ],
+  "registrations_absent_at_subsequent_checkpoint": [
+    66,
+    67
+  ],
+  "subsequent_idle_checkpoint": {
+    "journal_idle": true,
+    "local_vms": [],
+    "hold_released": true,
+    "admission_enabled": true,
+    "max_total": 4,
+    "max_mac": 2
+  }
+}

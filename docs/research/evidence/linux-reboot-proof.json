@@ -1,0 +1,111 @@
+{
+  "schema": 1,
+  "observed_at": "2026-11-08T23:30:00.340942+00:00",
+  "run_id": 42528327661,
+  "run_attempt": 4,
+  "before_boot_time": "{ sec = 1794115810, usec = 836029 } Sat Nov  7 21:30:10 2026",
+  "current": "/nix/store/c3j7lwrbif2yjygbqx4l4r12z7p58wzq-darwin-system-26.11.ff0e21a",
+  "controller_binary": "/nix/store/4mlaqaky54iym4jxxarpyjp5bsd4qy0i-homelab-runner-0.1.0/bin/homelab-runner",
+  "attempts": [
+    {
+      "nonce": "aa4a63f5bf8e42758a21c5cf9a761600",
+      "platform": "macos-arm64",
+      "phase": "Running",
+      "runner_id": 73,
+      "assigned": {
+        "repository": "0x63616c/world-wide-webb",
+        "run_id": 42528327661,
+        "run_attempt": 4,
+        "job_id": 128898139824
+      }
+    },
+    {
+      "nonce": "8798cb9eb3de4cbfb55dd46c8e25590f",
+      "platform": "linux-arm64",
+      "phase": "Running",
+      "runner_id": 74,
+      "assigned": {
+        "repository": "0x63616c/world-wide-webb",
+        "run_id": 42528327661,
+        "run_attempt": 4,
+        "job_id": 128898139685
+      }
+    }
+  ],
+  "guest_status": {
+    "macos-arm64": {
+      "schema": 1,
+      "attempt_id": "aa4a63f5bf8e42758a21c5cf9a761600",
+      "phase": "executing",
+      "updated_at": 1794180540,
+      "exit_code": null,
+      "reason": null
+    },
+    "linux-arm64": {
+      "schema": 1,
+      "attempt_id": "8798cb9eb3de4cbfb55dd46c8e25590f",
+      "phase": "executing",
+      "updated_at": 1794180561,
+      "exit_code": null,
+      "reason": null
+    }
+  },
+  "filevault_off": true,
+  "test_startup_entries_absent": true,
+  "admission_held_before_reboot": true,
+  "after_reboot": {
+    "observed_at": "2026-11-08T23:31:52.281669+00:00",
+    "boot_time": "{ sec = 1794180620, usec = 230468 } Sun Nov  8 15:30:20 2026",
+    "console_owner": "root",
+    "daemon_running": true,
+    "max_total": 4,
+    "max_mac": 2,
+    "local_vms": [],
+    "admission_still_held": true,
+    "journal_version": 3,
+    "owned_attempts": [
+      {
+        "nonce": "aa4a63f5bf8e42758a21c5cf9a761600",
+        "platform": "macos-arm64",
+        "phase": "Cleaning",
+        "runner_id": 73,
+        "assigned": {
+          "repository": "0x63616c/world-wide-webb",
+          "run_id": 42528327661,
+          "run_attempt": 4,
+          "job_id": 128898139824
+        }
+      },
+      {
+        "nonce": "8798cb9eb3de4cbfb55dd46c8e25590f",
+        "platform": "linux-arm64",
+        "phase": "Cleaning",
+        "runner_id": 74,
+        "assigned": {
+          "repository": "0x63616c/world-wide-webb",
+          "run_id": 42528327661,
+          "run_attempt": 4,
+          "job_id": 128898139685
+        }
+      }
+    ],
+    "fresh_reconciliation": true,
+    "no_create_jit_or_start_runner_replay_in_post_boot_logs": true
+  },
+  "post_smoke_cleanup": {
+    "journal_idle": true,
+    "local_vms": [],
+    "hold_released": true,
+    "admission_enabled": true,
+    "max_total": 4,
+    "max_mac": 2
+  },
+  "post_smoke_cancelled_jobs": [
+    128898139685,
+    128898139824
+  ],
+  "post_smoke_registrations_absent": [
+    73,
+    74
+  ]
+}
