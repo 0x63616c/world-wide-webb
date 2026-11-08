@@ -63,7 +63,10 @@ async fn fetch(request: Request, env: Env, context: Context) -> Result<Response>
         web_sys::console::log_1(&event);
     }
     // Rejections must not turn an unauthenticated flood into one D1 write per request.
-    if admitted && route == "events.submit" && ((200..300).contains(&status) || status >= 500) {
+    if admitted
+        && matches!(route, "events.submit" | "events.history_import")
+        && ((200..300).contains(&status) || status >= 500)
+    {
         context.wait_until(async move {
             if let Ok(db) = env.d1("DB")
                 && crate::monitoring_runtime::record(&db, status)

@@ -25,6 +25,8 @@ struct CompetitionResultPreferences: Codable, Equatable, Sendable {
   // swift-format-ignore: AlwaysUseLowerCamelCase
   let home_timezone: String
   let locale: String
+  // swift-format-ignore: AlwaysUseLowerCamelCase
+  var badge_earned: Bool? = nil
 }
 
 /// Device-only APNs state. The backend independently derives the allowed topic/environment.
@@ -154,7 +156,8 @@ struct CompetitionResultPreferences: Codable, Equatable, Sendable {
     let locale = Self.supportedLocale(locale)
     let value = CompetitionResultPreferences(
       weekly: requested.weeklyResult.rawValue,
-      monthly: requested.monthlyResult.rawValue, home_timezone: homeTimezone, locale: locale)
+      monthly: requested.monthlyResult.rawValue, home_timezone: homeTimezone, locale: locale,
+      badge_earned: requested.badgesEarned)
     let pending: PendingPreferences
     if let previous = state.preferences, previous.participantID == participantID,
       previous.value == value
@@ -186,6 +189,7 @@ struct CompetitionResultPreferences: Codable, Equatable, Sendable {
     guard authorization == .allowed else { return false }
     if identifier.hasPrefix("folding.daily-limit.") { return preferences.dailyLimit }
     guard context != nil, let route else { return false }
+    if route.isBadge { return false }
     switch route.period {
     case .week: return preferences.weeklyResult != .off
     case .month: return preferences.monthlyResult != .off
@@ -193,8 +197,14 @@ struct CompetitionResultPreferences: Codable, Equatable, Sendable {
     }
   }
 
+  func acceptsBadgeNotification(_ route: PushNotificationRoute) -> Bool {
+    route.isBadge && authorization == .allowed && preferences.badgesEarned
+      && route.participantID == context?.participantID && context != nil
+  }
+
   private var wantsResultPush: Bool {
-    preferences.weeklyResult != .off || preferences.monthlyResult != .off
+    preferences.badgesEarned || preferences.weeklyResult != .off
+      || preferences.monthlyResult != .off
   }
   private var desiredBinding: Binding? {
     guard wantsResultPush, authorization == .allowed, let context, let token = state.token else {

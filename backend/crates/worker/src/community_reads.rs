@@ -34,7 +34,7 @@ pub(crate) async fn read(
     if request.path() == "/v1/me" {
         let profile=statement(db,"SELECT p.participant_id,f.nickname,f.avatar_id,p.membership,p.restriction,f.nickname_status,f.avatar_status,(SELECT a.avatar_id FROM avatar_objects a WHERE a.participant_id=p.participant_id AND a.state IN ('uploading','pending') ORDER BY a.created_at_ms DESC,a.avatar_id DESC LIMIT 1) AS pending_avatar_id FROM participants p JOIN profiles f ON f.participant_id=p.participant_id WHERE p.participant_id=?1",&[text(&session.participant_id)])?.first::<Profile>(None).await.map_err(|_|Failure::unavailable())?.ok_or_else(Failure::unauthorized)?;
         let epoch=statement(db,"SELECT e.epoch_id,e.device_id,e.generation_revision,e.generation_id,e.joined_at_ms,e.issued_at_ms FROM epochs e JOIN participants p ON p.epoch_id=e.epoch_id WHERE p.participant_id=?1 AND p.membership='joined' AND e.closed_at_ms IS NULL",&[text(&session.participant_id)])?.first::<Epoch>(None).await.map_err(|_|Failure::unavailable())?;
-        let enrollment=epoch.map(|e|serde_json::json!({"epoch_id":e.epoch_id,"device_id":e.device_id,"generation":{"revision":e.generation_revision,"reset_id":e.generation_id},"joined_at_ms":e.joined_at_ms,"issued_at_ms":e.issued_at_ms}));
+        let enrollment=epoch.map(|e|serde_json::json!({"epoch_id":e.epoch_id,"device_id":e.device_id,"generation":{"revision":e.generation_revision,"reset_id":e.generation_id},"joined_at_ms":e.joined_at_ms,"issued_at_ms":e.issued_at_ms,"history_import_before_ms":e.joined_at_ms}));
         let preferences =
             crate::notification_runtime::preferences(db, &session.participant_id).await?;
         return response(

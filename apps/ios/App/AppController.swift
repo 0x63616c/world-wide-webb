@@ -85,11 +85,13 @@ import struct FoldingData.SetupProgress
         guard
           self.presentation.competitionJoined
             || (requested.weeklyResult == previous.weeklyResult
-              && requested.monthlyResult == previous.monthlyResult)
+              && requested.monthlyResult == previous.monthlyResult
+              && requested.badgesEarned == previous.badgesEarned)
         else { throw CompetitionTransportError.unauthorized }
         let saved = try await self.notifications.save(requested) { resolved in
           if previous.weeklyResult != resolved.weeklyResult
             || previous.monthlyResult != resolved.monthlyResult
+            || previous.badgesEarned != resolved.badgesEarned
           {
             try await self.saveRemoteNotificationPreferences(resolved)
           }
@@ -151,6 +153,8 @@ import struct FoldingData.SetupProgress
           throw CompetitionTransportError.invalidResponse
         }
         try await store.setCompetitionEpoch(epoch)
+        try await store.configureCompetitionHistory(
+          beforeJoinedAtMS: result.enrollment.history_import_before_ms)
         self.presentation.publicTrackingPhone = .thisPhone
         self.presentation.competitionProfile = await self.profilePresentation(result.profile)
         self.joinedParticipantID = result.profile.participant_id
@@ -179,30 +183,6 @@ import struct FoldingData.SetupProgress
         }
         return ParticipantProfileLoad(profile: response, avatarData: avatar)
       },
-      featureMilestone: { participant, badge, generation in
-        guard participant == self.joinedParticipantID else { throw CancellationError() }
-        let identity = self.competitionIdentityRevision
-        let store = try await self.runtime.store()
-        let currentGeneration = try await store.currentGeneration()
-        guard identity == self.competitionIdentityRevision, participant == self.joinedParticipantID,
-          currentGeneration == generation
-        else { throw CancellationError() }
-        let request = self.milestoneCache.feature(
-          participant: participant, generation: generation, badge: badge)
-        try self.milestoneCache.queue(request, participant: participant)
-        let api = try await self.competitionClient()
-        _ = try await api.featureBadge(request)
-        guard identity == self.competitionIdentityRevision else { throw CancellationError() }
-        let confirmed = try await api.milestones()
-        let confirmedGeneration = try await store.currentGeneration()
-        guard identity == self.competitionIdentityRevision, participant == self.joinedParticipantID,
-          confirmed.generation == generation, confirmedGeneration == generation
-        else { throw CancellationError() }
-        try self.milestoneCache.save(confirmed, participant: participant)
-        try self.milestoneCache.featured(request, participant: participant)
-        await self.presentation.requestLeaderboard(using: self.actions)
-        return confirmed
-      },
       acknowledgeMilestones: { participant, request in
         let identity = self.competitionIdentityRevision
         let currentGeneration = try await self.runtime.store().currentGeneration()
@@ -214,8 +194,11 @@ import struct FoldingData.SetupProgress
           participant: participant, generation: request.generation)
       },
       saveNickname: { value in
+        let identity = self.competitionIdentityRevision
         let profile = try await self.competitionClient().nickname(value)
-        return await self.profilePresentation(profile)
+        let result = await self.profilePresentation(profile)
+        guard identity == self.competitionIdentityRevision else { throw CancellationError() }
+        return result
       },
       uploadAvatar: { bytes in
         let revision = self.competitionIdentityRevision
@@ -558,6 +541,8 @@ import struct FoldingData.SetupProgress
       } else {
         try await store.setCompetitionEpoch(epoch)
       }
+      try await store.configureCompetitionHistory(
+        beforeJoinedAtMS: enrollment.history_import_before_ms)
     } else {
       try await store.suspendCompetitionUpload()
     }
@@ -652,6 +637,8 @@ import struct FoldingData.SetupProgress
         let epoch = UUID(uuidString: enrollment.epoch_id)
       {
         try await store.setCompetitionEpoch(epoch)
+        try await store.configureCompetitionHistory(
+          beforeJoinedAtMS: enrollment.history_import_before_ms)
       }
       await presentation.requestLeaderboard(using: actions)
     } else {
@@ -721,6 +708,18 @@ import struct FoldingData.SetupProgress
     delegate.localDailyLimitEnabled =
       presentation.notificationPreferences.dailyLimit
       && presentation.notificationAuthorization == .allowed
+    delegate.openBadges = { [weak self] participant in
+      guard let self, self.joinedParticipantID == participant,
+        self.presentation.competitionRemoval == nil
+      else { return false }
+      self.presentation.selectedTab = .leaderboard
+      self.presentation.present(.competition(.milestones))
+      return true
+    }
+    delegate.refreshBadges = { [weak self] in
+      guard let self else { return }
+      Task { await self.presentation.requestMilestones(using: self.actions, force: true) }
+    }
     delegate.openResults = { [weak self] id, period in
       guard let self, self.joinedParticipantID != nil, self.presentation.competitionRemoval == nil
       else { return false }

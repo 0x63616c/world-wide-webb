@@ -8701,72 +8701,6 @@
         }
       }
     },
-    "session.runningDuration": {
-      "comment": "VoiceOver: running session followed by an already localized duration string. Non-English copy is an AI draft; see docs/localization.md for QA status.",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Running, %@"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Läuft, %@"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "En cours, %@"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "En curso, %@"
-          }
-        },
-        "es-419": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "En curso, %@"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "進行中、%@"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "진행 중, %@"
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Em andamento, %@"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "进行中，%@"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "進行中，%@"
-          }
-        }
-      }
-    },
     "settings.appearance": {
       "comment": "Settings UI: Appearance. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
@@ -12067,72 +12001,6 @@
         }
       }
     },
-    "sync.pendingFolds": {
-      "extractionState": "manual",
-      "comment": "Native on-demand sync status or paginated-list control. Available describes iCloud account access, not certified cloud convergence.",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Pending folds"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ausstehende Faltvorgänge"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Pliages en attente"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Pliegues pendientes"
-          }
-        },
-        "es-419": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Pliegues pendientes"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "送信待ちの折りたたみ"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "대기 중인 접기"
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Dobras pendentes"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "待上传折叠"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "待上傳摺疊"
-          }
-        }
-      }
-    },
     "sync.resetPending": {
       "extractionState": "manual",
       "comment": "Compact Today status while a public history reset is queued for server acknowledgement.",
@@ -13386,72 +13254,6 @@
         }
       }
     },
-    "milestones.about": {
-      "comment": "Profiles and milestones. AI translations; native-speaker review remains deferred.",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "About milestones"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Über Meilensteine"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "À propos des jalons"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Acerca de los hitos"
-          }
-        },
-        "es-419": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Acerca de los hitos"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "マイルストーンについて"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "마일스톤 안내"
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sobre os marcos"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "关于里程碑"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "關於里程碑"
-          }
-        }
-      }
-    },
     "milestones.cached": {
       "comment": "Profiles and milestones. AI translations; native-speaker review remains deferred.",
       "extractionState": "manual",
@@ -13782,72 +13584,6 @@
         }
       }
     },
-    "milestones.feature": {
-      "comment": "Profiles and milestones. AI translations; native-speaker review remains deferred.",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Feature on Profile"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Im Profil zeigen"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Afficher sur le profil"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mostrar en el perfil"
-          }
-        },
-        "es-419": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mostrar en el perfil"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "プロフィールに表示"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "프로필에 표시"
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Exibir no perfil"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "展示在个人资料中"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "展示在個人檔案中"
-          }
-        }
-      }
-    },
     "milestones.featured": {
       "comment": "Profiles and milestones. AI translations; native-speaker review remains deferred.",
       "extractionState": "manual",
@@ -14046,204 +13782,6 @@
         }
       }
     },
-    "milestones.help": {
-      "comment": "Profiles and milestones. AI translations; native-speaker review remains deferred.",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Milestones count verified folds since joining or your last reset. Days use UTC and don’t need to be consecutive."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Meilensteine zählen bestätigte Faltungen seit dem Beitritt oder dem letzten Zurücksetzen. Tage richten sich nach UTC und müssen nicht aufeinanderfolgen."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Les jalons comptent les plis vérifiés depuis votre inscription ou la dernière remise à zéro. Les jours suivent UTC et ne doivent pas être consécutifs."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Los hitos cuentan los pliegues verificados desde que te uniste o desde el último reinicio. Los días siguen UTC y no tienen que ser consecutivos."
-          }
-        },
-        "es-419": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Los hitos cuentan los pliegues verificados desde que te uniste o desde el último reinicio. Los días siguen UTC y no tienen que ser consecutivos."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "参加後または最後のリセット以降に確認された折りたたみが対象です。日付はUTC基準で、連続している必要はありません。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "참여 이후 또는 마지막 초기화 이후 확인된 접기만 집계합니다. 날짜는 UTC 기준이며 연속일 필요는 없습니다."
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Os marcos contam dobras verificadas desde sua entrada ou a última redefinição. Os dias seguem UTC e não precisam ser consecutivos."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "里程碑仅统计加入排行榜后或上次重置后的已验证折叠。日期以UTC为准，无需连续。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "里程碑僅統計加入排行榜後或上次重設後的已驗證摺疊。日期以UTC為準，無需連續。"
-          }
-        }
-      }
-    },
-    "milestones.next": {
-      "comment": "Profiles and milestones. AI translations; native-speaker review remains deferred.",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Next milestones"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nächste Meilensteine"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Prochains jalons"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Próximos hitos"
-          }
-        },
-        "es-419": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Próximos hitos"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "次のマイルストーン"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "다음 마일스톤"
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Próximos marcos"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "下一个里程碑"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "下一個里程碑"
-          }
-        }
-      }
-    },
-    "milestones.saveFailed": {
-      "comment": "Profiles and milestones. AI translations; native-speaker review remains deferred.",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Couldn’t save. Try again."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Speichern fehlgeschlagen. Erneut versuchen."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Échec de l’enregistrement. Réessayez."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No se pudo guardar. Inténtalo de nuevo."
-          }
-        },
-        "es-419": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No se pudo guardar. Inténtalo de nuevo."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "保存できませんでした。もう一度お試しください。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "저장하지 못했어요. 다시 시도하세요."
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Não foi possível salvar. Tente novamente."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "无法保存，请重试。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "無法儲存，請重試。"
-          }
-        }
-      }
-    },
     "milestones.title": {
       "comment": "Profiles and milestones. AI translations; native-speaker review remains deferred.",
       "extractionState": "manual",
@@ -14372,72 +13910,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "進度暫時無法使用"
-          }
-        }
-      }
-    },
-    "milestones.unfeature": {
-      "comment": "Profiles and milestones. AI translations; native-speaker review remains deferred.",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Remove from Profile"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Aus Profil entfernen"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Retirer du profil"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Quitar del perfil"
-          }
-        },
-        "es-419": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Quitar del perfil"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "プロフィールから外す"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "프로필에서 제거"
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Remover do perfil"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "从个人资料中移除"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "從個人檔案中移除"
           }
         }
       }
@@ -14640,72 +14112,6 @@
         }
       }
     },
-    "profile.edit": {
-      "comment": "Profiles and milestones. AI translations; native-speaker review remains deferred.",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Edit Profile"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Profil bearbeiten"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Modifier le profil"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Editar perfil"
-          }
-        },
-        "es-419": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Editar perfil"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "プロフィールを編集"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "프로필 편집"
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Editar perfil"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "编辑个人资料"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "編輯個人檔案"
-          }
-        }
-      }
-    },
     "profile.unavailable": {
       "comment": "Profiles and milestones. AI translations; native-speaker review remains deferred.",
       "extractionState": "manual",
@@ -14845,61 +14251,61 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Your name, photo, scores and earned badges are visible to leaderboard members."
+            "value": "Your name, photo and scores are visible to leaderboard members. Your existing folding history is included."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dein Name, Foto, Punktestand und deine Abzeichen sind für Ranglistenmitglieder sichtbar."
+            "value": "Dein Name, Foto und deine Punktzahlen sind für Mitglieder der Bestenliste sichtbar. Dein bisheriger Faltverlauf wird einbezogen."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Votre nom, photo, scores et badges sont visibles par les membres du classement."
+            "value": "Votre nom, votre photo et vos scores sont visibles par les membres du classement. Votre historique de pliages existant est inclus."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tu nombre, foto, puntuaciones e insignias son visibles para los miembros de la clasificación."
+            "value": "Tu nombre, foto y puntuaciones son visibles para los miembros de la clasificación. Se incluye tu historial de pliegues existente."
           }
         },
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tu nombre, foto, puntuaciones e insignias son visibles para los miembros de la clasificación."
+            "value": "Tu nombre, foto y puntuaciones son visibles para los miembros de la clasificación. Se incluye tu historial de pliegues existente."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "名前、写真、スコア、獲得バッジはランキングの参加者に公開されます。"
+            "value": "名前、写真、スコアはランキングの参加者に公開されます。これまでの折りたたみ履歴も含まれます。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "이름, 사진, 점수와 획득한 배지는 순위표 참여자에게 공개됩니다."
+            "value": "이름, 사진, 점수는 리더보드 참가자에게 공개됩니다. 기존 접기 기록도 포함됩니다."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Seu nome, foto, pontuações e emblemas ficam visíveis para os participantes da classificação."
+            "value": "Seu nome, foto e pontuações ficam visíveis para os participantes do ranking. Seu histórico de dobras existente é incluído."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "你的名称、照片、分数和已获得的徽章对排行榜成员可见。"
+            "value": "排行榜成员可以看到你的姓名、照片和分数。已有的折叠记录也会计入。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "你的名稱、照片、分數和已獲得的徽章對排行榜成員可見。"
+            "value": "排行榜成員可以看到你的姓名、照片和分數。已有的摺疊記錄也會計入。"
           }
         }
       }
@@ -15692,6 +15098,336 @@
           "stringUnit": {
             "state": "translated",
             "value": "參加排行榜後，在30個不同日期記錄摺疊。"
+          }
+        }
+      }
+    },
+    "action.save": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sichern"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enregistrer"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guardar"
+          }
+        },
+        "es-419": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guardar"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "저장"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Salvar"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "儲存"
+          }
+        }
+      },
+      "comment": "Tracking phone naming: action.save"
+    },
+    "phone.name": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Phone name"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Telefonname"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nom du téléphone"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nombre del teléfono"
+          }
+        },
+        "es-419": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nombre del teléfono"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "電話の名前"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "휴대전화 이름"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nome do telefone"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "手机名称"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "手機名稱"
+          }
+        }
+      },
+      "comment": "Tracking phone naming: phone.name"
+    },
+    "phone.nameLocal": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Names are saved on this iPhone."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Namen werden auf diesem iPhone gespeichert."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les noms sont enregistrés sur cet iPhone."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los nombres se guardan en este iPhone."
+          }
+        },
+        "es-419": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los nombres se guardan en este iPhone."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "名前はこのiPhoneに保存されます。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이름은 이 iPhone에 저장됩니다."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Os nomes são salvos neste iPhone."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "名称保存在此 iPhone 上。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "名稱儲存在此 iPhone 上。"
+          }
+        }
+      },
+      "comment": "Tracking phone naming: phone.nameLocal"
+    },
+    "phone.rename": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Name phone"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Telefon benennen"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nommer le téléphone"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nombrar teléfono"
+          }
+        },
+        "es-419": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nombrar teléfono"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "電話に名前を付ける"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "휴대전화 이름 지정"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nomear telefone"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "为手机命名"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "為手機命名"
+          }
+        }
+      },
+      "comment": "Tracking phone naming: phone.rename"
+    },
+    "notifications.badges": {
+      "comment": "Opt-in push notification setting for newly earned private badges.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Badges earned"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verdiente Abzeichen"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Badges obtenus"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Insignias conseguidas"
+          }
+        },
+        "es-419": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Insignias conseguidas"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "獲得したバッジ"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "획득한 배지"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Emblemas conquistados"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "获得的徽章"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "獲得的徽章"
           }
         }
       }

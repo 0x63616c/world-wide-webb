@@ -165,7 +165,7 @@ test("actual Worker issues bounded challenges and rotates encrypted sessions wit
   const {createHash}=await import("node:crypto");
   const hash=bytes=>createHash("sha256").update(bytes).digest();
   const db=await authenticatedRuntime.getD1Database("DB");
-  for (const migration of ["0001_mutation_fences.sql","0002_sessions.sql","0003_auth_operations.sql","0004_sign_in.sql","0005_attestation_enrollment.sql","0006_competition.sql","0007_community_reads.sql","0008_privacy_lifecycle.sql","0009_period_finalization.sql","0010_moderation.sql","0011_avatars.sql","0012_notifications.sql", "0013_operations.sql", "0014_corrections.sql", "0015_moderation_cases.sql", "0016_monitoring.sql", "0017_external_retries.sql", "0018_entry_deletions.sql", "0019_resource_protection.sql", "0020_admin_minimum_build.sql", "0021_profile_milestones.sql"]) {
+  for (const migration of ["0001_mutation_fences.sql","0002_sessions.sql","0003_auth_operations.sql","0004_sign_in.sql","0005_attestation_enrollment.sql","0006_competition.sql","0007_community_reads.sql","0008_privacy_lifecycle.sql","0009_period_finalization.sql","0010_moderation.sql","0011_avatars.sql","0012_notifications.sql", "0013_operations.sql", "0014_corrections.sql", "0015_moderation_cases.sql", "0016_monitoring.sql", "0017_external_retries.sql", "0018_entry_deletions.sql", "0019_resource_protection.sql", "0020_admin_minimum_build.sql", "0021_profile_milestones.sql", "0022_badge_notifications.sql"]) {
     const source=await readFile(`${root}migrations/${migration}`,"utf8");
     for(const sql of source.split(";").filter(s=>s.trim())) await db.prepare(sql).run();
   }
@@ -635,7 +635,7 @@ test('admin quarantine and reinstatement reconcile awards without replaying ackn
  const get=async()=>{const r=await authenticatedRuntime.dispatchFetch('https://api.example/v1/milestones',{headers});assert.equal(r.status,200,await r.clone().text());return r.json();};
  const write=async(path,body,method='POST')=>{const r=await authenticatedRuntime.dispatchFetch('https://api.example'+path,{method,headers,body:JSON.stringify(body)});assert.equal(r.status,200,await r.clone().text());};
  assert.equal((await get()).progress.folds,100);
- await write('/v1/profile/badge',{operation_id:id(82001),generation,badge_id:'folds_100'},'PATCH');
+ await db.prepare('INSERT INTO milestone_featured VALUES (?,?)').bind(participant,'folds_100').run();
  await write('/v1/milestones/acknowledgments',{operation_id:id(82002),generation,badge_ids:['folds_1','folds_100']});
  const jwt=appleToken({iss:'https://folding-test.cloudflareaccess.com',aud:['local-admin'],sub:'synthetic-admin',email:'admin@example.test',type:'app'});
  const adminHeaders={'Cf-Access-Jwt-Assertion':jwt,Origin:'https://admin.example','Content-Type':'application/x-www-form-urlencoded'};

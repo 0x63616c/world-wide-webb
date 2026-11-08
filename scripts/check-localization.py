@@ -16,7 +16,6 @@ INTERPOLATIONS = {
     'results.percentile': (r'\(percentile)%', '%lld%%'),
     'leaderboard.pending': (r'\(value.pendingFolds)', '%lld'),
     'leaderboard.periodTimezone': (r'\(periodTitle)', '%@'),
-    'session.runningDuration': (r'\(foldingDuration(durationMS))', '%@'),
 }
 LITERAL = r'"((?:[^"\\]|\\.)*)"'
 SOURCE_PATTERN = re.compile(

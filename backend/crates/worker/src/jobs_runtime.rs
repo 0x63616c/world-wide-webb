@@ -25,7 +25,7 @@ WHERE CASE value
  WHEN 'finalization' THEN (EXISTS(SELECT 1 FROM periods WHERE state='finalizing' OR (state='grace' AND cutoff_ms<=?1) OR (state='open' AND end_ms<=?1))
  OR (EXISTS(SELECT 1 FROM epochs) AND NOT EXISTS(SELECT 1 FROM jobs WHERE kind='finalization' AND version>=?2)))
  WHEN 'corrections' THEN (EXISTS(SELECT 1 FROM period_corrections WHERE state='building' OR (state='ready' AND expires_at_ms<=?1)))
- WHEN 'awards' THEN (EXISTS(SELECT 1 FROM award_jobs WHERE state='pending' AND lease_until_ms<=?1 AND next_attempt_ms<=?1 AND (due_ms IS NULL OR due_ms<=?1)))
+ WHEN 'awards' THEN (EXISTS(SELECT 1 FROM award_jobs WHERE state='pending' AND lease_until_ms<=?1 AND next_attempt_ms<=?1 AND (due_ms IS NULL OR due_ms<=?1)) OR EXISTS(SELECT 1 FROM badge_notification_jobs WHERE state='pending' AND lease_until_ms<=?1 AND next_attempt_ms<=?1))
  WHEN 'deletion' THEN (EXISTS(SELECT 1 FROM deletion_operations d WHERE state='pending' AND lease_until_ms<=?1 AND NOT EXISTS(SELECT 1 FROM avatar_purge_jobs a WHERE a.participant_id=d.participant_id) AND NOT EXISTS(SELECT 1 FROM external_retry_state r WHERE r.kind='account_revocation' AND r.work_key=d.operation_id AND (r.state='failed' OR r.next_attempt_ms>?1)))
  AND NOT EXISTS(SELECT 1 FROM external_retry_state WHERE kind='account_revocation' AND work_key='' AND state='paused'))
  WHEN 'recovery_revocation' THEN (EXISTS(SELECT 1 FROM apple_revocation_jobs a WHERE lease_until_ms<=?1 AND NOT EXISTS(SELECT 1 FROM external_retry_state r WHERE r.kind='recovery_revocation' AND r.work_key=a.job_id AND (r.state='failed' OR r.next_attempt_ms>?1)))
@@ -69,7 +69,7 @@ pub(crate) async fn schedule(env: &Env, db: &D1Database) -> std::result::Result<
         if feature.is_some_and(|name| !env.var(name).is_ok_and(|v| v.to_string() == "true")) {
             continue;
         }
-        let version = if category.kind == "milestones" {
+        let version = if category.kind == "milestones" || category.kind == "awards" {
             time
         } else {
             time / 300000

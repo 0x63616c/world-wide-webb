@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
-"""Reproduce Folding's six monochrome, font-independent vector badge assets."""
+"""Reproduce legacy monochrome badges outside the app asset catalog.
+
+Current generated color assets and their prompts live in design/badges.
+This script preserves the original vector experiment without overwriting them.
+"""
 import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-DESTINATION = ROOT / "apps/ios/App/Assets.xcassets"
+DESTINATION = ROOT / "build/legacy-milestone-badges"
 # Numerals are drawn paths, so the artwork has no font or remote dependency.
 GLYPHS = {
     "0": "M8 0C-2 0-2 24 8 24C18 24 18 0 8 0Z",

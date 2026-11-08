@@ -96,9 +96,11 @@ public actor TrackingStore {
           [.text(installationID.canonical)])
         try connection.retireInstallation(previous)
         try connection.execute(
-          "DELETE FROM settings WHERE key IN ('competition_epoch','competition_transfer')")
+          "DELETE FROM settings WHERE key IN ('competition_epoch','competition_transfer','competition_history_before')"
+        )
         try connection.execute(
-          "DELETE FROM work_outbox WHERE kind IN ('competition_event','competition_reset')")
+          "DELETE FROM work_outbox WHERE kind IN ('competition_event','competition_reset','competition_history')"
+        )
         try connection.execute("UPDATE setup_attempt SET status='cancelled' WHERE status='waiting'")
       }
       try connection.execute(
@@ -124,9 +126,11 @@ public actor TrackingStore {
           installationID.uuidString.lowercased(), reason: .trackingInterruption)
       }
       try connection.execute(
-        "DELETE FROM settings WHERE key IN ('competition_epoch','competition_transfer')")
+        "DELETE FROM settings WHERE key IN ('competition_epoch','competition_transfer','competition_history_before')"
+      )
       try connection.execute(
-        "DELETE FROM work_outbox WHERE kind IN ('competition_event','competition_reset')")
+        "DELETE FROM work_outbox WHERE kind IN ('competition_event','competition_reset','competition_history')"
+      )
       try connection.execute("UPDATE setup_attempt SET status='cancelled' WHERE status='waiting'")
     }
   }
@@ -1114,8 +1118,8 @@ public actor TrackingStore {
         })
       var uploads: [UUID: ExportUploadState] = [:]
       for row in try database.rows(
-        "SELECT entity_id,state FROM work_outbox WHERE kind='competition_event'")
-      {
+        "SELECT entity_id,state FROM work_outbox WHERE kind IN ('competition_event','competition_history')"
+      ) {
         guard let raw = row["entity_id"], let id = UUID(uuidString: raw), let state = row["state"]
         else { throw StoreError.invalidInput }
         switch state {
@@ -1235,9 +1239,11 @@ public actor TrackingStore {
       )
     } else {
       try database.execute(
-        "DELETE FROM work_outbox WHERE kind IN ('competition_event','competition_reset')")
+        "DELETE FROM work_outbox WHERE kind IN ('competition_event','competition_reset','competition_history')"
+      )
     }
     if epoch == nil {
+      try database.execute("DELETE FROM settings WHERE key='competition_history_before'")
       try database.execute("DELETE FROM settings WHERE key='competition_transfer'")
     }
   }
@@ -1246,9 +1252,11 @@ public actor TrackingStore {
   public func suspendCompetitionUpload() throws {
     try journalTransaction {
       try database.execute(
-        "DELETE FROM settings WHERE key IN ('competition_epoch','competition_upload')")
+        "DELETE FROM settings WHERE key IN ('competition_epoch','competition_upload','competition_history_before')"
+      )
       try database.execute(
-        "DELETE FROM work_outbox WHERE kind IN ('competition_event','competition_reset')")
+        "DELETE FROM work_outbox WHERE kind IN ('competition_event','competition_reset','competition_history')"
+      )
     }
   }
 
@@ -1359,6 +1367,63 @@ public actor TrackingStore {
       ])
   }
 
+  /// Enabled only by an enrollment response from a service supporting original-history import.
+  public func configureCompetitionHistory(beforeJoinedAtMS cutoff: Int64?) throws {
+    if let cutoff { try validateTime(cutoff) }
+    try journalTransaction {
+      try database.execute("DELETE FROM settings WHERE key='competition_history_before'")
+      if cutoff == nil {
+        try database.execute("DELETE FROM work_outbox WHERE kind='competition_history'")
+        if let raw = try database.rows("SELECT value FROM settings WHERE key='competition_upload'")
+          .first?["value"],
+          let upload = try? decode(raw) as CompetitionUpload, upload.isHistory == true
+        {
+          try database.execute("DELETE FROM settings WHERE key='competition_upload'")
+        }
+      }
+      if let cutoff, try competitionEpoch() != nil {
+        try database.execute(
+          "INSERT INTO settings(key,value) VALUES('competition_history_before',?)",
+          [.text(String(cutoff))])
+      }
+    }
+  }
+
+  private func queueCompetitionHistory(_ current: ResetGeneration) throws {
+    guard
+      let raw = try database.rows(
+        "SELECT value FROM settings WHERE key='competition_history_before'"
+      ).first?["value"],
+      let cutoff = Int64(raw)
+    else { return }
+    let selection = try PrivateTransferPolicy.winner(transferMarkersInTransaction())
+    let watermarks = selection?.sourceWatermarks ?? [:]
+    let json = try encode(
+      Dictionary(uniqueKeysWithValues: watermarks.map { ($0.key.canonical, $0.value) }))
+    let rows = try database.rows(
+      """
+      SELECT e.event_id FROM events e
+      WHERE e.generation_revision=? AND e.generation_id=? AND e.competition_epoch_id IS NULL
+      AND e.is_test=0 AND e.observed_at_ms<?
+      AND NOT EXISTS(SELECT 1 FROM work_outbox w WHERE w.kind='competition_history' AND w.entity_id=e.event_id)
+      AND NOT EXISTS(SELECT 1 FROM quarantines q WHERE q.entity_id=e.event_id)
+      AND NOT EXISTS(SELECT 1 FROM entry_deletions d,json_each(d.payload_json,'$.eventIDs') v WHERE lower(v.value)=e.event_id)
+      AND (?='' OR e.device_id=? OR e.sequence<=COALESCE((SELECT value FROM json_each(?) WHERE key=e.device_id),0))
+      ORDER BY e.device_id,e.sequence LIMIT 256
+      """,
+      [
+        .integer(current.revision), .text(current.resetID.canonical), .integer(cutoff),
+        .text(selection?.activeDeviceID.canonical ?? ""),
+        .text(selection?.activeDeviceID.canonical ?? ""), .text(json),
+      ])
+    for row in rows {
+      guard let id = row["event_id"].flatMap(UUID.init(uuidString:)) else {
+        throw StoreError.invalidInput
+      }
+      try enqueue("competition_history", entity: id, generation: current)
+    }
+  }
+
   public func leaseCompetitionUpload(nowMS: Int64) throws -> CompetitionUpload? {
     try validateTime(nowMS)
     return try journalTransaction {
@@ -1397,6 +1462,7 @@ public actor TrackingStore {
       let workIDs: [UUID]
       let eventIDs: [UUID]
       let isReset = !resets.isEmpty
+      var isHistory = false
       let encoder = JSONEncoder()
       encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
       if let reset = resets.first {
@@ -1417,15 +1483,27 @@ public actor TrackingStore {
         workIDs = [UUID(uuidString: reset["work_id"]!)!]
         eventIDs = []
       } else {
+        try queueCompetitionHistory(current)
+        isHistory = try !database.rows(
+          "SELECT work_id FROM work_outbox WHERE kind='competition_history' AND generation_id=? AND state='pending' LIMIT 1",
+          [.text(current.resetID.canonical)]
+        ).isEmpty
         let rows = try database.rows(
-          "SELECT w.work_id,e.payload_json FROM work_outbox w JOIN events e ON e.event_id=w.entity_id WHERE w.kind='competition_event' AND w.generation_id=? AND w.state='pending' ORDER BY e.sequence LIMIT 256",
-          [.text(current.resetID.canonical)])
+          "SELECT w.work_id,e.payload_json FROM work_outbox w JOIN events e ON e.event_id=w.entity_id WHERE w.kind=? AND w.generation_id=? AND w.state='pending' ORDER BY e.device_id,e.sequence LIMIT 256",
+          [
+            .text(isHistory ? "competition_history" : "competition_event"),
+            .text(current.resetID.canonical),
+          ])
         var events: [TrackingEvent] = []
         var ids: [UUID] = []
         for row in rows {
           let event: TrackingEvent = try decode(row["payload_json"]!)
           let workID = UUID(uuidString: row["work_id"]!)!
-          guard event.competitionEpochID == epoch, !event.isTest, event.deviceID == deviceID else {
+          guard !event.isTest,
+            isHistory
+              ? event.competitionEpochID == nil
+              : (event.competitionEpochID == epoch && event.deviceID == deviceID)
+          else {
             try database.execute(
               "UPDATE work_outbox SET state='superseded' WHERE work_id=?", [.text(workID.canonical)]
             )
@@ -1453,10 +1531,11 @@ public actor TrackingStore {
         eventIDs = events.map(\.eventID)
       }
       guard body.count <= 256 * 1024 else { throw StoreError.invalidInput }
-      let upload = CompetitionUpload(
+      var upload = CompetitionUpload(
         operationID: operation, epochID: epoch, generation: current,
         isReset: isReset, body: body, eventIDs: eventIDs, workIDs: workIDs,
         leaseToken: UUID(), leaseUntilMS: nowMS + 60_000, nextAttemptMS: nowMS)
+      upload.isHistory = isHistory
       try saveCompetitionUpload(upload)
       try database.execute(
         "INSERT INTO settings(key,value) VALUES('competition_upload_not_before',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
@@ -1519,7 +1598,7 @@ public actor TrackingStore {
     try journalTransaction(write: false) {
       Int(
         try database.rows(
-          "SELECT COUNT(*) AS count FROM work_outbox WHERE kind='competition_event' AND state='pending'"
+          "SELECT COUNT(*) AS count FROM work_outbox WHERE kind IN ('competition_event','competition_history') AND state='pending'"
         ).first?["count"] ?? "0") ?? 0
     }
   }
@@ -1841,7 +1920,7 @@ public actor TrackingStore {
       "INSERT INTO quarantines VALUES (?,?,?,'identity_conflict')",
       [.text(record.logicalID.canonical), .text(hash), .text(payload)])
     try database.execute(
-      "DELETE FROM work_outbox WHERE entity_id=? AND kind='competition_event'",
+      "DELETE FROM work_outbox WHERE entity_id=? AND kind IN ('competition_event','competition_history')",
       [.text(record.logicalID.canonical)])
     guard replicateBarrier else { return }
     let device: UUID
@@ -1947,9 +2026,17 @@ public actor TrackingStore {
         else { throw StoreError.invalidInput }
         selected.append(next)
       }
+      var epochs = Set(selected.compactMap(\.competitionEpochID))
+      if selected.contains(where: { $0.competitionEpochID == nil }),
+        let epoch = try competitionEpoch(),
+        try !database.rows("SELECT value FROM settings WHERE key='competition_history_before'")
+          .isEmpty
+      {
+        epochs.insert(epoch)
+      }
       let marker = TrackingDeletion(
         target: target, eventIDs: selected.map(\.eventID), createdAtMS: nowMS,
-        participantID: nil, epochIDs: Array(Set(selected.compactMap(\.competitionEpochID))))
+        participantID: nil, epochIDs: Array(epochs))
       try importDeletionInTransaction(marker)
       try enqueue("mirror_deletion", entity: marker.deletionID, generation: target.generation)
       return marker

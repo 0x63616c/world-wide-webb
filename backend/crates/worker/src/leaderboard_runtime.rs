@@ -119,7 +119,7 @@ pub(crate) async fn board(
         return crate::results_runtime::board(request, db, config, request_id, &query, kind, limit)
             .await;
     }
-    let rows=statement(db,"SELECT p.participant_id,f.nickname,f.avatar_id,s.folds,(SELECT b.badge_id FROM milestone_featured b JOIN milestone_state m ON m.participant_id=b.participant_id WHERE b.participant_id=p.participant_id AND m.state='ready' AND m.generation_revision=p.generation_revision AND m.generation_id=p.generation_id) AS featured_badge_id FROM live_scores s JOIN participants p ON p.participant_id=s.participant_id JOIN profiles f ON f.participant_id=p.participant_id WHERE s.period_id=?1 AND s.generation_revision=p.generation_revision AND s.generation_id=p.generation_id AND p.membership='joined' AND p.restriction='none' AND p.account_state='active' AND s.folds>0 ORDER BY p.participant_id",&[text(period)])?.all().await.map_err(|_|Failure::unavailable())?.results::<Row>().map_err(|_|Failure::unavailable())?;
+    let rows=statement(db,"SELECT p.participant_id,f.nickname,f.avatar_id,s.folds,NULL AS featured_badge_id FROM live_scores s JOIN participants p ON p.participant_id=s.participant_id JOIN profiles f ON f.participant_id=p.participant_id WHERE s.period_id=?1 AND s.generation_revision=p.generation_revision AND s.generation_id=p.generation_id AND p.membership='joined' AND p.restriction='none' AND p.account_state='active' AND s.folds>0 ORDER BY p.participant_id",&[text(period)])?.all().await.map_err(|_|Failure::unavailable())?.results::<Row>().map_err(|_|Failure::unavailable())?;
     let blocks = statement(
         db,
         "SELECT subject_participant_id FROM blocks WHERE participant_id=?1",

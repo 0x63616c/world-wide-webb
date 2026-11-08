@@ -1,5 +1,8 @@
 # HTTP v1 operation catalog
 
+**Current owner amendment — #76/#77/#78:** badges are owner-only, featuring is disabled, existing eligible history is imported when joining (and backfilled for existing accounts), direct photo/name edits replace Edit Profile, and optional grouped badge push is supported. See [the exact contracts and evidence](../experiments/owner-polish-2026-11-08.md). This supersedes conflicting earlier feature-plan wording; live rollout and deferred device acceptance are separate.
+
+
 This catalog fixes wire names and request/response ownership. JSON schemas under `contracts/schemas/` cover the critical event/reset/error messages. Remaining object shapes are defined below and must be encoded in typed Swift/Rust DTOs before implementing their work order. A new route/field meaning requires updating this catalog and shared fixtures in the same PR.
 
 ## Profiles and milestones amendment — #71

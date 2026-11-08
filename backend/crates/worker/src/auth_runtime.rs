@@ -286,6 +286,7 @@ pub async fn dispatch(
             "/v1/attestation/challenges",
             "/v1/attestation/keys",
             "/v1/event-batches",
+            "/v1/history-batches",
             "/v1/enrollment/join",
             "/v1/enrollment/transfer",
             "/v1/resets",
@@ -335,7 +336,7 @@ pub async fn dispatch(
         "/v1/attestation/keys" => {
             crate::attestation_runtime::enroll(request, env, &db, &config, body, request_id).await?
         }
-        "/v1/event-batches" => {
+        "/v1/event-batches" | "/v1/history-batches" => {
             crate::operational_runtime::require(&db, "ingestion").await?;
             crate::competition_runtime::events(request, env, &db, &config, body, request_id).await?
         }

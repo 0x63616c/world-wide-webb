@@ -21,6 +21,7 @@ struct Epoch {
     generation_revision: u64,
     generation_id: String,
     issued_at_ms: u64,
+    joined_at_ms: u64,
 }
 #[derive(Deserialize)]
 struct Observation {
@@ -94,11 +95,17 @@ pub(crate) async fn events(
     request_id: &Id,
 ) -> std::result::Result<Response, Failure> {
     let batch: EventBatch = decode(body)?;
-    batch.validate().map_err(|_| Failure::malformed())?;
+    let history = request.path() == "/v1/history-batches";
+    if history {
+        batch.validate_history()
+    } else {
+        batch.validate()
+    }
+    .map_err(|_| Failure::malformed())?;
     let verified =
         protected_request::verify(request, env, db, config, body, "submit_events").await?;
     let session = &verified.session;
-    let epoch=statement(db,"SELECT e.epoch_id,e.device_id,e.generation_revision,e.generation_id,e.issued_at_ms FROM epochs e JOIN participants p ON p.epoch_id=e.epoch_id WHERE p.participant_id=?1 AND p.membership='joined' AND p.active_device_id=?2 AND e.participant_id=p.participant_id AND e.closed_at_ms IS NULL AND p.generation_revision=e.generation_revision AND p.generation_id=e.generation_id",&[text(&session.participant_id),text(&session.device_id)])?.first::<Epoch>(None).await.map_err(|_|Failure::unavailable())?.ok_or_else(Failure::conflict)?;
+    let epoch=statement(db,"SELECT e.epoch_id,e.device_id,e.generation_revision,e.generation_id,e.issued_at_ms,e.joined_at_ms FROM epochs e JOIN participants p ON p.epoch_id=e.epoch_id WHERE p.participant_id=?1 AND p.membership='joined' AND p.active_device_id=?2 AND e.participant_id=p.participant_id AND e.closed_at_ms IS NULL AND p.generation_revision=e.generation_revision AND p.generation_id=e.generation_id",&[text(&session.participant_id),text(&session.device_id)])?.first::<Epoch>(None).await.map_err(|_|Failure::unavailable())?.ok_or_else(Failure::conflict)?;
     if batch.epoch_id.as_str() != epoch.epoch_id {
         return Err(Failure {
             status: 409,
@@ -106,7 +113,17 @@ pub(crate) async fn events(
             retryable: false,
         });
     }
-    let hash = crate::ingestion::normalized_batch_hash(&batch).map_err(|_| Failure::malformed())?;
+    let route = if history {
+        "/v1/history-batches"
+    } else {
+        "/v1/event-batches"
+    };
+    let hash: [u8; 32] = if history {
+        use sha2::{Digest, Sha256};
+        Sha256::digest(serde_json::to_vec(&batch).map_err(|_| Failure::malformed())?).into()
+    } else {
+        crate::ingestion::normalized_batch_hash(&batch).map_err(|_| Failure::malformed())?
+    };
     let guard = uuid()?;
     let time = now();
     let mut writes = guards(db, config, &verified, &guard, time)?;
@@ -124,7 +141,7 @@ pub(crate) async fn events(
     )?);
     writes.extend(verified.consume(db)?);
     if let Some(old) = receipt(db, &session.participant_id, &batch.operation_id).await? {
-        if old.route != "/v1/event-batches" || old.normalized_hash != hash {
+        if old.route != route || old.normalized_hash != hash {
             return Err(Failure::conflict());
         }
         writes.push(cleanup(db, &guard)?);
@@ -194,14 +211,26 @@ pub(crate) async fn events(
         &[text(&session.participant_id),text(&ids_json)])?.all().await
         .map_err(|_| Failure::unavailable())?.results::<Deleted>()
         .map_err(|_| Failure::unavailable())?.into_iter().map(|row| row.event_id).collect();
-    let plan = plan_batch_with_deletions(
-        &batch,
-        &previous,
-        &enrollment,
-        time as u64,
-        request_id.clone(),
-        &deleted,
-    )
+    let plan = if history {
+        crate::ingestion::plan_history_batch_with_deletions(
+            &batch,
+            &previous,
+            &enrollment,
+            time as u64,
+            request_id.clone(),
+            &deleted,
+            epoch.joined_at_ms,
+        )
+    } else {
+        plan_batch_with_deletions(
+            &batch,
+            &previous,
+            &enrollment,
+            time as u64,
+            request_id.clone(),
+            &deleted,
+        )
+    }
     .map_err(|_| Failure {
         status: 409,
         code: "identity_conflict",
@@ -260,12 +289,13 @@ pub(crate) async fn events(
     let json = serde_json::to_string(&plan.receipt).map_err(|_| Failure::unavailable())?;
     writes.push(statement(
         db,
-        "INSERT INTO competition_operations VALUES (?1,?2,'/v1/event-batches',?3,?4)",
+        "INSERT INTO competition_operations VALUES (?1,?2,?5,?3,?4)",
         &[
             text(&session.participant_id),
             text(batch.operation_id.as_str()),
             blob(&hash),
             text(&json),
+            text(route),
         ],
     )?);
     writes.push(statement(
@@ -335,6 +365,8 @@ pub(crate) async fn events(
     )?);
     writes.push(cleanup(db, &guard)?);
     db.batch(writes).await.map_err(|_| Failure::conflict())?;
+    // Jobs are durable; the periodic scheduler is also a recovery path if queue delivery fails.
+    let _ = crate::jobs_runtime::schedule(env, db).await;
     response(&plan.receipt)
 }
 pub(crate) const ACTIVE_EPOCH_GUARD: &str = r#"

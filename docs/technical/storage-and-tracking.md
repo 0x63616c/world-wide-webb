@@ -1,5 +1,8 @@
 # Storage, event accounting, and private synchronization
 
+**Current owner amendment — #76/#77/#78:** badges are owner-only, featuring is disabled, existing eligible history is imported when joining (and backfilled for existing accounts), direct photo/name edits replace Edit Profile, and optional grouped badge push is supported. See [the exact contracts and evidence](../experiments/owner-polish-2026-11-08.md). This supersedes conflicting earlier feature-plan wording; live rollout and deferred device acceptance are separate.
+
+
 ## Types and interface
 
 The JSON [event schema](../../contracts/schemas/event.schema.json) is the persisted immutable event envelope. Swift uses Codable structs with explicit CodingKeys and integer millisecond timestamps; Rust uses Serde structs with matching names. Reject out-of-range integers and unknown event kinds. Never use floating-point seconds in contracts.

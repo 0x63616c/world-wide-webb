@@ -174,6 +174,7 @@ struct FoldingRootView: View {
 }
 
 private struct TodayScreen: View {
+  @Environment(\.dynamicTypeSize) private var dynamicTypeSize
   @Bindable var model: FoldingPresentation
   let actions: FoldingActions
   private var today: PersonalDailySummary? {
@@ -182,75 +183,63 @@ private struct TodayScreen: View {
   }
 
   var body: some View {
-    ScrollView {
-      VStack(alignment: .leading, spacing: 16) {
-        if let failure = model.personalFailure, model.analytics != nil {
-          Label(failure, systemImage: "exclamationmark.circle").font(.subheadline).foregroundStyle(
-            .secondary)
-        } else if model.needsSetup && model.personalFailure == nil {
-          Button {
-            model.present(.setup)
-          } label: {
-            Label(
-              String(localized: "setup.start", defaultValue: "Set up tracking"),
-              systemImage: "iphone"
-            )
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.vertical, 8)
-          }
-        } else if model.privateHistoryHealth?.requiresAttention == true {
-          Button {
-            model.selectedTab = .settings
-          } label: {
-            Label(
-              String(localized: "recovery.title", defaultValue: "History needs attention"),
-              systemImage: "exclamationmark.triangle"
-            )
-            .frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 8)
-          }
-        } else if model.analytics?.needsDeviceSelection == true {
-          Button {
-            model.present(.trackingPhone)
-          } label: {
-            Label(
-              String(localized: "phone.choose", defaultValue: "Choose tracking phone"),
-              systemImage: "iphone.gen3"
-            )
-            .frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 8)
-          }
-        } else if let value = model.syncStatus,
-          value.publicTracking && (value.resetPending || value.pendingFolds > 0)
-        {
-          Label {
-            if value.resetPending {
-              Text(String(localized: "sync.resetPending", defaultValue: "Reset pending"))
-            } else {
-              Text(
-                String(
-                  localized: "leaderboard.pending", defaultValue: "\(value.pendingFolds) pending")
+    GeometryReader { geometry in
+      ScrollView {
+        VStack(alignment: .leading, spacing: 16) {
+          if let failure = model.personalFailure, model.analytics != nil {
+            Label(failure, systemImage: "exclamationmark.circle").font(.subheadline)
+              .foregroundStyle(
+                .secondary)
+          } else if model.needsSetup && model.personalFailure == nil {
+            Button {
+              model.present(.setup)
+            } label: {
+              Label(
+                String(localized: "setup.start", defaultValue: "Set up tracking"),
+                systemImage: "iphone"
               )
+              .frame(maxWidth: .infinity, alignment: .leading)
+              .padding(.vertical, 8)
             }
-          } icon: {
-            Image(systemName: "arrow.triangle.2.circlepath")
+          } else if model.privateHistoryHealth?.requiresAttention == true {
+            Button {
+              model.selectedTab = .settings
+            } label: {
+              Label(
+                String(localized: "recovery.title", defaultValue: "History needs attention"),
+                systemImage: "exclamationmark.triangle"
+              )
+              .frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 8)
+            }
+          } else if model.analytics?.needsDeviceSelection == true {
+            Button {
+              model.present(.trackingPhone)
+            } label: {
+              Label(
+                String(localized: "phone.choose", defaultValue: "Choose tracking phone"),
+                systemImage: "iphone.gen3"
+              )
+              .frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 8)
+            }
+          } else if let value = model.syncStatus, value.publicTracking && value.resetPending {
+            Label(
+              String(localized: "sync.resetPending", defaultValue: "Reset pending"),
+              systemImage: "arrow.triangle.2.circlepath"
+            )
+            .font(.subheadline).foregroundStyle(.secondary)
+            .frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 8)
+          } else if let status = model.status {
+            Label(status, systemImage: "arrow.triangle.2.circlepath").font(.subheadline)
+              .foregroundStyle(.secondary)
           }
-          .font(.subheadline).foregroundStyle(.secondary)
-          .frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 8)
-        } else if let status = model.status {
-          Label(status, systemImage: "arrow.triangle.2.circlepath").font(.subheadline)
-            .foregroundStyle(.secondary)
-        }
-        if let today {
-          ForEach(Array(metricRows.enumerated()), id: \.offset) { _, row in
-            HStack(spacing: 12) {
-              ForEach(row) { metric in
-                metricView(metric, today: today)
-                  .frame(maxWidth: .infinity, alignment: .leading)
-                  .padding(20)
-                  .frame(minHeight: 108, alignment: .leading)
-                  .background(
-                    Color(uiColor: .secondarySystemGroupedBackground),
-                    in: RoundedRectangle(cornerRadius: FoldingShape.cornerRadius)
-                  )
+          if let today {
+            ForEach(Array(metricRows(width: geometry.size.width).enumerated()), id: \.offset) {
+              _, row in
+              HStack(alignment: .top, spacing: 12) {
+                ForEach(row) { metric in
+                  SummaryCard {
+                    metricView(metric, today: today)
+                  }
                   .draggable(metric.rawValue)
                   .dropDestination(for: String.self) { values, _ in
                     guard let raw = values.first, let moved = SummaryMetric(rawValue: raw),
@@ -274,26 +263,26 @@ private struct TodayScreen: View {
                     }
                   }
 
+                }
+                if usesWideRows(width: geometry.size.width), row.count == 1 {
+                  Color.clear.frame(maxWidth: .infinity).accessibilityHidden(true)
+                }
               }
             }
+          } else if model.personalFailure != nil {
+            ContentUnavailableView(
+              String(localized: "tracking.unavailable", defaultValue: "Tracking unavailable"),
+              systemImage: "exclamationmark.icloud")
+          } else {
+            ProgressView().frame(maxWidth: .infinity).padding(.vertical, 48)
           }
-          Button(String(localized: "today.editSummary", defaultValue: "Edit Summary")) {
-            model.present(.editSummary)
-          }
-          .font(.subheadline)
-        } else if model.personalFailure != nil {
-          ContentUnavailableView(
-            String(localized: "tracking.unavailable", defaultValue: "Tracking unavailable"),
-            systemImage: "exclamationmark.icloud")
-        } else {
-          ProgressView().frame(maxWidth: .infinity).padding(.vertical, 48)
         }
+        .frame(maxWidth: 1100, alignment: .leading)
+        .padding(16)
+        .frame(maxWidth: .infinity)
       }
-      .frame(maxWidth: 1100, alignment: .leading)
-      .padding(16)
-      .frame(maxWidth: .infinity)
     }
-    .background(Color(uiColor: .systemGroupedBackground))
+    .background(FoldingSurface.background)
     .refreshable {
       await model.command(String(localized: "action.refreshing", defaultValue: "Refreshing")) {
         try await actions.refresh()
@@ -301,27 +290,17 @@ private struct TodayScreen: View {
     }
   }
 
-  private var metricRows: [[SummaryMetric]] {
-    var rows: [[SummaryMetric]] = []
-    for metric in model.preferences.orderedCards
-    where metric != .competitionComparison || model.competitionJoined {
-      let compact = Self.isCompact(metric)
-      if compact, let last = rows.indices.last, rows[last].count == 1,
-        Self.isCompact(rows[last][0])
-      {
-        rows[last].append(metric)
-      } else {
-        rows.append([metric])
-      }
-    }
-    return rows
+  private func usesWideRows(width: CGFloat) -> Bool {
+    SummaryCardLayout.usesWideRows(
+      width: width, accessibilitySize: dynamicTypeSize.isAccessibilitySize)
   }
 
-  private static func isCompact(_ metric: SummaryMetric) -> Bool {
-    switch metric {
-    case .opens, .closes, .cycles, .lifetimeFolds: true
-    default: false
-    }
+  private func metricRows(width: CGFloat) -> [[SummaryMetric]] {
+    SummaryCardLayout.rows(
+      model.preferences.orderedCards.filter {
+        $0 != .competitionComparison || model.competitionJoined
+      },
+      width: width, accessibilitySize: dynamicTypeSize.isAccessibilitySize)
   }
 
   @ViewBuilder private func metricView(_ metric: SummaryMetric, today: PersonalDailySummary)
@@ -363,26 +342,13 @@ private struct TodayScreen: View {
       if let snapshot = model.analytics {
         let running = RunningDurationPresentation(snapshot: snapshot, day: today)
         TimelineView(.periodic(from: .now, by: 1)) { context in
-          let durationMS = running.durationMS(at: context.date)
-          HStack(alignment: .lastTextBaseline) {
-            MetricRow(
-              title: metric.title,
-              value: Duration.milliseconds(running.totalDurationMS(at: context.date)).formatted(
-                .units(
-                  allowed: [.hours, .minutes, .seconds], width: .abbreviated, maximumUnitCount: 3)))
-            Spacer(minLength: 0)
-            if running.isRunning {
-              Image(systemName: "timer").foregroundStyle(.secondary)
-                .accessibilityLabel(
-                  String(
-                    localized: "session.runningDuration",
-                    defaultValue:
-                      "Running, \(foldingDuration(durationMS))"))
-            }
-          }
+          MetricRow(
+            title: metric.title,
+            value: foldingElapsedDuration(running.totalDurationMS(at: context.date)))
+
         }
       } else {
-        MetricRow(title: metric.title, value: foldingDuration(today.completeDurationMS))
+        MetricRow(title: metric.title, value: foldingElapsedDuration(today.completeDurationMS))
       }
     case .trend:
       VStack(alignment: .leading, spacing: 12) {
@@ -428,25 +394,33 @@ private struct TodayScreen: View {
     case .lifetimeFolds:
       MetricRow(title: metric.title, value: model.analytics?.lifetime.folds.formatted() ?? "—")
     case .folds:
-      MetricRow(title: metric.title, value: today.folds.formatted(), prominent: true)
+      MetricRow(title: metric.title, value: today.folds.formatted())
 
     }
+  }
+}
+
+private struct SummaryCard<Content: View>: View {
+  @ViewBuilder var content: Content
+  var body: some View {
+    content
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .padding(20)
+      .frame(minHeight: 108, alignment: .leading)
+      .background(
+        FoldingSurface.card,
+        in: RoundedRectangle(cornerRadius: FoldingShape.cornerRadius))
   }
 }
 
 private struct MetricRow: View {
   let title: String
   let value: String
-  var prominent = false
   var body: some View {
     VStack(alignment: .leading, spacing: 0) {
       Text(title).font(.subheadline).foregroundStyle(.secondary)
       Spacer(minLength: 8)
-      Text(value).font(
-        prominent
-          ? .system(.largeTitle, design: .rounded, weight: .bold)
-          : .title2.weight(.semibold)
-      ).monospacedDigit()
+      Text(value).font(.title2.weight(.semibold)).monospacedDigit()
     }
     .frame(minHeight: 72, alignment: .leading)
     .accessibilityElement(children: .combine)
@@ -467,7 +441,7 @@ private struct HistoryScreen: View {
               .padding(20)
               .frame(maxWidth: .infinity, alignment: .leading)
               .background(
-                Color(uiColor: .secondarySystemGroupedBackground),
+                FoldingSurface.card,
                 in: RoundedRectangle(cornerRadius: FoldingShape.cornerRadius))
             VStack(alignment: .leading, spacing: 12) {
               if model.history != nil {
@@ -482,12 +456,12 @@ private struct HistoryScreen: View {
             .padding(20)
             .frame(width: min(380, geometry.size.width * 0.38), alignment: .leading)
             .background(
-              Color(uiColor: .secondarySystemGroupedBackground),
+              FoldingSurface.card,
               in: RoundedRectangle(cornerRadius: FoldingShape.cornerRadius))
           }
           .padding(20)
         }
-        .background(Color(uiColor: .systemGroupedBackground))
+        .background(FoldingSurface.background)
       } else {
         List {
           Section { summaryContent }
@@ -778,16 +752,13 @@ private struct SettingsScreen: View {
           } label: {
             LabeledContent(
               String(localized: "phone.title", defaultValue: "Tracking phone"),
-              value: model.trackingPhoneSelection?.title ?? "—")
+              value: model.phoneName(
+                for: model.analytics?.selectedDeviceID,
+                fallback: model.trackingPhoneSelection?.title ?? "—"))
           }
           if let sync = model.syncStatus {
             LabeledContent(String(localized: "sync.iCloud", defaultValue: "iCloud")) {
               Text(syncTitle(sync.iCloud))
-            }
-            if sync.publicTracking && sync.pendingFolds > 0 {
-              LabeledContent(
-                String(localized: "sync.pendingFolds", defaultValue: "Pending folds"),
-                value: sync.pendingFolds.formatted())
             }
           }
         }
@@ -801,6 +772,7 @@ private struct SettingsScreen: View {
             NavigationLink(String(localized: "profile.yours", defaultValue: "Your Profile")) {
               YourProfileScreen(model: model, actions: actions)
             }
+            ProfileAccountActions(model: model, actions: actions)
           }
         }
         Section(String(localized: "settings.data", defaultValue: "Data")) {
@@ -1319,6 +1291,7 @@ private struct FoldIllustration: View {
 
 private struct LeaderboardScreen: View {
   @Environment(\.colorScheme) private var colorScheme
+  @State private var selectedParticipantID: String?
   @Bindable var model: FoldingPresentation
   let actions: FoldingActions
   var body: some View {
@@ -1390,6 +1363,15 @@ private struct LeaderboardScreen: View {
         }
       }
     }
+    .navigationDestination(
+      isPresented: Binding(
+        get: { selectedParticipantID != nil },
+        set: { if !$0 { selectedParticipantID = nil } })
+    ) {
+      if let id = selectedParticipantID {
+        ProfileDestinationScreen(participantID: id, model: model, actions: actions)
+      }
+    }
     .task(id: model.competitionPeriod) {
       switch model.competition {
       case .loaded, .failed, .loading: await model.requestLeaderboard(using: actions)
@@ -1420,16 +1402,12 @@ private struct LeaderboardScreen: View {
             ForEach([2, 1, 3], id: \.self) { rank in
               if let entries = podium[rank], let first = entries.first {
                 VStack(spacing: 8) {
-                  NavigationLink {
-                    ProfileDestinationScreen(
-                      participantID: first.id, model: model, actions: actions)
+                  Button {
+                    selectedParticipantID = first.id
                   } label: {
                     VStack(spacing: 8) {
                       CompetitionAvatar(entry: first, size: rank == 1 ? 64 : 48)
                       Text(first.displayName).font(.caption).lineLimit(2)
-                      if let badge = first.featuredBadge {
-                        MilestoneBadgeArtwork(badge: badge, size: 24)
-                      }
                     }
                   }.buttonStyle(.plain)
                   if entries.count > 1 {
@@ -1440,7 +1418,14 @@ private struct LeaderboardScreen: View {
                   }
                 }.frame(maxWidth: .infinity)
               } else {
-                Color.clear.frame(maxWidth: .infinity).frame(height: 1).accessibilityHidden(true)
+                VStack(spacing: 8) {
+                  Image(systemName: "person.fill")
+                    .font(.title3).foregroundStyle(.tertiary)
+                    .frame(width: rank == 1 ? 64 : 48, height: rank == 1 ? 64 : 48)
+                    .overlay(
+                      Circle().stroke(.tertiary, style: StrokeStyle(lineWidth: 1.5, dash: [3, 3])))
+                  Text("—").font(.caption).foregroundStyle(.tertiary)
+                }.frame(maxWidth: .infinity).accessibilityHidden(true)
               }
             }
           }.padding(.top, 16).listRowSeparator(.hidden)
@@ -1452,6 +1437,13 @@ private struct LeaderboardScreen: View {
         }
       }
       Section {
+        if case .loading = model.competition {
+          ProgressView()
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 16)
+            .listRowSeparator(.hidden)
+            .accessibilityLabel(String(localized: "action.refreshing", defaultValue: "Refreshing"))
+        }
         if value.entries.isEmpty {
           Text(String(localized: "leaderboard.empty", defaultValue: "No folds yet"))
             .foregroundStyle(.secondary)
@@ -1511,7 +1503,6 @@ private struct LeaderboardScreen: View {
         .background(.bar)
       }
     }
-    .overlay(alignment: .top) { if case .loading = model.competition { ProgressView().padding(8) } }
     .refreshable { await model.requestLeaderboard(using: actions) }
   }
 }
@@ -1525,7 +1516,6 @@ private struct LeaderboardRow: View {
       ).frame(minWidth: 24, alignment: .trailing)
       CompetitionAvatar(entry: entry, size: 36)
       Text(entry.displayName).fontWeight(entry.isCurrentUser ? .semibold : .regular).lineLimit(2)
-      if let badge = entry.featuredBadge { MilestoneBadgeArtwork(badge: badge, size: 24) }
       Spacer(minLength: 8)
       Text(entry.folds, format: .number).monospacedDigit()
     }
@@ -1550,7 +1540,7 @@ private struct CompetitionAvatar: View {
       .frame(width: size, height: size)
       .clipShape(Circle())
       .overlay {
-        if let medal, size >= 48 {
+        if let medal {
           PodiumRing(medal: medal, size: size)
         }
       }
@@ -1606,6 +1596,10 @@ struct NotificationSettingsScreen: View {
               value: model.preferences.dailyLimit.formatted())
           }
         }
+        Toggle(
+          String(localized: "notifications.badges", defaultValue: "Badges earned"),
+          isOn: preference(\.badgesEarned)
+        ).disabled(!model.competitionJoined)
         Picker(
           String(localized: "notifications.weekly", defaultValue: "Weekly result"),
           selection: preference(\.weeklyResult)
@@ -1703,15 +1697,27 @@ private struct TrackingPhoneScreen: View {
   @Bindable var model: FoldingPresentation
   let actions: FoldingActions
   @State private var confirming = false
+  @State private var editingDeviceID: UUID?
+  @State private var nameDraft = ""
+  @State private var renaming = false
 
   var body: some View {
     Form {
       Section(String(localized: "phone.personalHistory", defaultValue: "Personal history")) {
         if let selection = model.trackingPhoneSelection {
           Label(
-            selection.title,
+            model.phoneName(
+              for: model.analytics?.selectedDeviceID, fallback: selection.title),
             systemImage: selection == .thisPhone
               ? "iphone.gen3" : "iphone.gen3.radiowaves.left.and.right")
+          if selection == .thisPhone,
+            model.phoneName(for: model.localDeviceID, fallback: "") != ""
+          {
+            Text(selection.title).font(.caption).foregroundStyle(.secondary)
+          }
+          if let selectedID = model.analytics?.selectedDeviceID {
+            renameButton(for: selectedID)
+          }
           if selection != .thisPhone || model.publicTrackingPhone == .anotherPhone,
             actions.useThisPhone != nil
           {
@@ -1724,17 +1730,54 @@ private struct TrackingPhoneScreen: View {
           ProgressView()
         }
       }
+      if model.trackingPhoneSelection != .thisPhone, let localID = model.localDeviceID {
+        Section {
+          LabeledContent(
+            String(localized: "phone.thisPhone", defaultValue: "This iPhone"),
+            value: model.phoneName(for: localID, fallback: ""))
+          renameButton(for: localID)
+        }
+      }
       if let selection = model.publicTrackingPhone {
         Section(String(localized: "tab.leaderboard", defaultValue: "Leaderboard")) {
-          Label(selection.title, systemImage: "trophy")
+          Label(
+            selection == .thisPhone
+              ? model.phoneName(for: model.localDeviceID, fallback: selection.title)
+              : selection.title,
+            systemImage: "trophy")
         }
       }
     }
     .navigationTitle(String(localized: "phone.title", defaultValue: "Tracking phone"))
     .navigationBarTitleDisplayMode(.inline)
+    .alert(String(localized: "phone.rename", defaultValue: "Name phone"), isPresented: $renaming) {
+      TextField(String(localized: "phone.name", defaultValue: "Phone name"), text: $nameDraft)
+        .onChange(of: nameDraft) { _, value in nameDraft = String(value.prefix(40)) }
+      Button(String(localized: "action.save", defaultValue: "Save")) {
+        guard let deviceID = editingDeviceID else { return }
+        var next = model.preferences
+        let name = nameDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        next.phoneNames[deviceID.uuidString.lowercased()] = name.isEmpty ? nil : name
+        Task {
+          await model.command(String(localized: "settings.saving", defaultValue: "Saving")) {
+            try await actions.savePreferences(next)
+          }
+        }
+      }
+      Button(String(localized: "action.cancel", defaultValue: "Cancel"), role: .cancel) {}
+    } message: {
+      Text(String(localized: "phone.nameLocal", defaultValue: "Names are saved on this iPhone."))
+    }
     .navigationDestination(isPresented: $confirming) {
       TrackingPhoneConfirmation(model: model, actions: actions)
     }
+  }
+  private func renameButton(for deviceID: UUID) -> some View {
+    Button(String(localized: "phone.rename", defaultValue: "Name phone")) {
+      editingDeviceID = deviceID
+      nameDraft = model.phoneName(for: deviceID, fallback: "")
+      renaming = true
+    }.disabled(model.operation != nil)
   }
 }
 

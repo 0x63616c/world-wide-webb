@@ -1,5 +1,8 @@
 # Backend, competition, and security implementation contract
 
+**Current owner amendment — #76/#77/#78:** badges are owner-only, featuring is disabled, existing eligible history is imported when joining (and backfilled for existing accounts), direct photo/name edits replace Edit Profile, and optional grouped badge push is supported. See [the exact contracts and evidence](../experiments/owner-polish-2026-11-08.md). This supersedes conflicting earlier feature-plan wording; live rollout and deferred device acceptance are separate.
+
+
 ## Runtime and module choices
 
 Use workers-rs for the Cloudflare runtime, Serde/serde_json for typed JSON, D1 prepared SQL, R2 private object storage, and Queues/Cron for retryable work. Use a compile-time autoescaping Rust HTML template engine (default Askama) for admin. Compile template, crypto, image decoder, and APNs integration to the actual Worker target in F03 before depending on them. No assumed Tokio socket server, filesystem, or long-running background thread inside a Worker.

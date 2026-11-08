@@ -53,7 +53,8 @@ actor CompetitionUploader {
             }
           }
           let response: Receipt = try await transport.protected(
-            "POST", path: "/v1/event-batches", purpose: "submit_events", body: work.body)
+            "POST", path: work.isHistory == true ? "/v1/history-batches" : "/v1/event-batches",
+            purpose: "submit_events", body: work.body)
           guard response.operationID == work.operationID.uuidString.lowercased(),
             response.events.map(\.eventID) == work.eventIDs.map({ $0.uuidString.lowercased() })
           else { throw CompetitionTransportError.invalidResponse }

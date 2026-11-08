@@ -30,6 +30,7 @@ import UserNotifications
     var next = preferences
     next.weeklyResult = weekly
     next.monthlyResult = monthly
+    next.badgesEarned = remote.badge_earned ?? false
     defaults.set(try JSONEncoder().encode(next), forKey: key)
   }
 
@@ -41,6 +42,7 @@ import UserNotifications
     var result = requested
     let enabling =
       (!previous.dailyLimit && requested.dailyLimit)
+      || (!previous.badgesEarned && requested.badgesEarned)
       || (previous.weeklyResult == .off && requested.weeklyResult != .off)
       || (previous.monthlyResult == .off && requested.monthlyResult != .off)
     if enabling {
@@ -49,6 +51,7 @@ import UserNotifications
       }
       if await authorization() != .allowed {
         if !previous.dailyLimit { result.dailyLimit = false }
+        if !previous.badgesEarned { result.badgesEarned = false }
         if previous.weeklyResult == .off { result.weeklyResult = .off }
         if previous.monthlyResult == .off { result.monthlyResult = .off }
       }

@@ -1,5 +1,8 @@
 # Folding: complete v1 specification for review
 
+**Owner update November 8 (#76/#77/#78):** the follow-up implementation makes badges private and pauses featuring; adds optional grouped badge push; imports original eligible pre-join history for new/existing accounts; edits profile photo/name directly; and applies the dashboard/leaderboard refinements recorded in `docs/experiments/owner-polish-2026-11-08.md`. These decisions supersede conflicting no-pre-join/public-badge/no-new-push wording below. Main merge is separate from provider/TestFlight and deferred device acceptance.
+
+
 
 ## Owner-approved execution update — November 7, 2026
 

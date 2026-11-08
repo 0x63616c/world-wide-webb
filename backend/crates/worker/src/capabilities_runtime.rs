@@ -11,6 +11,8 @@ const IMPLEMENTED: &[&str] = &[
     "enrollment.join",
     "enrollment.transfer",
     "events.submit",
+    "events.history_import",
+    "notifications.badges",
     "events.receipt",
     "account.delete",
     "account.deletion_status",
@@ -56,7 +58,7 @@ pub(crate) fn get(env: &Env, request_id: &Id) -> std::result::Result<Response, F
         .var("APNS_ENABLED")
         .is_ok_and(|v| v.to_string() == "true")
     {
-        enabled.retain(|name| name != "notifications.results");
+        enabled.retain(|name| name != "notifications.results" && name != "notifications.badges");
     }
     let capabilities: BTreeSet<_> = enabled.into_iter().collect();
     response(

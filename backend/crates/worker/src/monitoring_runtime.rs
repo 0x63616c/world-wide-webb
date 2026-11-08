@@ -79,6 +79,7 @@ pub(crate) fn route(path: &str) -> &'static str {
     match path {
         "/v1/entry-deletions" => "entries.delete",
         "/v1/event-batches" => "events.submit",
+        "/v1/history-batches" => "events.history_import",
         "/v1/capabilities" => "capabilities",
         "/v1/client-policy" => "client.policy",
         "/v1/health" => "health",

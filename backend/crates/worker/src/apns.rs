@@ -130,3 +130,58 @@ pub fn payload(
     };
     serde_json::json!({"aps":{"alert":{"title":format!("{icon}{}",if monthly{month}else{weekly}),"body":body},"sound":"default"},"folding":{"kind":if monthly{"monthly_result"}else{"weekly_result"},"period_id":period}})
 }
+
+pub fn badge_payload(locale: &str, participant: &str, badges: &[String]) -> serde_json::Value {
+    let group = badges.len() > 1;
+    let (one, many, body) = match locale {
+        "de" => (
+            "Abzeichen verdient",
+            "Abzeichen verdient",
+            "In Folding ansehen.",
+        ),
+        "fr" => ("Badge obtenu", "Badges obtenus", "Voir dans Folding."),
+        "es" | "es-419" => (
+            "Insignia conseguida",
+            "Insignias conseguidas",
+            "Ver en Folding.",
+        ),
+        "ja" => ("バッジを獲得", "バッジを獲得", "Foldingで確認できます。"),
+        "ko" => ("배지 획득", "배지 획득", "Folding에서 확인하세요."),
+        "pt-BR" => (
+            "Emblema conquistado",
+            "Emblemas conquistados",
+            "Ver no Folding.",
+        ),
+        "zh-Hans" => ("获得徽章", "获得徽章", "在 Folding 中查看。"),
+        "zh-Hant" => ("獲得徽章", "獲得徽章", "在 Folding 中查看。"),
+        _ => ("Badge earned", "Badges earned", "View in Folding."),
+    };
+    serde_json::json!({"aps":{"alert":{"title":if group{many}else{one},"body":body},"sound":"default"},"folding":{"kind":"badges_earned","participant_id":participant,"badge_ids":badges}})
+}
+
+#[cfg(test)]
+mod badge_tests {
+    use super::*;
+    #[test]
+    fn badges_have_one_private_grouped_payload_in_every_supported_locale() {
+        for locale in [
+            "en", "de", "fr", "es", "es-419", "ja", "ko", "pt-BR", "zh-Hans", "zh-Hant",
+        ] {
+            let ids = vec!["folds_1".to_string(), "days_7".to_string()];
+            let payload = badge_payload(locale, "owner", &ids);
+            assert_eq!(payload["folding"]["badge_ids"], serde_json::json!(ids));
+            assert_eq!(payload["folding"]["participant_id"], "owner");
+            let alert = &payload["aps"]["alert"];
+            assert!(!alert["title"].as_str().unwrap().is_empty());
+            assert!(!alert.to_string().contains("folds_1"));
+            assert_eq!(
+                identifiers("owner", "badge:batch"),
+                identifiers("owner", "badge:batch")
+            );
+            assert_ne!(
+                identifiers("owner", "badge:batch"),
+                identifiers("other", "badge:batch")
+            );
+        }
+    }
+}

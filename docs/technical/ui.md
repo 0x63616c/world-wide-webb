@@ -224,3 +224,13 @@ For a confirmed unsupported build, replace the complete root UI with the require
 Admin Operations is the sole owner of required-update policy: one Minimum build number field (0 = off), existing audited Save, and a one-minute propagation hint. No deployment-variable override.
 
 Owner refinement, November 8: avatars and share cards display no crowns. The podium retains the larger centered winner and metal-colored rings, with gold-only shimmer/particles and a static Reduce Motion fallback. Silver/bronze rings stay still.
+
+## November 8 owner polish follow-up (#76)
+
+Today omits the standalone Edit Summary button; summary editing remains available from the card context menu. Shared card surfaces use near-black (white 0.065) in dark appearance, and the grouped page background uses white 0.89 in light appearance. Text retains semantic foreground colors.
+
+Tracking phone supports optional local names keyed by the private installation/device UUID, saved through versioned presentation preferences. Empty names restore generic labels; input is trimmed and limited to 40 characters. Names do not modify Apple system device names, select a phone, change transfer markers or enter the public profile. They are local to the installation, with that limitation disclosed in the naming prompt. The current selected phone retains a This iPhone label when named.
+
+Today statistic cards share SummaryCard for padding, minimum height, background and corner radius, and MetricRow for label/value layout. Folds, opens, closes, cycles and all-time folds all use subheadline labels and semibold title2 monospaced values; the folds-only large-title override is removed. At widths of 600 points or more, all cards use two columns in the saved order, including Folds beside Time unfolded by default; an unpaired final card keeps one-column width. Accessibility text sizes stack the cards. Narrow layouts retain paired compact counts. The elapsed-time card omits the timer icon and uses localized narrow day/hour/minute/second units without English commas (for example 3d 3h 1m 3s), omitting zero units.
+
+Leaderboard refresh uses an in-flow indicator at the start of the list content instead of an overlay on the period picker. List avatars now share podium metal rings for ranks 1–3, including the gold sparkle and the existing static Reduce Motion fallback. Today and Settings omit routine pending-upload counts; reset-in-progress feedback and the leaderboard pending count remain scoped to their existing operations.

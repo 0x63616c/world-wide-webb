@@ -1,5 +1,5 @@
 //! Revision-fenced, bounded reward backfill and incremental score projections.
-use crate::auth_runtime::{Failure, number, statement, text, uuid};
+use crate::auth_runtime::{Failure, now, number, statement, text, uuid};
 use crate::{milestone_projection, milestone_sql as sql};
 use folding_domain::{
     milestones::{BadgeId, Track, UTC_DAY_MS},
@@ -46,6 +46,7 @@ pub(crate) fn purge(
     ];
     if reset {
         tables.push("milestone_acknowledgments");
+        tables.push("badge_notification_jobs");
     }
     tables
         .into_iter()
@@ -100,6 +101,7 @@ fn grants(
                 "SELECT MIN(e.observed_at_ms) FROM (SELECT utc_day FROM milestone_days WHERE participant_id=?1 AND folds>0 ORDER BY utc_day LIMIT 1 OFFSET ?4) d JOIN milestone_counted_events e ON e.participant_id=?1 AND e.observed_at_ms>=d.utc_day*{UTC_DAY_MS} AND e.observed_at_ms<(d.utc_day+1)*{UTC_DAY_MS}"
             )
         };
+        writes.push(statement(db,&format!("INSERT OR IGNORE INTO badge_notification_jobs(participant_id,generation_revision,generation_id,badge_id,created_at_ms,state) SELECT s.participant_id,s.generation_revision,s.generation_id,?2,?4,'pending' FROM milestone_state s JOIN badge_notification_preferences n ON n.participant_id=s.participant_id AND n.enabled=1 WHERE s.participant_id=?1 AND s.state='ready' AND s.{column}>=?3 AND NOT EXISTS(SELECT 1 FROM milestone_grants g WHERE g.participant_id=?1 AND g.badge_id=?2) AND NOT EXISTS(SELECT 1 FROM milestone_acknowledgments a WHERE a.participant_id=?1 AND a.badge_id=?2)"),&[text(participant),text(badge.as_str()),number(badge.threshold() as i64),number(now())])?);
         writes.push(statement(db,&format!("INSERT INTO milestone_grants(participant_id,badge_id,earned_at_ms) SELECT ?1,?2,({date}) WHERE EXISTS(SELECT 1 FROM milestone_state WHERE participant_id=?1 AND state='ready' AND {column}>=?3) AND NOT EXISTS(SELECT 1 FROM milestone_grants WHERE participant_id=?1 AND badge_id=?2)"),&[text(participant),text(badge.as_str()),number(badge.threshold() as i64),number(badge.threshold() as i64-1)])?);
         if let Some(from) = refresh_from {
             let cutoff = if badge.track() == Track::Days {

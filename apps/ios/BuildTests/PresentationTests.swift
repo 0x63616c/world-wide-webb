@@ -17,6 +17,86 @@ import XCTest
     XCTAssertNil(try AppleNameSuggestion.resolve(nil, userID: "first", store: store))
   }
 
+  func testBadgePushRouteRequiresKnownAwardsAndOwnerIdentity() {
+    let owner = UUID().uuidString.lowercased()
+    let payload: [AnyHashable: Any] = [
+      "folding": [
+        "kind": "badges_earned", "participant_id": owner, "badge_ids": ["folds_1", "days_7"],
+      ]
+    ]
+    let route = PushNotificationRoute.parse(payload)
+    XCTAssertEqual(route?.participantID, owner)
+    XCTAssertEqual(route?.isBadge, true)
+    for ids in [[], ["unknown"], ["folds_1", "folds_1"]] {
+      XCTAssertNil(
+        PushNotificationRoute.parse([
+          "folding": ["kind": "badges_earned", "participant_id": owner, "badge_ids": ids]
+        ]))
+    }
+    XCTAssertNil(
+      PushNotificationRoute.parse([
+        "folding": ["kind": "badges_earned", "participant_id": "other", "badge_ids": ["folds_1"]]
+      ]))
+  }
+
+  func testAddingBadgeNotificationPreferencePreservesOldChoices() throws {
+    let legacy = Data(#"{"dailyLimit":true,"weeklyResult":"podium","monthlyResult":"all"}"#.utf8)
+    var preferences = try JSONDecoder().decode(NotificationPreferences.self, from: legacy)
+    XCTAssertTrue(preferences.dailyLimit)
+    XCTAssertEqual(preferences.weeklyResult, .podium)
+    XCTAssertEqual(preferences.monthlyResult, .all)
+    XCTAssertFalse(preferences.badgesEarned)
+    preferences.badgesEarned = true
+    XCTAssertEqual(
+      try JSONDecoder().decode(
+        NotificationPreferences.self, from: JSONEncoder().encode(preferences)), preferences)
+  }
+
+  func testSummaryCardsPairInWideViewsAndStackForAccessibility() {
+    let metrics: [SummaryMetric] = [
+      .folds, .timeUnfolded, .trend, .opens, .closes, .cycles, .lifetimeFolds,
+    ]
+    let wide = SummaryCardLayout.rows(metrics, width: 700, accessibilitySize: false)
+    XCTAssertEqual(
+      wide, [[.folds, .timeUnfolded], [.trend, .opens], [.closes, .cycles], [.lifetimeFolds]])
+    XCTAssertEqual(wide.flatMap { $0 }, metrics)
+    XCTAssertEqual(
+      SummaryCardLayout.rows(metrics, width: 390, accessibilitySize: false),
+      [[.folds], [.timeUnfolded], [.trend], [.opens, .closes], [.cycles, .lifetimeFolds]])
+    XCTAssertEqual(
+      SummaryCardLayout.rows(metrics, width: 700, accessibilitySize: true), metrics.map { [$0] })
+    XCTAssertFalse(SummaryCardLayout.usesWideRows(width: 599, accessibilitySize: false))
+    XCTAssertTrue(SummaryCardLayout.usesWideRows(width: 600, accessibilitySize: false))
+  }
+
+  func testElapsedTimeUsesCompactDaysAndOmitsZeroUnits() {
+    let locale = Locale(identifier: "en_US")
+    XCTAssertEqual(foldingElapsedDuration(14_582_000, locale: locale), "4h 3m 2s")
+    XCTAssertEqual(foldingElapsedDuration(270_063_000, locale: locale), "3d 3h 1m 3s")
+    XCTAssertEqual(foldingElapsedDuration(86_400_000, locale: locale), "1d")
+    XCTAssertEqual(foldingElapsedDuration(-1, locale: locale), "0s")
+  }
+
+  func testPhoneNamesAreOptionalAndRemainBoundToDeviceIdentity() throws {
+    let first = UUID()
+    let second = UUID()
+    var preferences = FoldingPreferences()
+    var legacy = try XCTUnwrap(
+      JSONSerialization.jsonObject(with: JSONEncoder().encode(preferences)) as? [String: Any])
+    legacy.removeValue(forKey: "phoneNames")
+    let old = try JSONDecoder().decode(
+      FoldingPreferences.self, from: JSONSerialization.data(withJSONObject: legacy))
+    XCTAssertTrue(old.phoneNames.isEmpty)
+    preferences.phoneNames[first.uuidString.lowercased()] = "Daily phone"
+    let saved = try JSONDecoder().decode(
+      FoldingPreferences.self, from: JSONEncoder().encode(preferences))
+    let model = FoldingPresentation()
+    model.preferences = saved
+    XCTAssertEqual(model.phoneName(for: first, fallback: "This iPhone"), "Daily phone")
+    XCTAssertEqual(model.phoneName(for: second, fallback: "Another iPhone"), "Another iPhone")
+    XCTAssertEqual(model.phoneName(for: nil, fallback: "Not selected"), "Not selected")
+  }
+
   func testLegacyAccentIsIgnoredWithoutLosingPreferences() throws {
     var preferences = FoldingPreferences()
     preferences.appearance = .dark

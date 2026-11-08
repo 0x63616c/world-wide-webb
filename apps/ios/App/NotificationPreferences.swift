@@ -4,6 +4,16 @@ struct NotificationPreferences: Codable, Equatable, Sendable {
   var dailyLimit = false
   var weeklyResult: ResultNotificationChoice = .off
   var monthlyResult: ResultNotificationChoice = .off
+  var badgesEarned = false
+  init() {}
+  enum CodingKeys: String, CodingKey { case dailyLimit, weeklyResult, monthlyResult, badgesEarned }
+  init(from decoder: Decoder) throws {
+    let values = try decoder.container(keyedBy: CodingKeys.self)
+    dailyLimit = try values.decode(Bool.self, forKey: .dailyLimit)
+    weeklyResult = try values.decode(ResultNotificationChoice.self, forKey: .weeklyResult)
+    monthlyResult = try values.decode(ResultNotificationChoice.self, forKey: .monthlyResult)
+    badgesEarned = try values.decodeIfPresent(Bool.self, forKey: .badgesEarned) ?? false
+  }
 }
 
 enum ResultNotificationChoice: String, Codable, CaseIterable, Identifiable, Sendable {

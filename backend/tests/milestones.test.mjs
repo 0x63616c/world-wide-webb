@@ -26,7 +26,7 @@ async function setup(){
   for(const sql of (await readFile(`${root}migrations/${name}`,'utf8')).split(';').filter(s=>s.trim()))await db.prepare(sql).run();
 }
 async function person(n,folds=0){
- const participant=uuid(n),device=uuid(n+1),epoch=uuid(n+2),session=`milestone-session-${n}`,token=Buffer.alloc(32,n%250+1),time=Date.now();
+ const participant=uuid(n),device=uuid(n+1),epoch=uuid(n+2),session=`milestone-session-${n}`,token=createHash('sha256').update(`milestone-person-${n}`).digest(),time=Date.now();
  await db.batch([
   db.prepare("INSERT INTO participants(participant_id,subject_hmac,membership,restriction,generation_revision,generation_id,epoch_id,active_device_id) VALUES (?,?,'joined','none',0,?,?,?)").bind(participant,participant,nil,epoch,device),
   db.prepare('INSERT INTO participant_revisions VALUES (?,0)').bind(participant),
@@ -46,7 +46,7 @@ async function observations(p,events,disposition='accepted'){
 }
 async function jsonOK(response){assert.equal(response.status,200,await response.clone().text());return response.json();}
 
-test('real Worker derives owner progress, exposes a public allowlist and persists one featured award',async()=>{
+test('real Worker derives owner progress, keeps awards private and disables new featured selections',async()=>{
  await setup();
  const p=await person(100,100),viewer=await person(200);
  await observations(p,Array.from({length:100},(_,i)=>event(p,i+1,i*86400000+1234)));
@@ -58,15 +58,14 @@ test('real Worker derives owner progress, exposes a public allowlist and persist
  assert.equal(own.grants.find(g=>g.badge_id==='days_7').earned_at_ms,6*86400000+1234);
  assert.equal(own.grants.find(g=>g.badge_id==='days_30').earned_at_ms,29*86400000+1234);
  assert.equal((await request(null,'/v1/participants/'+p.participant)).status,401);
- assert.equal((await request(p,'/v1/profile/badge',{operation_id:uuid(++op),generation,badge_id:'folds_1000'},'PATCH')).status,422);
- const selection={operation_id:uuid(++op),generation,badge_id:'folds_100'};
- const selected=await jsonOK(await request(p,'/v1/profile/badge',selection,'PATCH'));
- assert.equal(selected.featured_badge_id,'folds_100');
- assert.deepEqual(await jsonOK(await request(p,'/v1/profile/badge',selection,'PATCH')),selected);
- assert.equal((await request(p,'/v1/profile/badge',{...selection,badge_id:'folds_1'},'PATCH')).status,409);
+ for(const badge of ['folds_1000','folds_100',null]) {
+  assert.equal((await request(p,'/v1/profile/badge',{operation_id:uuid(++op),generation,badge_id:badge},'PATCH')).status,404);
+ }
+ // Previously featured data must stay private even before any cleanup or client upgrade.
+ await db.prepare('INSERT INTO milestone_featured VALUES (?,?)').bind(p.participant,'folds_100').run();
  const visible=await jsonOK(await request(viewer,'/v1/participants/'+p.participant));
  assert.deepEqual(Object.keys(visible.profile).sort(),['participant_id','nickname','avatar_id','folds','earned_badges','featured_badge_id'].sort());
- assert.equal(visible.profile.featured_badge_id,'folds_100');
+ assert.equal(visible.profile.featured_badge_id,null);assert.deepEqual(visible.profile.earned_badges,[]);
  assert.ok(!JSON.stringify(visible).includes('earned_at_ms'));assert.ok(!JSON.stringify(visible).includes('days_used'));
  const ack={operation_id:uuid(++op),generation,badge_ids:['folds_1','folds_100']};
  await jsonOK(await request(p,'/v1/milestones/acknowledgments',ack));
@@ -74,7 +73,7 @@ test('real Worker derives owner progress, exposes a public allowlist and persist
  const again=await jsonOK(await request(p,'/v1/milestones'));
  assert.ok(again.grants.filter(g=>g.badge_id.startsWith('folds')).every(g=>g.acknowledged));
  assert.equal((await request(p,'/v1/milestones/acknowledgments',{...ack,operation_id:uuid(++op),badge_ids:['folds_1','folds_1']})).status,422);
- assert.equal((await request(p,'/v1/profile/badge',{operation_id:uuid(++op),generation:{revision:1,reset_id:uuid(888)},badge_id:null},'PATCH')).status,409);
+ assert.equal((await request(p,'/v1/profile/badge',{operation_id:uuid(++op),generation:{revision:1,reset_id:uuid(888)},badge_id:null},'PATCH')).status,404);
  await db.batch([db.prepare("UPDATE participants SET restriction='banned' WHERE participant_id=?").bind(p.participant),db.prepare('UPDATE participant_revisions SET revision=revision+1 WHERE participant_id=?').bind(p.participant)]);
  assert.equal((await request(viewer,'/v1/participants/'+p.participant)).status,404);
  assert.equal((await request(p,'/v1/profile/badge',{operation_id:uuid(++op),generation,badge_id:null},'PATCH')).status,401);
@@ -96,14 +95,14 @@ test('bounded backfill resumes across causal boundaries and never returns partia
  assert.equal(done.progress.folds,639);assert.equal(done.progress.days_used,1);
  assert.equal(done.progress.next[0].current,639);assert.equal(done.progress.next[0].target,1000);
  assert.equal(await db.prepare('SELECT count(*) n FROM milestone_counted_events WHERE participant_id=?').bind(p.participant).first('n'),639);
- assert.equal((await request(p,'/v1/profile/badge',{operation_id:uuid(++op),generation,badge_id:'days_30'},'PATCH')).status,422);
+ assert.equal((await request(p,'/v1/profile/badge',{operation_id:uuid(++op),generation,badge_id:'days_30'},'PATCH')).status,404);
 });
 
 test('entry deletion corrects profile awards atomically without re-awarding on retries',async()=>{
  await setup();const p=await person(400,100);
  const events=Array.from({length:100},(_,i)=>event(p,i+1,i*1000));await observations(p,events);
  await jsonOK(await request(p,'/v1/milestones'));
- await jsonOK(await request(p,'/v1/profile/badge',{operation_id:uuid(++op),generation,badge_id:'folds_100'},'PATCH'));
+ await db.prepare('INSERT OR REPLACE INTO milestone_featured VALUES (?,?)').bind(p.participant,'folds_100').run();
  await jsonOK(await request(p,'/v1/milestones/acknowledgments',{operation_id:uuid(++op),generation,badge_ids:['folds_1','folds_100']}));
  const body={operation_id:uuid(++op),event_ids:[events[0].event_id],epoch_ids:[p.epoch]};
  await jsonOK(await request(p,'/v1/entry-deletions',body));await jsonOK(await request(p,'/v1/entry-deletions',body));
@@ -149,15 +148,15 @@ test('signed uploads advance milestones with scores; duplicates/quarantine do no
  await jsonOK(await send('/v1/event-batches',{...batch,operation_id:uuid(++op)}));
  await jsonOK(await send('/v1/event-batches',{...batch,operation_id:uuid(++op),events:[event(p,101,Date.now()+600000)]}));
  own=await jsonOK(await request(p,'/v1/milestones'));assert.equal(own.progress.folds,100);
- await jsonOK(await request(p,'/v1/profile/badge',{operation_id:uuid(++op),generation,badge_id:'folds_100'},'PATCH'));
- const board=await jsonOK(await request(p,'/v1/leaderboards?kind=all'));assert.equal(board.you.featured_badge_id,'folds_100');
+ await db.prepare('INSERT OR REPLACE INTO milestone_featured VALUES (?,?)').bind(p.participant,'folds_100').run();
+ const board=await jsonOK(await request(p,'/v1/leaderboards?kind=all'));assert.equal(board.you.featured_badge_id,null);assert.ok(board.page.items.every(e=>e.featured_badge_id==null));
  await jsonOK(await request(p,'/v1/milestones/acknowledgments',{operation_id:uuid(++op),generation,badge_ids:['folds_1','folds_100']}));
  const nextGeneration={revision:1,reset_id:uuid(99999)};
  const reset={schema_version:1,operation_id:uuid(++op),epoch_id:p.epoch,generation:nextGeneration};
  await jsonOK(await send('/v1/resets',reset,'reset'));
  own=await jsonOK(await request(p,'/v1/milestones'));assert.equal(own.progress.folds,0);assert.equal(own.progress.days_used,0);assert.deepEqual(own.grants,[]);assert.equal(own.featured_badge_id,null);assert.deepEqual(own.generation,nextGeneration);
  assert.equal(await db.prepare('SELECT count(*) n FROM milestone_acknowledgments WHERE participant_id=?').bind(p.participant).first('n'),0);
- assert.equal((await request(p,'/v1/profile/badge',{operation_id:uuid(++op),generation,badge_id:null},'PATCH')).status,409);
+ assert.equal((await request(p,'/v1/profile/badge',{operation_id:uuid(++op),generation,badge_id:null},'PATCH')).status,404);
 });
 
 test('late insertion moves a counted transition between UTC days without inventing a fold',async()=>{
@@ -196,7 +195,7 @@ test('100k retained folds backfill in bounded pages and keep profile reads and e
  for(let i=0;i<20;i++){const start=performance.now();await jsonOK(await request(p,'/v1/milestones'));reads.push(performance.now()-start);}
  reads.sort((a,b)=>a-b);
  console.log(JSON.stringify({experiment:'milestone-100k-local',folds:count,pages,seed_ms:Math.round(seedMS),backfill_ms:Math.round(backfillMS),owner_read_p95_ms:Math.round(reads[18])}));
- await jsonOK(await request(p,'/v1/profile/badge',{operation_id:uuid(++op),generation,badge_id:'folds_10000'},'PATCH'));
+ await db.prepare('INSERT OR REPLACE INTO milestone_featured VALUES (?,?)').bind(p.participant,'folds_10000').run();
  const deletion={operation_id:uuid(++op),event_ids:[event(p,1,base).event_id],epoch_ids:[p.epoch]};
  const start=performance.now();await jsonOK(await request(p,'/v1/entry-deletions',deletion));
  let after,correctionPages=0;
@@ -217,7 +216,7 @@ test('phone transfer preserves awards and selection while fencing old-phone uplo
  await setup();const p=await person(631,100),base=Date.now()-100000;
  await observations(p,Array.from({length:100},(_,i)=>event(p,i+1,base+i)));
  const before=await jsonOK(await request(p,'/v1/milestones'));
- await jsonOK(await request(p,'/v1/profile/badge',{operation_id:uuid(++op),generation,badge_id:'folds_100'},'PATCH'));
+ await db.prepare('INSERT OR REPLACE INTO milestone_featured VALUES (?,?)').bind(p.participant,'folds_100').run();
  await jsonOK(await request(p,'/v1/milestones/acknowledgments',{operation_id:uuid(++op),generation,badge_ids:['folds_1','folds_100']}));
  const token=Buffer.alloc(32,240),time=Date.now(),device=uuid(70001),session='milestone-transfer-session';
  await db.batch([
@@ -253,7 +252,7 @@ test('account deletion immediately removes ready and partially built badge proje
   const p=await person(n,count),base=Date.now()-100000;
   await observations(p,Array.from({length:count},(_,i)=>event(p,i+1,base+i)));
   const initial=await request(p,'/v1/milestones');assert.equal(initial.status,count===100?200:503);
-  if(count===100)await jsonOK(await request(p,'/v1/profile/badge',{operation_id:uuid(++op),generation,badge_id:'folds_100'},'PATCH'));
+  if(count===100)await db.prepare('INSERT OR REPLACE INTO milestone_featured VALUES (?,?)').bind(p.participant,'folds_100').run();
   const token=Buffer.alloc(32,n%200),time=Date.now();
   await db.prepare('INSERT INTO reauthentications VALUES (?,?,?,?,?,?,?,?,?,0)').bind(createHash('sha256').update(token).digest(),p.participant,`milestone-session-${n}`,uuid(++op),'synthetic',Buffer.alloc(32),Buffer.alloc(32),'test-v1',time+300000).run();
   const response=await request(p,'/v1/account/delete',{operation_id:uuid(++op),reauthentication_token:token.toString('base64url')});
@@ -267,4 +266,64 @@ test('account deletion immediately removes ready and partially built badge proje
 test('new capability stays unadvertised without deployment acceptance evidence',async()=>{
  const response=await runtime.dispatchFetch('https://api.example/v1/capabilities');
  const value=await jsonOK(response);assert.equal(value.contract_version,1);assert.equal(value.worker_version,'milestones-local');assert.ok(!value.capabilities.includes('profiles.milestones'));
+});
+
+test('pre-join history brings 18 accepted folds to the original 59 without rewriting or double-counting',async()=>{
+ await setup();const p=await person(91000),send=await signer(p);
+ const joined=Date.now()-100000;
+ await db.prepare('UPDATE epochs SET joined_at_ms=?,issued_at_ms=? WHERE epoch_id=?').bind(joined,joined,p.epoch).run();
+ const originals=Array.from({length:41},(_,i)=>({...event(p,i+1,joined-1000+i),competition_epoch_id:null}));
+ const live=Array.from({length:18},(_,i)=>event(p,42+i,joined+i));
+ const make=events=>({schema_version:1,operation_id:uuid(++op),epoch_id:p.epoch,events});
+ await jsonOK(await send('/v1/event-batches',make(live)));
+ assert.equal((await jsonOK(await request(p,'/v1/milestones'))).progress.folds,18);
+ const me=await jsonOK(await request(p,'/v1/me'));assert.equal(me.enrollment.history_import_before_ms,joined);
+ assert.equal((await send('/v1/event-batches',make(originals))).status,422);
+ const batch=make(originals),first=await jsonOK(await send('/v1/history-batches',batch));
+ assert.ok(first.events.every(e=>e.disposition==='accepted'));
+ assert.deepEqual(await jsonOK(await send('/v1/history-batches',batch)),first);
+ const duplicate=await jsonOK(await send('/v1/history-batches',make(originals)));
+ assert.ok(duplicate.events.every(e=>e.disposition==='duplicate'));
+ const own=await jsonOK(await request(p,'/v1/milestones'));assert.equal(own.progress.folds,59);
+ const board=await jsonOK(await request(p,'/v1/leaderboards?kind=all'));assert.equal(board.you.folds,59);
+ const saved=JSON.parse(await db.prepare('SELECT event_json FROM observations WHERE participant_id=? AND event_id=?').bind(p.participant,originals[0].event_id).first('event_json'));
+ assert.equal(saved.competition_epoch_id,null);assert.equal(saved.event_id,originals[0].event_id);
+ assert.equal((await send('/v1/history-batches',make([{...originals[0],observed_at_ms:joined-2000}]))).status,409);
+ const invalid=[{...event(p,100,joined+1),competition_epoch_id:null},{...event(p,101,joined-10),is_test:true},event(p,102,joined-10)];
+ const rejected=await jsonOK(await send('/v1/history-batches',make(invalid)));
+ assert.ok(rejected.events.every(e=>e.disposition==='rejected'));
+ assert.equal((await jsonOK(await request(p,'/v1/milestones'))).progress.folds,59);
+ // The caller must still own the currently active tracking phone/epoch.
+ await db.prepare('UPDATE participants SET active_device_id=? WHERE participant_id=?').bind(uuid(91999),p.participant).run();
+ assert.equal((await send('/v1/history-batches',make(originals))).status,409);
+});
+
+test('badge pushes are opt-in, group new awards, suppress viewed awards and do not alert for the old collection',async()=>{
+ await setup();const p=await person(93000,100);
+ await observations(p,Array.from({length:100},(_,i)=>event(p,i+1,i*86400000+1234)));
+ await jsonOK(await request(p,'/v1/milestones'));
+ const count=async(person,state)=>db.prepare('SELECT count(*) n FROM badge_notification_jobs WHERE participant_id=? AND state=?').bind(person.participant,state).first('n');
+ assert.equal(await count(p,'pending'),0);
+ const prefs={weekly:'off',monthly:'off',home_timezone:'UTC',locale:'en',badge_earned:true};
+ const set=async(person,value)=>jsonOK(await request(person,'/v1/preferences',{operation_id:uuid(++op),preferences:value},'PUT'));
+ assert.equal((await set(p,prefs)).preferences.badge_earned,true);
+ assert.equal(await count(p,'pending'),0);assert.equal(await count(p,'suppressed'),4);
+ const next=await person(94000,100);await set(next,prefs);
+ await observations(next,Array.from({length:100},(_,i)=>event(next,i+1,i*86400000+1234)));
+ const own=await jsonOK(await request(next,'/v1/milestones'));
+ assert.equal(await count(next,'pending'),4);
+ const groups=await db.prepare("SELECT participant_id,generation_revision,generation_id,delivery_id,count(*) n FROM badge_notification_jobs WHERE participant_id=? AND state='pending' GROUP BY participant_id,generation_revision,generation_id,delivery_id").bind(next.participant).all();
+ assert.equal(groups.results.length,1);assert.equal(groups.results[0].n,4);
+ await jsonOK(await request(next,'/v1/milestones'));assert.equal(await count(next,'pending'),4);
+ await jsonOK(await request(next,'/v1/milestones/acknowledgments',{operation_id:uuid(++op),generation,badge_ids:own.grants.map(g=>g.badge_id)}));
+ assert.equal(await count(next,'pending'),0);assert.equal(await count(next,'suppressed'),4);
+ await set(next,{...prefs,badge_earned:false});await set(next,prefs);
+ assert.equal(await count(next,'pending'),0);
+ const fresh=await person(95000,1);await set(fresh,prefs);
+ await observations(fresh,[event(fresh,1,Date.now()-1000)]);
+ await jsonOK(await request(fresh,'/v1/milestones'));assert.equal(await count(fresh,'pending'),1);
+ await set(fresh,{...prefs,badge_earned:false});assert.equal(await count(fresh,'pending'),0);
+ await db.prepare('DELETE FROM participants WHERE participant_id=?').bind(fresh.participant).run();
+ assert.equal(await db.prepare('SELECT count(*) n FROM badge_notification_jobs WHERE participant_id=?').bind(fresh.participant).first('n'),0);
+ assert.equal((await request({headers:{'Content-Type':'application/json'}},'/v1/preferences',{operation_id:uuid(++op),preferences:prefs},'PUT')).status,401);
 });

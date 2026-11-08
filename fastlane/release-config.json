@@ -8,7 +8,9 @@
   "fixture_version": 2,
   "backend_contract_version": 1,
   "preview_backend_capabilities": [
-    "profiles.milestones"
+    "profiles.milestones",
+    "events.history_import",
+    "notifications.badges"
   ],
   "minimum_backend_capabilities": [
     "auth.apple",
@@ -32,7 +34,9 @@
     "moderation.reports",
     "moderation.blocks",
     "notifications.results",
-    "profiles.milestones"
+    "profiles.milestones",
+    "events.history_import",
+    "notifications.badges"
   ],
   "required_checks": [
     "contracts",

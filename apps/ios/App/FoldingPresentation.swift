@@ -26,6 +26,19 @@ enum FoldingShape {
   static let cornerRadius: CGFloat = 20
 }
 
+enum FoldingSurface {
+  static let background = Color(
+    uiColor: UIColor { traits in
+      traits.userInterfaceStyle == .dark
+        ? .black : UIColor(white: 0.89, alpha: 1)
+    })
+  static let card = Color(
+    uiColor: UIColor { traits in
+      traits.userInterfaceStyle == .dark
+        ? UIColor(white: 0.065, alpha: 1) : .secondarySystemGroupedBackground
+    })
+}
+
 enum FoldingTint {
   static let color = Color(
     uiColor: UIColor { traits in
@@ -63,9 +76,10 @@ struct FoldingPreferences: Codable, Equatable {
   var homeTimezone = TimeZone.current.identifier
   var dailyLimit = 100
   var cardOrder: [SummaryMetric]? = nil
+  var phoneNames: [String: String] = [:]
   init() {}
   enum CodingKeys: String, CodingKey {
-    case schemaVersion, appearance, metrics, homeTimezone, dailyLimit, cardOrder
+    case schemaVersion, appearance, metrics, homeTimezone, dailyLimit, cardOrder, phoneNames
   }
   init(from decoder: Decoder) throws {
     let values = try decoder.container(keyedBy: CodingKeys.self)
@@ -76,6 +90,7 @@ struct FoldingPreferences: Codable, Equatable {
       .compactMap(SummaryMetric.init(rawValue:)).filter { $0 != .folds }
     homeTimezone = try values.decode(String.self, forKey: .homeTimezone)
     dailyLimit = try values.decode(Int.self, forKey: .dailyLimit)
+    phoneNames = try values.decodeIfPresent([String: String].self, forKey: .phoneNames) ?? [:]
     cardOrder = try values.decodeIfPresent([String].self, forKey: .cardOrder)?
       .compactMap(SummaryMetric.init(rawValue:))
   }
@@ -94,6 +109,36 @@ struct FoldingPreferences: Codable, Equatable {
     order.remove(at: source)
     order.insert(card, at: destination)
     cardOrder = order
+  }
+}
+
+enum SummaryCardLayout {
+  static func usesWideRows(width: CGFloat, accessibilitySize: Bool) -> Bool {
+    width >= 600 && !accessibilitySize
+  }
+
+  static func rows(_ metrics: [SummaryMetric], width: CGFloat, accessibilitySize: Bool)
+    -> [[SummaryMetric]]
+  {
+    if accessibilitySize { return metrics.map { [$0] } }
+    let wide = usesWideRows(width: width, accessibilitySize: accessibilitySize)
+    func compact(_ metric: SummaryMetric) -> Bool {
+      switch metric {
+      case .opens, .closes, .cycles, .lifetimeFolds: true
+      default: false
+      }
+    }
+    var rows: [[SummaryMetric]] = []
+    for metric in metrics {
+      if wide || compact(metric), let last = rows.indices.last, rows[last].count == 1,
+        wide || compact(rows[last][0])
+      {
+        rows[last].append(metric)
+      } else {
+        rows.append([metric])
+      }
+    }
+    return rows
   }
 }
 
@@ -400,6 +445,13 @@ enum ExportChoice { case json, csv }
     return selected == localDeviceID ? .thisPhone : .anotherPhone
   }
 
+  func phoneName(for deviceID: UUID?, fallback: String) -> String {
+    guard let deviceID,
+      let name = preferences.phoneNames[deviceID.uuidString.lowercased()], !name.isEmpty
+    else { return fallback }
+    return name
+  }
+
   func selectThisPhone(using actions: FoldingActions) async {
     guard let use = actions.useThisPhone, let selection = trackingPhoneSelection,
       selection != .thisPhone || publicTrackingPhone == .anotherPhone
@@ -576,6 +628,12 @@ enum ExportChoice { case json, csv }
     }
   }
 
+}
+
+func foldingElapsedDuration(_ milliseconds: Int64, locale: Locale = .current) -> String {
+  Duration.milliseconds(max(0, milliseconds)).formatted(
+    .units(allowed: [.days, .hours, .minutes, .seconds], width: .narrow, maximumUnitCount: 4)
+      .locale(locale))
 }
 
 func foldingDuration(_ milliseconds: Int64) -> String {

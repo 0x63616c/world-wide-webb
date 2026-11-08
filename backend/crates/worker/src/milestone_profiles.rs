@@ -148,13 +148,13 @@ pub(crate) async fn read(
     }
     let target = participant(db, &id).await?;
     let state = ready(db, env, &target).await?;
-    let awards = grants(db, &id).await?;
-    let feature = featured(db, &id).await?;
     let value = if owner {
+        let awards = grants(db, &id).await?;
+        let feature = featured(db, &id).await?;
         serde_json::json!({"generation":{"revision":target.generation_revision,"reset_id":target.generation_id},"revision":target.revision,"progress":progress(state.folds,state.days_used).map_err(|_|Failure::unavailable())?,"grants":awards,"featured_badge_id":feature,"request_id":request_id})
     } else {
-        let earned: Vec<_> = awards.into_iter().map(|g| g.badge_id).collect();
-        serde_json::json!({"profile":{"participant_id":target.participant_id,"nickname":target.nickname,"avatar_id":target.avatar_id,"folds":state.folds,"earned_badges":earned,"featured_badge_id":feature},"revision":target.revision,"request_id":request_id})
+        // Keep the established DTO shape for older clients, with no member-visible awards.
+        serde_json::json!({"profile":{"participant_id":target.participant_id,"nickname":target.nickname,"avatar_id":target.avatar_id,"folds":state.folds,"earned_badges":[],"featured_badge_id":null},"revision":target.revision,"request_id":request_id})
     };
     let guard = uuid()?;
     let mut fence = guards(db, config, &session, &target, &guard)?;
@@ -195,6 +195,10 @@ pub(crate) async fn mutate(
     let session = community_session(request, db, config).await?;
     let target = participant(db, &session.participant_id).await?;
     let feature = request.path() == "/v1/profile/badge";
+    // Featuring is paused. Preserve stored legacy selections for a possible future release.
+    if feature {
+        return Err(missing());
+    }
     let (operation, generation, selected, ids, normalized) = if feature {
         let input: FeatureChange = decode(body)?;
         let json = serde_json::to_vec(&input).map_err(|_| Failure::unavailable())?;
@@ -295,6 +299,7 @@ pub(crate) async fn mutate(
         )
         .await?;
         let ids = serde_json::to_string(&ids).map_err(|_| Failure::unavailable())?;
+        writes.push(statement(db,"UPDATE badge_notification_jobs SET state='suppressed',lease_until_ms=0 WHERE participant_id=?1 AND generation_revision=?2 AND generation_id=?3 AND badge_id IN(SELECT value FROM json_each(?4)) AND state='pending'",&[text(&session.participant_id),number(generation.revision as i64),text(generation.reset_id.as_str()),text(&ids)])?);
         writes.push(statement(db,"INSERT INTO milestone_acknowledgments SELECT ?1,value FROM json_each(?2) WHERE true ON CONFLICT(participant_id,badge_id) DO NOTHING",&[text(&session.participant_id),text(&ids)])?);
         serde_json::json!({"operation_id":operation,"state":"completed","request_id":request_id})
     };

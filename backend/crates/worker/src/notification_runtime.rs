@@ -20,6 +20,8 @@ pub(crate) enum Preference {
 pub(crate) struct Preferences {
     pub weekly: Preference,
     pub monthly: Preference,
+    #[serde(default)]
+    pub badge_earned: bool,
     pub home_timezone: String,
     pub locale: String,
 }
@@ -28,6 +30,7 @@ impl Default for Preferences {
         Self {
             weekly: Preference::Off,
             monthly: Preference::Off,
+            badge_earned: false,
             home_timezone: "UTC".into(),
             locale: "en".into(),
         }
@@ -55,7 +58,24 @@ pub(crate) async fn preferences(
     db: &D1Database,
     participant: &str,
 ) -> std::result::Result<Preferences, Failure> {
-    Ok(statement(db,"SELECT weekly,monthly,home_timezone,locale FROM notification_preferences WHERE participant_id=?1",&[text(participant)])?.first::<Preferences>(None).await.map_err(|_|Failure::unavailable())?.unwrap_or_default())
+    #[derive(Deserialize)]
+    struct Row {
+        weekly: Preference,
+        monthly: Preference,
+        home_timezone: String,
+        locale: String,
+        badge_earned: i64,
+    }
+    let row = statement(db,"SELECT n.weekly,n.monthly,n.home_timezone,n.locale,COALESCE(b.enabled,0) AS badge_earned FROM notification_preferences n LEFT JOIN badge_notification_preferences b ON b.participant_id=n.participant_id WHERE n.participant_id=?1",&[text(participant)])?.first::<Row>(None).await.map_err(|_|Failure::unavailable())?;
+    Ok(row
+        .map(|r| Preferences {
+            weekly: r.weekly,
+            monthly: r.monthly,
+            home_timezone: r.home_timezone,
+            locale: r.locale,
+            badge_earned: r.badge_earned == 1,
+        })
+        .unwrap_or_default())
 }
 fn valid(prefs: &Preferences) -> bool {
     prefs.home_timezone.len() <= 128
@@ -203,6 +223,14 @@ pub(crate) async fn mutate(
         }
         let prefs = input.preferences;
         writes.push(statement(db,"INSERT INTO notification_preferences VALUES (?1,?2,?3,?4,?5) ON CONFLICT(participant_id) DO UPDATE SET weekly=excluded.weekly,monthly=excluded.monthly,home_timezone=excluded.home_timezone,locale=excluded.locale",&[text(&session.participant_id),text(name(&prefs.weekly)),text(name(&prefs.monthly)),text(&prefs.home_timezone),text(&prefs.locale)])?);
+        writes.push(statement(db,"INSERT INTO badge_notification_preferences VALUES (?1,?2) ON CONFLICT(participant_id) DO UPDATE SET enabled=excluded.enabled", &[text(&session.participant_id),number(i64::from(prefs.badge_earned))])?);
+        if prefs.badge_earned {
+            // Enabling a category never alerts for the existing collection.
+            writes.push(statement(db,"INSERT OR IGNORE INTO badge_notification_jobs(participant_id,generation_revision,generation_id,badge_id,created_at_ms,state) SELECT g.participant_id,p.generation_revision,p.generation_id,g.badge_id,?2,'suppressed' FROM milestone_grants g JOIN participants p ON p.participant_id=g.participant_id WHERE g.participant_id=?1", &[text(&session.participant_id),number(now())])?);
+        } else {
+            writes.push(statement(db,"UPDATE badge_notification_jobs SET state='suppressed',lease_until_ms=0 WHERE participant_id=?1 AND state='pending'", &[text(&session.participant_id)])?);
+        }
+
         writes.push(statement(db,"UPDATE award_jobs SET due_ms=NULL,next_attempt_ms=0 WHERE participant_id=?1 AND state='pending'",&[text(&session.participant_id)])?);
         serde_json::json!({"preferences":prefs,"operation_id":operation,"request_id":request_id})
     } else {

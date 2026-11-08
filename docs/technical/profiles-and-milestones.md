@@ -1,5 +1,8 @@
 # Profiles and milestones release plan
 
+**Current owner amendment — #76/#77/#78:** badges are owner-only, featuring is disabled, existing eligible history is imported when joining (and backfilled for existing accounts), direct photo/name edits replace Edit Profile, and optional grouped badge push is supported. See [the exact contracts and evidence](../experiments/owner-polish-2026-11-08.md). This supersedes conflicting earlier feature-plan wording; live rollout and deferred device acceptance are separate.
+
+
 Owner-approved product direction: November 8, 2026. Planning is complete; implementation and acceptance remain open. Deliverable: [#71](https://github.com/0x63616c/folding/issues/71), **In progress**, under F07 (#8), with existing leaderboard/profile work in #34/#35.
 
 ## One release
@@ -18,7 +21,7 @@ The existing Leaderboard profile toolbar button opens a profile summary rather t
 
 Order: avatar and display name; featured badge if selected; accepted All Time competition fold total; two compact next-milestone rows; Earned badges preview and See All; Edit Profile. Keep existing account-management actions accessible through Edit Profile. Edit Profile retains name/photo editing and links to badge selection without duplicating the full collection.
 
-Selecting either progress row or See All opens **Milestones**, containing Next milestones followed by Earned badges. Each progress row shows the track, next target, current value and progress bar. All new destinations use native navigation within the existing presentation flow; do not stack competing sheets or add a tab.
+Selecting either progress row or See All opens **Milestones**, containing the two progress rows without a section heading, followed by Earned badges. Each progress row shows the track, next target, current value and progress bar. All new destinations use native navigation within the existing presentation flow; do not stack competing sheets or add a tab.
 
 ### Another participant's profile
 
@@ -124,3 +127,7 @@ No step is a separate feature launch. Implementation is delivered in internal Te
 References: [Product](../review-spec.md), [UI](ui.md), [HTTP](http-contracts.md), [Security](backend-and-security.md), [Tracking](storage-and-tracking.md), [deferred shipping](../deferred-shipping-work.md).
 
 Implementation/internal distribution are complete at `091b09f` in 0.1.13 (14). #71 remains open as Deferred only for the two formal acceptance criteria above; original requirements remain tracked in #25/#47. See [release evidence](../experiments/profile-milestones-implementation-2026-11-08.md#single-integrated-internal-release).
+
+## November 8 artwork follow-up (#76)
+
+Owner requested AI-generated colorful game-style badges, subsequently refined to simple flat shapes with a limited palette and minimal dimensionality. Four fold awards progress from a plain copper/green starter through silver/blue and gold/purple to the most elaborate gold/red award. The day track progresses from a simple silver/turquoise calendar to gold/orange. Symbol and silhouette distinguish tiers and tracks without relying on color. The Next milestones headings and the Milestones info toolbar item are removed. Formal visual/device acceptance remains deferred to #25/#47.

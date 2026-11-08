@@ -12,7 +12,7 @@ struct Provider {
     ciphertext: Vec<u8>,
     key_version: String,
 }
-async fn provider(
+pub(crate) async fn provider(
     env: &Env,
     db: &D1Database,
     config: &Configuration,
@@ -114,13 +114,13 @@ async fn target(
     .map_err(|_| Failure::unavailable())
 }
 #[derive(Deserialize, Default)]
-struct AppleError {
-    reason: Option<String>,
-    timestamp: Option<i64>,
+pub(crate) struct AppleError {
+    pub(crate) reason: Option<String>,
+    pub(crate) timestamp: Option<i64>,
 }
-struct Outcome {
-    status: u16,
-    error: AppleError,
+pub(crate) struct Outcome {
+    pub(crate) status: u16,
+    pub(crate) error: AppleError,
 }
 async fn deliver(
     token: &str,
@@ -130,6 +130,33 @@ async fn deliver(
     job: &Job,
     target: &Target,
 ) -> std::result::Result<Outcome, Failure> {
+    send_payload(
+        token,
+        provider,
+        environment,
+        topic,
+        &job.participant_id,
+        &job.period_id,
+        crate::apns::payload(
+            &target.locale,
+            &target.kind,
+            &job.period_id,
+            target.rank,
+            target.medal.as_deref(),
+        ),
+    )
+    .await
+}
+
+pub(crate) async fn send_payload(
+    token: &str,
+    provider: &str,
+    environment: &str,
+    topic: &str,
+    participant: &str,
+    delivery: &str,
+    payload: serde_json::Value,
+) -> Result<Outcome, Failure> {
     if token.is_empty() || token.len() > 1024 || !token.bytes().all(|b| b.is_ascii_hexdigit()) {
         return Err(Failure::unavailable());
     }
@@ -138,7 +165,7 @@ async fn deliver(
     } else {
         "api.sandbox.push.apple.com"
     };
-    let (id, collapse) = crate::apns::identifiers(&job.participant_id, &job.period_id);
+    let (id, collapse) = crate::apns::identifiers(participant, delivery);
     let headers = Headers::new();
     for (name, value) in [
         ("authorization", format!("bearer {provider}")),
@@ -154,14 +181,7 @@ async fn deliver(
             .set(name, &value)
             .map_err(|_| Failure::unavailable())?;
     }
-    let payload = crate::apns::payload(
-        &target.locale,
-        &target.kind,
-        &job.period_id,
-        target.rank,
-        target.medal.as_deref(),
-    )
-    .to_string();
+    let payload = payload.to_string();
     let mut init = RequestInit::new();
     init.with_method(Method::Post)
         .with_redirect(RequestRedirect::Manual)
@@ -365,6 +385,7 @@ pub(crate) async fn dispatch(env: &Env, db: &D1Database) -> std::result::Result<
         let next = time + (base + jitter).min(3600000);
         statement(db,"UPDATE award_jobs SET state=?1,lease_until_ms=0,next_attempt_ms=?2,last_error=?3,attempts=attempts-?8,sent_at_ms=CASE WHEN ?1='sent' THEN ?4 ELSE NULL END WHERE participant_id=?5 AND period_id=?6 AND state='pending' AND lease_until_ms=?7",&[text(state),number(next),text(error),number(now()),text(&job.participant_id),text(&job.period_id),number(lease),number(if paused{1}else{0})])?.run().await.map_err(|_|Failure::unavailable())?;
     }
+    crate::badge_push_runtime::dispatch(env, db, &config, &topic, &environment).await?;
     Ok(())
 }
 async fn suppress(db: &D1Database, job: &Job) -> std::result::Result<(), Failure> {

@@ -38,7 +38,7 @@ valid('error.schema.json', dict(policy, code='app_update_required', retryable=Tr
 for floor in [-1, 2147483648, '10', None]:
     invalid('client-policy.schema.json', dict(policy, minimum_ios_build=floor))
 
-for stem in ('event-batch', 'event-receipt', 'reset-request', 'error', 'entry-deletion-request', 'entry-deletion-receipt'):
+for stem in ('history-batch', 'event-batch', 'event-receipt', 'reset-request', 'error', 'entry-deletion-request', 'entry-deletion-receipt'):
     valid(f'{stem}.schema.json', json.loads((FIXTURES / f'{stem}.json').read_text()))
 auth = json.loads((FIXTURES / 'auth-requests.json').read_text())
 for case in auth['valid']:
@@ -86,3 +86,8 @@ for key, value in [('event_ids', []), ('event_ids', deletion['event_ids'] * 2),
 for path in FIXTURES.glob('*.json'):
     json.loads(path.read_text())
 print(f'PASS: {len(schemas)} schemas and {checks} schema/example checks; all fixtures parse.')
+
+legacy_preferences = {'weekly':'off','monthly':'off','home_timezone':'UTC','locale':'en'}
+valid('notification-preferences.schema.json', legacy_preferences)
+valid('notification-preferences.schema.json', dict(legacy_preferences, badge_earned=True))
+invalid('notification-preferences.schema.json', dict(legacy_preferences, badge_earned=1))

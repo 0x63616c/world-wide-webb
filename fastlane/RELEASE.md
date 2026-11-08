@@ -34,7 +34,7 @@ Evidence JSON contains `commit_sha`, `required_checks` entries (`name`, `run_url
 
 Only production can submit. Staging can archive/TestFlight using isolated registered identifiers and backend origin. **Both** TestFlight environments use Apple's distribution values: CloudKit `Production`, App Attest `production`, APNs `production`. The backend's staging environment is independent of Apple's distribution signing environment.
 
-A 0.x preview archive and distribution require the configured preview capabilities (currently `profiles.milestones`) and exact Worker/source commit readback. Preserve broader recorded shipping deferrals; this check does not claim full production acceptance.
+A 0.x preview archive and distribution require the configured preview capabilities (currently `profiles.milestones`, `events.history_import` and `notifications.badges`) and exact Worker/source commit readback. Preserve broader recorded shipping deferrals; this check does not claim full production acceptance.
 
 `beta` never submits to App Review. It uploads the stored IPA once, then resolves only its exact version/build; repeat the lane to observe processing and distribute to the explicit internal groups. It never rebuilds. If an upload might have succeeded but no build is visible, it stops for Apple reconciliation rather than uploading blindly.
 

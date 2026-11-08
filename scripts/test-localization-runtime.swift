@@ -36,9 +36,10 @@ for (identifier, today) in todayLabels.sorted(by: { $0.key < $1.key }) {
     }
     pluralChecks += 1
   }
-  let duration = String(
-    format: translated("session.runningDuration"), locale: locale, arguments: ["DURATION"])
-  precondition(duration.contains("DURATION") && !duration.contains("%@"))
+  let duration = Duration.seconds(270063).formatted(
+    .units(allowed: [.days, .hours, .minutes, .seconds], width: .narrow, maximumUnitCount: 4)
+      .locale(locale))
+  precondition(!duration.isEmpty && !duration.contains("%"))
   let period = String(
     format: translated("leaderboard.periodTimezone"), locale: locale, arguments: ["PERIOD"])
   precondition(period == "PERIOD · UTC")

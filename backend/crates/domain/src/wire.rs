@@ -145,12 +145,18 @@ impl EventBatch {
         Ok(batch)
     }
     pub fn validate(&self) -> Result<(), DomainError> {
+        self.validate_contents(false)
+    }
+    pub fn validate_history(&self) -> Result<(), DomainError> {
+        self.validate_contents(true)
+    }
+    fn validate_contents(&self, history: bool) -> Result<(), DomainError> {
         if self.schema_version != 1 || !(1..=MAX_BATCH_EVENTS).contains(&self.events.len()) {
             return Err(DomainError::InvalidEnvelope);
         }
         for event in &self.events {
             event.validate()?;
-            if event.competition_epoch_id.as_ref() != Some(&self.epoch_id) {
+            if !history && event.competition_epoch_id.as_ref() != Some(&self.epoch_id) {
                 return Err(DomainError::InvalidEnvelope);
             }
         }

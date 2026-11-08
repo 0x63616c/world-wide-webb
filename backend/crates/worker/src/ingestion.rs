@@ -59,7 +59,52 @@ pub fn plan_batch_with_deletions(
     request_id: Id,
     deleted: &BTreeSet<Id>,
 ) -> Result<IngestionPlan, DomainError> {
-    let hash = normalized_batch_hash(batch)?;
+    plan_with_policy(
+        batch,
+        previous,
+        enrollment,
+        received_at_ms,
+        request_id,
+        deleted,
+        None,
+    )
+}
+
+pub fn plan_history_batch_with_deletions(
+    batch: &EventBatch,
+    previous: &[StoredObservation],
+    enrollment: &Enrollment<'_>,
+    received_at_ms: u64,
+    request_id: Id,
+    deleted: &BTreeSet<Id>,
+    joined_at_ms: u64,
+) -> Result<IngestionPlan, DomainError> {
+    plan_with_policy(
+        batch,
+        previous,
+        enrollment,
+        received_at_ms,
+        request_id,
+        deleted,
+        Some(joined_at_ms),
+    )
+}
+
+fn plan_with_policy(
+    batch: &EventBatch,
+    previous: &[StoredObservation],
+    enrollment: &Enrollment<'_>,
+    received_at_ms: u64,
+    request_id: Id,
+    deleted: &BTreeSet<Id>,
+    history_before: Option<u64>,
+) -> Result<IngestionPlan, DomainError> {
+    let hash = if history_before.is_some() {
+        batch.validate_history()?;
+        Sha256::digest(serde_json::to_vec(batch).map_err(|_| DomainError::InvalidEnvelope)?).into()
+    } else {
+        normalized_batch_hash(batch)?
+    };
     // Identity uniqueness is participant-wide, including quarantined/rejected events/generations.
     let mut by_id = BTreeMap::new();
     let mut sequences = BTreeMap::new();
@@ -110,7 +155,20 @@ pub fn plan_batch_with_deletions(
         if !seen.insert(event.event_id.clone()) {
             continue;
         }
-        let (disposition, reason) = match eligibility(event, enrollment, received_at_ms)? {
+        let decision = if let Some(before) = history_before {
+            if event.generation != *enrollment.generation {
+                Eligibility::Rejected("generation_stale")
+            } else if event.is_test {
+                Eligibility::Rejected("setup_test")
+            } else if event.competition_epoch_id.is_some() || event.observed_at_ms >= before {
+                Eligibility::Rejected("history_ineligible")
+            } else {
+                Eligibility::Eligible
+            }
+        } else {
+            eligibility(event, enrollment, received_at_ms)?
+        };
+        let (disposition, reason) = match decision {
             Eligibility::Rejected(reason) => (Disposition::Rejected, Some(reason)),
             Eligibility::Quarantined(reason) => (Disposition::Quarantined, Some(reason)),
             Eligibility::Eligible => {

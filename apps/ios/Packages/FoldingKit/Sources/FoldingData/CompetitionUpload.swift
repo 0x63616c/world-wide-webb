@@ -13,4 +13,5 @@ public struct CompetitionUpload: Codable, Sendable {
   var leaseUntilMS: Int64
   var nextAttemptMS: Int64
   public var attempts: Int? = nil
+  public var isHistory: Bool? = nil
 }

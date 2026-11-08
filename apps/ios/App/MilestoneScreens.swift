@@ -48,7 +48,7 @@ struct MilestoneBadgeArtwork: View {
   let badge: MilestoneBadge
   var size: CGFloat = 64
   var body: some View {
-    Image("badge_" + badge.rawValue).resizable().renderingMode(.template)
+    Image("badge_" + badge.rawValue).resizable().renderingMode(.original)
       .scaledToFit().frame(width: size, height: size)
       .accessibilityLabel(badge.title)
   }
@@ -66,21 +66,8 @@ struct YourProfileScreen: View {
       } else {
         List {
           Section {
-            VStack(spacing: 12) {
-              ApprovedAvatarImage(
-                data: model.competitionProfile?.approvedAvatarData,
-                url: model.competitionProfile?.approvedAvatarURL
-              )
-              .frame(width: 80, height: 80).clipShape(Circle()).accessibilityHidden(true)
-              Text(model.competitionProfile?.nickname ?? "").font(.title2.bold())
-              if let badge = visibleOwner?.featuredBadgeID {
-                HStack {
-                  MilestoneBadgeArtwork(badge: badge, size: 28).accessibilityHidden(true)
-                  Text(badge.title)
-                }
-                .font(.subheadline)
-              }
-            }.frame(maxWidth: .infinity).padding(.vertical, 12)
+            InlineProfileIdentity(model: model, actions: actions)
+
           }
           if let owner = visibleOwner {
             Section {
@@ -88,7 +75,7 @@ struct YourProfileScreen: View {
                 String(localized: "milestones.total", defaultValue: "All-time folds"),
                 value: owner.progress.folds.formatted())
             }
-            Section(String(localized: "milestones.next", defaultValue: "Next milestones")) {
+            Section {
               NavigationLink {
                 MilestonesScreen(model: model, actions: actions)
               } label: {
@@ -117,11 +104,7 @@ struct YourProfileScreen: View {
               String(localized: "milestones.cached", defaultValue: "Last synced progress")
             ).font(.footnote).foregroundStyle(.secondary)
           }
-          Section {
-            NavigationLink(String(localized: "profile.edit", defaultValue: "Edit Profile")) {
-              CompetitionProfileScreen(model: model, actions: actions, joining: false)
-            }
-          }
+
         }.refreshable { await model.requestMilestones(using: actions, force: true) }
       }
     }
@@ -144,7 +127,7 @@ struct MilestonesScreen: View {
         !model.entryDeletionPending,
         let owner = model.ownerMilestones
       {
-        Section(String(localized: "milestones.next", defaultValue: "Next milestones")) {
+        Section {
           MilestoneProgressRows(progress: owner.progress)
         }
         Section(String(localized: "milestones.earned", defaultValue: "Earned badges")) {
@@ -171,24 +154,6 @@ struct MilestonesScreen: View {
     }
     .navigationTitle(String(localized: "milestones.title", defaultValue: "Milestones"))
     .navigationBarTitleDisplayMode(.inline)
-    .toolbar {
-      ToolbarItem(placement: .topBarTrailing) {
-        NavigationLink {
-          Text(
-            String(
-              localized: "milestones.help",
-              defaultValue:
-                "Milestones count verified folds since joining or your last reset. Days use UTC and don’t need to be consecutive."
-            )
-          )
-          .padding().navigationTitle(
-            String(localized: "milestones.title", defaultValue: "Milestones"))
-        } label: {
-          Image(systemName: "info.circle")
-        }
-        .accessibilityLabel(String(localized: "milestones.about", defaultValue: "About milestones"))
-      }
-    }
     .refreshable { await model.requestMilestones(using: actions, force: true) }
     .task { await model.requestMilestones(using: actions) }
   }
@@ -296,33 +261,6 @@ struct MilestoneBadgeDetail: View {
           }
         }
       }
-      if owner, model.ownerMilestones?.grants.contains(where: { $0.badgeID == badge }) == true {
-        Section {
-          let selected = model.ownerMilestones?.featuredBadgeID == badge
-          Button {
-            Task { await model.featureMilestone(selected ? nil : badge, using: actions) }
-          } label: {
-            HStack {
-              Text(
-                selected
-                  ? String(localized: "milestones.unfeature", defaultValue: "Remove from Profile")
-                  : String(localized: "milestones.feature", defaultValue: "Feature on Profile"))
-              Spacer()
-              if model.milestonesSaving {
-                ProgressView()
-              } else if selected {
-                Image(systemName: "checkmark")
-              }
-            }
-          }.disabled(
-            model.milestonesSaving || model.milestonesCached || actions.featureMilestone == nil)
-          if model.milestonesFeatureFailed {
-            Text(
-              String(localized: "milestones.saveFailed", defaultValue: "Couldn’t save. Try again.")
-            ).foregroundStyle(.secondary)
-          }
-        }
-      }
       if owner, model.milestonesCached {
         Section {
           Text(String(localized: "milestones.cached", defaultValue: "Last synced progress"))
@@ -367,23 +305,13 @@ struct ParticipantProfileScreen: View {
             ApprovedAvatarImage(data: value.avatarData, url: nil).frame(width: 80, height: 80)
               .clipShape(Circle()).accessibilityHidden(true)
             Text(profile.nickname).font(.title2.bold())
-            if let badge = profile.featuredBadgeID {
-              HStack {
-                MilestoneBadgeArtwork(badge: badge, size: 28).accessibilityHidden(true)
-                Text(badge.title)
-              }.font(.subheadline)
-            }
+
           }.frame(maxWidth: .infinity).padding(.vertical, 12)
           LabeledContent(
             String(localized: "milestones.total", defaultValue: "All-time folds"),
             value: profile.folds.formatted())
         }
-        if !profile.earnedBadges.isEmpty {
-          Section(String(localized: "milestones.earned", defaultValue: "Earned badges")) {
-            EarnedBadgeGrid(
-              badges: profile.earnedBadges, model: model, actions: actions, owner: false)
-          }
-        }
+
       } else if loading {
         ProgressView()
       } else {

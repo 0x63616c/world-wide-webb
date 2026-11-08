@@ -327,6 +327,14 @@ November 8 follow-up: the owner removed crowns after preview review. Crown artwo
 
 [Exact release evidence and limits](experiments/profile-milestones-implementation-2026-11-08.md#single-integrated-internal-release).
 
+## November 8 owner follow-up — #76 / #77 / #78
+
+- [x] #76: flat progressive badges, private awards, direct profile edits, shared/responsive dashboard cards and leaderboard polish.
+- [x] #77: original pre-join history import for new and existing accounts, with the local 18 + 41 = 59 regression.
+- [x] #78: opt-in grouped private badge push and owner-only Milestones routing.
+
+Verified local component delivery: [PR #80](https://github.com/0x63616c/folding/pull/80). Implementation evidence: [owner follow-up](experiments/owner-polish-2026-11-08.md). Live deployment/TestFlight, final visual/native-language review and #47/F13 APNs/device acceptance remain separate and unverified.
+
 ### App Store listing preparation on current main
 
 - [x] Adapt Tendr's templates to all five current scenes including Patterns and Milestones, with committed copy/frame/fixtures and app/widget privacy manifests. Clean source `6a768f3` produces 150 images in ten locales using actual native Duo Open/Closed geometry.

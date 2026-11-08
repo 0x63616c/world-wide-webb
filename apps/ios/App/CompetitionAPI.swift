@@ -11,6 +11,8 @@ struct CompetitionWireEnrollment: Decodable, Sendable {
   let joined_at_ms: Int64
   // swift-format-ignore: AlwaysUseLowerCamelCase
   let issued_at_ms: Int64
+  // swift-format-ignore: AlwaysUseLowerCamelCase
+  var history_import_before_ms: Int64? = nil
 }
 struct CompetitionMe: Decodable, Sendable {
   let preferences: CompetitionResultPreferences?

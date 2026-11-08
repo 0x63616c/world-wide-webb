@@ -243,7 +243,7 @@ struct CompetitionProfileScreen: View {
             .textInputAutocapitalization(.words)
             .padding(16)
             .background(
-              Color(uiColor: .secondarySystemGroupedBackground),
+              FoldingSurface.card,
               in: RoundedRectangle(cornerRadius: FoldingShape.cornerRadius)
             )
             .onChange(of: nickname) { _, value in
@@ -255,7 +255,8 @@ struct CompetitionProfileScreen: View {
             String(
               localized: "profile.visibility",
               defaultValue:
-                "Your name, photo, scores and earned badges are visible to leaderboard members.")
+                "Your name, photo and scores are visible to leaderboard members. Your existing folding history is included."
+            )
           )
           .font(.footnote).foregroundStyle(.secondary)
           if rejectedName {
@@ -375,41 +376,17 @@ struct CompetitionProfileScreen: View {
     photoFailure = false
     defer { if photoItem == item { photoLoading = false } }
     do {
-      guard let asset = try await item.loadTransferable(type: BoundedAvatarImport.self),
-        let source = CGImageSourceCreateWithData(
-          asset.data as CFData, [kCGImageSourceShouldCache: false] as CFDictionary),
-        let image = CGImageSourceCreateThumbnailAtIndex(
-          source, 0,
-          [
-            kCGImageSourceCreateThumbnailFromImageAlways: true,
-            kCGImageSourceCreateThumbnailWithTransform: true,
-            kCGImageSourceThumbnailMaxPixelSize: 1024,
-          ] as CFDictionary)
-      else { throw CocoaError(.fileReadCorruptFile) }
+      let image = try await AvatarImagePreparation.load(item)
       guard !Task.isCancelled else { return }
-      photo = UIImage(cgImage: image)
+      photo = image
       zoom = 1
     } catch { if !Task.isCancelled { photoFailure = true } }
   }
   private func preparedAvatar() -> Data? {
     guard let photo else { return nil }
-    let side: CGFloat = 512
-    let format = UIGraphicsImageRendererFormat()
-    format.scale = 1
-    format.opaque = true
-    let output = UIGraphicsImageRenderer(size: CGSize(width: side, height: side), format: format)
-      .image { _ in
-        UIColor.systemBackground.setFill()
-        UIRectFill(CGRect(x: 0, y: 0, width: side, height: side))
-        let factor = max(side / photo.size.width, side / photo.size.height) * zoom
-        let size = CGSize(width: photo.size.width * factor, height: photo.size.height * factor)
-        photo.draw(
-          in: CGRect(
-            x: (side - size.width) / 2, y: (side - size.height) / 2, width: size.width,
-            height: size.height))
-      }
-    return output.jpegData(compressionQuality: 0.85)
+    return AvatarImagePreparation.jpeg(photo, zoom: zoom)
   }
+
   private func uploadPhoto() {
     guard let data = preparedAvatar(), let upload = actions.uploadAvatar else { return }
     Task {
@@ -642,7 +619,7 @@ struct ParticipantMenu: View {
   }
 }
 
-private struct BoundedAvatarImport: Transferable, Sendable {
+struct BoundedAvatarImport: Transferable, Sendable {
   let data: Data
   static var transferRepresentation: some TransferRepresentation {
     FileRepresentation(importedContentType: .image) { received in

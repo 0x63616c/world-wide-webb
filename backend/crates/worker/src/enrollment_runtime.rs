@@ -41,6 +41,8 @@ struct Enrollment {
     generation: Generation,
     joined_at_ms: u64,
     issued_at_ms: u64,
+    #[serde(default)]
+    history_import_before_ms: Option<u64>,
 }
 #[derive(Deserialize)]
 struct Epoch {
@@ -72,6 +74,7 @@ async fn current(db: &D1Database, id: &str) -> std::result::Result<Enrollment, F
         },
         joined_at_ms: e.joined_at_ms,
         issued_at_ms: e.issued_at_ms,
+        history_import_before_ms: Some(e.joined_at_ms),
     })
 }
 pub(crate) async fn mutate(
@@ -230,6 +233,7 @@ pub(crate) async fn mutate(
             generation,
             joined_at_ms: joined,
             issued_at_ms: time as u64,
+            history_import_before_ms: Some(joined),
         }
     };
     let value = if transfer {

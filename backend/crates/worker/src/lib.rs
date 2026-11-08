@@ -29,6 +29,8 @@ mod avatar_admin;
 #[cfg(target_arch = "wasm32")]
 mod avatar_runtime;
 #[cfg(target_arch = "wasm32")]
+mod badge_push_runtime;
+#[cfg(target_arch = "wasm32")]
 mod burst_limit;
 #[cfg(target_arch = "wasm32")]
 mod capabilities_runtime;
