@@ -11,7 +11,9 @@ bypass or Tailscale Funnel is needed. The native app remains Tailscale-only.
 
 ## Install
 
-Install these files in `/Users/calum/penpot` on the mini. OrbStack already starts
+Install these configuration files in `/Users/calum/penpot` on the mini. Copy
+`deploy/mini/penpot_provision.py` and `deploy/mini/penpot_backup.py` there as
+`provision.py` and `backup.py`. OrbStack already starts
 at login. Run `python3 provision.py` once to generate private database/session
 keys in `runtime.env` (mode 0600); reruns preserve them. Never commit that file.
 

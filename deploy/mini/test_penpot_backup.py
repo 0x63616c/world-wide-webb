@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-spec = importlib.util.spec_from_file_location("penpot_backup", Path(__file__).with_name("backup.py"))
+spec = importlib.util.spec_from_file_location("penpot_backup", Path(__file__).with_name("penpot_backup.py"))
 backup = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(backup)
 
