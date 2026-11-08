@@ -1,8 +1,8 @@
 # homelab
 
-Private configuration for the macOS homelab. **Deployment is still disabled.**
-The existing Mac mini remains the production system; nothing is wiped or migrated
-by merging this repository.
+Private configuration for the macOS homelab. The MacBook is enrolled; application
+migration and production runner admission remain disabled. The Mac mini continues
+running its existing services.
 
 ## Start here
 
@@ -61,7 +61,7 @@ flowchart TB
 
 | Host | Hardware | Administrator | Intended first role |
 | --- | --- | --- | --- |
-| `homelab-macbook` | M2, 32 GB, about 500 GB | `admin` | Safe migration destination; one runner later |
+| `homelab-macbook` | M2, 32 GB, about 500 GB | `admin` | One disposable macOS CI runner; application migration later |
 | `homelab-mac-mini` | M2, 8 GB | `calum` | Keep production running until verified cutover |
 
 ## What a merge does
@@ -73,16 +73,35 @@ test before merging; the node uses a read-only deploy key and needs no Actions t
 The wizard holds its approved commit through setup and reboot, then verifies the
 handover to Comin. See [how updates work](docs/updates.md).
 
-No real Mac has received this configuration. Host readiness remains false until
-its enrollment PR is approved; application services and runners remain disabled.
-Private Nix checks and the full disposable enrollment/reboot/Comin replay passed.
-A later scheduled Git update and another reboot also passed. Release 0.3.0 passed
-public CI and a fresh-Mac smoke test without Nix. See [VM evidence](docs/vm-validation.md) for
-exact revisions and limits. The 0.4.0 checklist also passed fresh-VM direct
-publication, installation, reboot, Comin handover and completed replay with
-synthetic providers.
+The MacBook has completed enrollment. Application services remain disabled;
+runner rollout is gated by the [runner validation record](docs/research/runner-validation.md).
+See [VM evidence](docs/vm-validation.md) for the separate setup, reboot and Comin
+tests and their limits.
 Private Actions workflows are manual-only until self-hosted runners are ready;
 routine validation runs in the disposable Mac VM without paid private CI minutes.
+
+## GitHub runners
+
+```mermaid
+flowchart LR
+  Git[Private Nix configuration] -->|Comin| Host[MacBook: launchd controller]
+  GitHub[Allowlisted GitHub jobs] --> Host
+  Host -->|One job at a time| Guest[Fresh Tart macOS VM]
+  Guest -->|Result| GitHub
+  Host -->|After completion or cancellation| Cleanup[Delete VM and runner registration]
+```
+
+The controller runs as `_runner`. Jobs run inside fresh VMs with Xcode and a pinned
+GitHub runner SDK. Softnet blocks access to the host, LAN and tailnet. No idle VM
+is kept running. The GitHub App key stays on the host; only a short-lived JIT
+registration is passed into each guest.
+
+Repository access, image digest, resources and storage floors live in
+[`hosts/homelab-macbook.nix`](hosts/homelab-macbook.nix). Start with
+`world-wide-webb`; add further installed repositories to the same allowlist.
+Updates hold new admission and wait for cleanup before replacing the service.
+See the [controller plan](docs/runner-controller-plan.md) and
+[validation evidence](docs/research/runner-validation.md).
 
 ## Find the details
 

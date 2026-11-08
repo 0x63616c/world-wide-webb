@@ -1,4 +1,4 @@
-{ config, pkgs, ... }:
+{ config, lib, pkgs, ... }:
 let
   manifest = builtins.fromJSON (builtins.readFile ../homelab.json);
   hostTools = import ../packages/client.nix { inherit pkgs; };

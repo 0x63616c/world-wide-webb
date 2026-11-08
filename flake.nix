@@ -14,16 +14,18 @@
   outputs = inputs@{ self, nixpkgs, darwin, ... }:
     let
       system = "aarch64-darwin";
+      allowRunnerTools = pkg:
+        builtins.elem (nixpkgs.lib.getName pkg) [ "tart" "softnet" ];
       pkgs = import nixpkgs {
         inherit system;
-        config.allowUnfreePredicate = pkg:
-          builtins.elem (nixpkgs.lib.getName pkg) [ "tart" "softnet" ];
+        config.allowUnfreePredicate = allowRunnerTools;
       };
       manifest = builtins.fromJSON (builtins.readFile ./homelab.json);
       runnerTools = import ./packages/runner-tools.nix { inherit pkgs; };
       mkHost = name: darwin.lib.darwinSystem {
         specialArgs = { inherit inputs; reviewedHost = manifest.hosts.${name}; };
         modules = [
+          { nixpkgs.config.allowUnfreePredicate = allowRunnerTools; }
           inputs.nix-homebrew.darwinModules.nix-homebrew
           inputs.sops-nix.darwinModules.sops
           inputs.determinate.darwinModules.default
@@ -46,6 +48,7 @@
       };
       packages.${system} = runnerTools // {
         homelab = import ./packages/client.nix { inherit pkgs; };
+        homelab-runner = import ./packages/runner.nix { inherit pkgs; };
       };
       devShells.${system}.default = pkgs.mkShellNoCC {
         packages = with pkgs; [
@@ -84,6 +87,43 @@
         management-client = self.packages.${system}.homelab;
         runner-tart = runnerTools.tart;
         runner-softnet = runnerTools.softnet;
+        runner-controller = self.packages.${system}.homelab-runner;
+        runner-process-survival =
+          let
+            runnerConfig = (self.darwinConfigurations.homelab-macbook.extendModules {
+              modules = [({ lib, ... }: {
+                homelab.runners = {
+                  enable = lib.mkForce true;
+                  admissionEnabled = lib.mkForce false;
+                  githubAppId = lib.mkForce "fixture";
+                  image = lib.mkForce "ghcr.io/test/base@sha256:${lib.concatStrings (lib.replicate 64 "a")}";
+                  repositories = lib.mkForce {
+                    "test/repo" = {
+                      repositoryId = 1;
+                      installationId = 2;
+                      runnerGroupId = 1;
+                    };
+                  };
+                };
+              })];
+            }).config;
+            plist = pkgs.writeText "homelab-runner-process-survival.plist"
+              runnerConfig.environment.launchDaemons."org.nixos.homelab-runner.plist".text;
+            expectedCommand = "/bin/wait4path /nix/store && exec "
+              + runnerConfig.launchd.daemons.homelab-runner.command;
+          in pkgs.runCommand "homelab-runner-process-survival-check" {} ''
+            test "$(/usr/bin/plutil -extract ProgramArguments.0 raw -o - '${plist}')" = /bin/sh
+            test "$(/usr/bin/plutil -extract ProgramArguments.1 raw -o - '${plist}')" = -c
+            test "$(/usr/bin/plutil -extract ProgramArguments.2 raw -o - '${plist}')" = ${pkgs.lib.escapeShellArg expectedCommand}
+            test "$(/usr/bin/plutil -extract AbandonProcessGroup raw -o - '${plist}')" = true
+            test "$(/usr/bin/plutil -extract KeepAlive raw -o - '${plist}')" = true
+            test "$(/usr/bin/plutil -extract ThrottleInterval raw -o - '${plist}')" = 30
+            test "$(/usr/bin/plutil -extract UserName raw -o - '${plist}')" = _runner
+            test "$(/usr/bin/plutil -extract GroupName raw -o - '${plist}')" = _runner
+            test "$(/usr/bin/plutil -extract StandardOutPath raw -o - '${plist}')" = /dev/null
+            test "$(/usr/bin/plutil -extract StandardErrorPath raw -o - '${plist}')" = /dev/null
+            touch "$out"
+          '';
         macbook = self.darwinConfigurations.homelab-macbook.system;
         mac-mini = self.darwinConfigurations.homelab-mac-mini.system;
         # Compile dormant service paths without enabling them on either host.

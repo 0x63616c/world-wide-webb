@@ -1,0 +1,81 @@
+{
+  "schema": 1,
+  "proof_scope": "service_account_stock_vm_public_helper_lifecycle_no_job",
+  "uid": 451,
+  "started_at": 1794106450,
+  "finished_at": 1794106481,
+  "boot_uuid": "ea2c5eef-f3eb-48d7-b57f-ad31101d753a",
+  "host_gui_observed": true,
+  "nonce": "99c75fb6e0ab470a9944a1f1efb39aeb",
+  "vm_name": "homelab-job-99c75fb6e0ab470a9944a1f1efb39aeb",
+  "image": "ghcr.io/cirruslabs/macos-tahoe-xcode@sha256:e329b2ea9634c3e72e20b0c3e5a75b8591de899638c4720a466a0fb55dec5b71",
+  "tart_binary": "/nix/store/5wqklnfrxfazk79jci5xc0pzs76nzllc-tart-2.41.1/bin/tart",
+  "guest_helper": "/var/lib/homelab-runner-probe/homelab-runner-guest",
+  "boot_deadline": 1794107050,
+  "boot_lease_held": true,
+  "boot_lease_released": true,
+  "stages": [
+    {
+      "stage": "host_observation",
+      "started_at": 1794106450,
+      "completed_at": 1794106450
+    },
+    {
+      "stage": "keychain",
+      "started_at": 1794106450,
+      "completed_at": 1794106450
+    },
+    {
+      "stage": "tool_preflight",
+      "started_at": 1794106450,
+      "completed_at": 1794106450
+    },
+    {
+      "stage": "inventory",
+      "started_at": 1794106450,
+      "completed_at": 1794106450
+    },
+    {
+      "stage": "clone",
+      "started_at": 1794106450,
+      "completed_at": 1794106450
+    },
+    {
+      "stage": "boot",
+      "started_at": 1794106450,
+      "completed_at": 1794106479
+    },
+    {
+      "stage": "prepare_guest",
+      "started_at": 1794106479,
+      "completed_at": 1794106480
+    },
+    {
+      "stage": "guest_ready",
+      "started_at": 1794106480,
+      "completed_at": 1794106480
+    },
+    {
+      "stage": "stop",
+      "started_at": 1794106480,
+      "completed_at": 1794106480
+    },
+    {
+      "stage": "delete",
+      "started_at": 1794106480,
+      "completed_at": 1794106481
+    },
+    {
+      "stage": "lease_cleanup",
+      "started_at": 1794106481,
+      "completed_at": 1794106481
+    },
+    {
+      "stage": "complete",
+      "started_at": 1794106481,
+      "completed_at": 1794106481
+    }
+  ],
+  "passed": true,
+  "failure_category": null
+}
