@@ -4,11 +4,11 @@ cd "$(dirname "$0")/.."
 case "${1:-all}" in
   --staged)
     cargo fmt --all -- --check
-    python3 -m compileall -q tools deploy/mini
+    python3 -m compileall -q tools deploy/mini scripts
     ;;
   lint)
-    ruff check tools deploy/mini .github/scripts
-    ruff format --check tools deploy/mini .github/scripts
+    ruff check tools deploy/mini .github/scripts scripts
+    ruff format --check tools deploy/mini .github/scripts scripts
     actionlint
     shellcheck --severity=warning tools/check tools/*.sh deploy/mini/*.sh
     ;;
