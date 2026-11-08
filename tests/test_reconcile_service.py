@@ -89,6 +89,32 @@ class DeliveryTests(unittest.TestCase):
         self.assertEqual({p.name for p in (self.runtime / 'cloudflared').iterdir()}, {'TUNNEL_TOKEN'})
 
     @patch.object(reconcile.subprocess, 'run')
+    def test_penpot_template_is_projected_into_shared_runtime_even_without_secret_change(self, run):
+        source = self.source / 'penpot-env'
+        source.write_bytes(b'synthetic-environment')
+        source.chmod(0o400)
+        compose = self.root / 'compose'
+        (compose / 'penpot').mkdir(parents=True)
+        template = compose / 'penpot/mcp-locations.conf.template'
+        template.write_text('location /mcp { proxy_pass http://penpot-mcp:4401; }')
+        def deliver():
+            reconcile.reconcile('penpot', self.source, self.runtime, compose, self.root / 'compose.env')
+        deliver()
+        target = self.runtime / 'penpot/mcp-locations.conf.template'
+        environment = self.runtime / 'penpot/environment'
+        self.assertEqual(target.read_bytes(), template.read_bytes())
+        self.assertEqual(target.stat().st_mode & 0o777, 0o600)
+        self.assertEqual(run.call_args.kwargs['env']['PENPOT_MCP_TEMPLATE'], str(target))
+        secret_inode = environment.stat().st_ino
+        deliver()
+        self.assertNotIn('--force-recreate', run.call_args.args[0])
+        target.unlink()
+        deliver()
+        self.assertEqual(target.read_bytes(), template.read_bytes())
+        self.assertEqual(environment.stat().st_ino, secret_inode)
+        self.assertIn('--force-recreate', run.call_args.args[0])
+
+    @patch.object(reconcile.subprocess, 'run')
     def test_control_center_uses_git_release_images(self, run):
         compose = self.root / 'compose'
         (compose / 'control-center').mkdir(parents=True)

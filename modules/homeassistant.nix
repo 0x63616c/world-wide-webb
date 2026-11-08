@@ -13,9 +13,41 @@ let
       interface = cfg.bridgeInterface; preferredRoute = false;
     };
   });
-  override = pkgs.writeText "ha-lima-override.yaml" (builtins.toJSON {
+  ipv4Octet = "(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])";
+  ipv4 = "${ipv4Octet}[.]${ipv4Octet}[.]${ipv4Octet}[.]${ipv4Octet}";
+  staticLAN = cfg.lanIPv4 != null && cfg.lanIPv4Gateway != null;
+  lanNetwork = builtins.toJSON {
+    network = {
+      version = 2;
+      ethernets.ha0 = {
+        dhcp4 = false;
+        addresses = [ cfg.lanIPv4 ];
+        routes = [{ to = "0.0.0.0/0"; via = cfg.lanIPv4Gateway; metric = 50; }];
+      };
+    };
+  };
+  override = pkgs.writeText "ha-lima-override.yaml" (builtins.toJSON ({
     networks = [{ inherit socket; interface = "ha0"; }];
-  });
+  } // lib.optionalAttrs staticLAN {
+    provision = [{
+      mode = "system";
+      script = ''
+        #!/bin/sh
+        set -eu
+        # Lima's generated netplan uses the interface name as its key. A later
+        # file overrides ha0 only, preserving its MAC match and the management NIC.
+        command -v netplan >/dev/null
+        install -d -m 0755 /etc/netplan
+        umask 077
+        cat > /etc/netplan/99-homelab-ha.yaml <<'HOMELAB_HA_NETWORK'
+        ${lanNetwork}
+        HOMELAB_HA_NETWORK
+        chmod 0600 /etc/netplan/99-homelab-ha.yaml
+        netplan generate
+        netplan apply
+      '';
+    }];
+  }));
   reconcile = pkgs.writeShellScriptBin "homelab-reconcile-ha" ''
           set -eu
           export PATH=${lib.makeBinPath [ pkgs.docker pkgs.docker-compose pkgs.coreutils ]}
@@ -44,6 +76,16 @@ in {
       default = null;
       description = "Verified physical LAN interface on the target host; never assume en1 transfers between Macs.";
     };
+    lanIPv4 = lib.mkOption {
+      type = lib.types.nullOr (lib.types.strMatching "${ipv4}/([0-9]|[12][0-9]|3[0-2])");
+      default = null;
+      description = "Optional stable IPv4/CIDR for the HA guest's bridged ha0 interface.";
+    };
+    lanIPv4Gateway = lib.mkOption {
+      type = lib.types.nullOr (lib.types.strMatching ipv4);
+      default = null;
+      description = "LAN IPv4 gateway paired with lanIPv4; its default route uses metric 50.";
+    };
     haos.enable = lib.mkEnableOption "future HA OS VM (not the existing HA container)";
   };
   config = lib.mkMerge [
@@ -56,6 +98,10 @@ in {
         {
           assertion = !cfg.enable || cfg.bridgeInterface != null;
           message = "HA requires a verified target bridgeInterface before enablement.";
+        }
+        {
+          assertion = (cfg.lanIPv4 == null) == (cfg.lanIPv4Gateway == null);
+          message = "HA static LAN networking requires both lanIPv4 and lanIPv4Gateway.";
         }
       ];
     }
