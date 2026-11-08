@@ -1,5 +1,6 @@
 import importlib.util
 import os
+import plistlib
 import subprocess
 import tempfile
 import unittest
@@ -11,6 +12,22 @@ SPEC.loader.exec_module(prepare)
 
 
 class ArtifactTransportTests(unittest.TestCase):
+    def test_signed_bundle_metadata_must_bind_the_exact_source_version_and_production_identity(self):
+        with tempfile.TemporaryDirectory() as directory:
+            app = Path(directory) / "Callkeep.app"
+            (app / "Contents").mkdir(parents=True)
+            expected = {"CFBundleIdentifier": "co.calum.callkeep", "CallkeepSourceCommit": "a" * 40,
+                        "CFBundleShortVersionString": "1.0.26", "CFBundleVersion": "26", "CallkeepProduction": "YES"}
+            path = app / "Contents/Info.plist"
+            path.write_bytes(plistlib.dumps(expected))
+            prepare.validate_callkeep_identity(app, "a" * 40, "1.0.26")
+            for field, value in [("CallkeepSourceCommit", "b" * 40), ("CFBundleShortVersionString", "1.0.25"),
+                                 ("CFBundleVersion", "25"), ("CallkeepProduction", "NO"), ("CFBundleIdentifier", "other")]:
+                with self.subTest(field=field):
+                    path.write_bytes(plistlib.dumps(dict(expected, **{field: value})))
+                    with self.assertRaisesRegex(ValueError, "identity"):
+                        prepare.validate_callkeep_identity(app, "a" * 40, "1.0.26")
+
     def test_git_transport_preserves_bytes_executables_and_symlinks_without_source_history(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

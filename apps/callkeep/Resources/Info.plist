@@ -38,5 +38,7 @@
 	</dict>
 	<key>CallkeepProduction</key>
 	<string>$(CALLKEEP_PRODUCTION)</string>
+	<key>CallkeepSourceCommit</key>
+	<string>$(CALLKEEP_SOURCE_COMMIT)</string>
 </dict>
 </plist>

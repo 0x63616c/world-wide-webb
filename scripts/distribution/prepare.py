@@ -5,6 +5,7 @@ import argparse
 import hashlib
 import json
 import os
+import plistlib
 import re
 import shutil
 import subprocess
@@ -42,7 +43,25 @@ def fingerprint(root):
     return result
 
 
-def validate_payload(payload, product):
+def validate_callkeep_identity(app, source, version):
+    if not isinstance(source, str) or not re.fullmatch(r"[0-9a-f]{40}", source):
+        raise ValueError("Callkeep requires its exact verified source commit")
+    match = re.fullmatch(r"1\.0\.([1-9]\d*)", version or "")
+    if not match:
+        raise ValueError("Expected the monotonic Callkeep 1.0.N release counter")
+    with (app / "Contents/Info.plist").open("rb") as file:
+        identity = plistlib.load(file)
+    if (
+        identity.get("CFBundleIdentifier") != "co.calum.callkeep"
+        or identity.get("CallkeepSourceCommit") != source
+        or identity.get("CFBundleShortVersionString") != version
+        or identity.get("CFBundleVersion") != match[1]
+        or identity.get("CallkeepProduction") != "YES"
+    ):
+        raise ValueError("Signed Callkeep identity does not match this production release")
+
+
+def validate_payload(payload, product, *, source=None, version=None):
     expected = {"Callkeep.app"} if product == "callkeep" else {"bin", "share"}
     names = {path.name for path in payload.iterdir()}
     if not names or not names <= expected:
@@ -56,6 +75,7 @@ def validate_payload(payload, product):
         if f"TeamIdentifier={TEAM}" not in details or "Authority=Developer ID Application:" not in details:
             raise ValueError("Private Callkeep distribution requires the expected Developer ID signature")
         run("xcrun", "stapler", "validate", str(app))
+        validate_callkeep_identity(app, source, version)
     else:
         for name in ("homelab", "homelab-host", "hl"):
             binary = payload / "bin" / name
@@ -136,7 +156,7 @@ def main():
     if run("git", "status", "--porcelain", cwd=ROOT):
         parser.error("commit the verified source before preparing distribution")
     timestamp = run("git", "show", "-s", "--format=%ct", source, cwd=ROOT)
-    validate_payload(args.payload, args.product)
+    validate_payload(args.payload, args.product, source=source, version=args.version)
     result = assemble(
         args.payload,
         args.output,
@@ -145,7 +165,7 @@ def main():
         product=args.product,
         version=args.version,
     )
-    validate_payload(args.output / "export", args.product)
+    validate_payload(args.output / "export", args.product, source=source, version=args.version)
     print(json.dumps(result))
 
 

@@ -277,3 +277,12 @@ tests and the existing readiness-generator regression. Full report and exact rev
 are outside Git at `/tmp/monorepo-folding-automatic-delivery-astra-review.md`. This closes the local
 batch review; private-source/account gates, live credentials/ledger, actual runner/provider/Apple
 and screenshot acceptance remain outstanding.
+
+### Callkeep signed source identity preparation
+
+Private packaging now requires the notarized app's signed Info.plist to match the exact full
+source SHA, monotonic `1.0.N` version/build counter, production mode and existing bundle identity.
+The app/project embeds that source field; four distribution tests pass, including all metadata
+mismatch cases and real Git mode/symlink/byte preservation. This does not yet prove a freshly
+signed candidate, private GitHub authentication or installation/upgrade. Automatic Callkeep
+reservation, signing/notarization, immutable artifact-tag publication and tap update remain next.
