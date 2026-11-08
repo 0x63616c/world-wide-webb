@@ -8,7 +8,9 @@
     "homelab-mac-mini": {
       "adminUser": "admin",
       "adminUID": 501,
-      "authorizedKeys": [],
+      "authorizedKeys": [
+        "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHZ7LV/EOeunWFi71s4dNzLnwsusY9RlMj37TaPecurE"
+      ],
       "services": []
     },
     "homelab-macbook": {

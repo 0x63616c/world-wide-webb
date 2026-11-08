@@ -1,3 +1,5 @@
 creation_rules:
+- age: age19c0g40x89n88wgx8ne2r3rexvd2sw264lkkfxnz2f6ymy6quv4eqexcert,age1zmt7t630vva35ahpphd82cwzltxzuw03y6e966drwfgqnq7f4atsmj5wnv
+  path_regex: ^secrets/homelab-mac-mini\.sops\.yaml$
 - age: age10wvps9ua54zu6sh0rxjx7ddzgvwuxxclkv4dwcfeuapmdt9lqs4s2yn3hx,age1zmt7t630vva35ahpphd82cwzltxzuw03y6e966drwfgqnq7f4atsmj5wnv
   path_regex: ^secrets/homelab-macbook\.sops\.yaml$
