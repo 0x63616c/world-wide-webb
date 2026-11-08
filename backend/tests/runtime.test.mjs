@@ -371,6 +371,8 @@ test("entry deletion is owned, idempotent and durable before late upload", async
   const recalculate=await send({operation_id:"00000000-0000-0000-0000-000000008123",event_ids:[future],epoch_ids:[epoch]});assert.equal(recalculate.status,200);
   assert.equal(await db.prepare("SELECT folds FROM live_scores WHERE participant_id=? AND period_id='all'").bind(participant).first("folds"),1);
 
+});
+
 const protectionRuntime = new Miniflare(convertV4MiniflareOptions({workers:[{
  name:'folding-burst-local',modules:[{type:'ESModule',path:`${root}crates/worker/build/index.js`},{type:'CompiledWasm',path:`${root}crates/worker/build/index_bg.wasm`}],
  compatibilityDate:'2026-11-04',bindings:{DEPLOYMENT:'staging'},d1Databases:{DB:'burst-local'},

@@ -32,7 +32,7 @@ WHERE participant_id=?1 AND event_id IN(SELECT id FROM wanted)
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ingestion::{StoredObservation, plan_batch};
+    use crate::ingestion::{StoredObservation, plan_batch_with_deletions};
     use folding_domain::{
         competition::Enrollment,
         reducer,
@@ -63,6 +63,10 @@ mod tests {
             generation: &generation,
             issued_at_ms: 0,
         };
+        let deleted: std::collections::BTreeSet<Id> = (1_u64..1700)
+            .filter(|n| n.is_multiple_of(11))
+            .map(id)
+            .collect();
         let mut previous: Vec<StoredObservation> = vec![];
         let mut seed = 71u64;
         // Shuffled arrivals, repeated states, duplicate requests, tests and clock reversals.
@@ -110,8 +114,24 @@ mod tests {
                 .collect::<Result<Vec<_>, _>>()
                 .unwrap();
             assert!(subset.len() <= batch.events.len() * 4);
-            let full = plan_batch(&batch, &previous, &enrollment, 200000, id(40000)).unwrap();
-            let partial = plan_batch(&batch, &subset, &enrollment, 200000, id(40000)).unwrap();
+            let full = plan_batch_with_deletions(
+                &batch,
+                &previous,
+                &enrollment,
+                200000,
+                id(40000),
+                &deleted,
+            )
+            .unwrap();
+            let partial = plan_batch_with_deletions(
+                &batch,
+                &subset,
+                &enrollment,
+                200000,
+                id(40000),
+                &deleted,
+            )
+            .unwrap();
             assert_eq!(
                 serde_json::to_value(&full.receipt).unwrap(),
                 serde_json::to_value(&partial.receipt).unwrap()
@@ -123,8 +143,12 @@ mod tests {
                     .map(|o| o.event.clone())
                     .collect::<Vec<_>>()
             };
-            let old_full = reducer::reduce(&accepted(&previous), &[], &generation).unwrap();
-            let old_part = reducer::reduce(&accepted(&subset), &[], &generation).unwrap();
+            let old_full =
+                reducer::reduce_with_deletions(&accepted(&previous), &[], &generation, &deleted)
+                    .unwrap();
+            let old_part =
+                reducer::reduce_with_deletions(&accepted(&subset), &[], &generation, &deleted)
+                    .unwrap();
             assert_eq!(
                 full.all_time_folds as i64 - old_full.folds() as i64,
                 partial.all_time_folds as i64 - old_part.folds() as i64,

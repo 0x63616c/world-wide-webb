@@ -178,7 +178,22 @@ pub(crate) async fn events(
         generation: &generation,
         issued_at_ms: epoch.issued_at_ms,
     };
-    let deleted = crate::entry_deletion_runtime::deleted_ids(db, &session.participant_id).await?;
+    #[derive(Deserialize)]
+    struct Deleted {
+        event_id: Id,
+    }
+    let relevant_ids: std::collections::BTreeSet<_> = batch
+        .events
+        .iter()
+        .map(|event| event.event_id.as_str())
+        .chain(previous.iter().map(|old| old.event.event_id.as_str()))
+        .collect();
+    let ids_json = serde_json::to_string(&relevant_ids).map_err(|_| Failure::unavailable())?;
+    let deleted: std::collections::BTreeSet<Id> = statement(db,
+        "SELECT event_id FROM deleted_observations WHERE participant_id=?1 AND event_id IN(SELECT value FROM json_each(?2))",
+        &[text(&session.participant_id),text(&ids_json)])?.all().await
+        .map_err(|_| Failure::unavailable())?.results::<Deleted>()
+        .map_err(|_| Failure::unavailable())?.into_iter().map(|row| row.event_id).collect();
     let plan = plan_batch_with_deletions(
         &batch,
         &previous,
@@ -194,7 +209,7 @@ pub(crate) async fn events(
     })?;
     // Unaffected transitions cancel. Adjacent predecessors/successors are included on
     // both sides, preserving repeated states, late insertion, clock quarantine and ties.
-    let baseline = folding_domain::reducer::reduce(
+    let baseline = folding_domain::reducer::reduce_with_deletions(
         &previous
             .iter()
             .filter(|o| o.disposition == Disposition::Accepted)
@@ -202,6 +217,7 @@ pub(crate) async fn events(
             .collect::<Vec<_>>(),
         &[],
         &generation,
+        &deleted,
     )
     .map_err(|_| Failure::unavailable())?;
     let old_times: Vec<u64> = previous

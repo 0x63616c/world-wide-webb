@@ -295,3 +295,92 @@ private actor FirstMirrorGate {
   #expect(try router.currentLease(forVerified: accountB, installationID: installation) == nil)
   try await session.invalidate()
 }
+
+@Test func offlineWitnessIsBoundToAccountInstallationAndLiveLease() async throws {
+  let root = rootDirectory()
+  defer { try? FileManager.default.removeItem(at: root) }
+  let router = AccountPartitionRouter(directory: root)
+  let installation = UUID()
+  let lease = try router.activate(
+    accountA, transition: router.suspend(), installationID: installation)
+  let witness = Data("synthetic-device-account-A".utf8)
+  try router.rememberOfflineAccess(lease: lease, identityToken: witness)
+  let restarted = AccountPartitionRouter(directory: root)
+  #expect(
+    try restarted.offlineLease(
+      installationID: installation, allowLocalOnly: false, matchesIdentity: { $0 == witness })
+      == lease)
+  #expect(
+    try restarted.offlineLease(
+      installationID: UUID(), allowLocalOnly: false, matchesIdentity: { $0 == witness }) == nil)
+  do {
+    _ = try restarted.offlineLease(
+      installationID: installation, allowLocalOnly: false, matchesIdentity: { _ in false })
+    Issue.record("Different account reused offline access")
+  } catch PartitionError.identityChanged {}
+  _ = try router.suspend()
+  #expect(
+    try restarted.offlineLease(
+      installationID: installation, allowLocalOnly: false, matchesIdentity: { $0 == witness })
+      == nil)
+  do {
+    try router.rememberOfflineAccess(lease: lease, identityToken: witness)
+    Issue.record("Suspended writer installed a grant")
+  } catch PartitionError.inactive {}
+}
+
+@Test func offlineJournalDoesNotStartMirrorAndCanAttachReplicationLater() async throws {
+  let root = rootDirectory()
+  defer { try? FileManager.default.removeItem(at: root) }
+  let router = AccountPartitionRouter(directory: root)
+  let installation = UUID()
+  let session = PrivatePartitionSession(
+    router: router, installationID: installation, cloudConnectivity: false)
+  let journal = try await session.reconcile(verified: accountA, startMirror: false)
+  let witness = Data("synthetic-device-account-A".utf8)
+  try await session.rememberOfflineAccess(identityToken: witness)
+  _ = try await journal.record(
+    Observation(generation: .initial, transition: .open, observedAtMS: 1, timezoneID: "UTC"),
+    nowMS: 1)
+  let lease = try #require(try router.currentLease(installationID: installation))
+  #expect(
+    !FileManager.default.fileExists(atPath: lease.directory.appendingPathComponent("mirror").path))
+  let restarted = PrivatePartitionSession(
+    router: router, installationID: installation, cloudConnectivity: false)
+  let reopened = try #require(
+    await restarted.resumeOffline(allowLocalOnly: false, matchesIdentity: { $0 == witness }))
+  #expect(try await reopened.summary().folds == 1)
+  #expect(try await restarted.synchronize(nowMS: 1000) == nil)
+  let same = try await restarted.reconcile(verified: accountA)
+  #expect(same === reopened)
+  let report = try #require(await restarted.synchronize(nowMS: 1000))
+  #expect(report.localMirrorSaves == 1)
+  try await restarted.pauseSynchronization()
+  #expect(try await reopened.summary().folds == 1)
+  #expect(try await restarted.synchronize(nowMS: 2000) == nil)
+  try await restarted.invalidate()
+}
+
+@Test func nilWitnessCannotAuthorizeCloudHistoryButLocalOnlyHistoryRemainsOffline() throws {
+  let root = rootDirectory()
+  defer { try? FileManager.default.removeItem(at: root) }
+  let router = AccountPartitionRouter(directory: root)
+  let installation = UUID()
+  let cloud = try router.activate(
+    accountA, transition: router.suspend(), installationID: installation)
+  try router.rememberOfflineAccess(lease: cloud, identityToken: nil)
+  #expect(
+    try router.offlineLease(
+      installationID: installation, allowLocalOnly: true, matchesIdentity: { _ in false }) == nil)
+  let local = try router.activate(
+    .local(UUID()), transition: router.suspend(), installationID: installation)
+  try router.rememberOfflineAccess(lease: local, identityToken: nil)
+  #expect(
+    try router.offlineLease(
+      installationID: installation, allowLocalOnly: true, matchesIdentity: { _ in false }) == local)
+  do {
+    _ = try router.offlineLease(
+      installationID: installation, allowLocalOnly: false, matchesIdentity: { _ in false })
+    Issue.record("Cloud identity inherited anonymous local authorization")
+  } catch PartitionError.identityChanged {}
+}

@@ -23,3 +23,5 @@ Local implementation scope: #56, under F12/#12. The owner explicitly selected a 
 Provider deployment/default-zero policy readback and policy-aware TestFlight distribution are release acceptance in #43/#55. Raising the minimum requires a compatible replacement actually available to install; verify the chosen update destination and platform support first. Existing visual/localization/native-speaker and #47/F13 physical-device checks remain deferred, not passed.
 
 Offline is a separate concern: stored observations and warm local reads do not establish reliable offline cold startup. The current iCloud identity check before reopening the journal is tracked in #57. This feature intentionally does not reopen unverified account history to hide that problem.
+
+Subsequent local offline-startup implementation and current evidence are recorded in [offline cold startup](offline-cold-start-2026-11-08.md); physical/provider acceptance remains open.

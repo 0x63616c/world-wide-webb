@@ -32,6 +32,13 @@ fn error(status: u16, code: &str, id: Id, retryable: bool) -> Result<Response> {
 async fn fetch(request: Request, env: Env, context: Context) -> Result<Response> {
     let id = request_id()?;
     let route = crate::monitoring_runtime::route(&request.path());
+    // Log only a bounded numeric build, never arbitrary client-supplied header text.
+    let client_build = request
+        .headers()
+        .get("X-Folding-Build")
+        .ok()
+        .flatten()
+        .and_then(|value| crate::client_policy::parse_build(&value));
     let started = js_sys::Date::now();
     let version = env
         .var("WORKER_VERSION")
@@ -50,10 +57,11 @@ async fn fetch(request: Request, env: Env, context: Context) -> Result<Response>
         Err(failure) => error(failure.status, failure.code, id.clone(), failure.retryable),
     };
     let status = result.as_ref().map(|r| r.status_code()).unwrap_or(500);
-    console_log!(
-        "{}",
-        serde_json::json!({"event":"request","request_id":id,"worker_version":version,"route":route,"outcome":format!("http_{status}"),"status":status,"duration_ms":(js_sys::Date::now()-started).max(0.0) as u64})
-    );
+    // Object-valued console entries are indexed as fields by Workers Logs.
+    let event = serde_json::json!({"event":"request","request_id":id,"worker_version":version,"client_build":client_build,"route":route,"outcome":format!("http_{status}"),"status":status,"duration_ms":(js_sys::Date::now()-started).max(0.0) as u64});
+    if let Ok(event) = js_sys::JSON::parse(&event.to_string()) {
+        web_sys::console::log_1(&event);
+    }
     // Rejections must not turn an unauthenticated flood into one D1 write per request.
     if admitted && route == "events.submit" && ((200..300).contains(&status) || status >= 500) {
         context.wait_until(async move {

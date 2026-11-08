@@ -12,9 +12,18 @@ actor TrackingRuntime {
   private var accountRevision = UUID()
   private var accountSuspended = false
   private var journal: TrackingStore?
+  private var scheduledUpload: Task<Void, Never>?
+  private let uploadOverride: (@Sendable () async -> Void)?
   private var exportService: TrackingExportService?
   private var exportTickets: [UUID: PreparedTrackingExport] = [:]
-  init(journal: TrackingStore? = nil) { self.journal = journal }
+  init(
+    journal: TrackingStore? = nil, cloudConnection: CloudTrackingConnection? = nil,
+    uploadOverride: (@Sendable () async -> Void)? = nil
+  ) {
+    self.journal = journal
+    self.cloudConnection = cloudConnection
+    self.uploadOverride = uploadOverride
+  }
 
   private var synchronizing = false
   private var privateSyncFailed = false
@@ -22,6 +31,13 @@ actor TrackingRuntime {
 
   func store() async throws -> TrackingStore {
     guard !accountSuspended else { throw PartitionError.superseded }
+    if let cloudConnection {
+      let context = accountRevision
+      let current = try await cloudConnection.connect()
+      guard context == accountRevision, !accountSuspended else { throw PartitionError.superseded }
+      self.journal = current
+      return current
+    }
     if let journal { return journal }
     if let configuration = try ProductionConfiguration.current() {
       let token = accountRevision
@@ -64,6 +80,10 @@ actor TrackingRuntime {
     #else
       throw CloudTrackingError.missingConfiguration
     #endif
+  }
+
+  func hasMatchingLocalIdentity() async -> Bool {
+    await cloudConnection?.hasMatchingLocalIdentity() ?? false
   }
 
   func suspendForAccountChange(revision: UUID) async throws {
@@ -140,7 +160,7 @@ actor TrackingRuntime {
         nowMS: Self.nowMS)
     }
     await DailyLimitDelivery.shared.deliver(from: store)
-    await uploadCompetition()
+    await scheduleCompetitionUpload(from: store)
     await publishWidgets()
     changed()
   }
@@ -205,10 +225,20 @@ actor TrackingRuntime {
     let pending = try await current.dailyLimitNotificationIdentifier()
     _ = try await current.reset(nowMS: Self.nowMS)
     await DailyLimitDelivery.shared.cancel(pending)
-    await uploadCompetition()
+    await scheduleCompetitionUpload(from: current)
     clearWidgets()
     await publishWidgets()
     changed()
+  }
+
+  private func scheduleCompetitionUpload(from store: TrackingStore) async {
+    guard (try? await store.currentCompetitionEpoch()) != nil, scheduledUpload == nil else {
+      return
+    }
+    scheduledUpload = Task {
+      await self.uploadCompetition()
+      self.scheduledUpload = nil
+    }
   }
 
   func maintainCompetitionUploads() async {
@@ -219,6 +249,10 @@ actor TrackingRuntime {
   }
 
   func uploadCompetition() async {
+    if let uploadOverride {
+      await uploadOverride()
+      return
+    }
     do {
       let current = try await store()
       guard try await current.currentCompetitionEpoch() != nil,

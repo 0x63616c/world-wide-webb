@@ -720,6 +720,12 @@ import struct FoldingData.SetupProgress
   }
 
   func cloudAccountChanged() async {
+    if !accountChanging, await runtime.hasMatchingLocalIdentity() {
+      // CKAccountChanged also reports temporary availability changes. An unchanged
+      // device witness preserves offline history; replication still re-verifies CloudKit.
+      await runtime.synchronizePrivateHistory()
+      return
+    }
     let change = UUID()
     accountChangeRevision = change
     accountChanging = true
@@ -760,7 +766,13 @@ import struct FoldingData.SetupProgress
 
   func maintainCompetitionUploads() async { await runtime.maintainCompetitionUploads() }
 
-  func synchronizePrivateHistory() async { await runtime.synchronizePrivateHistory() }
+  func synchronizePrivateHistory() async {
+    if accountChanging {
+      await cloudAccountChanged()
+    } else {
+      await runtime.synchronizePrivateHistory()
+    }
+  }
 
   func refreshVisible() async {
     guard !accountChanging else { return }

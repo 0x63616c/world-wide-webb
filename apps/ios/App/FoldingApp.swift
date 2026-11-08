@@ -59,6 +59,9 @@ import SwiftUI
     .onReceive(NotificationCenter.default.publisher(for: .CKAccountChanged)) { _ in
       Task { await controller.cloudAccountChanged() }
     }
+    .onReceive(NotificationCenter.default.publisher(for: .NSUbiquityIdentityDidChange)) { _ in
+      Task { await controller.cloudAccountChanged() }
+    }
     .onReceive(
       NotificationCenter.default.publisher(
         for: NSPersistentCloudKitContainer.eventChangedNotification)

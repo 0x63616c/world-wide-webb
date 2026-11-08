@@ -18,7 +18,7 @@ A confirmed minimum is persisted per environment and survives cold/offline launc
 
 The update screen replaces the root rather than stacking a dismissible sheet, so navigation/deep links cannot dismiss it. It offers Update app, Check again and external support. App Store destination is the registered Folding app ID 6832059501; sandbox-receipt/TestFlight and staging installs use the public TestFlight landing page. Verify that the device opens the expected update destination before enabling a floor. The updated translations are drafts under existing localization QA rules.
 
-Background upload errors with `app_update_required` retain their operation/event data and retry later; they do not permanently suspend competition. Local recording and iCloud replication are independent of this UI policy. Fully offline cold startup has a separate known account-identity dependency in #57 and must not be claimed verified by this feature.
+Background upload errors with `app_update_required` retain their operation/event data and retry later; they do not permanently suspend competition. Local recording and iCloud replication are independent of this UI policy. Offline cold startup follows the separate account-witness contract in storage-and-tracking.md and #57; update-policy tests do not establish account/device acceptance.
 
 ## Activation and rollback
 
@@ -28,3 +28,7 @@ Background upload errors with `app_update_required` retain their operation/event
 4. To recover from a mistaken floor, lower it or set `0` and redeploy; affected clients recover on their next successful check. Offline clients with a known requirement remain blocked until they reconnect or install a supported build.
 
 The minimum is intentionally disabled by default. Provider activation, a new TestFlight build and post-submission device acceptance are not established by local tests or a Git push.
+
+## Build observability
+
+All app transport requests, avatar reads and policy checks send `X-Folding-Build` from `CFBundleVersion`. Request logs emit an object-valued `client_build` numeric field alongside route/status/backend version. Missing, malformed and out-of-range values become null; arbitrary header text, bearer tokens and histories are never logged. The value is self-reported compatibility metadata, not attested proof of a binary. Marketing version strings are not sent separately; map builds to the release manifests when needed. Generated configuration samples 10% of invocations, so version/endpoint breakdowns are sampled estimates, not exact per-user counts. Logging requires the updated Worker/config to be deployed.
