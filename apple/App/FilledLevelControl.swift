@@ -18,6 +18,7 @@ struct FilledLevelControl: View {
     @Environment(\.isEnabled) private var enabled
     @GestureState private var dragging: Int?
     @State private var releasedValue: Int?
+    @State private var valueWidth: CGFloat = 44
     private var showsValue: Bool { showsPercentage || valueLabel != nil }
     private var dragValue: Int? { enabled ? dragging : nil }
     private var displayed: Int { min(range.upperBound, max(range.lowerBound, dragValue ?? releasedValue ?? value)) }
@@ -44,7 +45,7 @@ struct FilledLevelControl: View {
                 Image(systemName: symbol).font(.system(size: 22))
                     .foregroundStyle(.white).padding(.leading, 24)
                 // The fill still reaches the end of the bar when the thumb enters the label area.
-                if !showsValue || thumbX <= proxy.size.width - 68 {
+                if !showsValue || thumbX <= proxy.size.width - valueWidth - 36 {
                     Capsule().fill(.white.opacity(0.9)).frame(width: 4, height: 22)
                         .offset(x: thumbX)
                 }
@@ -52,6 +53,11 @@ struct FilledLevelControl: View {
                     Text(valueLabel?(displayed) ?? "\(displayed)%")
                         .font(.subheadline.weight(.semibold).monospacedDigit())
                         .foregroundStyle(.white)
+                        .onGeometryChange(for: CGFloat.self) {
+                            $0.size.width
+                        } action: {
+                            valueWidth = $0
+                        }
                         .padding(.trailing, 24)
                         .frame(maxWidth: .infinity, alignment: .trailing)
                 }
