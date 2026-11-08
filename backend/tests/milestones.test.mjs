@@ -49,12 +49,14 @@ async function jsonOK(response){assert.equal(response.status,200,await response.
 test('real Worker derives owner progress, exposes a public allowlist and persists one featured award',async()=>{
  await setup();
  const p=await person(100,100),viewer=await person(200);
- await observations(p,Array.from({length:100},(_,i)=>event(p,i+1,i*86400000)));
+ await observations(p,Array.from({length:100},(_,i)=>event(p,i+1,i*86400000+1234)));
  const own=await jsonOK(await request(p,'/v1/milestones'));
  assert.equal(own.progress.folds,100);assert.equal(own.progress.days_used,100);
  assert.equal(own.progress.next.length,1);assert.equal(own.progress.next[0].target,1000);
  assert.deepEqual(new Set(own.grants.map(g=>g.badge_id)),new Set(['folds_1','folds_100','days_7','days_30']));
  assert.ok(own.grants.every(g=>g.acknowledged===false));
+ assert.equal(own.grants.find(g=>g.badge_id==='days_7').earned_at_ms,6*86400000+1234);
+ assert.equal(own.grants.find(g=>g.badge_id==='days_30').earned_at_ms,29*86400000+1234);
  assert.equal((await request(null,'/v1/participants/'+p.participant)).status,401);
  assert.equal((await request(p,'/v1/profile/badge',{operation_id:uuid(++op),generation,badge_id:'folds_1000'},'PATCH')).status,422);
  const selection={operation_id:uuid(++op),generation,badge_id:'folds_100'};

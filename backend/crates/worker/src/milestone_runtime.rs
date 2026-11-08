@@ -97,7 +97,7 @@ fn grants(
             "SELECT observed_at_ms FROM milestone_counted_events WHERE participant_id=?1 ORDER BY observed_at_ms,event_id LIMIT 1 OFFSET ?4".to_string()
         } else {
             format!(
-                "SELECT utc_day*{UTC_DAY_MS} FROM milestone_days WHERE participant_id=?1 AND folds>0 ORDER BY utc_day LIMIT 1 OFFSET ?4"
+                "SELECT MIN(e.observed_at_ms) FROM (SELECT utc_day FROM milestone_days WHERE participant_id=?1 AND folds>0 ORDER BY utc_day LIMIT 1 OFFSET ?4) d JOIN milestone_counted_events e ON e.participant_id=?1 AND e.observed_at_ms>=d.utc_day*{UTC_DAY_MS} AND e.observed_at_ms<(d.utc_day+1)*{UTC_DAY_MS}"
             )
         };
         writes.push(statement(db,&format!("INSERT INTO milestone_grants(participant_id,badge_id,earned_at_ms) SELECT ?1,?2,({date}) WHERE EXISTS(SELECT 1 FROM milestone_state WHERE participant_id=?1 AND state='ready' AND {column}>=?3) AND NOT EXISTS(SELECT 1 FROM milestone_grants WHERE participant_id=?1 AND badge_id=?2)"),&[text(participant),text(badge.as_str()),number(badge.threshold() as i64),number(badge.threshold() as i64-1)])?);
