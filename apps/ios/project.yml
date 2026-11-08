@@ -70,6 +70,8 @@ targets:
       - path: App
         includes: ['*.swift', '*.xcstrings']
       - path: App/Assets.xcassets
+      - path: Config/AppPrivacy/PrivacyInfo.xcprivacy
+        buildPhase: resources
     settings:
       base:
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
@@ -89,6 +91,8 @@ targets:
     platform: iOS
     sources:
       - path: Widgets
+      - path: Config/WidgetPrivacy/PrivacyInfo.xcprivacy
+        buildPhase: resources
       - path: App/Localizable.xcstrings
     settings:
       base:
@@ -109,6 +113,14 @@ targets:
   FoldingScreenshots:
     type: application
     platform: iOS
+    info:
+      path: Config/GeneratedScreenshots-Info.plist
+      properties:
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
     sources:
       - path: Screenshots
       - path: App/FoldingScreens.swift
@@ -117,6 +129,13 @@ targets:
       - path: App/CompetitionScreens.swift
       - path: App/CompetitionPresentation.swift
       - path: App/PodiumRing.swift
+      - path: App/MilestoneModels.swift
+      - path: App/MilestoneCache.swift
+      - path: App/MilestonePresentation.swift
+      - path: App/MilestoneScreens.swift
+      - path: App/Assets.xcassets
+      - path: BuildTests/Fixtures/ProfilePortraits.png
+        buildPhase: resources
       - path: App/TipJarContent.swift
       - path: ../../fastlane/tip-products.json
       - path: App/NotificationPreferences.swift
@@ -131,6 +150,7 @@ targets:
         FOLDING_CLOUD_CONTAINER_IDENTIFIER: ''
         FOLDING_API_ORIGIN: ''
         FOLDING_ENVIRONMENT: ''
+        ENABLE_TESTABILITY: YES
         SWIFT_OPTIMIZATION_LEVEL: '-O'
     dependencies:
       - package: FoldingKit
@@ -149,6 +169,20 @@ targets:
         SUPPORTED_PLATFORMS: iphonesimulator
     dependencies:
       - target: FoldingScreenshots
+  FoldingStorefrontTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: StorefrontTests
+      - path: ../../fastlane/screenshot-plan.json
+        buildPhase: resources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.getfolding.Folding.StorefrontTests
+        SUPPORTED_PLATFORMS: iphonesimulator
+    dependencies:
+      - target: FoldingScreenshots
+
   FoldingBuildTests:
     type: bundle.unit-test
     platform: iOS
@@ -190,4 +224,15 @@ schemes:
       config: Screenshots
       targets:
         - FoldingScreenshotTests
+      gatherCoverageData: false
+
+  FoldingStorefront:
+    build:
+      targets:
+        FoldingScreenshots: all
+        FoldingStorefrontTests: [test]
+    test:
+      config: Screenshots
+      targets:
+        - FoldingStorefrontTests
       gatherCoverageData: false

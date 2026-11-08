@@ -1,6 +1,7 @@
 require_relative "review_submission"
 require "shellwords"
 require_relative "release_assets"
+require_relative "storefront_readback"
 
 module FoldingRelease
   module Operations
@@ -305,13 +306,9 @@ module FoldingRelease
       true
     end
 
-    def self.submit(context, record, evidence_path)
+    # Upload and verify the listing without requesting App Review.
+    def self.storefront(context, record, evidence_path)
       preflight(record, evidence_path, final: true)
-      return if record.data["submission_id"] && observe_submission(record)
-      if record.data["submission_attempt_started_at"]
-        return if observe_submission(record)
-        raise "Submission outcome pending/ambiguous; inspect Apple, do not submit again automatically"
-      end
       raise "Expected processed or ready_to_submit" unless %w[processed ready_to_submit].include?(record.data.fetch("state"))
       assets = restore_assets(record)
       contact = CONFIG.fetch("review_contact_env").transform_values { |name| ENV.fetch(name) }
@@ -321,10 +318,26 @@ module FoldingRelease
         overwrite_screenshots: true, force: true, automatic_release: true,
         run_precheck_before_submit: true, precheck_include_in_app_purchases: false,
         app_review_information: contact.merge("demo_account_required" => false, "notes" => File.read(File.join(ROOT, "fastlane/review-notes.txt")))}
-      context.upload_to_app_store(**options.merge(submit_for_review: false)) if record.data["state"] == "processed"
+      if record.data["state"] == "processed" && !record.data["storefront_upload_completed_at"]
+        context.upload_to_app_store(**options.merge(submit_for_review: false))
+        record.save("storefront_upload_completed_at" => Time.now.utc.iso8601)
+      end
       selected = version(record)
       raise "Listing not attached to exact build" unless selected.get_build(client: FoldingRelease.client)&.id == record.data.fetch("asc_build_id")
+      StorefrontReadback.verify!(record, selected)
       record.advance("ready_to_submit") if record.data["state"] == "processed"
+      selected
+    end
+
+    def self.submit(context, record, evidence_path)
+      preflight(record, evidence_path, final: true)
+      return if record.data["submission_id"] && observe_submission(record)
+      if record.data["submission_attempt_started_at"]
+        return if observe_submission(record)
+        raise "Submission outcome pending/ambiguous; inspect Apple, do not submit again automatically"
+      end
+      raise "Expected processed or ready_to_submit" unless %w[processed ready_to_submit].include?(record.data.fetch("state"))
+      selected = storefront(context, record, evidence_path)
       ReviewSubmission.prepare(record, selected.id)
       record.save("submission_attempt_started_at" => Time.now.utc.iso8601)
       ReviewSubmission.submit(record)

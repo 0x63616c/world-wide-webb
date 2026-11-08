@@ -50,3 +50,5 @@ fastlane/app_store_connect_api.json
 apps/ios/Folding.xcodeproj/
 
 apps/ios/Config/GeneratedFolding-Info.plist
+
+apps/ios/Config/GeneratedScreenshots-Info.plist

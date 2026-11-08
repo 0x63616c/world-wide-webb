@@ -35,3 +35,12 @@ The [GitHub Project](https://github.com/users/0x63616c/projects/9) and existing 
 - [x] Move required-update policy exclusively into protected Operations, remove the deployment-variable control, apply/verify migration 0020 in both environments, test staging activation/rollback through the live form and verify production stays at 0. [Evidence](experiments/admin-minimum-build-2026-11-08.md). Existing TestFlight build 12 needs no replacement for this server-only change.
 
 - [x] Merge and ship competition cleanup in **0.1.12 (13)** to Folding Internal, with exact Apple build/group readback. Remove active Leave/manual approval paths and simplify leaderboard/profile/results/Shortcuts; preserve private tracking. Both API environments verify the merged source and minimum 0. [Evidence](experiments/leaderboard-cleanup-2026-11-08.md). Actual installed visual acceptance remains open.
+
+
+November 8 App Store preparation: all ten-locale screenshot templates/listing sources
+now cover current-main profiles, milestones and Patterns. The saved App Privacy
+answers are published with owner approval; age ratings and owner-confirmed content
+rights are saved, and the new review phone is verified across all eight existing
+non-staging app versions. These components no longer await setup. Full rehearsal,
+formal native-language/accessibility acceptance, the signed 1.0 candidate and full
+backend acceptance remain open. See [exact storefront evidence](experiments/app-store-preparation-2026-11-08.md).

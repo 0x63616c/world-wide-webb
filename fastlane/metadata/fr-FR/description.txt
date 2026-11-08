@@ -1,10 +1,10 @@
-Folding suit les pliages de votre Duo. Configurez les automatisations d’ouverture et de fermeture dans Raccourcis, testez-les dans l’app et découvrez vos habitudes.
+Suivez les pliages de votre iPhone Duo avec Folding. Configurez les automatisations d’ouverture et de fermeture dans Raccourcis et découvrez vos habitudes.
 
-• Suivez les pliages, le temps ouvert et le mouvement estimé.
-• Consultez vos statistiques par jour, semaine, mois ou depuis le début.
-• Synchronisez votre historique privé avec iCloud.
-• Choisissez vos couleurs, statistiques préférées et widgets.
-• Participez, si vous le souhaitez, aux classements hebdomadaires, mensuels et généraux.
-• Exportez votre historique en JSON ou CSV, ou réinitialisez-le.
+• Comptez vos pliages et le temps passé déplié.
+• Explorez votre historique et vos tendances d’utilisation.
+• Synchronisez votre historique avec iCloud et consultez vos statistiques dans les widgets.
+• Rejoignez les classements hebdomadaires, mensuels et généraux avec « Se connecter avec Apple ».
+• Gagnez des badges de pliages et de jours d’utilisation, découvrez les profils et affichez votre badge préféré.
+• Exportez votre historique en fichiers CSV ou réinitialisez-le dans l’app.
 
-Toutes les fonctions sont gratuites. Les pourboires facultatifs ne débloquent rien et ne donnent aucun avantage au classement. Le mouvement est estimé à partir des événements enregistrés ; il ne mesure pas l’usure de la charnière.
+Toutes les fonctions sont gratuites. Les pourboires facultatifs soutiennent le développement et ne débloquent rien.

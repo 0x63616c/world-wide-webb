@@ -2,6 +2,7 @@ require "shellwords"
 require_relative "lib/apple_account"
 require_relative "lib/release_operations"
 require_relative "lib/tip_products"
+require_relative "lib/storefront_draft"
 
 def repository_root
   File.expand_path("..", __dir__)
@@ -130,6 +131,17 @@ platform :ios do
   desc "Upload the exact IPA and distribute its processed build to explicit TestFlight groups"
   lane :beta do |options|
     FoldingRelease::Operations.beta(self, FoldingRelease::Record.new(options.fetch(:tag)))
+  end
+
+  desc "Populate an existing App Store draft from current captures without uploading a build or submitting"
+  lane :storefront_draft do |options|
+    FoldingRelease::StorefrontDraft.upload(self, version: options.fetch(:version))
+  end
+
+  desc "Upload reviewed metadata and screenshots to the exact build without submitting for review"
+  lane :storefront do |options|
+    record = FoldingRelease::Record.new(options.fetch(:tag))
+    FoldingRelease::Operations.storefront(self, record, options.fetch(:evidence))
   end
 
   desc "Submit the exact reviewed production build and verify Apple review state"
