@@ -20,6 +20,7 @@ The coding checklist below is complete. The active goal is live iCloud and Cloud
 
 
 Local evidence: [coding completion](experiments/coding-completion.md). Broader shipping acceptance remains open.
+The owner is testing [TestFlight 0.1.5 (build 6)](experiments/testflight-preview-2026-11-07.md). Signed app/Shortcuts metadata, local compilation, localization, core checks, backend health and internal distribution passed. Startup/setup behavior and protected Join on the physical Duo remain unverified or failing; the live issue checklists keep those open.
 The chronological shipping checkpoints below remain evidence. Live integration has resumed under the active goal; CI, storefront/visual review, submission, and post-submission device checks remain deferred.
 
 [Folding — Ship v1](https://github.com/users/0x63616c/projects/9) is the live delivery board, with 33 linked deliverables under the original work orders. GitHub Issues hold acceptance criteria and evidence. Current execution is primary-agent implementation; subagents are limited to independent review. Physical-device evidence is deferred to F13 after submission by owner instruction.
