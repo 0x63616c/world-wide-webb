@@ -9,3 +9,5 @@ __pycache__/
 .DS_Store
 host/target/
 runner/target/
+
+/linux-image-build.json

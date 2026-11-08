@@ -47,6 +47,8 @@ const GUEST_SERVICE_PLIST: &str = r#"<?xml version="1.0" encoding="UTF-8"?>
 </dict></plist>
 "#;
 
+const LINUX_SERVICE: &str = include_str!("../images/linux/homelab-runner-guest.service");
+
 #[derive(Debug, thiserror::Error)]
 pub enum TartError {
     #[error("invalid Tart adapter configuration")]
@@ -171,6 +173,7 @@ pub struct TartConfig {
 #[derive(Clone)]
 pub struct Tart {
     config: TartConfig,
+    platform: crate::config::Platform,
 }
 impl Tart {
     pub fn new(config: TartConfig) -> Result<Self, TartError> {
@@ -188,7 +191,35 @@ impl Tart {
         {
             return Err(TartError::Configuration);
         }
-        Ok(Self { config })
+        Ok(Self {
+            config,
+            platform: crate::config::Platform::MacosArm64,
+        })
+    }
+    /// Select only journal-snapshotted public artifacts, never mutable current policy.
+    pub fn for_attempt(&self, attempt: &crate::state::Attempt) -> Result<Self, TartError> {
+        let mut config = self.config.clone();
+        if let Some(linux) = &attempt.linux_profile {
+            config.runner_archive = linux.runner_archive.clone();
+            config.runner_version = linux.runner_version.clone();
+        } else if attempt.platform == crate::config::Platform::LinuxArm64 {
+            return Err(TartError::Configuration);
+        }
+        let mut tart = Self::new(config)?;
+        tart.platform = attempt.platform;
+        Ok(tart)
+    }
+    fn runner_directory(&self) -> &'static str {
+        match self.platform {
+            crate::config::Platform::MacosArm64 => GUEST_RUNNER_DIRECTORY,
+            crate::config::Platform::LinuxArm64 => "/home/admin/actions-runner",
+        }
+    }
+    fn runner_listener(&self) -> &'static str {
+        match self.platform {
+            crate::config::Platform::MacosArm64 => GUEST_RUNNER_LISTENER,
+            crate::config::Platform::LinuxArm64 => "/home/admin/actions-runner/bin/Runner.Listener",
+        }
     }
     /// Provisioning must install the reviewed helper with root ownership and
     /// setuid before boot. Never let Tart enter its interactive sudo/chmod path.
@@ -368,7 +399,9 @@ impl Tart {
         name: &OwnedVmName,
         deadline: Duration,
     ) -> Result<(), TartError> {
-        trusted_executable(&self.config.guest_helper, false)?;
+        if self.platform == crate::config::Platform::MacosArm64 {
+            trusted_executable(&self.config.guest_helper, false)?;
+        }
         if deadline.is_zero() {
             return Err(TartError::Timeout("prepare guest"));
         }
@@ -398,6 +431,9 @@ impl Tart {
         .await
     }
     async fn prepare_guest_inner(&self, name: &OwnedVmName) -> Result<(), TartError> {
+        if self.platform == crate::config::Platform::LinuxArm64 {
+            return self.prepare_linux_guest(name).await;
+        }
         loop {
             match self.guest_agent_ready(name).await {
                 Ok(true) => break,
@@ -590,6 +626,168 @@ impl Tart {
             }
         }
     }
+    async fn prepare_linux_guest(&self, name: &OwnedVmName) -> Result<(), TartError> {
+        loop {
+            match self.guest_agent_ready(name).await {
+                Ok(true) => break,
+                Err(TartError::GuestIdentity) => return Err(TartError::GuestIdentity),
+                _ => tokio::time::sleep(Duration::from_secs(2)).await,
+            }
+        }
+        let already_ready = match self.guest_status(name).await {
+            Ok(status) if status.phase == GuestPhase::Ready => true,
+            Ok(_) => return Err(TartError::GuestAlreadyClaimed),
+            Err(_) => false,
+        };
+        self.ensure_runner_unregistered(name).await?;
+        let uid = self
+            .guest_command(
+                name,
+                "guest sudo identity",
+                &["/usr/bin/sudo", "-n", "/usr/bin/id", "-u"],
+                None,
+            )
+            .await?;
+        if uid != b"0\n" && uid != b"0" {
+            return Err(TartError::GuestIdentity);
+        }
+        if !already_ready {
+            match self
+                .guest_command(
+                    name,
+                    "guest claim probe",
+                    &["/usr/bin/sudo", "-n", "/bin/test", "-e", GUEST_STATUS_PATH],
+                    None,
+                )
+                .await
+            {
+                Ok(_) => return Err(TartError::GuestAlreadyClaimed),
+                Err(TartError::Failed {
+                    exit_code: Some(1), ..
+                }) => {}
+                Err(error) => return Err(error),
+            }
+        }
+        let home = self
+            .guest_command(name, "guest home", &["/usr/bin/printenv", "HOME"], None)
+            .await?;
+        let arch = self
+            .guest_command(name, "guest architecture", &["/usr/bin/uname", "-m"], None)
+            .await?;
+        if home != b"/home/admin\n" || arch != b"aarch64\n" {
+            return Err(TartError::GuestIdentity);
+        }
+        self.guest_command(
+            name,
+            "guest hostname",
+            &[
+                "/usr/bin/sudo",
+                "-n",
+                "/usr/bin/hostnamectl",
+                "set-hostname",
+                name.as_str(),
+            ],
+            None,
+        )
+        .await?;
+        // Public resolvers and network configuration belong to the pinned image.
+        // Verify the image contract without restoring private gateway DNS.
+        self.guest_command(
+            name,
+            "guest Docker readiness",
+            &["/usr/bin/docker", "info"],
+            None,
+        )
+        .await?;
+        self.prepare_runner(name).await?;
+        if already_ready {
+            return Ok(());
+        }
+        // The Linux helper is built into the digest-pinned image. A Darwin
+        // controller binary cannot be uploaded as a Linux executable.
+        let version = self
+            .guest_command(
+                name,
+                "guest helper contract",
+                &[GUEST_HELPER, "--version"],
+                None,
+            )
+            .await?;
+        if version != concat!("homelab-runner ", env!("CARGO_PKG_VERSION"), "\n").as_bytes() {
+            return Err(TartError::RunnerVersion);
+        }
+        self.guest_command(
+            name,
+            "guest private state",
+            &[
+                "/usr/bin/sudo",
+                "-n",
+                "/usr/bin/install",
+                "-d",
+                "-o",
+                "admin",
+                "-g",
+                "admin",
+                "-m",
+                "0700",
+                "/var/lib/homelab-runner",
+            ],
+            None,
+        )
+        .await?;
+        self.guest_command(
+            name,
+            "guest service upload",
+            &[
+                "/usr/bin/sudo",
+                "-n",
+                "/bin/dd",
+                "of=/etc/systemd/system/homelab-runner-guest.service",
+            ],
+            Some(LINUX_SERVICE.as_bytes()),
+        )
+        .await?;
+        self.guest_command(
+            name,
+            "guest service permissions",
+            &[
+                "/usr/bin/sudo",
+                "-n",
+                "/bin/chmod",
+                "0644",
+                "/etc/systemd/system/homelab-runner-guest.service",
+            ],
+            None,
+        )
+        .await?;
+        self.guest_command(
+            name,
+            "guest systemd reload",
+            &["/usr/bin/sudo", "-n", "/usr/bin/systemctl", "daemon-reload"],
+            None,
+        )
+        .await?;
+        self.guest_command(
+            name,
+            "guest service start",
+            &[
+                "/usr/bin/sudo",
+                "-n",
+                "/usr/bin/systemctl",
+                "start",
+                "homelab-runner-guest.service",
+            ],
+            None,
+        )
+        .await?;
+        loop {
+            match self.guest_status(name).await {
+                Ok(status) if status.phase == GuestPhase::Ready => return Ok(()),
+                Ok(_) => return Err(TartError::GuestAlreadyClaimed),
+                Err(_) => tokio::time::sleep(Duration::from_secs(2)).await,
+            }
+        }
+    }
     async fn prepare_runner(&self, name: &OwnedVmName) -> Result<(), TartError> {
         match self.runner_version_matches(name).await {
             Ok(true) => return Ok(()),
@@ -599,7 +797,7 @@ impl Tart {
         self.guest_command(
             name,
             "guest runner directory",
-            &["/bin/mkdir", "-p", GUEST_RUNNER_DIRECTORY],
+            &["/bin/mkdir", "-p", self.runner_directory()],
             None,
         )
         .await?;
@@ -608,7 +806,7 @@ impl Tart {
             "guest runner archive",
             guest_exec_arguments(
                 name,
-                &["/usr/bin/tar", "-xzf", "-", "-C", GUEST_RUNNER_DIRECTORY],
+                &["/usr/bin/tar", "-xzf", "-", "-C", self.runner_directory()],
                 true,
             ),
             None,
@@ -625,16 +823,13 @@ impl Tart {
     async fn ensure_runner_unregistered(&self, name: &OwnedVmName) -> Result<(), TartError> {
         // Never mutate an already registered runner, even if a stale/malformed
         // helper record incorrectly claims that this guest is still unclaimed.
-        for path in [
-            "/Users/admin/actions-runner/.runner",
-            "/Users/admin/actions-runner/.credentials",
-            "/Users/admin/actions-runner/.credentials_rsaparams",
-        ] {
+        for file in [".runner", ".credentials", ".credentials_rsaparams"] {
+            let path = format!("{}/{file}", self.runner_directory());
             match self
                 .guest_command(
                     name,
                     "guest runner credential probe",
-                    &["/usr/bin/sudo", "-n", "/bin/test", "-e", path],
+                    &["/usr/bin/sudo", "-n", "/bin/test", "-e", &path],
                     None,
                 )
                 .await
@@ -653,7 +848,7 @@ impl Tart {
             .guest_command(
                 name,
                 "guest runner version",
-                &[GUEST_RUNNER_LISTENER, "--version"],
+                &[self.runner_listener(), "--version"],
                 None,
             )
             .await?;
@@ -666,7 +861,11 @@ impl Tart {
         let uid = self
             .guest_command(name, "guest identity", &["/usr/bin/id", "-u"], None)
             .await?;
-        if uid.as_slice() == b"501\n" || uid.as_slice() == b"501" {
+        let expected = match self.platform {
+            crate::config::Platform::MacosArm64 => "501",
+            crate::config::Platform::LinuxArm64 => "1000",
+        };
+        if std::str::from_utf8(&uid).is_ok_and(|uid| uid.trim_end_matches('\n') == expected) {
             Ok(true)
         } else {
             Err(TartError::GuestIdentity)
@@ -1772,6 +1971,41 @@ exit 0
         std::fs::write(&executable, script).unwrap();
         std::fs::set_permissions(&executable, std::fs::Permissions::from_mode(0o700)).unwrap();
         lease_adapter(directory, &executable)
+    }
+    #[tokio::test]
+    async fn linux_preparation_uses_baked_elf_helper_systemd_and_linux_identity() {
+        let directory = lease_directory();
+        let mut tart = prepare_fixture(directory.path());
+        tart.platform = crate::config::Platform::LinuxArm64;
+        let script = std::fs::read_to_string(&tart.config.binary).unwrap()
+            .replace("printf '501\\n'", "printf '1000\\n'")
+            .replace("/Users/admin/actions-runner", "/home/admin/actions-runner")
+            .replace("if [ \"$3\" = /usr/bin/id ];", "if [ \"$3\" = /usr/bin/printenv ]; then printf '/home/admin\\n'; exit 0; fi\nif [ \"$3\" = /usr/bin/uname ]; then printf 'aarch64\\n'; exit 0; fi\nif [ \"$3\" = /usr/bin/id ];")
+            .replace("if [ \"$3\" = /usr/local/libexec/homelab-runner-guest ]; then", "if [ \"$3\" = /usr/local/libexec/homelab-runner-guest ] && [ \"$4\" = --version ]; then printf 'homelab-runner 0.1.0\\n'; exit 0; fi\nif [ \"$3\" = /usr/local/libexec/homelab-runner-guest ]; then")
+            .replace("if [ \"$5\" = /bin/launchctl ];", "if [ \"$5\" = /usr/bin/systemctl ] && [ \"$6\" = start ];");
+        std::fs::write(&tart.config.binary, &script).unwrap();
+        tart.prepare_guest(&lease_name(), Duration::from_secs(3))
+            .await
+            .unwrap();
+        let events = std::fs::read_to_string(directory.path().join("events")).unwrap();
+        assert!(events.contains("/usr/bin/systemctl start homelab-runner-guest.service"));
+        assert!(events.contains("/usr/bin/tar -xzf - -C /home/admin/actions-runner"));
+        assert!(
+            !events.contains("scutil")
+                && !events.contains("launchctl")
+                && !events.contains("networksetup")
+        );
+        assert!(!events.contains("of=/usr/local/libexec/homelab-runner-guest"));
+        tart.prepare_guest(&lease_name(), Duration::from_secs(3))
+            .await
+            .unwrap();
+        let bad = script.replace("printf '1000\\n'", "printf '1001\\n'");
+        std::fs::write(&tart.config.binary, bad).unwrap();
+        assert!(matches!(
+            tart.prepare_guest(&lease_name(), Duration::from_secs(3))
+                .await,
+            Err(TartError::GuestIdentity)
+        ));
     }
     #[tokio::test]
     async fn public_guest_preparation_uses_fixed_commands_and_independent_service() {

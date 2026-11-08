@@ -52,7 +52,7 @@
       };
       devShells.${system}.default = pkgs.mkShellNoCC {
         packages = with pkgs; [
-          python3 bash nixfmt
+          (python3.withPackages (p: [ p.pyyaml ])) bash nixfmt
           cargo rustc rustfmt clippy
           git shellcheck nodejs age sops
         ];
@@ -65,10 +65,11 @@
         runner-concurrency-limits =
           let
             options = self.darwinConfigurations.homelab-macbook.options.homelab.runners;
-            limits = [ options.maxConcurrentJobs.type options.tart.maxMacOSGuests.type ];
           in
-            assert builtins.all (type: type.check 1 && type.check 2
-              && !(type.check 0) && !(type.check 3) && !(type.check 128)) limits;
+            assert options.maxConcurrentJobs.type.check 4;
+            assert !(options.maxConcurrentJobs.type.check 5);
+            assert options.tart.maxMacOSGuests.type.check 2;
+            assert !(options.tart.maxMacOSGuests.type.check 3);
             pkgs.runCommand "homelab-runner-concurrency-limits-check" {} ''
               touch "$out"
             '';

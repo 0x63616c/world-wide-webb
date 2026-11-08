@@ -55,6 +55,8 @@ pub struct Failure {
 pub struct Summary {
     pub schema: u32,
     pub nonce: String,
+    #[serde(default)]
+    pub platform: crate::config::Platform,
     pub candidate: JobIdentity,
     pub assigned: Option<JobIdentity>,
     pub runner_id: Option<u64>,
@@ -74,6 +76,7 @@ impl Summary {
         Self {
             schema: 1,
             nonce: attempt.nonce.clone(),
+            platform: attempt.platform,
             candidate: attempt.candidate.clone(),
             assigned: attempt.assigned.clone(),
             runner_id: attempt.runner_id,
@@ -256,6 +259,7 @@ mod tests {
         Summary {
             schema: 1,
             nonce: "a".repeat(32),
+            platform: crate::config::Platform::MacosArm64,
             candidate: JobIdentity {
                 repository: "owner/repo".into(),
                 run_id: 1,

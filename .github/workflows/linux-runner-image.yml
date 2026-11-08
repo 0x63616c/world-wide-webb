@@ -1,0 +1,35 @@
+name: Build Linux runner image
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  packages: write
+concurrency:
+  group: linux-runner-image
+  cancel-in-progress: false
+jobs:
+  image:
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Install reviewed signed Tart bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(uname -m)" = arm64
+          curl -fL https://github.com/openai/tart/releases/download/2.41.1/tart.tar.gz -o "$RUNNER_TEMP/tart.tar.gz"
+          printf '%s  %s\n' e680a734febccfce7d4e910c1f7f13fc3b00f19a181c945e2d746de3214c32c2 "$RUNNER_TEMP/tart.tar.gz" | shasum -a 256 --check
+          mkdir "$RUNNER_TEMP/tart"
+          tar -xzf "$RUNNER_TEMP/tart.tar.gz" -C "$RUNNER_TEMP/tart"
+          echo "$RUNNER_TEMP/tart/tart.app/Contents/MacOS" >> "$GITHUB_PATH"
+      - name: Authenticate image publication
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: printf '%s' "$GHCR_TOKEN" | tart login ghcr.io --username '${{ github.actor }}' --password-stdin
+      - name: Build and publish immutable candidate
+        run: python3 runner/images/linux/build-image.py --destination "ghcr.io/${{ github.repository_owner }}/homelab-linux-runner:source-${{ github.sha }}"
+      - name: Print promotion evidence
+        run: cat linux-image-build.json

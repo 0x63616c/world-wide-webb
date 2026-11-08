@@ -17,7 +17,9 @@
   homelab.updates.stateful.enable = true;
   homelab.runners = {
     enable = true;
-    maxConcurrentJobs = 2;
+    maxConcurrentJobs = 4;
+    cpuBudget = 12;
+    memoryBudgetMiB = 24576;
     tart.maxMacOSGuests = 2;
     admissionEnabled = true;
     githubAppId = "5662381";

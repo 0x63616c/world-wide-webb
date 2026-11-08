@@ -124,16 +124,7 @@ fn intent(mut next: Journal, operation: Operation) -> Decision {
     }
 }
 fn supported(candidate: &Candidate) -> bool {
-    let labels: Vec<_> = candidate
-        .labels
-        .iter()
-        .map(|s| s.to_ascii_lowercase())
-        .collect();
-    candidate.group.is_none()
-        && labels.iter().any(|s| s == "homelab-tart")
-        && labels
-            .iter()
-            .all(|s| ["self-hosted", "macos", "arm64", "homelab-tart"].contains(&s.as_str()))
+    candidate.group.is_none() && crate::config::Platform::resolve(&candidate.labels).is_some()
 }
 
 fn decide_one(config: &Config, journal: &Journal, observed: &Observation, now: u64) -> Decision {
@@ -289,12 +280,6 @@ fn decide_one(config: &Config, journal: &Journal, observed: &Observation, now: u
         if !observed.admission_safe {
             return stay(next, "discovery or inventory incomplete");
         }
-        if !observed
-            .free_bytes
-            .is_some_and(|n| n >= config.admission_free_bytes)
-        {
-            return stay(next, "insufficient or unknown storage");
-        }
         let Some(nonce) = observed.admission_nonce.as_ref().filter(|n| {
             n.len() == 32
                 && n.bytes()
@@ -324,15 +309,43 @@ fn decide_one(config: &Config, journal: &Journal, observed: &Observation, now: u
                 })
                 .min_by_key(|c| (c.created_at, c.job.job_id));
             if let Some(candidate) = candidate {
+                let platform =
+                    crate::config::Platform::resolve(&candidate.labels).expect("supported profile");
+                let (image, cpu, memory_mib, disk_growth_bytes) = match platform {
+                    crate::config::Platform::MacosArm64 => (
+                        config.image.clone(),
+                        config.cpu,
+                        config.memory_mib,
+                        config
+                            .admission_free_bytes
+                            .saturating_sub(config.emergency_free_bytes),
+                    ),
+                    crate::config::Platform::LinuxArm64 => {
+                        let Some(linux) = &config.linux else {
+                            continue;
+                        };
+                        (
+                            linux.image.clone(),
+                            linux.cpu,
+                            linux.memory_mib,
+                            linux.disk_growth_bytes,
+                        )
+                    }
+                };
                 next.last_repository = Some(repo.key());
                 next.active = Some(Attempt {
                     nonce: nonce.clone(),
                     vm_name: crate::names::attempt_name(&config.host_name, nonce),
                     runner_name: crate::names::attempt_name(&config.host_name, nonce),
                     repository: repo.clone(),
-                    image: config.image.clone(),
-                    cpu: config.cpu,
-                    memory_mib: config.memory_mib,
+                    platform,
+                    disk_growth_bytes,
+                    linux_profile: (platform == crate::config::Platform::LinuxArm64)
+                        .then(|| config.linux.clone())
+                        .flatten(),
+                    image,
+                    cpu,
+                    memory_mib,
                     candidate: candidate.job.clone(),
                     assigned: None,
                     phase: Phase::Starting,
@@ -437,13 +450,95 @@ pub fn decide(config: &Config, journal: &Journal, observed: &Observation, now: u
     let projected = journal.project(None);
     let mut demand = observed.clone();
     filter_reserved(&mut demand.candidates, journal);
-    // Reserve the admission/emergency gap for each already owned guest's future growth.
-    let reserve = config
+    // One shared host budget. Unknown outcomes continue owning their reservations.
+    use crate::config::Platform;
+    let mac_count = attempts
+        .iter()
+        .filter(|a| a.platform == Platform::MacosArm64)
+        .count();
+    let used_cpu: u64 = attempts.iter().map(|a| u64::from(a.cpu)).sum();
+    let used_memory: u64 = attempts.iter().map(|a| u64::from(a.memory_mib)).sum();
+    // Conservatively retain the full growth bound until trusted physical-growth
+    // accounting is available. Free space already excludes consumed disk blocks.
+    let legacy_growth = config
         .admission_free_bytes
         .saturating_sub(config.emergency_free_bytes);
-    demand.free_bytes = demand
-        .free_bytes
-        .map(|free| free.saturating_sub(reserve.saturating_mul(attempts.len() as u64)));
+    let used_growth = attempts.iter().fold(0u64, |sum, a| {
+        sum.saturating_add(if a.disk_growth_bytes == 0 {
+            legacy_growth
+        } else {
+            a.disk_growth_bytes
+        })
+    });
+    demand.candidates.retain(|c| {
+        if !observed.revalidated.contains(&c.job) || c.group.is_some() {
+            return false;
+        }
+        if !config
+            .repositories
+            .iter()
+            .any(|r| r.trust_approved && r.key() == c.job.repository)
+        {
+            return false;
+        }
+        let Some(platform) = Platform::resolve(&c.labels) else {
+            return false;
+        };
+        let (cpu, memory, growth) = match platform {
+            Platform::MacosArm64 if mac_count < config.max_macos_guests => {
+                (config.cpu, config.memory_mib, legacy_growth)
+            }
+            Platform::LinuxArm64 => match &config.linux {
+                Some(linux) if linux.routing_audit_approved => {
+                    (linux.cpu, linux.memory_mib, linux.disk_growth_bytes)
+                }
+                _ => return false,
+            },
+            _ => return false,
+        };
+        used_cpu + u64::from(cpu) <= u64::from(config.cpu_budget)
+            && used_memory + u64::from(memory) <= u64::from(config.memory_budget_mib)
+            && observed.free_bytes.is_some_and(|free| {
+                free >= config
+                    .emergency_free_bytes
+                    .saturating_add(used_growth)
+                    .saturating_add(growth)
+            })
+    });
+    // Already-owned candidate/assignment identities were removed above. Other
+    // unassigned compatible listeners can cover one further queued job each.
+    let mut covered = Vec::new();
+    for attempt in &attempts {
+        if attempt.platform != Platform::MacosArm64
+            || attempt.assigned.is_some()
+            || !matches!(attempt.phase, Phase::Starting | Phase::Listening)
+            || observed
+                .candidates
+                .iter()
+                .any(|c| c.job == attempt.candidate)
+        {
+            continue;
+        }
+        if let Some(c) = demand.candidates.iter().find(|c| {
+            c.job.repository == attempt.repository.key()
+                && Platform::resolve(&c.labels) == Some(Platform::MacosArm64)
+                && !covered.contains(&c.job)
+        }) {
+            covered.push(c.job.clone());
+        }
+    }
+    demand.candidates.retain(|c| !covered.contains(&c.job));
+    // Prioritize uncovered macOS demand without preempting borrowed Linux slots.
+    // Only feasible demand reserves capacity; no reservation charges macOS twice.
+    if demand
+        .candidates
+        .iter()
+        .any(|c| Platform::resolve(&c.labels) == Some(Platform::MacosArm64))
+    {
+        demand
+            .candidates
+            .retain(|c| Platform::resolve(&c.labels) == Some(Platform::MacosArm64));
+    }
     let mut decision = decide_one(config, &projected, &demand, now);
     if let Some(attempt) = decision.next.active.take() {
         attempts.push(attempt);

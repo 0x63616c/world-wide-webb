@@ -7,6 +7,7 @@ pub mod guest;
 pub mod keychain;
 pub mod names;
 pub mod provision;
+pub mod resources;
 pub mod scheduler;
 pub mod service;
 pub mod state;

@@ -94,15 +94,37 @@ impl Store {
         if journal.version != JOURNAL_VERSION || journal.validate().is_err() {
             return Err(StoreError::Invalid);
         }
-        let bytes = serde_json::to_vec_pretty(journal).map_err(|_| StoreError::Invalid)?;
+        self.save_bytes(&serde_json::to_vec_pretty(journal).map_err(|_| StoreError::Invalid)?)
+    }
+
+    /// Offline rollback only. The store lock remains held and no attempt may be lost.
+    pub fn downgrade_idle_to_v2(&self) -> Result<(), StoreError> {
+        let journal = self.load()?;
+        if !journal.is_idle() {
+            return Err(StoreError::Invalid);
+        }
+        let mut value = serde_json::to_value(&journal).map_err(|_| StoreError::Invalid)?;
+        value["version"] = serde_json::json!(2);
+        self.save_bytes(&serde_json::to_vec_pretty(&value).map_err(|_| StoreError::Invalid)?)
+    }
+    fn save_bytes(&self, bytes: &[u8]) -> Result<(), StoreError> {
         if bytes.len() as u64 > MAX_JOURNAL_BYTES {
             return Err(StoreError::Invalid);
         }
         let mut pending = tempfile::NamedTempFile::new_in(&self.directory)?;
+        let directory_owner = fs::symlink_metadata(&self.directory)?;
+        if rustix::process::geteuid().as_raw() != directory_owner.uid() {
+            rustix::fs::fchown(
+                pending.as_file(),
+                Some(rustix::process::Uid::from_raw(directory_owner.uid())),
+                Some(rustix::process::Gid::from_raw(directory_owner.gid())),
+            )
+            .map_err(std::io::Error::from)?;
+        }
         pending
             .as_file()
             .set_permissions(fs::Permissions::from_mode(0o600))?;
-        pending.write_all(&bytes)?;
+        pending.write_all(bytes)?;
         pending.as_file().sync_all()?;
         pending
             .persist(self.directory.join("journal.json"))
@@ -144,6 +166,18 @@ fn private_open_for(path: &Path, create: bool, owner: u32) -> Result<File, Store
 mod tests {
     use super::*;
 
+    #[test]
+    fn rollback_only_writes_a_legacy_journal_when_idle_and_locked() {
+        let dir = tempfile::tempdir().unwrap();
+        fs::set_permissions(dir.path(), fs::Permissions::from_mode(0o700)).unwrap();
+        let store = Store::open(dir.path()).unwrap();
+        store.save(&Journal::default()).unwrap();
+        store.downgrade_idle_to_v2().unwrap();
+        let value: serde_json::Value =
+            serde_json::from_slice(&fs::read(dir.path().join("journal.json")).unwrap()).unwrap();
+        assert_eq!(value["version"], 2);
+        assert!(store.load().unwrap().is_idle());
+    }
     #[test]
     fn owner_drop_releases_lock_even_with_a_temporary_inherited_descriptor() {
         let root = tempfile::tempdir().unwrap();

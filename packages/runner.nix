@@ -6,6 +6,10 @@ let
     url = "https://github.com/actions/runner/releases/download/v${runnerVersion}/actions-runner-osx-arm64-${runnerVersion}.tar.gz";
     sha256 = "25a065af409ffa317ab4d5a3b614dd15fc9c40f2172bc1b35a1b1258e919a388";
   };
+  linuxRunnerArchive = pkgs.fetchurl {
+    url = "https://github.com/actions/runner/releases/download/v${runnerVersion}/actions-runner-linux-arm64-${runnerVersion}.tar.gz";
+    sha256 = "670adb2f268fe21dcbb58b3db0e0aa9d5b3bddfe2c651481336e561ff86de945";
+  };
 in
 pkgs.rustPlatform.buildRustPackage {
   pname = "homelab-runner";
@@ -17,7 +21,7 @@ pkgs.rustPlatform.buildRustPackage {
       && baseNameOf path != "target";
   };
   cargoLock.lockFile = ../runner/Cargo.lock;
-  passthru = { inherit runnerVersion runnerArchive; };
+  passthru = { inherit runnerVersion runnerArchive linuxRunnerArchive; };
 
   # This binary is copied into stock macOS guests, which have no Nix store.
   # Darwin's system libiconv provides the same libiconv.2 ABI as our SDK.

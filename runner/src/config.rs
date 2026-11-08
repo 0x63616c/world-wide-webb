@@ -4,6 +4,58 @@ use std::collections::BTreeSet;
 
 /// Per-host macOS guest limit enforced by Apple's virtualization platform.
 pub const MAX_MACOS_GUESTS: usize = 2;
+pub const MAX_CONCURRENT_JOBS: usize = 4;
+
+#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+pub enum Platform {
+    #[default]
+    MacosArm64,
+    LinuxArm64,
+}
+impl Platform {
+    pub fn labels(self) -> [&'static str; 4] {
+        match self {
+            Self::MacosArm64 => ["self-hosted", "macOS", "ARM64", "homelab-tart"],
+            Self::LinuxArm64 => ["self-hosted", "Linux", "ARM64", "homelab-linux"],
+        }
+    }
+    pub fn resolve(labels: &[String]) -> Option<Self> {
+        [Self::MacosArm64, Self::LinuxArm64]
+            .into_iter()
+            .find(|platform| {
+                let approved = platform.labels();
+                labels
+                    .iter()
+                    .any(|label| label.eq_ignore_ascii_case(approved[3]))
+                    && labels
+                        .iter()
+                        .all(|label| approved.iter().any(|v| label.eq_ignore_ascii_case(v)))
+            })
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct LinuxProfile {
+    pub image: String,
+    pub cpu: u16,
+    pub memory_mib: u32,
+    pub disk_growth_bytes: u64,
+    /// All runnable workflows must use explicit routing before mixing platforms.
+    pub routing_audit_approved: bool,
+    pub runner_archive: std::path::PathBuf,
+    pub runner_version: String,
+}
+fn default_cpu_budget() -> u16 {
+    12
+}
+fn default_memory_budget() -> u32 {
+    24576
+}
+fn default_mac_limit() -> usize {
+    MAX_MACOS_GUESTS
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
@@ -47,6 +99,14 @@ pub struct Config {
     pub admission_enabled: bool,
     #[serde(default = "one_job")]
     pub max_concurrent_jobs: usize,
+    #[serde(default = "default_mac_limit")]
+    pub max_macos_guests: usize,
+    #[serde(default = "default_cpu_budget")]
+    pub cpu_budget: u16,
+    #[serde(default = "default_memory_budget")]
+    pub memory_budget_mib: u32,
+    #[serde(default)]
+    pub linux: Option<LinuxProfile>,
     pub repositories: Vec<RepositoryConfig>,
     pub image: String,
     pub cpu: u16,
@@ -69,8 +129,27 @@ impl Config {
         if !valid_image_digest(&self.image) {
             return Err("image must be pinned by a sha256 OCI digest".into());
         }
-        if !(1..=MAX_MACOS_GUESTS).contains(&self.max_concurrent_jobs) {
-            return Err("macOS runner concurrency must be 1 or 2 jobs per host".into());
+        if !(1..=MAX_CONCURRENT_JOBS).contains(&self.max_concurrent_jobs)
+            || !(1..=MAX_MACOS_GUESTS).contains(&self.max_macos_guests)
+            || self.cpu_budget == 0
+            || self.memory_budget_mib == 0
+        {
+            return Err("invalid total, macOS or resource capacity".into());
+        }
+        if let Some(linux) = &self.linux
+            && (!valid_image_digest(&linux.image)
+                || !linux.routing_audit_approved
+                || !(1..=8).contains(&linux.cpu)
+                || !(1024..=16384).contains(&linux.memory_mib)
+                || linux.disk_growth_bytes == 0
+                || !linux.runner_archive.is_absolute()
+                || linux.runner_version.split('.').count() != 3
+                || !linux
+                    .runner_version
+                    .bytes()
+                    .all(|b| b.is_ascii_digit() || b == b'.'))
+        {
+            return Err("invalid or unaudited Linux profile".into());
         }
         if !(1..=8).contains(&self.cpu)
             || !(1024..=16384).contains(&self.memory_mib)
