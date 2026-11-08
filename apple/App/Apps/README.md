@@ -4,12 +4,9 @@ Tap the clock to slide Home up over it. Swipe down from the top of Home to retur
 to the clock. Swipe left or right on the clock to cycle Green, Midnight, Paper
 and Ember. The panel remembers the selected face.
 
-Swipe Pop is the spring transition for app opens and clock-face swipes. The dial
-follows your finger and shrinks as the adjacent face enters. Release to settle
-on the next face, or let a short drag spring back.
-When an app opens, the clock, glass and app selectors slide left and shrink
-together as the app enters from the right. Back reverses the motion and restores
-the launcher's scroll position.
+App icons use the native matched-source zoom transition: opening expands from the
+icon into its full-screen app, and closing returns to that icon. The launcher
+keeps its scroll position. Clock-face swipes retain their separate spring motion.
 
 App pages use a plain close button at the top right to return to the launcher, including
 Settings, protected pages, and unavailable states. App scroll views only
@@ -111,18 +108,6 @@ settings API. Confirmation can restart new-PIN entry; recovery is disabled while
 saving. Wrong PIN, mismatch and connection errors remain in the flow. This retains
 the existing client-side soft-lock policy (ADR-0004), not a new authentication system.
 
-## Clock motion review
-
-The clock has date at the upper left and digital time at the lower right,
-using the same day/night ink. `ClockLauncherMotion` owns the transition separately
-from app navigation. Reveal shrinks the clock slightly as it slides left; the launcher enters from
-the right and expands into place with a small spring. Swiping right on the
-launcher drives the same transition in reverse;
-Depth and Dissolve are comparison candidates selected only through debug launch
-argument `-launcherTransition swipePop|depth|dissolve`.
-Real simulator clips live in `docs/screenshots/panel-pin-navigation/`. The capture
-suite records the left swipe and reverse right swipe for each candidate.
-
 ## Adding an app
 
 1. Add a stable case to `PanelAppFeature` in PanelKit's `PanelAppCatalog.swift`.
@@ -223,3 +208,30 @@ Lights and Calendar omit redundant page titles. The clock places its date at
 the top left and digital time at the bottom right. White temperature previews
 the current drag value in Kelvin and an approximate warm-to-daylight screen
 colour, while committing the lamp change only when the drag ends.
+
+## Interaction polish — 8 November 2026
+
+Lights brightness and white temperature share the Sonos filled bar, including
+its right-aligned percentage or Kelvin readout. Drags preview locally and send one
+command on release. Released values stay visible during the handoff to provider
+state. Sonos also retains acknowledged volume targets through stale Home Assistant
+samples until observed (or a five-second reconciliation window expires). Failed
+commands revert and report the existing availability error; external volume changes
+resume after confirmation.
+
+Timer digits roll down with a short spring on each second and remain still with
+Reduce Motion. Selecting zero hours, zero minutes and zero seconds returns the
+minute wheel to one after its selection callback settles; Done always uses at least
+one minute for an all-zero selection.
+
+Notifications use one shared iOS-style card: app icon left, one title line, up to
+two body lines, and a compact age such as “1m ago” at the top right. Accessibility
+text sizes can expand the text. Swipe right to hide a banner; this retains history.
+The history button and per-card close buttons are removed. Pull down from the top
+right (the last 180 points of the top 24-point strip) to open the flat history list.
+Swipe a history row left to clear it, or use Clear All in history. VoiceOver can
+activate the edge and dismiss banners through named actions.
+
+One root presentation layer stays above every app. Opening an app hides its current banners and suppresses new banners and arrival
+feedback from that app, including backend source aliases. Notifications remain in
+history and do not replay when the app closes. Other apps' notifications still show.
