@@ -130,24 +130,54 @@ actor TrackingRuntime {
   private func changed() { for continuation in observers.values { continuation.yield(()) } }
 
   func record(_ transition: Transition) async throws {
-    let store = try await store()
-    let generation = try await store.currentGeneration()
-    let epoch = try await store.currentCompetitionEpoch()
-    let now = Self.nowMS
-    let observation = Observation(
-      generation: generation, transition: transition, observedAtMS: now,
-      timezoneID: TimeZone.current.identifier, competitionEpochID: epoch)
-    await configureDailyLimit()
-    let receipt = try await store.record(observation, nowMS: now)
+    let (store, receipt) = try await commitObservation(
+      transition, id: UUID(), observedAtMS: Self.nowMS,
+      timezoneID: TimeZone.current.identifier, revision: accountRevision)
     if !receipt.wasRetry {
       let preferences = localPreferences()
       _ = try? await store.evaluateDailyLimit(
-        afterEventID: receipt.event.eventID, homeTimezone: preferences.homeTimezone, nowMS: now)
+        afterEventID: receipt.event.eventID, homeTimezone: preferences.homeTimezone,
+        nowMS: Self.nowMS)
     }
     await DailyLimitDelivery.shared.deliver(from: store)
     await uploadCompetition()
     await publishWidgets()
     changed()
+  }
+
+  private func commitObservation(
+    _ transition: Transition, id: UUID, observedAtMS: Int64, timezoneID: String, revision: UUID
+  ) async throws -> (TrackingStore, RecordingReceipt) {
+    var prepared: (store: TrackingStore, observation: Observation)?
+    for attempt in 0...2 {
+      try Task.checkCancellation()
+      guard accountRevision == revision, !accountSuspended else { throw PartitionError.superseded }
+      do {
+        if prepared == nil {
+          let current = try await store()
+          let generation = try await current.currentGeneration()
+          let epoch = try await current.currentCompetitionEpoch()
+          prepared = (
+            current,
+            Observation(
+              id: id, generation: generation, transition: transition, observedAtMS: observedAtMS,
+              timezoneID: timezoneID, competitionEpochID: epoch)
+          )
+        }
+        guard let prepared else { throw StoreError.invalidInput }
+        await configureDailyLimit()
+        guard accountRevision == revision, !accountSuspended else {
+          throw PartitionError.superseded
+        }
+        let receipt = try await prepared.store.record(prepared.observation, nowMS: Self.nowMS)
+        return (prepared.store, receipt)
+      } catch PartitionError.busy where attempt < 2 {
+        // No lock is held while waiting. Keep this physical observation's identity,
+        // timestamp, generation and account binding; never acknowledge before commit.
+        try await Task.sleep(for: .milliseconds(150 * (attempt + 1)))
+      }
+    }
+    throw PartitionError.busy
   }
 
   func setup(_ action: SetupAction) async throws -> SetupProgress {

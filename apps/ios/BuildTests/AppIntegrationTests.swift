@@ -1,3 +1,4 @@
+import Darwin
 import FoldingData
 import FoldingDomain
 import XCTest
@@ -5,6 +6,104 @@ import XCTest
 @testable import Folding
 
 @MainActor final class AppIntegrationTests: XCTestCase {
+  func testShortcutRecordingRetriesBriefPartitionContentionWithoutChangingObservationTime()
+    async throws
+  {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let installation = UUID()
+    let router = AccountPartitionRouter(directory: root)
+    let lease = try router.activate(
+      .local(UUID()), transition: router.suspend(), installationID: installation)
+    let journal = try router.openJournal(lease: lease, installationID: installation)
+    let runtime = TrackingRuntime(journal: journal)
+    let descriptor = open(root.appendingPathComponent("route.lock").path, O_RDWR)
+    XCTAssertGreaterThanOrEqual(descriptor, 0)
+    guard descriptor >= 0 else { return }
+    defer { close(descriptor) }
+    XCTAssertEqual(flock(descriptor, LOCK_EX | LOCK_NB), 0)
+    let started = TrackingRuntime.nowMS
+    let unlock = Task.detached {
+      try await Task.sleep(for: .milliseconds(1200))
+      flock(descriptor, LOCK_UN)
+    }
+    var failure: Error?
+    do { try await runtime.record(.open) } catch { failure = error }
+    try await unlock.value
+    XCTAssertNil(failure, "Log Duo Opened must survive brief partition contention")
+    let events = try await journal.retainedEvents()
+    XCTAssertEqual(events.count, 1)
+    if let event = events.first {
+      XCTAssertGreaterThanOrEqual(event.observedAtMS, started)
+      XCTAssertLessThan(event.observedAtMS, started + 500)
+    }
+  }
+
+  func testShortcutRetryDoesNotCrossAnAccountChange() async throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let installation = UUID()
+    let router = AccountPartitionRouter(directory: root)
+    let lease = try router.activate(
+      .local(UUID()), transition: router.suspend(), installationID: installation)
+    let journal = try router.openJournal(lease: lease, installationID: installation)
+    let runtime = TrackingRuntime(journal: journal)
+    let descriptor = open(root.appendingPathComponent("route.lock").path, O_RDWR)
+    guard descriptor >= 0 else {
+      XCTFail("Could not open route lock")
+      return
+    }
+    defer { close(descriptor) }
+    XCTAssertEqual(flock(descriptor, LOCK_EX | LOCK_NB), 0)
+    let unlock = Task.detached {
+      try await Task.sleep(for: .milliseconds(1200))
+      flock(descriptor, LOCK_UN)
+    }
+    let change = Task {
+      try await Task.sleep(for: .milliseconds(100))
+      try await runtime.suspendForAccountChange(revision: UUID())
+    }
+    var failure: Error?
+    do { try await runtime.record(.open) } catch { failure = error }
+    try await unlock.value
+    try await change.value
+    XCTAssertEqual(failure as? PartitionError, .superseded)
+    let events = try await journal.retainedEvents()
+    XCTAssertTrue(events.isEmpty)
+  }
+
+  func testShortcutDoesNotAcknowledgeAnObservationWhilePartitionStaysBusy() async throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let installation = UUID()
+    let router = AccountPartitionRouter(directory: root)
+    let lease = try router.activate(
+      .local(UUID()), transition: router.suspend(), installationID: installation)
+    let journal = try router.openJournal(lease: lease, installationID: installation)
+    let runtime = TrackingRuntime(journal: journal)
+    let descriptor = open(root.appendingPathComponent("route.lock").path, O_RDWR)
+    guard descriptor >= 0 else {
+      XCTFail("Could not open route lock")
+      return
+    }
+    defer { close(descriptor) }
+    XCTAssertEqual(flock(descriptor, LOCK_EX | LOCK_NB), 0)
+    // If retry accidentally becomes unbounded, release the test lock so the test
+    // fails on an acknowledged observation instead of hanging the entire suite.
+    let safetyRelease = Task.detached {
+      try await Task.sleep(for: .seconds(6))
+      flock(descriptor, LOCK_UN)
+    }
+    var failure: Error?
+    do { try await runtime.record(.open) } catch { failure = error }
+    safetyRelease.cancel()
+    _ = try? await safetyRelease.value
+    flock(descriptor, LOCK_UN)
+    XCTAssertEqual(failure as? PartitionError, .busy)
+    let events = try await journal.retainedEvents()
+    XCTAssertTrue(events.isEmpty)
+  }
+
   func testRuntimeSetupReceiptsFeedRealScreensWithoutCountingTests() async throws {
     let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
       "folding-app-test-\(UUID())")

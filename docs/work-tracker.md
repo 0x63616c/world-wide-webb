@@ -229,3 +229,7 @@ GitHub #28, #32 and #40 checklists reflect these partial completions. CI and phy
 ## TestFlight crash investigation — November 8, 2026
 
 - [x] [#54 — Fix shared-storage suspension crashes](https://github.com/0x63616c/folding/issues/54): retrieved all three Apple crash-feedback submissions (builds 2, 6 and 8), identified `0xdead10cc`, and implemented storage-wide background execution protection, expiry/rollback and main-thread UIKit acquisition. Seven regression tests and all 86 core tests pass; 38 app-hosted simulator tests pass; TestFlight **0.1.9 (10)** is Apple **VALID** and verified in **Folding Internal**, from `7782c16`. [Evidence](experiments/testflight-crashes-2026-11-08.md). Physical suspension/Shortcuts confirmation remains deferred to #47/F13.
+
+## Shortcuts busy-error fix — November 8, 2026
+
+- [ ] [#58 — Shortcuts partition-busy failures](https://github.com/0x63616c/folding/issues/58): reproduced the reported `FoldingData.PartitionError error 3` through concurrent account startup and brief route-lock contention. Same-account callers now share initialization; bounded recording retries retain observation identity/time and respect account/reset fences. All 89 core and 41 app-hosted simulator tests pass. Internal TestFlight distribution is in progress. [Evidence](experiments/shortcuts-partition-busy-2026-11-08.md); physical overnight/Shortcuts acceptance remains deferred to #47/F13.

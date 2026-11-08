@@ -183,3 +183,115 @@ private let accountB = PrivateAccountIdentity.iCloud(
   } catch PartitionError.inactive {}
   try await restoredSession.invalidate()
 }
+
+@Test func simultaneousVerifiedAccountConnectionsShareTheOpeningJournal() async throws {
+  let root = rootDirectory()
+  defer { try? FileManager.default.removeItem(at: root) }
+  let session = PrivatePartitionSession(
+    router: AccountPartitionRouter(directory: root), installationID: UUID(),
+    cloudConnectivity: false)
+  let outcomes = await withTaskGroup(of: Result<TrackingStore, Error>.self) { group in
+    for _ in 0..<8 {
+      group.addTask {
+        do { return .success(try await session.reconcile(verified: accountA)) } catch {
+          return .failure(error)
+        }
+      }
+    }
+    var results: [Result<TrackingStore, Error>] = []
+    for await result in group { results.append(result) }
+    return results
+  }
+  var opened: TrackingStore?
+  for result in outcomes {
+    switch result {
+    case .success(let journal):
+      if let opened { #expect(journal === opened) } else { opened = journal }
+    case .failure(let error):
+      let reported = error as NSError
+      Issue.record("Concurrent account opening failed: \(reported.domain) error \(reported.code)")
+    }
+  }
+  try await session.invalidate()
+}
+
+private actor FirstMirrorGate {
+  private(set) var entered = false
+  private var released = false
+  private var continuation: CheckedContinuation<Void, Never>?
+
+  func waitForFirstOpen() async {
+    guard !entered else { return }
+    entered = true
+    guard !released else { return }
+    await withCheckedContinuation { continuation = $0 }
+  }
+  func release() {
+    released = true
+    continuation?.resume()
+    continuation = nil
+  }
+  func waitUntilEntered() async throws {
+    let deadline = ContinuousClock.now + .seconds(5)
+    while !entered {
+      guard ContinuousClock.now < deadline else {
+        release()
+        throw PartitionError.busy
+      }
+      try await Task.sleep(for: .milliseconds(1))
+    }
+  }
+}
+
+@Test func invalidationCancelsSharedOpeningWithoutReplacingTheNewAccount() async throws {
+  let root = rootDirectory()
+  defer { try? FileManager.default.removeItem(at: root) }
+  let installation = UUID()
+  let router = AccountPartitionRouter(directory: root)
+  let gate = FirstMirrorGate()
+  let session = PrivatePartitionSession(
+    router: router, installationID: installation, cloudConnectivity: false,
+    makeMirror: { directory, container in
+      await gate.waitForFirstOpen()
+      return try await PrivateCloudMirror(directory: directory, containerIdentifier: container)
+    })
+  let old = Task { try await session.reconcile(verified: accountA) }
+  try await gate.waitUntilEntered()
+  try await session.invalidate()
+  let current = try await session.reconcile(verified: accountB)
+  await gate.release()
+  do {
+    _ = try await old.value
+    Issue.record("Invalidated opening returned an old-account journal")
+  } catch is CancellationError {}
+  #expect(try router.currentLease(forVerified: accountA, installationID: installation) == nil)
+  #expect(try router.currentLease(forVerified: accountB, installationID: installation) != nil)
+  #expect(try await session.reconcile(verified: accountB) === current)
+  #expect(try await current.summary().folds == 0)
+  try await session.invalidate()
+}
+
+@Test func concurrentDifferentAccountsNeverShareAnOpening() async throws {
+  let root = rootDirectory()
+  defer { try? FileManager.default.removeItem(at: root) }
+  let installation = UUID()
+  let router = AccountPartitionRouter(directory: root)
+  let gate = FirstMirrorGate()
+  let session = PrivatePartitionSession(
+    router: router, installationID: installation, cloudConnectivity: false,
+    makeMirror: { directory, container in
+      await gate.waitForFirstOpen()
+      return try await PrivateCloudMirror(directory: directory, containerIdentifier: container)
+    })
+  let first = Task { try await session.reconcile(verified: accountA) }
+  try await gate.waitUntilEntered()
+  do {
+    _ = try await session.reconcile(verified: accountB)
+    Issue.record("Different accounts shared a pending opening")
+  } catch PartitionError.busy {}
+  await gate.release()
+  _ = try await first.value
+  #expect(try router.currentLease(forVerified: accountA, installationID: installation) != nil)
+  #expect(try router.currentLease(forVerified: accountB, installationID: installation) == nil)
+  try await session.invalidate()
+}

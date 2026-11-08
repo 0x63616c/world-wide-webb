@@ -10,7 +10,7 @@ public enum PartitionError: Error, Equatable {
 }
 
 /// Supply an identity only after checking the current CloudKit account. Never use an Apple ID email.
-public enum PrivateAccountIdentity: Sendable {
+public enum PrivateAccountIdentity: Sendable, Equatable {
   case iCloud(containerIdentifier: String, userRecordName: String)
   /// A new identifier on sign-out gives a fresh local-only namespace; retain it across local launches.
   case local(UUID)
