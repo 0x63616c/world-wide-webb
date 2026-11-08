@@ -160,12 +160,3 @@ extension View {
         .containerShape(.rect(cornerRadius: radius))
     }
 }
-
-struct FaceMaterial: ViewModifier {
-    let tile: HomeTile
-    let on: Bool
-    let radius: CGFloat
-    func body(content: Content) -> some View {
-        content.faceGlass(on: on, radius: radius)
-    }
-}

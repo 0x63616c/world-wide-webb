@@ -35,7 +35,7 @@ private func walksAPI(_ transport: WalksTransport) -> WalksAPI {
 }
 
 @Test func walksDecodeRecordingsFromBackendPR804() async throws {
-    // Copied verbatim from WWW-27 0ff97165, docs/contracts/walks/fixtures/*.json.
+    // Preserved verbatim from the WWW-27 wire contract (commit 0ff97165).
     for name in ["state", "start", "stop", "delete", "update"] {
         let state = try await walksAPI(WalksTransport(walkFixture("contract-" + name))).state()
         if name == "state" || name == "start" {
