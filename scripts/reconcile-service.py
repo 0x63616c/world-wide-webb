@@ -59,6 +59,8 @@ def reconcile(service, source, runtime, compose_root, compose_env):
     with os.fdopen(fd, 'a') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         material = {name: read_private_file(source / key) for name, key in FILES[service].items()}
+        if service == 'penpot':
+            material['mcp-locations.conf.template'] = (compose_root / service / 'mcp-locations.conf.template').read_bytes()
         if service == 'bambuddy':
             material['serve.json'] = (compose_root / service / 'tailscale/serve.json').read_bytes()
         dirty = runtime / (service + '.dirty')
@@ -89,7 +91,7 @@ def reconcile(service, source, runtime, compose_root, compose_env):
             'control-center': {'WWW_SECRETS_DIR': str(destination)},
             'hindsight': {'HINDSIGHT_ENV_FILE': str(destination / 'environment')},
             'penpot': {'PENPOT_ENV_FILE': str(destination / 'environment'),
-                       'PENPOT_MCP_TEMPLATE': str(compose_root / service / 'mcp-locations.conf.template')},
+                       'PENPOT_MCP_TEMPLATE': str(destination / 'mcp-locations.conf.template')},
             'cloudflared': {'TUNNEL_TOKEN_FILE': str(destination / 'TUNNEL_TOKEN')},
             'bambuddy': {'BAMBUDDY_ENV_FILE': str(destination / 'environment'),
                          'BAMBUDDY_SERVE_CONFIG': str(destination / 'serve.json')},
