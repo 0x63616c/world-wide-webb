@@ -1,11 +1,11 @@
 # Runner validation
 
-Status: in progress, 2026-11-07. The MacBook configuration stages the managed service with job admission disabled.
+Status: final rollout, 2026-11-07. Runtime proofs below passed; the follow-up configuration enables admission on the MacBook only.
 
 ## Passed
 
 - Scoped GitHub App token issuance for world-wide-webb, JIT registration with runner group 1, and exact registration deletion.
-- Local state-machine/API/adapter suites: 118 tests and strict Clippy. The two native-VM tests are explicitly ignored by default.
+- Local state-machine/API/adapter suites: 119 tests and strict Clippy. Three mutating native-VM tests are explicitly ignored by default.
 - Target Nix package build, portable guest-library install check, and enabled MacBook host-generation build without activation. The guest helper links only system libraries. Tart 2.41.1, Softnet 0.25.0 and runner SDK 2.338.2 are pinned.
 - Real system LaunchDaemon starts the test executable as `_runner` UID 451. Dedicated login keychain creation, unlock and exact native getter verification pass.
 - Protected tool/helper preflight, inventory and APFS clone of the cached digest-pinned stock macOS image pass under that service account.
@@ -30,7 +30,7 @@ The earlier failure's identity/evidence were archived privately before retry. A 
 
 Live `lsof` during another boot caught service-owned `diskutil` and DiskImages processes reading that exact disk concurrently with the Virtualization process. Pinned Tart's [List implementation](https://github.com/openai/tart/blob/2.41.1/Sources/tart/Commands/List.swift) calculates disk capacity before reporting VM state, even in quiet mode. Removing startup inventory polling allowed both the recorded clone and a fresh clone to boot successfully. Production Starting observation now uses only positive guest-agent RPC evidence, retains Unknown after failed probes, and avoids List/Get. Regression tests cover recovery and the inventory race.
 
-The probe uses a system LaunchDaemon with `SessionCreate=true`. A human GUI session is currently present on the host; this does not establish cold-boot-before-login operation.
+The early probe used a system LaunchDaemon with `SessionCreate=true` while a human GUI session existed. Later [managed reboot evidence](evidence/managed-reboot.json) supersedes that limitation: the real service automatically started as UID451 after restart while the console remained at the login screen. Tailscale SSH succeeded and its DNS health error disappeared. The [native network proof](evidence/peer-network-proof.json) then booted both test VMs under UID451 without desktop login.
 
 ## Findings fixed
 
@@ -52,11 +52,14 @@ The subsequent ordinary CI run passed Rust installation, Swift package tests and
 
 New boot intents persist operation-lease version 1 before spawning. An inherited fd0 keeps the exact attempt leased through parent loss. Recovery waits for quiescence before inventory/deletion; held or uncertain leases retain the slot. Actual subprocess crash tests cover this contract. Unproven legacy version-0 startup journals remain blocked rather than assuming their children are gone.
 
-## Still required before enabling ordinary Apple CI
+## Network boundary and limits
 
-- Cold-boot-before-login operation; the current lifecycle passed with a host GUI session present.
-- Peer/IPv6 policy coverage beyond the recorded endpoint probes.
-- Unattended reboot reconciliation, final independent review and declarative rollout.
-- Merge application CI routing without triggering the existing Mac mini deployment path; deployment and TestFlight routing stay unchanged.
+The two-VM test passed host/guest SSH positive controls, production public HTTPS, blocked IPv4 peer access and blocked IPv6 link-local peer access, with both exact VM clones removed afterward. Each Tart/Softnet process receives a separate private `/29`; even the permissive baseline could not reach the other VM. The evidence therefore proves the production architecture boundary, not that the filter alone caused every negative result. The pinned Softnet frame handler rejects non-ARP/non-IPv4 traffic. A public IPv6 positive control was unavailable on this host; public IPv6 black-box coverage remains unproven.
+
+The reboot test was a software restart, not a physical power cut. The controller intentionally interrupts rather than resumes VMs across host reboot, and unknown ownership retains the slot for reconciliation.
+
+## Final rollout
+
+The first merge was automatically installed by Comin with admission disabled. The follow-up enables admission after these proofs. The application PR changes only ordinary CI routing and pinned Rust setup. Its existing main-push CI success would trigger a Mac mini deployment, so this routing-only merge must skip the redundant main-push run after PR checks pass. Deployment and TestFlight workflows and enablement settings remain unchanged.
 
 Runtime probe logs and evidence stay private on the target. Passwords, App keys, JIT payloads and tokens are never part of this document.

@@ -1,8 +1,8 @@
 # homelab
 
-Private configuration for the macOS homelab. The MacBook is enrolled; application
-migration and production runner admission remain disabled. The Mac mini continues
-running its existing services.
+Private configuration for the macOS homelab. The MacBook is enrolled and configured
+for one disposable CI runner. Application migration remains disabled; the Mac mini
+continues running its existing services.
 
 ## Start here
 
@@ -74,7 +74,8 @@ The wizard holds its approved commit through setup and reboot, then verifies the
 handover to Comin. See [how updates work](docs/updates.md).
 
 The MacBook has completed enrollment. Application services remain disabled;
-runner rollout is gated by the [runner validation record](docs/research/runner-validation.md).
+the [runner validation record](docs/research/runner-validation.md) covers execution,
+recovery, isolation and unattended startup proofs and their limits.
 See [VM evidence](docs/vm-validation.md) for the separate setup, reboot and Comin
 tests and their limits.
 Private Actions workflows are manual-only until self-hosted runners are ready;

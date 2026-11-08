@@ -15,7 +15,7 @@
   homelab.updates.enable = true;
   homelab.runners = {
     enable = true;
-    admissionEnabled = false;
+    admissionEnabled = true;
     githubAppId = "5662381";
     repositories."0x63616c/world-wide-webb" = {
       repositoryId = 1260632595;
