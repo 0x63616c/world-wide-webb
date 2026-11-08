@@ -4,6 +4,7 @@ locals {
     hindsight = { service = "http://127.0.0.1:9999", no_tls_verify = false }
     penpot    = { service = "http://127.0.0.1:9001", no_tls_verify = false }
     bambuddy  = { service = "http://127.0.0.1:8000", no_tls_verify = false }
+    beszel    = { service = "http://127.0.0.1:8090", no_tls_verify = false }
     dsm       = { service = "https://192.168.0.218:5001", no_tls_verify = true }
   }
 }
@@ -30,6 +31,9 @@ resource "cloudflare_zero_trust_access_application" "home" {
   domain                     = "${each.key}.${var.zone_name}"
   type                       = "self_hosted"
   http_only_cookie_attribute = true
+  auto_redirect_to_identity  = false
+  enable_binding_cookie      = false
+  options_preflight_bypass   = false
   session_duration           = "720h"
   tags                       = ["bosun:control-center"]
   policies                   = [{ id = cloudflare_zero_trust_access_policy.email.id, precedence = 2 }]

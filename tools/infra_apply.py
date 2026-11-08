@@ -42,7 +42,7 @@ def main():
     env = dict(os.environ)
     env["TF_VAR_state_passphrase"] = (home / "secrets/STATE_PASSPHRASE").read_text().strip()
     env["CLOUDFLARE_API_TOKEN"] = (home / "secrets/CF_API_TOKEN").read_text().strip()
-    binary = os.environ.get("OPENTOFU_BIN", "/opt/homebrew/bin/tofu")
+    binary = os.environ.get("OPENTOFU_BIN", "/run/current-system/sw/bin/tofu")
     version = json.loads(subprocess.check_output([binary, "version", "-json"], env=env))["terraform_version"]
     if version != (source / ".opentofu-version").read_text().strip():
         raise RuntimeError("install the pinned OpenTofu version before applying")
