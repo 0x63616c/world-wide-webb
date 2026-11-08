@@ -139,11 +139,6 @@ pub(crate) async fn upload(
     )?);
     // Only the sanitized derivative is needed after publication.
     writes.push(statement(db,"INSERT INTO avatar_purge_jobs(object_key,participant_id) VALUES (?1,?2) ON CONFLICT(object_key) DO NOTHING",&[text(&asset.original_key),text(&session.participant_id)])?);
-    writes.push(statement(
-        db,
-        "UPDATE avatar_alerts SET state='reviewed' WHERE avatar_id IN (SELECT avatar_id FROM avatar_objects WHERE participant_id=?1)",
-        &[text(&session.participant_id)],
-    )?);
     // Existing clients require a pending upload receipt, then immediately refresh
     // the profile. Publication is already committed as approved in this same batch.
     let value = serde_json::json!({"avatar_id":asset.avatar_id,"publication_state":"approved","state":"pending","operation_id":operation,"request_id":request_id});
@@ -288,11 +283,6 @@ pub(crate) fn purge_owned(
             "UPDATE profiles SET avatar_id=NULL,avatar_status='none' WHERE participant_id=?1",
             &[text(participant)],
         )?,
-        statement(
-            db,
-            "UPDATE avatar_alerts SET state='reviewed' WHERE avatar_id IN(SELECT avatar_id FROM avatar_objects WHERE participant_id=?1)",
-            &[text(participant)],
-        )?,
     ])
 }
 async fn put_once(
@@ -386,11 +376,6 @@ pub(crate) async fn remove(
     writes.push(statement(db,"INSERT INTO avatar_purge_jobs(object_key,participant_id) SELECT original_key,participant_id FROM avatar_objects WHERE avatar_id=?1 AND participant_id=?2 UNION SELECT derivative_key,participant_id FROM avatar_objects WHERE avatar_id=?1 AND participant_id=?2 ON CONFLICT(object_key) DO NOTHING",&[text(avatar.as_str()),text(&session.participant_id)])?);
     writes.push(statement(db,"UPDATE avatar_objects SET state='removed',reason_code='removed',revision=revision+1 WHERE avatar_id=?1 AND participant_id=?2",&[text(avatar.as_str()),text(&session.participant_id)])?);
     writes.push(statement(db,"UPDATE profiles SET avatar_id=CASE WHEN avatar_id=?1 THEN NULL ELSE avatar_id END,avatar_status=CASE WHEN EXISTS(SELECT 1 FROM avatar_objects WHERE participant_id=?2 AND state='pending') THEN 'pending' WHEN avatar_id IS NOT NULL AND avatar_id<>?1 THEN 'approved' ELSE 'none' END WHERE participant_id=?2",&[text(avatar.as_str()),text(&session.participant_id)])?);
-    writes.push(statement(
-        db,
-        "UPDATE avatar_alerts SET state='reviewed' WHERE avatar_id=?1",
-        &[text(avatar.as_str())],
-    )?);
     let value =
         serde_json::json!({"operation_id":operation,"state":"completed","request_id":request_id});
     writes.push(statement(
@@ -481,6 +466,6 @@ pub(crate) async fn cleanup_objects(
 }
 
 async fn finish_cleanup(db: &D1Database) -> std::result::Result<(), Failure> {
-    db.batch(vec![statement(db,"UPDATE competition_operations SET response_json=json_set(response_json,'$.state','completed') WHERE route='/v1/enrollment/leave' AND json_extract(response_json,'$.state')='pending' AND NOT EXISTS(SELECT 1 FROM avatar_purge_jobs j WHERE j.participant_id=competition_operations.participant_id)",&[])?,statement(db,"DELETE FROM avatar_objects WHERE state='removed' AND NOT EXISTS(SELECT 1 FROM avatar_purge_jobs j WHERE j.object_key=avatar_objects.original_key OR j.object_key=avatar_objects.derivative_key)",&[])?]).await.map_err(|_|Failure::unavailable())?;
+    db.batch(vec![statement(db,"DELETE FROM avatar_objects WHERE state='removed' AND NOT EXISTS(SELECT 1 FROM avatar_purge_jobs j WHERE j.object_key=avatar_objects.original_key OR j.object_key=avatar_objects.derivative_key)",&[])?]).await.map_err(|_|Failure::unavailable())?;
     Ok(())
 }

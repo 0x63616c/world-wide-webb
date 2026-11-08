@@ -206,8 +206,7 @@ import struct FoldingData.SetupProgress
         self.presentation.hiddenLoading = false
         try await self.competitionClient().setBlocked(id, blocked: blocked)
       },
-      leaveCompetition: { try await self.beginRemoval(.leave) },
-      deleteCompetitionAccount: { try await self.beginRemoval(.delete) },
+      deleteCompetitionAccount: { try await self.beginAccountDeletion() },
       signInCompetition: { try await self.signInToCompetition() },
       loadPatterns: {
         try await self.refresh()
@@ -230,51 +229,38 @@ import struct FoldingData.SetupProgress
       })
   }
 
-  private func beginRemoval(_ kind: CompetitionRemovalOperation.Kind) async throws {
+  private func beginAccountDeletion() async throws {
     let api = try await competitionClient()
-    if let pending = try await api.transport.pendingRemoval() {
-      guard pending.kind == kind else { throw CompetitionTransportError.busy }
+    if try await api.transport.pendingRemoval() != nil {
       try await pollRemoval(allowRecovery: true)
       return
     }
     var operation = CompetitionRemovalOperation(
-      kind: kind,
+      kind: .delete,
       operationID: UUID().uuidString.lowercased(), accepted: false, deletionReceipt: nil)
-    let proof: String?
-    if kind == .delete {
-      proof = try await appleSignIn.reauthenticate(transport: api.transport, deviceID: api.deviceID)
-    } else {
-      proof = nil
-    }
-    // Remove the binding while the existing session can still authorize it.
-    do { try await pushRegistration?.deactivate() } catch {
-      // Leave/delete also purges the server binding; an unavailable push endpoint must not block privacy removal.
-    }
+    let proof = try await appleSignIn.reauthenticate(
+      transport: api.transport, deviceID: api.deviceID)
+    // Server deletion also removes the push binding if this best-effort call fails.
+    try? await pushRegistration?.deactivate()
     pushDelegate?.discardPendingRoute()
     try await api.transport.saveRemoval(operation)
-    presentation.competitionRemoval = kind == .delete ? .deleting : .leaving
+    presentation.competitionRemoval = .deleting
     do {
-      if let proof {
-        operation.deletionReceipt = try await api.deletion(
-          operationID: operation.operationID, reauthenticationToken: proof)
-      } else {
-        _ = try await api.leave(operationID: operation.operationID)
-      }
+      operation.deletionReceipt = try await api.deletion(
+        operationID: operation.operationID, reauthenticationToken: proof)
       operation.accepted = true
       try await api.transport.saveRemoval(operation)
       try await runtime.store().setCompetitionEpoch(nil)
       presentation.invalidateCompetitionPresentation()
       try await pollRemoval(allowRecovery: false)
     } catch {
-      presentation.competitionRemoval = kind == .delete ? .deleteFailed : .leaveFailed
+      presentation.competitionRemoval = .deleteFailed
       throw error
     }
   }
 
   func watchRemoval() async {
-    while !Task.isCancelled,
-      presentation.competitionRemoval == .leaving || presentation.competitionRemoval == .deleting
-    {
+    while !Task.isCancelled, presentation.competitionRemoval == .deleting {
       do {
         try await Task.sleep(for: .seconds(5))
         try Task.checkCancellation()
@@ -286,56 +272,44 @@ import struct FoldingData.SetupProgress
   private func pollRemoval(allowRecovery: Bool) async throws {
     let api = try await competitionClient()
     guard var operation = try await api.transport.pendingRemoval() else { return }
-    presentation.competitionRemoval = operation.kind == .delete ? .deleting : .leaving
+    presentation.competitionRemoval = .deleting
     do {
-      let status: CompetitionOperation
-      if operation.kind == .delete {
-        if operation.deletionReceipt == nil
-          || operation.deletionReceipt!.polling_token_expires_at_ms <= TrackingRuntime.nowMS
-        {
-          guard allowRecovery else { throw CompetitionTransportError.unauthorized }
-          do {
-            operation.deletionReceipt = try await appleSignIn.recoverDeletion(
-              transport: api.transport, deviceID: api.deviceID, operationID: operation.operationID)
-          } catch let failure as CompetitionTransportError where failure.statusCode == 404 {
-            let proof = try await appleSignIn.reauthenticate(
-              transport: api.transport, deviceID: api.deviceID)
-            operation.deletionReceipt = try await api.deletion(
-              operationID: operation.operationID, reauthenticationToken: proof)
-          }
-          operation.accepted = true
-          try await api.transport.saveRemoval(operation)
+      if operation.deletionReceipt == nil
+        || operation.deletionReceipt!.polling_token_expires_at_ms <= TrackingRuntime.nowMS
+      {
+        guard allowRecovery else { throw CompetitionTransportError.unauthorized }
+        do {
+          operation.deletionReceipt = try await appleSignIn.recoverDeletion(
+            transport: api.transport, deviceID: api.deviceID, operationID: operation.operationID)
+        } catch let failure as CompetitionTransportError where failure.statusCode == 404 {
+          let proof = try await appleSignIn.reauthenticate(
+            transport: api.transport, deviceID: api.deviceID)
+          operation.deletionReceipt = try await api.deletion(
+            operationID: operation.operationID, reauthenticationToken: proof)
         }
-        let receipt = operation.deletionReceipt!
-        status = try await api.transport.deletionStatus(
-          operationID: operation.operationID, token: receipt.polling_token)
-      } else {
-        if !operation.accepted {
-          _ = try await api.leave(operationID: operation.operationID)
-          operation.accepted = true
-          try await api.transport.saveRemoval(operation)
-        }
-        status = try await api.operationStatus(operation.operationID)
+        operation.accepted = true
+        try await api.transport.saveRemoval(operation)
       }
+      let receipt = operation.deletionReceipt!
+      let status = try await api.transport.deletionStatus(
+        operationID: operation.operationID, token: receipt.polling_token)
       if status.state == "completed" {
         try await runtime.store().setCompetitionEpoch(nil)
         try pushRegistration?.forgetAfterServerRemoval()
         joinedParticipantID = nil
         presentation.publicTrackingPhone = nil
         pushDelegate?.discardPendingRoute()
-        if operation.kind == .delete {
-          try AppleNameSuggestion.store.remove("apple-name")
-          try await api.transport.clearSession()
-        }
+        try AppleNameSuggestion.store.remove("apple-name")
+        try await api.transport.clearSession()
         try await api.transport.finishRemoval()
         presentation.invalidateCompetitionPresentation()
         presentation.competitionRemoval = nil
         presentation.competition = .notJoined
       } else if status.state == "failed" {
-        presentation.competitionRemoval = operation.kind == .delete ? .deleteFailed : .leaveFailed
+        presentation.competitionRemoval = .deleteFailed
       }
     } catch {
-      presentation.competitionRemoval = operation.kind == .delete ? .deleteFailed : .leaveFailed
+      presentation.competitionRemoval = .deleteFailed
       throw error
     }
   }
@@ -437,8 +411,8 @@ import struct FoldingData.SetupProgress
     }
     return CompetitionProfile(
       id: profile.participant_id, nickname: profile.nickname,
-      approvedAvatarURL: nil, nicknamePending: profile.nickname_status == "pending",
-      avatarState: AvatarReviewState(rawValue: profile.avatar_status) ?? .none,
+      approvedAvatarURL: nil,
+      avatarState: AvatarState(rawValue: profile.avatar_status) ?? .none,
       approvedAvatarData: avatar)
   }
 

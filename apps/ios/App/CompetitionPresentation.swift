@@ -4,11 +4,10 @@ struct CompetitionProfile: Equatable, Sendable {
   let id: String
   let nickname: String
   let approvedAvatarURL: URL?
-  let nicknamePending: Bool
-  let avatarState: AvatarReviewState
+  let avatarState: AvatarState
   var approvedAvatarData: Data? = nil
 }
-enum AvatarReviewState: String, Codable, Sendable { case none, pending, approved, rejected }
+enum AvatarState: String, Codable, Sendable { case none, approved, rejected }
 enum CompetitionUIError: Error { case chooseAnotherName }
 enum ParticipantReportReason: String, CaseIterable, Identifiable, Sendable {
   case abusiveName = "abusive_name"
@@ -76,7 +75,7 @@ struct HiddenParticipantsPage: Sendable {
 }
 
 enum CompetitionSheet: String { case join, profile, results, liveShare }
-enum CompetitionRemovalState { case leaving, deleting, leaveFailed, deleteFailed }
+enum CompetitionRemovalState { case deleting, deleteFailed }
 
 extension FoldingPresentation {
   func beginJoin(suggestedNickname: String) {
@@ -94,6 +93,7 @@ extension FoldingPresentation {
     hiddenFailed = false
     resultsRequestID = UUID()
     requestedResultID = nil
+    allTimeResult = nil
     results = []
     resultsCursor = nil
     resultsVersion = nil
@@ -140,6 +140,30 @@ extension FoldingPresentation {
   }
 
   func requestResults(using actions: FoldingActions, nextPage: Bool = false) async {
+    if resultsPeriod == .all {
+      let request = UUID()
+      resultsRequestID = request
+      resultsLoading = true
+      resultsFailed = false
+      defer { if resultsRequestID == request { resultsLoading = false } }
+      do {
+        let page: LeaderboardPresentation
+        if let load = actions.loadLeaderboardPage {
+          page = try await load(.all, nil)
+        } else if let load = actions.loadLeaderboard {
+          page = try await load(.all)
+        } else {
+          resultsFailed = true
+          return
+        }
+        guard resultsRequestID == request, resultsPeriod == .all, !Task.isCancelled else { return }
+        allTimeResult = page
+      } catch {
+        guard resultsRequestID == request, resultsPeriod == .all else { return }
+        resultsFailed = !(error is CancellationError)
+      }
+      return
+    }
     guard let load = actions.loadResults else { return }
     if nextPage && (resultsLoading || resultsCursor == nil) { return }
     let request = UUID()

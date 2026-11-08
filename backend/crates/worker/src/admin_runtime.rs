@@ -37,7 +37,7 @@ struct Person {
     revision: i64,
 }
 #[derive(Deserialize)]
-struct Pending {
+struct PublicName {
     participant_id: String,
     requested_nickname: String,
     revision: i64,
@@ -81,7 +81,6 @@ struct State {
     restriction: String,
     account_state: String,
     nickname: Option<String>,
-    requested_nickname: Option<String>,
     revision: i64,
 }
 #[derive(Deserialize)]
@@ -397,7 +396,7 @@ pub(crate) async fn dispatch(
         }
     } else if path == "/admin/queue" {
         page.title = "Names".into();
-        let rows=statement(&db,"SELECT f.participant_id,f.nickname AS requested_nickname,r.revision FROM profiles f JOIN participant_revisions r ON r.participant_id=f.participant_id JOIN participants p ON p.participant_id=f.participant_id WHERE f.participant_id>?1 AND p.account_state='active' ORDER BY f.participant_id LIMIT 51",&[text(after)])?.all().await.map_err(|_|Failure::unavailable())?.results::<Pending>().map_err(|_|Failure::unavailable())?;
+        let rows=statement(&db,"SELECT f.participant_id,f.nickname AS requested_nickname,r.revision FROM profiles f JOIN participant_revisions r ON r.participant_id=f.participant_id JOIN participants p ON p.participant_id=f.participant_id WHERE f.participant_id>?1 AND p.account_state='active' ORDER BY f.participant_id LIMIT 51",&[text(after)])?.all().await.map_err(|_|Failure::unavailable())?.results::<PublicName>().map_err(|_|Failure::unavailable())?;
         for row in rows.iter().take(50) {
             page.rows.push(Row {
                 image: String::new(),
@@ -536,9 +535,9 @@ async fn mutate(
         Id::parse(id).map_err(|_| Failure::malformed())?;
     }
     let names = path == format!("/admin/names/{}/decision", input.participant_id.as_str());
-    if !(avatar_id.is_some() && ["approve", "reject", "remove"].contains(&input.action.as_str())
+    if !(avatar_id.is_some() && input.action == "remove"
         || report_id.is_some() && ["close", "reopen"].contains(&input.action.as_str())
-        || names && ["approve", "reject", "remove"].contains(&input.action.as_str())
+        || names && input.action == "remove"
         || path == "/admin/moderation"
             && [
                 "suspend",
@@ -587,13 +586,13 @@ async fn mutate(
         return redirect();
     }
     if let Some(id) = avatar_id {
-        return crate::avatar_admin::decision(db, admin, &input, id, &hash).await;
+        return crate::avatar_admin::remove(db, admin, &input, id, &hash).await;
     }
     if let Some(id) = report_id {
         return report_decision(db, admin, &input, id, &hash).await;
     }
     let participant = input.participant_id.as_str();
-    let before=statement(db,"SELECT p.membership,p.restriction,p.account_state,f.nickname,n.requested_nickname,r.revision FROM participants p JOIN participant_revisions r ON r.participant_id=p.participant_id LEFT JOIN profiles f ON f.participant_id=p.participant_id LEFT JOIN nickname_requests n ON n.participant_id=p.participant_id WHERE p.participant_id=?1",&[text(participant)])?.first::<State>(None).await.map_err(|_|Failure::unavailable())?.ok_or(Failure{status:404,code:"not_found",retryable:false})?;
+    let before=statement(db,"SELECT p.membership,p.restriction,p.account_state,f.nickname,r.revision FROM participants p JOIN participant_revisions r ON r.participant_id=p.participant_id LEFT JOIN profiles f ON f.participant_id=p.participant_id WHERE p.participant_id=?1",&[text(participant)])?.first::<State>(None).await.map_err(|_|Failure::unavailable())?.ok_or(Failure{status:404,code:"not_found",retryable:false})?;
     if before.revision != input.expected_revision {
         return Err(Failure::conflict());
     }
@@ -612,31 +611,8 @@ async fn mutate(
         if before.account_state != "active" {
             return Err(Failure::conflict());
         }
-        match input.action.as_str() {
-            "approve" => {
-                let name = before
-                    .requested_nickname
-                    .as_ref()
-                    .ok_or_else(Failure::conflict)?;
-                let name = crate::name_policy::validate(name)
-                    .map_err(|_| Failure::malformed())?
-                    .display;
-                writes.push(statement(db,"UPDATE profiles SET nickname=?1,nickname_status='approved' WHERE participant_id=?2",&[text(&name),text(participant)])?);
-                serde_json::json!({"nickname":name,"nickname_status":"approved"})
-            }
-            "reject" => {
-                writes.push(statement(
-                    db,
-                    "UPDATE profiles SET nickname_status='approved' WHERE participant_id=?1",
-                    &[text(participant)],
-                )?);
-                serde_json::json!({"nickname_status":"approved"})
-            }
-            _ => {
-                writes.push(statement(db,"UPDATE profiles SET nickname='Folder',nickname_status='approved' WHERE participant_id=?1",&[text(participant)])?);
-                serde_json::json!({"nickname":"Folder","nickname_status":"approved"})
-            }
-        }
+        writes.push(statement(db,"UPDATE profiles SET nickname='Folder',nickname_status='approved' WHERE participant_id=?1",&[text(participant)])?);
+        serde_json::json!({"nickname":"Folder","nickname_status":"approved"})
     } else {
         match input.action.as_str() {
             "ban" => {

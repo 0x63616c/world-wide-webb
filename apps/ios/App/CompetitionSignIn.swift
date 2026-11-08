@@ -10,7 +10,6 @@ struct CompetitionWireProfile: Codable, Sendable {
   // swift-format-ignore: AlwaysUseLowerCamelCase
   let avatar_id: String?
   // swift-format-ignore: AlwaysUseLowerCamelCase
-  var pending_avatar_id: String? = nil
   let membership: String
   let restriction: String
   // swift-format-ignore: AlwaysUseLowerCamelCase

@@ -1,4 +1,4 @@
-//! Manual avatar review. Only sanitized private derivatives are shown behind Access authorization.
+//! Retrospective photo removal behind Access authorization.
 use crate::{
     admin_auth::Administrator,
     admin_runtime::Command,
@@ -15,7 +15,6 @@ struct Asset {
     revision: i64,
     participant_revision: i64,
     account_state: String,
-    restriction: String,
 }
 pub(crate) async fn image(env: &Env, db: &D1Database, id: &str) -> Result<Response, Failure> {
     folding_domain::wire::Id::parse(id).map_err(|_| Failure::malformed())?;
@@ -56,21 +55,18 @@ pub(crate) async fn image(env: &Env, db: &D1Database, id: &str) -> Result<Respon
         .map_err(|_| Failure::unavailable())?;
     Ok(result)
 }
-pub(crate) async fn decision(
+pub(crate) async fn remove(
     db: &D1Database,
     admin: &Administrator,
     input: &Command,
     id: &str,
     hash: &[u8],
 ) -> Result<Response, Failure> {
-    let asset=statement(db,"SELECT a.participant_id,a.state,a.original_key,a.derivative_key,a.revision,r.revision AS participant_revision,p.account_state,p.restriction FROM avatar_objects a JOIN participants p ON p.participant_id=a.participant_id JOIN participant_revisions r ON r.participant_id=p.participant_id WHERE a.avatar_id=?1",&[text(id)])?.first::<Asset>(None).await.map_err(|_|Failure::unavailable())?.ok_or(Failure{status:404,code:"not_found",retryable:false})?;
+    let asset=statement(db,"SELECT a.participant_id,a.state,a.original_key,a.derivative_key,a.revision,r.revision AS participant_revision,p.account_state FROM avatar_objects a JOIN participants p ON p.participant_id=a.participant_id JOIN participant_revisions r ON r.participant_id=p.participant_id WHERE a.avatar_id=?1",&[text(id)])?.first::<Asset>(None).await.map_err(|_|Failure::unavailable())?.ok_or(Failure{status:404,code:"not_found",retryable:false})?;
     if asset.participant_id != input.participant_id.as_str()
         || asset.revision != input.expected_revision
         || asset.account_state != "active"
     {
-        return Err(Failure::conflict());
-    }
-    if input.action == "approve" && (asset.state != "pending" || asset.restriction != "none") {
         return Err(Failure::conflict());
     }
     let guard = uuid()?;
@@ -87,43 +83,14 @@ pub(crate) async fn decision(
             number(asset.participant_revision),
         ],
     )?];
-    let state = if input.action == "approve" {
-        "approved"
-    } else if input.action == "reject" {
-        "rejected"
-    } else {
-        "removed"
-    };
-    if state == "approved" {
-        writes.push(statement(db,"INSERT INTO avatar_purge_jobs(object_key,participant_id) SELECT original_key,participant_id FROM avatar_objects WHERE participant_id=?1 AND state='approved' AND avatar_id<>?2 UNION SELECT derivative_key,participant_id FROM avatar_objects WHERE participant_id=?1 AND state='approved' AND avatar_id<>?2 ON CONFLICT(object_key) DO NOTHING",&[text(participant),text(id)])?);
-        writes.push(statement(db,"UPDATE avatar_objects SET state='removed',reason_code='replaced',revision=revision+1 WHERE participant_id=?1 AND state='approved' AND avatar_id<>?2",&[text(participant),text(id)])?);
-        writes.push(statement(
-            db,
-            "UPDATE profiles SET avatar_id=?1,avatar_status='approved' WHERE participant_id=?2",
-            &[text(id), text(participant)],
-        )?);
-    } else {
-        writes.push(statement(db,"INSERT INTO avatar_purge_jobs(object_key,participant_id) VALUES (?1,?2) ON CONFLICT(object_key) DO NOTHING",&[text(&asset.derivative_key),text(participant)])?);
-        writes.push(statement(db,"UPDATE profiles SET avatar_id=CASE WHEN avatar_id=?1 THEN NULL ELSE avatar_id END,avatar_status=CASE WHEN avatar_id IS NOT NULL AND avatar_id<>?1 THEN 'approved' ELSE 'rejected' END WHERE participant_id=?2",&[text(id),text(participant)])?);
-    }
+    let state = "removed";
+    writes.push(statement(db,"INSERT INTO avatar_purge_jobs(object_key,participant_id) VALUES (?1,?2) ON CONFLICT(object_key) DO NOTHING",&[text(&asset.derivative_key),text(participant)])?);
+    writes.push(statement(db,"UPDATE profiles SET avatar_id=CASE WHEN avatar_id=?1 THEN NULL ELSE avatar_id END,avatar_status=CASE WHEN avatar_id IS NOT NULL AND avatar_id<>?1 THEN 'approved' ELSE 'none' END WHERE participant_id=?2",&[text(id),text(participant)])?);
     writes.push(statement(db,"INSERT INTO avatar_purge_jobs(object_key,participant_id) VALUES (?1,?2) ON CONFLICT(object_key) DO NOTHING",&[text(&asset.original_key),text(participant)])?);
     writes.push(statement(
         db,
         "UPDATE avatar_objects SET state=?1,reason_code=?2,revision=revision+1 WHERE avatar_id=?3",
-        &[
-            text(state),
-            if state == "approved" {
-                wasm_bindgen::JsValue::NULL
-            } else {
-                text("moderator_removed")
-            },
-            text(id),
-        ],
-    )?);
-    writes.push(statement(
-        db,
-        "UPDATE avatar_alerts SET state='reviewed' WHERE avatar_id=?1",
-        &[text(id)],
+        &[text(state), text("moderator_removed"), text(id)],
     )?);
     writes.push(statement(
         db,

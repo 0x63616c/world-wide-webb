@@ -185,7 +185,7 @@ import struct FoldingData.SetupProgress
     model.competitionPeriod = .month
     model.competitionProfile = CompetitionProfile(
       id: "sample-mika", nickname: "Mika",
-      approvedAvatarURL: nil, nicknamePending: false, avatarState: .none)
+      approvedAvatarURL: nil, avatarState: .none)
     switch scenario {
     case "history", "history-long", "history-month": model.selectedTab = .history
     case "patterns": model.sheet = .patterns

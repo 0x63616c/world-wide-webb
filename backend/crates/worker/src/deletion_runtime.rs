@@ -239,18 +239,8 @@ pub(crate) async fn poll(
             &serde_json::json!({"operation_id":operation,"state":row.state,"error_code":null,"request_id":request_id}),
         );
     }
-    let session = authenticated_session(request, db, config, false).await?;
-    let old = crate::competition_runtime::receipt(db, &session.participant_id, &operation)
-        .await?
-        .filter(|r| r.route == "/v1/enrollment/leave")
-        .ok_or(Failure {
-            status: 404,
-            code: "not_found",
-            retryable: false,
-        })?;
-    let value: serde_json::Value =
-        serde_json::from_str(&old.response_json).map_err(|_| Failure::unavailable())?;
-    response(&value)
+    let _ = config;
+    Err(Failure::unauthorized())
 }
 #[derive(Deserialize)]
 struct Job {

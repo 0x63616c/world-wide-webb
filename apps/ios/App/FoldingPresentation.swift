@@ -134,8 +134,8 @@ enum CompetitionPeriod: String, CaseIterable, Identifiable, Sendable {
   var id: Self { self }
   var title: String {
     switch self {
-    case .week: String(localized: "leaderboard.week", defaultValue: "Week")
-    case .month: String(localized: "leaderboard.month", defaultValue: "Month")
+    case .week: String(localized: "leaderboard.week", defaultValue: "This Week")
+    case .month: String(localized: "leaderboard.month", defaultValue: "This Month")
     case .all: String(localized: "leaderboard.all", defaultValue: "All Time")
     }
   }
@@ -183,7 +183,7 @@ enum CompetitionPresentation {
 }
 
 enum PresentedSheet: Identifiable, Equatable {
-  case settings, setup, editSummary, patterns, leaderboardInfo, trackingPhone
+  case settings, setup, editSummary, patterns, trackingPhone
   case tiedRank(Int)
   case export(UUID)
   case competition(CompetitionSheet)
@@ -195,7 +195,6 @@ enum PresentedSheet: Identifiable, Equatable {
     case .setup: "setup"
     case .editSummary: "summary"
     case .patterns: "patterns"
-    case .leaderboardInfo: "leaderboard-info"
     case .tiedRank(let rank): "tie-\(rank)"
     case .export(let ticket): "export-\(ticket.uuidString)"
     }
@@ -275,14 +274,13 @@ enum ExportChoice { case json, csv }
   var joinCompetition: ((String) async throws -> Void)?
   var refreshCompetitionProfile: (() async throws -> CompetitionProfile)?
   var saveNickname: ((String) async throws -> CompetitionProfile)?
-  var uploadAvatar: ((Data) async throws -> AvatarReviewState)?
+  var uploadAvatar: ((Data) async throws -> AvatarState)?
   var removeAvatar: (() async throws -> Void)?
   var loadResults: ((CompetitionPeriod, String?) async throws -> CompetitionResultsPage)?
   var loadResultShare: ((String) async throws -> CompetitionShare)?
   var reportParticipant: ((String, ParticipantReportReason) async throws -> Void)?
   var loadHiddenParticipants: ((String?) async throws -> HiddenParticipantsPage)?
   var setParticipantBlocked: ((String, Bool) async throws -> Void)?
-  var leaveCompetition: (() async throws -> Void)?
   var deleteCompetitionAccount: (() async throws -> Void)?
   var signInCompetition: (() async throws -> Void)?
   var loadPatterns: (() async throws -> FoldingActivityPatterns)?
@@ -346,6 +344,7 @@ enum ExportChoice { case json, csv }
   var hiddenParticipantIDs: Set<String> = []
   var hiddenParticipantNames: [String: String] = [:]
   var requestedResultID: String?
+  var allTimeResult: LeaderboardPresentation?
   var results: [CompetitionResult] = []
   var resultsPeriod: CompetitionPeriod = .week
   var resultsCursor: String?
@@ -497,9 +496,9 @@ enum ExportChoice { case json, csv }
   func requestLeaderboard(using actions: FoldingActions, nextPage: Bool = false) async {
     guard actions.loadLeaderboard != nil || actions.loadLeaderboardPage != nil else { return }
     let period = competitionPeriod
-    let previous = leaderboardLoadedPeriod == period ? competition.previous : nil
+    let previous = competition.previous
     if nextPage
-      && (leaderboardLoadingMore || previous?.nextCursor == nil
+      && (leaderboardLoadedPeriod != period || leaderboardLoadingMore || previous?.nextCursor == nil
         || actions.loadLeaderboardPage == nil)
     {
       return
@@ -525,7 +524,7 @@ enum ExportChoice { case json, csv }
       if nextPage, let previous {
         guard page.snapshotVersion == previous.snapshotVersion, page.periodID == previous.periodID
         else {
-          competition = .loading(nil)
+          competition = .loading(previous)
           leaderboardLoadedPeriod = nil
           leaderboardLoadingMore = false
           await requestLeaderboard(using: actions)
@@ -547,7 +546,7 @@ enum ExportChoice { case json, csv }
       guard request == competitionRequest, period == competitionPeriod else { return }
       leaderboardLoadingMore = false
       if nextPage, case LeaderboardPageError.snapshotChanged = error {
-        competition = .loading(nil)
+        competition = .loading(previous)
         leaderboardLoadedPeriod = nil
         await requestLeaderboard(using: actions)
       } else if nextPage {

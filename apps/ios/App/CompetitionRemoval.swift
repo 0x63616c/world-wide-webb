@@ -7,7 +7,7 @@ struct CompetitionDeletionReceipt: Codable, Sendable {
   let polling_token_expires_at_ms: Int64
 }
 struct CompetitionRemovalOperation: Codable, Sendable {
-  enum Kind: String, Codable, Sendable { case leave, delete }
+  enum Kind: String, Codable, Sendable { case delete }
   let kind: Kind
   let operationID: String
   var accepted: Bool
@@ -23,9 +23,5 @@ extension CompetitionAPI {
       body: CompetitionTransport.encode([
         "operation_id": operationID, "reauthentication_token": reauthenticationToken,
       ]))
-  }
-  func operationStatus(_ id: String) async throws -> CompetitionOperation {
-    guard UUID(uuidString: id) != nil else { throw CompetitionTransportError.invalidResponse }
-    return try await transport.send("GET", path: "/v1/operations/\(id)")
   }
 }

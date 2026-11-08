@@ -11,14 +11,14 @@ struct Policy {
 }
 #[derive(Debug)]
 pub struct InvalidName;
-pub struct PendingName {
+pub struct ValidatedName {
     pub display: String,
     pub policy_version: String,
 }
 fn detection(value: &str) -> String {
     value.nfkc().case_fold().collect()
 }
-pub fn validate(value: &str) -> Result<PendingName, InvalidName> {
+pub fn validate(value: &str) -> Result<ValidatedName, InvalidName> {
     if value.len() > 1024 {
         return Err(InvalidName);
     }
@@ -63,7 +63,7 @@ pub fn validate(value: &str) -> Result<PendingName, InvalidName> {
     {
         return Err(InvalidName);
     }
-    Ok(PendingName {
+    Ok(ValidatedName {
         display,
         policy_version: policy.version,
     })

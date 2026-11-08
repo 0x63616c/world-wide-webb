@@ -37,18 +37,8 @@ pub(crate) async fn read(
         let enrollment=epoch.map(|e|serde_json::json!({"epoch_id":e.epoch_id,"device_id":e.device_id,"generation":{"revision":e.generation_revision,"reset_id":e.generation_id},"joined_at_ms":e.joined_at_ms,"issued_at_ms":e.issued_at_ms}));
         let preferences =
             crate::notification_runtime::preferences(db, &session.participant_id).await?;
-        let rows=statement(db,"SELECT response_json FROM competition_operations WHERE participant_id=?1 AND route='/v1/enrollment/leave' AND json_extract(response_json,'$.state')='pending'",&[text(&session.participant_id)])?.all().await.map_err(|_|Failure::unavailable())?.results::<serde_json::Value>().map_err(|_|Failure::unavailable())?;
-        let pending = rows
-            .into_iter()
-            .map(|row| {
-                serde_json::from_str::<serde_json::Value>(
-                    row["response_json"].as_str().unwrap_or(""),
-                )
-            })
-            .collect::<std::result::Result<Vec<_>, _>>()
-            .map_err(|_| Failure::unavailable())?;
         return response(
-            &serde_json::json!({"profile":profile,"enrollment":enrollment,"preferences":preferences,"pending_operations":pending,"request_id":request_id}),
+            &serde_json::json!({"profile":profile,"enrollment":enrollment,"preferences":preferences,"pending_operations":[],"request_id":request_id}),
         );
     }
     let path = request.path();
