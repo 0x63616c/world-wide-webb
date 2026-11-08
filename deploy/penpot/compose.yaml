@@ -1,0 +1,117 @@
+name: penpot
+
+x-common: &common
+  PENPOT_PUBLIC_URI: https://penpot.worldwidewebb.co
+  PENPOT_SECRET_KEY: ${PENPOT_SECRET_KEY:?Provision runtime.env first}
+  PENPOT_FLAGS: disable-email-verification disable-registration enable-login-with-password enable-mcp disable-telemetry
+
+x-db: &database
+  PENPOT_DATABASE_URI: postgresql://penpot-postgres/penpot
+  PENPOT_DATABASE_USERNAME: penpot
+  PENPOT_DATABASE_PASSWORD: ${PENPOT_DATABASE_PASSWORD:?Provision runtime.env first}
+
+services:
+  penpot-frontend:
+    mem_limit: 256m
+    logging:
+      driver: json-file
+      options: {max-size: 10m, max-file: "3"}
+    image: penpotapp/frontend:2.18.6
+    restart: unless-stopped
+    ports: ["127.0.0.1:9001:8080"]
+    volumes:
+      - assets:/opt/data/assets
+      - ./mcp-locations.conf.template:/tmp/nginx-mcp-locations.conf.template:ro
+    environment:
+      <<: *common
+      PENPOT_ADMIN_CONSOLE_URI: http://penpot-admin-console:3000
+    depends_on: [penpot-backend, penpot-admin-console, penpot-mcp, penpot-exporter]
+  penpot-backend:
+    mem_limit: 1024m
+    logging:
+      driver: json-file
+      options: {max-size: 10m, max-file: "3"}
+    image: penpotapp/backend:2.18.6
+    restart: unless-stopped
+    volumes: ["assets:/opt/data/assets"]
+    environment:
+      <<: [*common, *database]
+      PENPOT_FLAGS: disable-email-verification disable-registration enable-login-with-password enable-mcp disable-telemetry
+      JVM_OPTS: -Xms128m -Xmx640m
+      PENPOT_ADMIN_CONSOLE_URI: http://penpot-admin-console:3000
+      PENPOT_REDIS_URI: redis://penpot-valkey/0
+      PENPOT_OBJECTS_STORAGE_BACKEND: fs
+      PENPOT_OBJECTS_STORAGE_FS_DIRECTORY: /opt/data/assets
+      PENPOT_TELEMETRY_ENABLED: "false"
+    depends_on:
+      penpot-postgres: {condition: service_healthy}
+      penpot-valkey: {condition: service_healthy}
+  penpot-admin-console:
+    mem_limit: 128m
+    logging:
+      driver: json-file
+      options: {max-size: 10m, max-file: "3"}
+    image: penpotapp/admin-console:2.18.6
+    restart: unless-stopped
+    environment:
+      <<: [*common, *database]
+      PENPOT_INTERNAL_URI: http://penpot-frontend:8080
+    depends_on:
+      penpot-postgres: {condition: service_healthy}
+  penpot-mcp:
+    mem_limit: 192m
+    logging:
+      driver: json-file
+      options: {max-size: 10m, max-file: "3"}
+    image: penpotapp/mcp:2.18.6
+    restart: unless-stopped
+  penpot-exporter:
+    mem_limit: 512m
+    logging:
+      driver: json-file
+      options: {max-size: 10m, max-file: "3"}
+    image: penpotapp/exporter:2.18.6
+    restart: unless-stopped
+    environment:
+      <<: *common
+      PENPOT_INTERNAL_URI: http://penpot-frontend:8080
+      PENPOT_REDIS_URI: redis://penpot-valkey/0
+      PENPOT_EXPORTER_MAX_CONCURRENT_JOBS: "1"
+      PENPOT_WASM_WORKER_POOL_MAX: "1"
+      PENPOT_WASM_WORKER_POOL_MIN: "0"
+    depends_on:
+      penpot-valkey: {condition: service_healthy}
+  penpot-postgres:
+    mem_limit: 256m
+    logging:
+      driver: json-file
+      options: {max-size: 10m, max-file: "3"}
+    image: postgres:15.15
+    restart: unless-stopped
+    stop_signal: SIGINT
+    environment:
+      POSTGRES_DB: penpot
+      POSTGRES_USER: penpot
+      POSTGRES_PASSWORD: ${PENPOT_DATABASE_PASSWORD}
+      POSTGRES_INITDB_ARGS: --data-checksums
+    volumes: ["postgres:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U penpot"]
+      interval: 2s
+      timeout: 10s
+      retries: 30
+  penpot-valkey:
+    mem_limit: 64m
+    logging:
+      driver: json-file
+      options: {max-size: 10m, max-file: "3"}
+    image: valkey/valkey:8.1.4
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+volumes:
+  postgres:
+  assets:

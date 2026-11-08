@@ -64,3 +64,26 @@ class CITests(unittest.TestCase):
         needs["changes"]["outputs"].pop("apple")
         with self.assertRaises(ValueError):
             verify(needs)
+
+    def test_penpot_infrastructure_does_not_rebuild_or_deploy_the_native_app(self):
+        paths = [
+            "deploy/penpot/compose.yaml",
+            "deploy/mini/penpot_backup.py",
+            "deploy/mini/penpot_provision.py",
+            "deploy/mini/test_penpot_backup.py",
+            "infra/cloudflare/main.tf",
+            "tools/ci_changes.py",
+            "tools/test_ci.py",
+        ]
+        self.assertEqual(classify(paths), dict(apple=False, image=False, publish_apple=False, infra=True))
+        self.assertEqual(
+            classify(paths + ["server/src/runtime.rs"]), dict(apple=True, image=True, publish_apple=False, infra=True)
+        )
+        self.assertEqual(
+            classify(paths + ["deploy/mini/release.sh"]), dict(apple=False, image=True, publish_apple=False, infra=True)
+        )
+        self.assertEqual(
+            classify(paths + ["apple/App/HomeView.swift"]),
+            dict(apple=True, image=False, publish_apple=True, infra=True),
+        )
+        self.assertTrue(all(classify(paths, True).values()))

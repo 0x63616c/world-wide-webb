@@ -10,11 +10,19 @@ from pathlib import Path
 
 
 def classify(paths, force=False):
+    # Routing policy/tests are exercised by the always-on operations checks.
+    # They do not change the Apple application or its container inputs.
+    selection_policy = {"tools/ci_changes.py", "tools/test_ci.py"}
+    penpot_operations = {
+        "deploy/mini/penpot_backup.py",
+        "deploy/mini/penpot_provision.py",
+        "deploy/mini/test_penpot_backup.py",
+    }
     all_changed = force or any(
-        p.startswith((".github/", "tools/"))
+        p.startswith(".github/")
+        or (p.startswith("tools/") and p not in selection_policy)
         or p
         in {
-            "tools/ci_changes.py",
             "tools/ci_gate.py",
             "tools/check",
             "lefthook.yml",
@@ -37,7 +45,10 @@ def classify(paths, force=False):
         or any(p.startswith(("apple/", "contracts/")) or p == ".swift-format" for p in paths),
         "image": all_changed
         or rust
-        or any(p in {"Dockerfile", ".dockerignore"} or p.startswith("deploy/mini/") for p in paths),
+        or any(
+            p in {"Dockerfile", ".dockerignore"} or (p.startswith("deploy/mini/") and p not in penpot_operations)
+            for p in paths
+        ),
         "publish_apple": force
         or any(
             p.startswith(
