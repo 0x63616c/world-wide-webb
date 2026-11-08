@@ -38,6 +38,29 @@ def classify(paths, force=False):
         "image": all_changed
         or rust
         or any(p in {"Dockerfile", ".dockerignore"} or p.startswith("deploy/mini/") for p in paths),
+        "publish_apple": force
+        or any(
+            p.startswith(
+                (
+                    "apple/App/",
+                    "apple/Extensions/",
+                    "apple/Resources/",
+                    "apple/Packages/PanelKit/Sources/",
+                    "apple/fastlane/",
+                )
+            )
+            or p
+            in {
+                "apple/Packages/PanelKit/Package.swift",
+                "apple/Packages/PanelKit/Package.resolved",
+                "apple/project.yml",
+                "apple/VERSION",
+                "apple/Gemfile",
+                "apple/Gemfile.lock",
+                "tools/ci_signing_env.py",
+            }
+            for p in paths
+        ),
         "infra": all_changed or any(p.startswith("infra/") or p == ".opentofu-version" for p in paths),
     }
 

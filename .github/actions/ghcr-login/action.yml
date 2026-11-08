@@ -5,9 +5,7 @@ description: Install sops+age, extract GHCR PAT from SOPS vault, login to ghcr.i
 runs:
   using: composite
   steps:
-    # Talos migration (SDD homelab-migration Task 1): build jobs now run on
-    # BOTH native arm64 (the mini, staying live) and native amd64 (the new
-    # Talos node) runners, so this can no longer hardcode the arm64 binary.
+    # The tested main image is published by CI on its native ARM64 runner.
     - name: Install sops + age (host arch)
       shell: bash
       run: |

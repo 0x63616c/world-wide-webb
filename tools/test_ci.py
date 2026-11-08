@@ -6,15 +6,48 @@ from ci_gate import verify
 
 class CITests(unittest.TestCase):
     def test_selection_tracks_contract_and_deployment_dependencies(self):
-        self.assertEqual(classify(["README.md"]), dict(apple=False, image=False, infra=False))
-        self.assertEqual(classify(["server/src/features/lights.rs"]), dict(apple=True, image=True, infra=False))
-        self.assertEqual(classify(["apple/App/HomeView.swift"]), dict(apple=True, image=False, infra=False))
-        self.assertEqual(classify(["deploy/mini/compose.yaml"]), dict(apple=False, image=True, infra=False))
-        self.assertEqual(classify(["infra/cloudflare/main.tf"]), dict(apple=False, image=False, infra=True))
-        self.assertTrue(all(classify([".github/workflows/ci.yml"]).values()))
-        self.assertTrue(all(classify(["tools/infra_apply.py"]).values()))
+        self.assertEqual(classify(["README.md"]), dict(apple=False, image=False, infra=False, publish_apple=False))
+        self.assertEqual(
+            classify(["server/src/features/lights.rs"]), dict(apple=True, image=True, infra=False, publish_apple=False)
+        )
+        self.assertEqual(
+            classify(["apple/App/HomeView.swift"]), dict(apple=True, image=False, infra=False, publish_apple=True)
+        )
+        self.assertEqual(
+            classify(["deploy/mini/compose.yaml"]), dict(apple=False, image=True, infra=False, publish_apple=False)
+        )
+        self.assertEqual(
+            classify(["infra/cloudflare/main.tf"]), dict(apple=False, image=False, infra=True, publish_apple=False)
+        )
+        for path in [".github/workflows/ci.yml", "tools/infra_apply.py"]:
+            selected = classify([path])
+            self.assertTrue(all(selected[k] for k in ["apple", "image", "infra"]))
+            self.assertFalse(selected["publish_apple"])
         self.assertTrue(classify([".swift-format"])["apple"])
         self.assertTrue(all(classify([], True).values()))
+
+    def test_native_publication_tracks_shipping_inputs_without_republishing_backend_or_tests(self):
+        for path in [
+            "apple/Resources/icon.png",
+            "apple/Extensions/NextAlarmWidget/Widget.swift",
+            "apple/Packages/PanelKit/Sources/PanelKit/ClimateAPI.swift",
+            "apple/VERSION",
+            "apple/Packages/PanelKit/Package.swift",
+            "apple/Packages/PanelKit/Package.resolved",
+            "apple/project.yml",
+            "apple/fastlane/Fastfile",
+            "tools/ci_signing_env.py",
+        ]:
+            self.assertTrue(classify([path])["publish_apple"], path)
+        for path in [
+            "apple/Tests/Unit/ClockTests.swift",
+            "apple/Packages/PanelKit/Tests/PanelKitTests/ClimateTests.swift",
+            "apple/docs/history.md",
+            ".github/workflows/apple-panel-testflight.yml",
+            "server/src/main.rs",
+        ]:
+            self.assertFalse(classify([path])["publish_apple"], path)
+            self.assertTrue(classify([path])["apple"], path)
 
     def test_gate_rejects_missing_failed_cancelled_and_unexpectedly_skipped_checks(self):
         needs = {k: {"result": "success"} for k in ["changes", "typecheck", "test-unit", "apple", "image", "infra"]}
