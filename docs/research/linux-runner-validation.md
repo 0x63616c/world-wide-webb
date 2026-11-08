@@ -95,7 +95,10 @@ The package API confirms private visibility. A fresh authenticated operator-side
 pull was verified and packed; the MacBook installed it as UID451 in the temporary
 canary inventory `/var/lib/_runner/linux-canary/tart`, verified every manifest-bound
 byte again, and cloned it without registry credentials. The production inventory
-`/var/lib/_runner/tart` is not yet preloaded. Its booted
+`/var/lib/_runner/tart` was subsequently preloaded and verified separately; see
+[production cache proof](evidence/linux-production-cache-proof.json). Its stopped
+proof clone succeeded with a cleared registry environment, was deleted, and the
+cache still verified after cloning. Its booted
 proof clone had Rust 1.99.1, Rustfmt/Clippy, Docker group access and aarch64 Docker,
 Python venv support, the native helper and public GitHub HTTPS. The clone was then
 stopped and deleted. See [private image proof](evidence/linux-private-image-proof.json).
@@ -141,16 +144,63 @@ was built and installed. The new controller acknowledged the idle hold, then
 resumed later cohorts. The Linux baseline used the earlier controller; both
 versions use the same guest image, resources and Linux-only admission behavior.
 
-## Remaining acceptance gates
+## Full workload, recovery and production staging
 
-- Before merge or activation, preload and verify the pinned private cache in the
-  production inventory `/var/lib/_runner/tart`, and prove a credential-free clone
-  there. Temporary canary staging does not satisfy production cache readiness.
-- Exercise preparation/JIT/job completion/cancellation and restart cleanup through
-  the actual updated controller, including mixed macOS/Linux ownership.
-- Repeat network controls with macOS/Linux peers and record any remaining IPv6
-  control limitations explicitly.
-- Compare representative four-Linux and two-macOS/two-Linux build throughput against
-  the two-job baseline, including pressure, swap, thermal and disk-growth samples.
-- Build the final Nix host generation and run the final source checks before
-  activating the profile and routing application jobs to it.
+[Full canary 42525035803](https://github.com/0x63616c/world-wide-webb/actions/runs/42525035803)
+passed all twelve jobs at app source `fd6c5e4b6`: two Linux release baselines, two
+full Apple baselines, four Linux release builds, and two Apple/two Linux builds.
+The four Linux workload intervals overlapped for 6.0 seconds; the mixed intervals
+all overlapped for 84.6 seconds. The mixed batch admitted both waiting macOS
+attempts before Linux, exercising the corrected live priority path.
+
+This single trial used fresh disposable guests. Mean Linux release time was
+95.7 seconds with two jobs and 97.6 seconds with four. Four-job batch throughput
+was about 1.21 times the two-job baseline; guest startup/dispatch stagger limits
+the gain for these short builds. With two full Apple jobs alongside Linux, mean
+Linux time was 121.8 seconds and mean Apple time 416.7 seconds, about 27% and 13%
+slower than their respective isolated baselines. Parallel capacity trades some
+individual job speed for more simultaneous work; this is not a general benchmark.
+
+All 192 ten-second samples spanning the workload intervals reported normal
+pressure (1), zero used swap and no reported thermal/performance warning. The
+highest reservation was 12 vCPUs/24576 MiB, ownership never exceeded four/two Macs,
+and free disk remained above 295 GiB. Thermal data is the native warning status,
+not a measured temperature or proof of constant CPU frequency. Raw resource
+samples are retained outside Git; selected samples, their full-file digest and
+all job artifacts are captured in [capacity proof](evidence/linux-github-capacity-proof.json).
+
+[Recovery run 42528327661](https://github.com/0x63616c/world-wide-webb/actions/runs/42528327661)
+held one real job per platform. Both VM/helper job processes survived a forced
+controller restart with unchanged attempt/runner/job identities and a fresh
+controller reconciliation. Positive helper RPCs still reported `executing`.
+Both jobs were then cancelled while active; GitHub reported both cancelled,
+the controller drained to an empty journal/VM inventory, and both runner
+registrations were absent. See [restart proof](evidence/linux-restart-proof.json)
+and [cancellation proof](evidence/linux-cancellation-proof.json).
+
+Those recovery guests also passed Mac/Linux peer controls in both directions.
+Public GitHub HTTPS and each guest's own loopback/primary IPv4/link-local IPv6
+proof listeners worked; peer IPv4/IPv6, host LAN/tailnet IPv4 and router HTTPS
+connections were blocked. Host controls reached the IPv4 listeners and router.
+The host tailnet IPv6 target remained unavailable even to the host, so that control
+is explicitly inconclusive; public IPv6 was not exercised. This proves the
+combined Tart/Softnet boundary, not filter causality in isolation. The exact host
+listener child was stopped/reaped and the guest listeners disappeared with their
+disposable VMs. See [mixed network proof](evidence/linux-mixed-network-proof.json).
+
+The production image cache was installed as UID451, verified against the pinned
+manifest, cloned with a cleared registry environment and verified again afterward.
+The stopped proof clone was deleted. No registry credential was delivered to the
+MacBook. The old production controller remains held until the final activation;
+there are no owned validation guests or registered recovery runners left.
+
+## Remaining rollout gates
+
+- Build the final host generation after incorporating the Mini-only connection
+  repair from PR33; preserve that repair and all unrelated main changes.
+- Merge the reviewed runner change, stop the idle temporary controller, activate
+  the permanent profile and verify runtime four/two limits, the pinned Linux
+  image/cache and actual job bootstrap/cleanup under the production daemon.
+- Publish and pass required checks for the application CI routing change. Its
+  main merge must coordinate with the separate app deployment migration: the
+  existing enabled legacy Mini workflow still targets the retired SSH identity.

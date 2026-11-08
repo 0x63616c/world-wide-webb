@@ -1,0 +1,580 @@
+{
+  "mixed_admission_order": [
+    {
+      "at": "2026-11-08T21:53:03.156672+00:00",
+      "platform": "macos-arm64",
+      "candidate": {
+        "repository": "0x63616c/world-wide-webb",
+        "run_id": 42525035803,
+        "run_attempt": 1,
+        "job_id": 128873608304
+      }
+    },
+    {
+      "at": "2026-11-08T21:53:43.799051+00:00",
+      "platform": "macos-arm64",
+      "candidate": {
+        "repository": "0x63616c/world-wide-webb",
+        "run_id": 42525035803,
+        "run_attempt": 1,
+        "job_id": 128873608369
+      }
+    },
+    {
+      "at": "2026-11-08T21:54:24.262991+00:00",
+      "platform": "linux-arm64",
+      "candidate": {
+        "repository": "0x63616c/world-wide-webb",
+        "run_id": 42525035803,
+        "run_attempt": 1,
+        "job_id": 128873608297
+      }
+    },
+    {
+      "at": "2026-11-08T21:54:54.622756+00:00",
+      "platform": "linux-arm64",
+      "candidate": {
+        "repository": "0x63616c/world-wide-webb",
+        "run_id": 42525035803,
+        "run_attempt": 1,
+        "job_id": 128873608423
+      }
+    }
+  ],
+  "schema": 1,
+  "run_id": 42525035803,
+  "run_url": "https://github.com/0x63616c/world-wide-webb/actions/runs/42525035803",
+  "conclusion": "success",
+  "app_revision": "fd6c5e4b6e673b49a7d6377c7fbc678c5aa2d643",
+  "controller_revisions": {
+    "baseline": "39e0ddf39010bb0f95a4cf7d9837edba61b81093",
+    "other_cohorts": "d540db8f18c103a44e59331ced56c0875fb2572b"
+  },
+  "baseline_controller_note": "Updated at an idle hold between Linux baseline and later cohorts; identical Linux-only policy, guest image and resources.",
+  "single_trial": true,
+  "cohorts": {
+    "baseline": {
+      "jobs": 2,
+      "peak_simultaneous_workloads": 2,
+      "all_workloads_overlap_seconds": 78.694688,
+      "mean_elapsed_seconds": 95.66731917050001,
+      "batch_workload_span_seconds": 112.639947
+    },
+    "baseline-macos": {
+      "jobs": 2,
+      "peak_simultaneous_workloads": 2,
+      "all_workloads_overlap_seconds": 332.344018,
+      "mean_elapsed_seconds": 368.864293625,
+      "batch_workload_span_seconds": 405.384412
+    },
+    "four-linux": {
+      "jobs": 4,
+      "peak_simultaneous_workloads": 4,
+      "all_workloads_overlap_seconds": 5.994599,
+      "mean_elapsed_seconds": 97.58173799350001,
+      "batch_workload_span_seconds": 186.211767
+    },
+    "mixed-linux": {
+      "jobs": 2,
+      "peak_simultaneous_workloads": 2,
+      "all_workloads_overlap_seconds": 84.574983,
+      "mean_elapsed_seconds": 121.7807378585,
+      "batch_workload_span_seconds": 158.986442
+    },
+    "mixed-macos": {
+      "jobs": 2,
+      "peak_simultaneous_workloads": 2,
+      "all_workloads_overlap_seconds": 374.390369,
+      "mean_elapsed_seconds": 416.630715313,
+      "batch_workload_span_seconds": 458.852642
+    }
+  },
+  "mixed_all": {
+    "jobs": 4,
+    "peak_simultaneous_workloads": 4,
+    "all_workloads_overlap_seconds": 84.574983,
+    "batch_workload_span_seconds": 458.852642
+  },
+  "relative_mean_runtime": {
+    "four_linux_vs_two_linux": 1.0200112100934708,
+    "mixed_linux_vs_two_linux": 1.272960702927822,
+    "mixed_macos_vs_two_macos": 1.1294959217076213
+  },
+  "four_linux_batch_throughput_vs_two": 1.2098048239883787,
+  "host_summary": {
+    "samples": 192,
+    "pressure_levels": [
+      1
+    ],
+    "swap_used_mebibytes": 0,
+    "max_owned": 4,
+    "max_mac": 2,
+    "max_reserved_cpu": 12,
+    "max_reserved_memory_mib": 24576,
+    "min_free_bytes": 316730896384,
+    "thermal_outputs": [
+      "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded"
+    ]
+  },
+  "host_examples": {
+    "four_linux": {
+      "at": "2026-11-08T21:49:50.494864+00:00",
+      "free_bytes": 329743265792,
+      "attempts": [
+        {
+          "nonce": "7769e851af7a44b6af2abe2af266f92d",
+          "platform": "linux-arm64",
+          "phase": "Running",
+          "cpu": 2,
+          "memory_mib": 4096,
+          "candidate": {
+            "repository": "0x63616c/world-wide-webb",
+            "run_id": 42525035803,
+            "run_attempt": 1,
+            "job_id": 128872349409
+          },
+          "assigned": {
+            "repository": "0x63616c/world-wide-webb",
+            "run_id": 42525035803,
+            "run_attempt": 1,
+            "job_id": 128872349409
+          },
+          "runner_id": 56,
+          "vm_booted": true,
+          "guest_prepared": true,
+          "runner_started": true
+        },
+        {
+          "nonce": "01831f1a5a8241b4a709bd7519304860",
+          "platform": "linux-arm64",
+          "phase": "Running",
+          "cpu": 2,
+          "memory_mib": 4096,
+          "candidate": {
+            "repository": "0x63616c/world-wide-webb",
+            "run_id": 42525035803,
+            "run_attempt": 1,
+            "job_id": 128872349475
+          },
+          "assigned": {
+            "repository": "0x63616c/world-wide-webb",
+            "run_id": 42525035803,
+            "run_attempt": 1,
+            "job_id": 128872349513
+          },
+          "runner_id": 57,
+          "vm_booted": true,
+          "guest_prepared": true,
+          "runner_started": true
+        },
+        {
+          "nonce": "e6f6c10d16504da0adbe2e72fcaf4ab9",
+          "platform": "linux-arm64",
+          "phase": "Running",
+          "cpu": 2,
+          "memory_mib": 4096,
+          "candidate": {
+            "repository": "0x63616c/world-wide-webb",
+            "run_id": 42525035803,
+            "run_attempt": 1,
+            "job_id": 128872349487
+          },
+          "assigned": {
+            "repository": "0x63616c/world-wide-webb",
+            "run_id": 42525035803,
+            "run_attempt": 1,
+            "job_id": 128872349487
+          },
+          "runner_id": 58,
+          "vm_booted": true,
+          "guest_prepared": true,
+          "runner_started": true
+        },
+        {
+          "nonce": "868b51e34f8b4493a220bd53697c5c8b",
+          "platform": "linux-arm64",
+          "phase": "Starting",
+          "cpu": 2,
+          "memory_mib": 4096,
+          "candidate": {
+            "repository": "0x63616c/world-wide-webb",
+            "run_id": 42525035803,
+            "run_attempt": 1,
+            "job_id": 128872349475
+          },
+          "assigned": null,
+          "runner_id": 59,
+          "vm_booted": true,
+          "guest_prepared": true,
+          "runner_started": false
+        }
+      ],
+      "sequence": 272,
+      "memory": {
+        "exit": 0,
+        "output": "vm.swapusage: total = 0.00M  used = 0.00M  free = 0.00M  (encrypted)\nkern.memorystatus_vm_pressure_level: 1"
+      },
+      "thermal": {
+        "exit": 0,
+        "output": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded"
+      },
+      "vm_processes": [
+        "75947 74879   0.0  71456 /nix/store/5wqklnfrxfazk79jci5xc0pzs76nzllc-tart-2.41.1/Applications/tart.app/Contents/MacOS/tart",
+        "75948 75947   0.0  10752 /var/lib/homelab-runner-helpers/gmmfldqc4m5l9palja2qxkpk20av06nc-softnet-0.25.0/softnet",
+        "75949     1 199.3 6217136 /System/Library/Frameworks/Virtualization.framework/Versions/A/XPCServices/com.apple.Virtualization.VirtualMachine.xpc/Contents/MacOS/com.apple.Virtualization.VirtualMachine",
+        "76014 74879   0.0  70880 /nix/store/5wqklnfrxfazk79jci5xc0pzs76nzllc-tart-2.41.1/Applications/tart.app/Contents/MacOS/tart",
+        "76015 76014   0.0  10704 /var/lib/homelab-runner-helpers/gmmfldqc4m5l9palja2qxkpk20av06nc-softnet-0.25.0/softnet",
+        "76016     1 196.5 5883920 /System/Library/Frameworks/Virtualization.framework/Versions/A/XPCServices/com.apple.Virtualization.VirtualMachine.xpc/Contents/MacOS/com.apple.Virtualization.VirtualMachine",
+        "76109 74879   0.0  70496 /nix/store/5wqklnfrxfazk79jci5xc0pzs76nzllc-tart-2.41.1/Applications/tart.app/Contents/MacOS/tart",
+        "76110 76109   0.0  10720 /var/lib/homelab-runner-helpers/gmmfldqc4m5l9palja2qxkpk20av06nc-softnet-0.25.0/softnet",
+        "76111     1 198.9 5415280 /System/Library/Frameworks/Virtualization.framework/Versions/A/XPCServices/com.apple.Virtualization.VirtualMachine.xpc/Contents/MacOS/com.apple.Virtualization.VirtualMachine",
+        "76243 74879   0.0  70928 /nix/store/5wqklnfrxfazk79jci5xc0pzs76nzllc-tart-2.41.1/Applications/tart.app/Contents/MacOS/tart",
+        "76244 76243   0.0  10736 /var/lib/homelab-runner-helpers/gmmfldqc4m5l9palja2qxkpk20av06nc-softnet-0.25.0/softnet",
+        "76245     1   0.5 2591152 /System/Library/Frameworks/Virtualization.framework/Versions/A/XPCServices/com.apple.Virtualization.VirtualMachine.xpc/Contents/MacOS/com.apple.Virtualization.VirtualMachine"
+      ]
+    },
+    "mixed": {
+      "at": "2026-11-08T21:55:55.314408+00:00",
+      "free_bytes": 325308645376,
+      "attempts": [
+        {
+          "nonce": "f94a010694294fb585c83d7fe9658e81",
+          "platform": "macos-arm64",
+          "phase": "Running",
+          "cpu": 4,
+          "memory_mib": 8192,
+          "candidate": {
+            "repository": "0x63616c/world-wide-webb",
+            "run_id": 42525035803,
+            "run_attempt": 1,
+            "job_id": 128873608304
+          },
+          "assigned": {
+            "repository": "0x63616c/world-wide-webb",
+            "run_id": 42525035803,
+            "run_attempt": 1,
+            "job_id": 128873608304
+          },
+          "runner_id": 60,
+          "vm_booted": true,
+          "guest_prepared": true,
+          "runner_started": true
+        },
+        {
+          "nonce": "ea58b744efe04c06afb74285f1b8f0d0",
+          "platform": "macos-arm64",
+          "phase": "Running",
+          "cpu": 4,
+          "memory_mib": 8192,
+          "candidate": {
+            "repository": "0x63616c/world-wide-webb",
+            "run_id": 42525035803,
+            "run_attempt": 1,
+            "job_id": 128873608369
+          },
+          "assigned": {
+            "repository": "0x63616c/world-wide-webb",
+            "run_id": 42525035803,
+            "run_attempt": 1,
+            "job_id": 128873608369
+          },
+          "runner_id": 61,
+          "vm_booted": true,
+          "guest_prepared": true,
+          "runner_started": true
+        },
+        {
+          "nonce": "2288014fcc9740e58752a2aa28a5af41",
+          "platform": "linux-arm64",
+          "phase": "Running",
+          "cpu": 2,
+          "memory_mib": 4096,
+          "candidate": {
+            "repository": "0x63616c/world-wide-webb",
+            "run_id": 42525035803,
+            "run_attempt": 1,
+            "job_id": 128873608297
+          },
+          "assigned": {
+            "repository": "0x63616c/world-wide-webb",
+            "run_id": 42525035803,
+            "run_attempt": 1,
+            "job_id": 128873608297
+          },
+          "runner_id": 62,
+          "vm_booted": true,
+          "guest_prepared": true,
+          "runner_started": true
+        },
+        {
+          "nonce": "eb5c17f16075495eb8f34ebe05eda1fe",
+          "platform": "linux-arm64",
+          "phase": "Running",
+          "cpu": 2,
+          "memory_mib": 4096,
+          "candidate": {
+            "repository": "0x63616c/world-wide-webb",
+            "run_id": 42525035803,
+            "run_attempt": 1,
+            "job_id": 128873608423
+          },
+          "assigned": {
+            "repository": "0x63616c/world-wide-webb",
+            "run_id": 42525035803,
+            "run_attempt": 1,
+            "job_id": 128873608423
+          },
+          "runner_id": 63,
+          "vm_booted": true,
+          "guest_prepared": true,
+          "runner_started": true
+        }
+      ],
+      "sequence": 326,
+      "memory": {
+        "exit": 0,
+        "output": "vm.swapusage: total = 0.00M  used = 0.00M  free = 0.00M  (encrypted)\nkern.memorystatus_vm_pressure_level: 1"
+      },
+      "thermal": {
+        "exit": 0,
+        "output": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded"
+      },
+      "vm_processes": [
+        "76726 74879   0.0  72112 /nix/store/5wqklnfrxfazk79jci5xc0pzs76nzllc-tart-2.41.1/Applications/tart.app/Contents/MacOS/tart",
+        "76727 76726   3.9  10800 /var/lib/homelab-runner-helpers/gmmfldqc4m5l9palja2qxkpk20av06nc-softnet-0.25.0/softnet",
+        "76728     1 363.5 11373856 /System/Library/Frameworks/Virtualization.framework/Versions/A/XPCServices/com.apple.Virtualization.VirtualMachine.xpc/Contents/MacOS/com.apple.Virtualization.VirtualMachine",
+        "76735     1   0.0   6224 /System/Library/PrivateFrameworks/AppleVirtualPlatform.framework/Versions/A/PlugIns/com.apple.AppleVirtualPlatform.Identity.Virtio.vzplugin/Contents/MacOS/com.apple.Virtualization.AppleVirtualPlatformIdentity",
+        "76842 74879   0.0  71504 /nix/store/5wqklnfrxfazk79jci5xc0pzs76nzllc-tart-2.41.1/Applications/tart.app/Contents/MacOS/tart",
+        "76843 76842   4.9  10848 /var/lib/homelab-runner-helpers/gmmfldqc4m5l9palja2qxkpk20av06nc-softnet-0.25.0/softnet",
+        "76844     1 359.3 11226720 /System/Library/Frameworks/Virtualization.framework/Versions/A/XPCServices/com.apple.Virtualization.VirtualMachine.xpc/Contents/MacOS/com.apple.Virtualization.VirtualMachine",
+        "76852     1   0.0   6192 /System/Library/PrivateFrameworks/AppleVirtualPlatform.framework/Versions/A/PlugIns/com.apple.AppleVirtualPlatform.Identity.Virtio.vzplugin/Contents/MacOS/com.apple.Virtualization.AppleVirtualPlatformIdentity",
+        "76999 74879   0.0  71680 /nix/store/5wqklnfrxfazk79jci5xc0pzs76nzllc-tart-2.41.1/Applications/tart.app/Contents/MacOS/tart",
+        "77000 76999   0.0  10752 /var/lib/homelab-runner-helpers/gmmfldqc4m5l9palja2qxkpk20av06nc-softnet-0.25.0/softnet",
+        "77001     1 175.6 5866544 /System/Library/Frameworks/Virtualization.framework/Versions/A/XPCServices/com.apple.Virtualization.VirtualMachine.xpc/Contents/MacOS/com.apple.Virtualization.VirtualMachine",
+        "77130 74879   0.0  71216 /nix/store/5wqklnfrxfazk79jci5xc0pzs76nzllc-tart-2.41.1/Applications/tart.app/Contents/MacOS/tart",
+        "77131 77130   0.0  10800 /var/lib/homelab-runner-helpers/gmmfldqc4m5l9palja2qxkpk20av06nc-softnet-0.25.0/softnet",
+        "77132     1 171.9 5044048 /System/Library/Frameworks/Virtualization.framework/Versions/A/XPCServices/com.apple.Virtualization.VirtualMachine.xpc/Contents/MacOS/com.apple.Virtualization.VirtualMachine",
+        "77324 74879   0.0   4608 /nix/store/5wqklnfrxfazk79jci5xc0pzs76nzllc-tart-2.41.1/Applications/tart.app/Contents/MacOS/tart"
+      ]
+    }
+  },
+  "raw_host_samples_sha256": "4410037169088a6e0a385382790f3d0dfa64d4de8a5ffb4017fd32bd23ccaf46",
+  "measurements": [
+    {
+      "cohort": "mixed-macos",
+      "slot": 2,
+      "revision": "fd6c5e4b6e673b49a7d6377c7fbc678c5aa2d643",
+      "run_id": "42525035803",
+      "run_attempt": "1",
+      "system": "Darwin",
+      "machine": "arm64",
+      "started_at": "2026-11-08T21:54:59.144353+00:00",
+      "finished_at": "2026-11-08T22:01:52.652135+00:00",
+      "elapsed_seconds": 413.508151042,
+      "user_cpu_seconds": 13.591558,
+      "system_cpu_seconds": 7.320756,
+      "max_child_rss_bytes": 317177856,
+      "exit_code": 0,
+      "artifact_id": 13636391807,
+      "artifact_name": "runner-mixed-macos-2"
+    },
+    {
+      "cohort": "four-linux",
+      "slot": 3,
+      "revision": "fd6c5e4b6e673b49a7d6377c7fbc678c5aa2d643",
+      "run_id": "42525035803",
+      "run_attempt": "1",
+      "system": "Linux",
+      "machine": "aarch64",
+      "started_at": "2026-11-08T21:50:00.765506+00:00",
+      "finished_at": "2026-11-08T21:51:35.813388+00:00",
+      "elapsed_seconds": 95.047883041,
+      "user_cpu_seconds": 168.831153,
+      "system_cpu_seconds": 10.275622,
+      "max_child_rss_bytes": 691343360,
+      "exit_code": 0,
+      "artifact_id": 13636226187,
+      "artifact_name": "runner-four-linux-3"
+    },
+    {
+      "cohort": "mixed-macos",
+      "slot": 1,
+      "revision": "fd6c5e4b6e673b49a7d6377c7fbc678c5aa2d643",
+      "run_id": "42525035803",
+      "run_attempt": "1",
+      "system": "Darwin",
+      "machine": "arm64",
+      "started_at": "2026-11-08T21:54:13.799493+00:00",
+      "finished_at": "2026-11-08T22:01:13.534722+00:00",
+      "elapsed_seconds": 419.753279584,
+      "user_cpu_seconds": 13.354878,
+      "system_cpu_seconds": 7.446965,
+      "max_child_rss_bytes": 318078976,
+      "exit_code": 0,
+      "artifact_id": 13636096913,
+      "artifact_name": "runner-mixed-macos-1"
+    },
+    {
+      "cohort": "four-linux",
+      "slot": 1,
+      "revision": "fd6c5e4b6e673b49a7d6377c7fbc678c5aa2d643",
+      "run_id": "42525035803",
+      "run_attempt": "1",
+      "system": "Linux",
+      "machine": "aarch64",
+      "started_at": "2026-11-08T21:48:51.102622+00:00",
+      "finished_at": "2026-11-08T21:50:29.635246+00:00",
+      "elapsed_seconds": 98.53262521900001,
+      "user_cpu_seconds": 176.052172,
+      "system_cpu_seconds": 10.422139,
+      "max_child_rss_bytes": 696791040,
+      "exit_code": 0,
+      "artifact_id": 13636095739,
+      "artifact_name": "runner-four-linux-1"
+    },
+    {
+      "cohort": "four-linux",
+      "slot": 2,
+      "revision": "fd6c5e4b6e673b49a7d6377c7fbc678c5aa2d643",
+      "run_id": "42525035803",
+      "run_attempt": "1",
+      "system": "Linux",
+      "machine": "aarch64",
+      "started_at": "2026-11-08T21:49:22.454574+00:00",
+      "finished_at": "2026-11-08T21:51:02.042540+00:00",
+      "elapsed_seconds": 99.587965186,
+      "user_cpu_seconds": 178.280149,
+      "system_cpu_seconds": 10.92508,
+      "max_child_rss_bytes": 695205888,
+      "exit_code": 0,
+      "artifact_id": 13636071579,
+      "artifact_name": "runner-four-linux-2"
+    },
+    {
+      "cohort": "four-linux",
+      "slot": 4,
+      "revision": "fd6c5e4b6e673b49a7d6377c7fbc678c5aa2d643",
+      "run_id": "42525035803",
+      "run_attempt": "1",
+      "system": "Linux",
+      "machine": "aarch64",
+      "started_at": "2026-11-08T21:48:29.601621+00:00",
+      "finished_at": "2026-11-08T21:50:06.760105+00:00",
+      "elapsed_seconds": 97.158478528,
+      "user_cpu_seconds": 172.864854,
+      "system_cpu_seconds": 10.000054,
+      "max_child_rss_bytes": 686735360,
+      "exit_code": 0,
+      "artifact_id": 13635876240,
+      "artifact_name": "runner-four-linux-4"
+    },
+    {
+      "cohort": "mixed-linux",
+      "slot": 1,
+      "revision": "fd6c5e4b6e673b49a7d6377c7fbc678c5aa2d643",
+      "run_id": "42525035803",
+      "run_attempt": "1",
+      "system": "Linux",
+      "machine": "aarch64",
+      "started_at": "2026-11-08T21:55:24.602168+00:00",
+      "finished_at": "2026-11-08T21:57:29.432229+00:00",
+      "elapsed_seconds": 124.830080781,
+      "user_cpu_seconds": 222.537949,
+      "system_cpu_seconds": 14.017862,
+      "max_child_rss_bytes": 692469760,
+      "exit_code": 0,
+      "artifact_id": 13635873267,
+      "artifact_name": "runner-mixed-linux-1"
+    },
+    {
+      "cohort": "baseline-macos",
+      "slot": 2,
+      "revision": "fd6c5e4b6e673b49a7d6377c7fbc678c5aa2d643",
+      "run_id": "42525035803",
+      "run_attempt": "1",
+      "system": "Darwin",
+      "machine": "arm64",
+      "started_at": "2026-11-08T21:39:47.714597+00:00",
+      "finished_at": "2026-11-08T21:46:00.958988+00:00",
+      "elapsed_seconds": 373.2445185,
+      "user_cpu_seconds": 11.78531,
+      "system_cpu_seconds": 6.702811,
+      "max_child_rss_bytes": 318603264,
+      "exit_code": 0,
+      "artifact_id": 13635726222,
+      "artifact_name": "runner-baseline-macos-2"
+    },
+    {
+      "cohort": "baseline-macos",
+      "slot": 1,
+      "revision": "fd6c5e4b6e673b49a7d6377c7fbc678c5aa2d643",
+      "run_id": "42525035803",
+      "run_attempt": "1",
+      "system": "Darwin",
+      "machine": "arm64",
+      "started_at": "2026-11-08T21:40:28.614970+00:00",
+      "finished_at": "2026-11-08T21:46:33.099009+00:00",
+      "elapsed_seconds": 364.48406875,
+      "user_cpu_seconds": 11.447814,
+      "system_cpu_seconds": 5.886724,
+      "max_child_rss_bytes": 317833216,
+      "exit_code": 0,
+      "artifact_id": 13635422468,
+      "artifact_name": "runner-baseline-macos-1"
+    },
+    {
+      "cohort": "baseline",
+      "slot": 1,
+      "revision": "fd6c5e4b6e673b49a7d6377c7fbc678c5aa2d643",
+      "run_id": "42525035803",
+      "run_attempt": "1",
+      "system": "Linux",
+      "machine": "aarch64",
+      "started_at": "2026-11-08T21:29:24.855797+00:00",
+      "finished_at": "2026-11-08T21:30:59.537403+00:00",
+      "elapsed_seconds": 94.68160750000001,
+      "user_cpu_seconds": 168.643971,
+      "system_cpu_seconds": 10.082965,
+      "max_child_rss_bytes": 691720192,
+      "exit_code": 0,
+      "artifact_id": 13635396639,
+      "artifact_name": "runner-baseline-1"
+    },
+    {
+      "cohort": "mixed-linux",
+      "slot": 2,
+      "revision": "fd6c5e4b6e673b49a7d6377c7fbc678c5aa2d643",
+      "run_id": "42525035803",
+      "run_attempt": "1",
+      "system": "Linux",
+      "machine": "aarch64",
+      "started_at": "2026-11-08T21:54:50.445787+00:00",
+      "finished_at": "2026-11-08T21:56:49.177151+00:00",
+      "elapsed_seconds": 118.73139493600002,
+      "user_cpu_seconds": 212.26063,
+      "system_cpu_seconds": 12.580824,
+      "max_child_rss_bytes": 688484352,
+      "exit_code": 0,
+      "artifact_id": 13635254341,
+      "artifact_name": "runner-mixed-linux-2"
+    },
+    {
+      "cohort": "baseline",
+      "slot": 2,
+      "revision": "fd6c5e4b6e673b49a7d6377c7fbc678c5aa2d643",
+      "run_id": "42525035803",
+      "run_attempt": "1",
+      "system": "Linux",
+      "machine": "aarch64",
+      "started_at": "2026-11-08T21:29:40.842715+00:00",
+      "finished_at": "2026-11-08T21:31:17.495744+00:00",
+      "elapsed_seconds": 96.653030841,
+      "user_cpu_seconds": 171.866871,
+      "system_cpu_seconds": 10.129477,
+      "max_child_rss_bytes": 687464448,
+      "exit_code": 0,
+      "artifact_id": 13635182715,
+      "artifact_name": "runner-baseline-2"
+    }
+  ]
+}
