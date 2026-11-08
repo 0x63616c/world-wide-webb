@@ -20,7 +20,6 @@ pub fn retirement_exempt(method: &str, path: &str) -> bool {
             | "/v1/auth/refresh"
             | "/v1/auth/logout"
             | "/v1/account/delete"
-            | "/v1/enrollment/leave"
     ) || (method == "GET" && path.starts_with("/v1/operations/"))
         || (method == "DELETE"
             && (path.starts_with("/v1/avatars/") || path.starts_with("/v1/push-installations/")))

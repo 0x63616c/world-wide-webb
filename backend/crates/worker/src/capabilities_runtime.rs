@@ -10,7 +10,6 @@ const IMPLEMENTED: &[&str] = &[
     "attest.enroll",
     "enrollment.join",
     "enrollment.transfer",
-    "enrollment.leave",
     "events.submit",
     "events.receipt",
     "account.delete",

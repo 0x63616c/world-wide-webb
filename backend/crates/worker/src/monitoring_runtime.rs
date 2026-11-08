@@ -91,7 +91,6 @@ pub(crate) fn route(path: &str) -> &'static str {
         "/v1/attestation/keys" => "attestation.key",
         "/v1/enrollment/join" => "enrollment.join",
         "/v1/enrollment/transfer" => "enrollment.transfer",
-        "/v1/enrollment/leave" => "enrollment.leave",
         "/v1/resets" => "history.reset",
         p if p.starts_with("/v1/avatars/") => "avatars",
         p if p.starts_with("/v1/results") => "results",

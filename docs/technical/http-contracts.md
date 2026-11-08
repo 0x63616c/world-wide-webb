@@ -12,7 +12,7 @@ This catalog fixes wire names and request/response ownership. JSON schemas under
 - `RankedEntry`: `{participant_id, nickname, avatar_id, folds: nonnegative integer, rank: positive integer, percentile: integer 0..100|null, medal: gold|silver|bronze|null}`. No email/Apple subject. Hidden/removed entries are omitted without renumbering remaining ranks.
 - `Result`: `{period_id, kind: week|month, start_ms, end_ms, version: positive integer, finalized_at_ms, folds, rank, population, percentile, medal}`. Finalized self-history only; provisional status belongs to live periods.
 - `Enrollment`: `{epoch_id, device_id, generation: Generation, joined_at_ms, issued_at_ms}`. ID ownership and times are server-derived. A transfer creates a different epoch without resetting accepted history.
-- `OperationStatus`: `{operation_id, state: pending|completed|failed, error_code: string|null}`. `failed` requires a retry instruction represented by the error contract; visibility changes are immediate on accepted leave/delete even while cleanup is pending.
+- `OperationStatus`: `{operation_id, state: pending|completed|failed, error_code: string|null}`. `failed` requires a retry instruction represented by the error contract; visibility changes are immediate on accepted deletion even while cleanup is pending.
 
 Event `timezone_id` accepts supported IANA identifiers and canonical Foundation fixed-offset identifiers `GMT±HHMM` (maximum ±1800, minutes 00–59). Zero offset is `GMT`; `GMT+0000`, `GMT-0000`, and noncanonical aliases such as `GMT+1` or `GMT+01:00` are rejected. Shared `contracts/fixtures/timezones.json` records actual Foundation behavior and the wire policy.
 
