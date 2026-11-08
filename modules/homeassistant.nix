@@ -127,6 +127,8 @@ in {
         environment = { HOME = "/var/lib/_containers"; COLIMA_HOME = home; };
         script = ''
           set -eu
+          # Lima/Colima need native macOS version and virtualization utilities.
+          export PATH="$PATH:/usr/bin:/bin:/usr/sbin:/sbin"
           mkdir -p ${home}/ha ${home}/_lima/_config
           cp ${profile} ${home}/ha/colima.yaml
           cp ${override} ${home}/_lima/_config/override.yaml
