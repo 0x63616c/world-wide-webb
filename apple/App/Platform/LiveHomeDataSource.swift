@@ -80,13 +80,8 @@ import UIKit
             transport ?? URLSession(configuration: session, delegate: PhotoSessionDelegate(), delegateQueue: nil)
         let client = PanelAPIClient(configuration: configuration, transport: transport)
         panelPIN = PanelPINAPI(client: client)
-        #if targetEnvironment(macCatalyst)
-            let walkDevice: WalkDevice = .mac
-        #else
-            let walkDevice: WalkDevice =
-                ProcessInfo.processInfo.isiOSAppOnMac
-                ? .mac : UIDevice.current.userInterfaceIdiom == .phone ? .iPhone : .iPad
-        #endif
+        let walkDevice: WalkDevice =
+            UIDevice.current.userInterfaceIdiom == .phone ? .iPhone : .iPad
         walkProvider = LiveWalkProvider(api: WalksAPI(client: client), device: walkDevice, now: now, clock: walkClock)
         teslaProvider = LiveTeslaProvider(api: TeslaAPI(client: client))
         let namespace = SHA256.hash(data: Data((configuration?.baseURL.absoluteString ?? "unconfigured").utf8))

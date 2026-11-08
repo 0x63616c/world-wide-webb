@@ -172,16 +172,6 @@ import UserNotifications
         center.removePendingNotificationRequests(withIdentifiers: [id])
         center.removeDeliveredNotifications(withIdentifiers: [id])
     }
-    #if targetEnvironment(macCatalyst)
-        nonisolated func userNotificationCenter(
-            _ center: UNUserNotificationCenter,
-            willPresent notification: UNNotification,
-            withCompletionHandler completionHandler: @escaping @Sendable (UNNotificationPresentationOptions) -> Void
-        ) {
-            // Timer banners/audio are owned by the app; macOS alarm notifications are system-delivered.
-            completionHandler(notification.request.identifier == "panel.next-alarm" ? [.banner, .sound] : [])
-        }
-    #endif
     // With the delegate installed, the system does not present a foreground
     // alert. Panel posts its own banner; the OS still handles background delivery.
     nonisolated func userNotificationCenter(

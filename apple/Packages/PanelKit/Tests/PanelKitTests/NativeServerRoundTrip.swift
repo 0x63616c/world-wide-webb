@@ -24,7 +24,7 @@ struct NativeServerRoundTrip {
         #expect(stopped.active == nil)
         let history = try await walks.history(limit: 10)
         #expect(history.walks.contains { $0.id == active.id })
-        for source in [WalkSource.iphone, .mac] {
+        for source in [WalkSource.iphone] {
             let platformWalk = try #require(try await walks.start(source: source).active)
             #expect(platformWalk.source == source)
             _ = try await walks.stop(id: platformWalk.id)

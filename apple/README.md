@@ -1,7 +1,7 @@
 # Native Apple application
 
 `App/Platform/PanelApp.swift` is the production entry point. The shared SwiftUI clock, launcher and feature
-views power the iPad app and adapt for iPhone/Duo and Mac Catalyst. `Packages/PanelKit` owns the typed REST
+views power the iPad app and adapt for iPhone/Duo. `Packages/PanelKit` owns the typed REST
 client and shared wire models; platform adapters provide camera, calendar, notifications and alarms.
 
 Generate the ignored Xcode project with `xcodegen generate --spec apple/project.yml --project apple`.

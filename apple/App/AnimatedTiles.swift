@@ -3,7 +3,6 @@ import SwiftUI
 extension EnvironmentValues {
     /// nil for live animation; explicit seconds for deterministic stills.
     @Entry var motionPhase: Double? = nil
-    @Entry var desktopLayout = false
 }
 
 struct LampGlow: View {

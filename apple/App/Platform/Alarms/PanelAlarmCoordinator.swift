@@ -114,30 +114,28 @@ public actor PanelAlarmCoordinator {
     }
 
     private func updateActivity(_ next: NextAlarm?) async throws {
-        #if !targetEnvironment(macCatalyst)
-            guard #available(iOS 16.2, *) else { return }
-            let current = Activity<NextAlarmAttributes>.activities
-            let formatter = ISO8601DateFormatter()
-            formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-            let date = next.flatMap { formatter.date(from: $0.at) ?? ISO8601DateFormatter().date(from: $0.at) }
-            let now = Date()
-            guard let next, let date, date > now else {
-                for activity in current { await activity.end(nil, dismissalPolicy: .immediate) }
-                return
-            }
-            let content = ActivityContent(
-                state: NextAlarmAttributes.ContentState(label: next.label, fireAt: date, updatedAt: now),
-                staleDate: date)
-            let matching = current.first { $0.attributes.alarmID == next.id }
-            for activity in current where activity.id != matching?.id {
-                await activity.end(nil, dismissalPolicy: .immediate)
-            }
-            if let matching {
-                await matching.update(content)
-            } else if ActivityAuthorizationInfo().areActivitiesEnabled {
-                _ = try Activity.request(
-                    attributes: NextAlarmAttributes(alarmID: next.id), content: content, pushType: nil)
-            }
-        #endif
+        guard #available(iOS 16.2, *) else { return }
+        let current = Activity<NextAlarmAttributes>.activities
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let date = next.flatMap { formatter.date(from: $0.at) ?? ISO8601DateFormatter().date(from: $0.at) }
+        let now = Date()
+        guard let next, let date, date > now else {
+            for activity in current { await activity.end(nil, dismissalPolicy: .immediate) }
+            return
+        }
+        let content = ActivityContent(
+            state: NextAlarmAttributes.ContentState(label: next.label, fireAt: date, updatedAt: now),
+            staleDate: date)
+        let matching = current.first { $0.attributes.alarmID == next.id }
+        for activity in current where activity.id != matching?.id {
+            await activity.end(nil, dismissalPolicy: .immediate)
+        }
+        if let matching {
+            await matching.update(content)
+        } else if ActivityAuthorizationInfo().areActivitiesEnabled {
+            _ = try Activity.request(
+                attributes: NextAlarmAttributes(alarmID: next.id), content: content, pushType: nil)
+        }
     }
 }

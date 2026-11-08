@@ -1,7 +1,9 @@
 import Foundation
 
 public enum WalkSource: String, Codable, Sendable, CaseIterable {
-    case iphone, ipad, mac, web, unknown
+    case iphone, ipad
+    // Historical sources remain decodable; current clients create iPhone/iPad walks only.
+    case mac, web, unknown
 }
 
 /// The WWW-27 wire record. Dates are decoded here because PanelAPIClient uses plain JSON.

@@ -29,10 +29,6 @@ struct NotificationHistorySnapshot: Codable {
         values.isExcludedFromBackup = true
         try directory.setResourceValues(values)
         let data = try JSONEncoder().encode(snapshot)
-        #if os(iOS)
-            try data.write(to: url, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
-        #else
-            try data.write(to: url, options: .atomic)
-        #endif
+        try data.write(to: url, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
     }
 }
