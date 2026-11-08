@@ -10,14 +10,17 @@ struct FilledLevelControl: View {
     var step = 1
     var unit = "percent"
     var showsPercentage = false
+    var valueLabel: ((Int) -> String)? = nil
     var track: Gradient? = nil
     var fill: (Int) -> Color = { _ in .white.opacity(0.38) }
     var preview: (Int?) -> Void = { _ in }
     let commit: (Int) -> Void
     @Environment(\.isEnabled) private var enabled
     @GestureState private var dragging: Int?
+    @State private var releasedValue: Int?
+    private var showsValue: Bool { showsPercentage || valueLabel != nil }
     private var dragValue: Int? { enabled ? dragging : nil }
-    private var displayed: Int { min(range.upperBound, max(range.lowerBound, dragValue ?? value)) }
+    private var displayed: Int { min(range.upperBound, max(range.lowerBound, dragValue ?? releasedValue ?? value)) }
     private func stepped(_ value: Double) -> Int {
         let step = max(1, step)
         let rounded = range.lowerBound + Int(((value - Double(range.lowerBound)) / Double(step)).rounded()) * step
@@ -41,12 +44,12 @@ struct FilledLevelControl: View {
                 Image(systemName: symbol).font(.system(size: 22))
                     .foregroundStyle(.white).padding(.leading, 24)
                 // The fill still reaches the end of the bar when the thumb enters the label area.
-                if !showsPercentage || thumbX <= proxy.size.width - 68 {
+                if !showsValue || thumbX <= proxy.size.width - 68 {
                     Capsule().fill(.white.opacity(0.9)).frame(width: 4, height: 22)
                         .offset(x: thumbX)
                 }
-                if showsPercentage {
-                    Text("\(displayed)%")
+                if showsValue {
+                    Text(valueLabel?(displayed) ?? "\(displayed)%")
                         .font(.subheadline.weight(.semibold).monospacedDigit())
                         .foregroundStyle(.white)
                         .padding(.trailing, 24)
@@ -63,7 +66,9 @@ struct FilledLevelControl: View {
                         }
                         .onEnded { drag in
                             guard enabled, proxy.size.width > 0 else { return }
-                            commit(valueAt(drag.location.x))
+                            let target = valueAt(drag.location.x)
+                            releasedValue = target
+                            commit(target)
                         })
         }.opacity(enabled ? 1 : 0.4)
             .accessibilityElement(children: .ignore).accessibilityLabel(label)
@@ -72,12 +77,26 @@ struct FilledLevelControl: View {
                 guard enabled else { return }
                 let increment = max(step, range.upperBound - range.lowerBound > 100 ? step : 5)
                 switch direction {
-                case .increment: commit(stepped(Double(value + increment)))
-                case .decrement: commit(stepped(Double(value - increment)))
+                case .increment: commit(stepped(Double(displayed + increment)))
+                case .decrement: commit(stepped(Double(displayed - increment)))
                 @unknown default: break
                 }
             }
             .onChange(of: dragValue) { _, value in preview(value) }
+            .onChange(of: value) { _, value in
+                if value == releasedValue { releasedValue = nil }
+            }
+            .onChange(of: enabled) { _, _ in releasedValue = nil }
+            .task(id: releasedValue) {
+                guard let releasedValue else { return }
+                if value == releasedValue {
+                    self.releasedValue = nil
+                    return
+                }
+                // A failed or rejected command must never leave a local value stuck.
+                do { try await Task.sleep(for: .seconds(5)) } catch { return }
+                self.releasedValue = nil
+            }
             .onDisappear { preview(nil) }
     }
 }

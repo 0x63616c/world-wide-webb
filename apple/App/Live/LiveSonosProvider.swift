@@ -55,8 +55,15 @@ import PanelKit
     @ObservationIgnored private var revision = 0
     @ObservationIgnored private var lifecycle = 0
     @ObservationIgnored private var refreshing = false
+    @ObservationIgnored private var settlingVolumes: [String: SettlingVolume] = [:]
+    @ObservationIgnored private let now: () -> Date
+    private struct SettlingVolume {
+        let raw: Int
+        let expires: Date
+    }
 
-    init(api: SonosAPI, lockDefaults: UserDefaults? = nil) {
+    init(api: SonosAPI, lockDefaults: UserDefaults? = nil, now: @escaping () -> Date = Date.init) {
+        self.now = now
         self.api = api
         self.lockDefaults = lockDefaults
         globalLock = lockDefaults?.bool(forKey: "sonos.globalVolumeLock") ?? false
@@ -110,6 +117,7 @@ import PanelKit
         revision += 1
         for _ in queue { PanelCommandLog.shared.record(control: "sonos.queued", error: "cancelled") }
         queue.removeAll()
+        settlingVolumes.removeAll()
         render()
     }
 
@@ -210,7 +218,15 @@ import PanelKit
                         self?.globalLock = false
                         self?.persistLocks()
                     }
-                    // Sonos writes return void, not state. Only a fresh query confirms it.
+                    if case .volume(let levels, let raw) = operation, let self {
+                        for (id, value) in levels {
+                            self.settlingVolumes[id] = SettlingVolume(
+                                raw: raw ? value : details[id]?.rawVolume(forDisplay: value) ?? value,
+                                expires: self.now().addingTimeInterval(5))
+                        }
+                    }
+                    // HA may acknowledge a service call before its entity sample catches up.
+                    // Retain only these volume targets until observed, or a bounded timeout.
                     let state = try await api.soundSystem()
                     guard !Task.isCancelled, let self, self.lifecycle == generation else { return }
                     self.queue.removeFirst()
@@ -225,6 +241,7 @@ import PanelKit
                         PanelCommandLog.shared.record(control: "sonos.queued", error: "dropped: action unavailable")
                     }
                     self.queue.removeAll()
+                    self.settlingVolumes.removeAll()
                     self.mutationTask = nil
                     self.render()
                     self.availability = .unavailable(Self.failureMessage(error))
@@ -242,6 +259,10 @@ import PanelKit
     private func accept(_ state: SonosSoundSystem) {
         // Avoid a Dictionary(uniqueKeysWithValues:) trap on a malformed duplicate ID.
         roomDetails = Dictionary(state.rooms.map { ($0.uuid, $0) }, uniquingKeysWith: { first, _ in first })
+        settlingVolumes = settlingVolumes.filter { id, target in
+            guard let room = roomDetails[id], room.availability == .available else { return false }
+            return Int(room.volume.rounded()) != target.raw && now() < target.expires
+        }
         diagnostics = state.diagnostics
         var seen: Set<String> = []
         confirmedRooms = state.rooms.filter { seen.insert($0.uuid).inserted }.map { room in
@@ -267,6 +288,9 @@ import PanelKit
     private func render() {
         rooms = confirmedRooms
         pending = []
+        for index in rooms.indices {
+            if let target = settlingVolumes[rooms[index].id] { rooms[index].rawVolume = target.raw }
+        }
         for operation in queue {
             pending.formUnion(operation.affectedIDs(details: roomDetails))
             pending.insert("sound")
