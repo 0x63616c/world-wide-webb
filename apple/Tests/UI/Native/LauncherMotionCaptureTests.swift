@@ -217,8 +217,12 @@ import XCTest
         print("MOTION_CAPTURE_READY timer")
         Thread.sleep(forTimeInterval: 1)
         app.buttons["app-timer"].tap()
-        XCTAssertTrue(app.buttons["timer-start-pause"].waitForExistence(timeout: 10))
-        if app.buttons["timer-reset"].isEnabled { app.buttons["timer-reset"].tap() }
+        XCTAssertTrue(app.staticTexts["timer-remaining"].waitForExistence(timeout: 10))
+        if app.buttons["timer-stop"].exists {
+            app.buttons["timer-stop"].tap()
+        } else if app.buttons["timer-reset"].isEnabled {
+            app.buttons["timer-reset"].tap()
+        }
         app.buttons["timer-edit"].tap()
         app.buttons["timer-preset-15"].tap()
         app.buttons["timer-edit-save"].tap()

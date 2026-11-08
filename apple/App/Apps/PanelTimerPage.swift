@@ -3,6 +3,7 @@ import SwiftUI
 
 struct PanelTimerPage: View {
     let timer: PanelTimerStore
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var editing = false
     @State private var hours = 0
     @State private var minutes = 15
@@ -34,7 +35,11 @@ struct PanelTimerPage: View {
                         Text(Self.readout(remaining))
                             .font(.system(size: min(proxy.size.width * 0.18, 210), weight: .medium, design: .rounded))
                             .monospacedDigit().fontWidth(.condensed)
-                            .contentTransition(.numericText(countsDown: true))
+                            .contentTransition(reduceMotion ? .identity : .numericText(countsDown: true))
+                            .animation(
+                                reduceMotion ? nil : .spring(duration: 0.32, bounce: 0.12),
+                                value: Self.readout(remaining)
+                            )
                             .minimumScaleFactor(0.6).lineLimit(1)
                             .accessibilityIdentifier("timer-remaining")
                             .accessibilityLabel("Time remaining")
@@ -139,10 +144,14 @@ struct PanelTimerPage: View {
                 } label: {
                     Text("Done").foregroundStyle(.black)
                 }
-                .buttonStyle(.glassProminent).disabled(hours + minutes + seconds == 0)
+                .buttonStyle(.glassProminent)
                 .accessibilityIdentifier("timer-edit-save")
             }.font(.title3.weight(.semibold)).controlSize(.extraLarge)
         }.frame(maxWidth: .infinity, maxHeight: .infinity)
+            .onChange(of: hours + minutes + seconds) { _, total in
+                guard total == 0 else { return }
+                withAnimation(reduceMotion ? nil : .snappy) { minutes = 1 }
+            }
     }
     private func durationWheel(_ title: String, selection: Binding<Int>, range: Range<Int>) -> some View {
         VStack(spacing: 12) {
