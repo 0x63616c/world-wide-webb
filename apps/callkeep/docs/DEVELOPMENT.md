@@ -1,0 +1,78 @@
+# Development
+
+## Build
+
+Open `Callkeep.xcodeproj` in Xcode 26.2 or later, select the Callkeep scheme, and run. The checked-in project resolves pinned Sparkle, FluidAudio and WhisperKit packages.
+
+Or:
+
+```sh
+./Scripts/build.sh
+open build/Build/Products/Release/Callkeep.app
+```
+
+The default build uses ad-hoc signing for local development. To build with your own Developer ID certificate:
+
+```sh
+CALLKEEP_SIGNING_IDENTITY='Developer ID Application: Your Name (TEAMID)' ./Scripts/build.sh
+```
+
+A Developer ID signature alone is not notarization. Notarize a distribution build before shipping it to other Macs over the internet. The app is deliberately not sandboxed in this first iteration.
+
+`project.yml` is the XcodeGen source. After changing targets or adding files, run `xcodegen generate` and commit the generated project as well.
+
+## Tests
+
+```sh
+./Scripts/test.sh
+```
+
+Tests cover audio samples and timing, file reopening, metadata updates, interrupted-session recovery, corrupt metadata isolation, write failures, and audio-format changes. See [validation](VALIDATION.md) for the actual release checks and remaining hardware checks.
+
+## Permissions
+
+Microphone authorization is read from AVFoundation. System audio access is allowed when either audio-only access is granted or the public `CGPreflightScreenCaptureAccess()` reports the broader screen-and-audio grant. The latter is a read-only query and does not capture the screen. A controlled macOS 27.2 test using `SystemAudioTap` captured a generated tone with only the broader grant; macOS resolved the audio-only entry when capture started. Core Audio does not provide a public system-audio authorization status query. For this local prototype, `SystemAudioAuthorization` optionally loads the private, read-only `TCCAccessPreflight` function for `kTCCServiceAudioCapture`, following the approach documented in [AudioCap](https://github.com/insidegui/AudioCap/blob/main/AudioCap/ProcessTap/AudioRecordingPermission.swift). Status checks do not capture audio, play a sound, or save files. They refresh while Settings or the setup helper is visible and when the app becomes active.
+
+This private status API is not suitable for an App Store build and may change in macOS. If unavailable or unrecognized, the UI shows a neutral state, never a cached green check. Recording remains available so the public Core Audio capture flow can request consent. Actual recording still uses public Core Audio APIs. The app does not request Screen Recording or Accessibility access.
+
+The floating helper is an independently implemented nonactivating AppKit panel with a native file-URL drag source. Its interaction was informed by [cmux's onboarding panel](https://github.com/manaflow-ai/cmux/blob/a84b7c278b5444820cff5b1f67addcf980f02b90/Sources/App/ComputerUseOnboardingWindowController.swift) and [drag source](https://github.com/manaflow-ai/cmux/blob/a84b7c278b5444820cff5b1f67addcf980f02b90/Sources/App/ComputerUseAppDragSourceView.swift). System Settings keeps focus during the drag. The helper dismisses after access is enabled or the observed Settings window closes.
+
+## Architecture
+
+- `AudioCapture`: Core Audio system tap + AVAudioEngine microphone tap.
+- `TrackWriter`: owned buffer copies, bounded write backlog, serial disk IO, peak levels and silence-gap preservation.
+- `RecordingStore`: atomic JSON metadata, discovery, and crash recovery.
+- `AppModel`: permission flow, start/stop, checkpoints, sleep/device/disk safeguards.
+- `Playback`: timestamp-offset playback of separate tracks behind a single set of playback controls.
+- SwiftUI provides the native split-view library, toolbar, settings and menu-bar panel; Carbon registers the global shortcut without Accessibility access.
+
+Active audio stays local; finished recordings move to iCloud Drive when enabled and available. Local transcription reads finalized tracks without changing the capture pipeline. Its engine adapters live in `Packages/LocalTranscription`; the app owns verified downloads, the resumable queue and transcript views. See [transcription](TRANSCRIPTION.md).
+
+## Automatic releases and Homebrew
+
+Every push to `main` (including merges) runs the tests, then builds a universal
+Apple silicon/Intel app, increments a single release counter (Build 4, Build 5, and so on, stored as
+`1.0.4`, `1.0.5`), and
+publishes a zip to GitHub Releases. Pull requests run tests without publishing.
+The release version overrides the checked-in marketing version at build time.
+Runs queue sequentially, and rerunning a released commit reuses its tag and
+published archive rather than replacing it.
+
+The release job updates `Casks/callkeep.rb` in `0x63616c/homebrew-tap` with the
+published archive's SHA-256. `HOMEBREW_TAP_DEPLOY_KEY` is a dedicated write deploy
+key for that tap only. The workflow's GitHub token can publish releases only in
+Callkeep. Release signing uses an isolated temporary keychain, Developer ID certificate and
+App Store Connect API key from encrypted Actions secrets. The workflow signs the
+nested code and app, embeds the Developer ID iCloud provisioning profile, submits the archive to Apple, requires an Accepted result,
+staples the ticket, and verifies Gatekeeper acceptance before publishing.
+Temporary signing files and the keychain are removed on exit. Builds stop if
+credentials or notarization are unavailable; there is no unsigned release fallback. Uninstall and zap preserve local and iCloud recording files.
+
+Native iCloud releases require `MACOS_PROVISIONING_PROFILE_BASE64` alongside the signing secrets. `Scripts/validate-provisioning.py` checks the profile’s expiry, signing certificate, app identity, production environment and container authorization before signing with `Resources/Callkeep-iCloud.entitlements`. Ad-hoc builds retain the basic audio-input entitlements.
+
+
+## Sparkle updates
+
+Sparkle 2.10.1 is pinned in the project and Package.resolved. Releases embed an EdDSA public key and fetch `appcast.xml` from the latest GitHub Release. The same notarized zip is used for Homebrew and Sparkle. `Scripts/sign-app.py` signs Sparkle's nested helpers, frameworks and the application inside out; `Scripts/make-appcast.py` signs and verifies the exact published archive before the feed is uploaded. `SPARKLE_PRIVATE_KEY` is an encrypted Actions secret; the local private key is stored in the login Keychain under account `co.calum.callkeep`. Never commit or print it.
+
+The Homebrew cask declares `auto_updates true`. The workflow skips tap changes when its release is no longer the latest. Automatic checks are enabled; installation is user initiated. The updater refuses checks while capturing or moving files and postpones a requested restart until both are idle. The recording/IO deferral harness runs as part of `Scripts/test.sh`, using simulated state without opening an audio device or installing anything. Local builds do not start update checks unless a local Info.plist override explicitly enables them. CI sets `CALLKEEP_PRODUCTION=YES`; local Debug and Release builds show `Callkeep (Dev)` with a DEV Dock badge. The sidebar shows the current version beside Settings.

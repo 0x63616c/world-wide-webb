@@ -1,0 +1,130 @@
+name: Build, test and release
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: callkeep-${{ github.ref }}
+  cancel-in-progress: false
+  queue: max
+env:
+  DEVELOPER_DIR: /Applications/Xcode_26.2.app/Contents/Developer
+jobs:
+  test:
+    runs-on: macos-15-intel
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run persistence, audio and permission tests
+        run: ./Scripts/test.sh
+  release:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: test
+    runs-on: macos-15-intel
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Choose next release counter (reuse this commit's tag on retries)
+        id: version
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import os, re, subprocess
+          tags = subprocess.check_output(['git', 'tag', '--list'], text=True).splitlines()
+          current = subprocess.check_output(['git', 'tag', '--points-at', 'HEAD'], text=True).splitlines()
+          valid = lambda t: re.fullmatch(r'v\d+\.\d+\.\d+', t)
+          versions = [tuple(map(int, t[1:].split('.'))) for t in tags if valid(t)]
+          existing = [t[1:] for t in current if valid(t)]
+          if existing:
+              version = existing[0]
+          else:
+              counter = max((v[2] for v in versions), default=3) + 1
+              version = f'1.0.{counter}'
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as out:
+              out.write(f'version={version}\n')
+              out.write(f'counter={version.split(".")[-1]}\n')
+          PY
+      - name: Build universal app
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          RELEASE_COUNTER: ${{ steps.version.outputs.counter }}
+        run: |
+          xcodebuild -project Callkeep.xcodeproj -scheme Callkeep -configuration Release \
+            -derivedDataPath build ARCHS='arm64 x86_64' ONLY_ACTIVE_ARCH=NO \
+            MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="$RELEASE_COUNTER" CALLKEEP_PRODUCTION=YES build
+          for arch in arm64 x86_64; do
+            lipo build/Build/Products/Release/Callkeep.app/Contents/MacOS/Callkeep -verify_arch "$arch"
+          done
+          codesign --verify --deep --strict build/Build/Products/Release/Callkeep.app
+      - name: Sign, notarize and staple release
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          MACOS_CERTIFICATE_P12_BASE64: ${{ secrets.MACOS_CERTIFICATE_P12_BASE64 }}
+          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+          MACOS_PROVISIONING_PROFILE_BASE64: ${{ secrets.MACOS_PROVISIONING_PROFILE_BASE64 }}
+          APPLE_API_KEY_P8_BASE64: ${{ secrets.APPLE_API_KEY_P8_BASE64 }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
+        run: ./Scripts/notarize.sh build/Build/Products/Release/Callkeep.app "Callkeep-$VERSION.zip"
+      - name: Publish release
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: |
+          if gh release view "v$VERSION" >/dev/null 2>&1; then
+            # Never replace a published archive; tap checksums must remain stable.
+            gh release download "v$VERSION" --pattern "Callkeep-$VERSION.zip" --clobber
+            # A retried release must sign the archive that was already published.
+            python3 Scripts/make-appcast.py "$VERSION" "Callkeep-$VERSION.zip"
+            gh release upload "v$VERSION" appcast.xml --clobber
+          else
+            python3 Scripts/make-appcast.py "$VERSION" "Callkeep-$VERSION.zip"
+            cat > /tmp/release-notes.md <<'EOF'
+          ## Install
+          `brew install --cask 0x63616c/tap/callkeep`
+
+          Or download the zip, unzip it, and move Callkeep.app to Applications.
+          Requires macOS 15 or later; supports Apple silicon and Intel Macs.
+
+          Signed with Developer ID and notarized by Apple.
+          EOF
+            gh release create "v$VERSION" "Callkeep-$VERSION.zip" appcast.xml --target "$GITHUB_SHA" \
+              --title "Callkeep Build ${VERSION##*.} ($VERSION)" --notes-file /tmp/release-notes.md --generate-notes
+          fi
+      - name: Check out Homebrew tap
+        uses: actions/checkout@v4
+        with:
+          repository: 0x63616c/homebrew-tap
+          ssh-key: ${{ secrets.HOMEBREW_TAP_DEPLOY_KEY }}
+          path: homebrew-tap
+      - name: Update cask with published checksum
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          if [[ "$(gh release view --repo 0x63616c/callkeep --json tagName --jq .tagName)" != "v$VERSION" ]]; then
+            echo "Skipping tap update for an older release"
+            exit 0
+          fi
+          python3 Scripts/homebrew-cask.py "$VERSION" "Callkeep-$VERSION.zip" homebrew-tap/Casks/callkeep.rb
+          ruby -c homebrew-tap/Casks/callkeep.rb
+          cd homebrew-tap
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add Casks/callkeep.rb
+          if ! git diff --cached --quiet; then
+            git commit -m "Update Callkeep to $VERSION"
+            for attempt in 1 2 3; do
+              git pull --rebase origin main
+              if git push origin HEAD:main; then exit 0; fi
+            done
+            exit 1
+          fi
