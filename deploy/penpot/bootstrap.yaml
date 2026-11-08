@@ -1,0 +1,6 @@
+# Use only for first-account creation, before publishing the hostname.
+# Return to compose.yaml alone immediately afterward to disable the internal REPL.
+services:
+  penpot-backend:
+    environment:
+      PENPOT_FLAGS: disable-email-verification disable-registration enable-login-with-password enable-mcp disable-telemetry enable-prepl-server

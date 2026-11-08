@@ -4,11 +4,11 @@ cd "$(dirname "$0")/.."
 case "${1:-all}" in
   --staged)
     cargo fmt --all -- --check
-    python3 -m compileall -q tools deploy/mini
+    python3 -m compileall -q tools deploy/mini deploy/penpot
     ;;
   lint)
-    ruff check tools deploy/mini .github/scripts
-    ruff format --check tools deploy/mini .github/scripts
+    ruff check tools deploy/mini deploy/penpot .github/scripts
+    ruff format --check tools deploy/mini deploy/penpot .github/scripts
     actionlint
     shellcheck --severity=warning tools/check tools/*.sh deploy/mini/*.sh
     ;;
@@ -23,6 +23,7 @@ case "${1:-all}" in
   ops)
     python3 -m unittest discover -s deploy/mini -p 'test_*.py'
     python3 -m unittest discover -s tools -p 'test_*.py'
+    python3 -m unittest discover -s deploy/penpot -p 'test_*.py'
     ;;
   apple)
     swift test --package-path apple/Packages/PanelKit
