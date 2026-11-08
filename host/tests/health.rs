@@ -28,8 +28,11 @@ impl Fixture {
         let config = Config {
             services,
             workers_enabled: false,
-            docker_path,
+            docker_path: docker_path.clone(),
             release_path: directory.path().join("release.json"),
+            curl_path: docker_path.clone(),
+            control_center_port: 4202,
+            penpot_port: 9001,
         };
         let fixture = Self { directory, config };
         let image = format!(
@@ -37,7 +40,7 @@ impl Fixture {
             "a".repeat(64)
         );
         let postgres = format!("postgres@sha256:{}", "b".repeat(64));
-        fixture.json("release.json", json!({"schemaVersion":1,"sourceRepository":"0x63616c/world-wide-webb","sourceRevision":"a".repeat(40),"image":image,"postgresImage":postgres}));
+        fixture.json("release.json", json!({"schemaVersion":2,"sourceRepository":"0x63616c/world-wide-webb","sourceRevision":"a".repeat(40),"image":image,"databaseEngine":"sqlite"}));
         for name in [
             "www-control-center-www-1",
             "www-control-center-postgres-1",
@@ -47,10 +50,17 @@ impl Fixture {
             "hindsight",
             "www-tunnel-cloudflared-1",
             "www-home-assistant-home-assistant-1",
+            "penpot-penpot-frontend-1",
+            "penpot-penpot-backend-1",
+            "penpot-penpot-exporter-1",
+            "penpot-penpot-admin-console-1",
+            "penpot-penpot-mcp-1",
+            "penpot-penpot-postgres-1",
+            "penpot-penpot-valkey-1",
         ] {
             fixture.json(&format!("{name}.json"), json!({"running":true,"health":if ["bambuddy-tailscale","www-tunnel-cloudflared-1"].contains(&name) { Value::Null } else { json!("healthy") },"image":match name {"www-control-center-www-1" => image.clone(),"www-control-center-postgres-1" => postgres.clone(),_ => "fixture-image".into()}}));
         }
-        fixture.json("control-center.json", json!({"database":"ok","stopping":false,"workersEnabled":false,"sourceRevision":"a".repeat(40)}));
+        fixture.json("control-center.json", json!({"database":"ok","status":"ok","backend":"rust","cycles":{"enabled":false},"build":"a".repeat(40)}));
         fixture.json("tailscale.json", json!({"BackendState":"Running","Self":{"Online":true},"TailscaleIPs":["100.100.100.1"],"Health":null}));
         fixture
     }
@@ -88,7 +98,7 @@ fn assigned_services_use_the_correct_runtime_and_real_readiness_commands() {
         Service::HomeAssistant,
     ]);
     fixture.check().unwrap();
-    assert_eq!(fixture.events().lines().count(), 11);
+    assert_eq!(fixture.events().lines().count(), 10);
     let fixture = Fixture::new(vec![]);
     fixture.check().unwrap();
     assert!(fixture.events().is_empty());
@@ -98,7 +108,6 @@ fn assigned_services_use_the_correct_runtime_and_real_readiness_commands() {
 fn required_docker_health_is_not_optional_even_for_inherited_bambuddy_check() {
     for (service, name) in [
         (Service::ControlCenter, "www-control-center-www-1"),
-        (Service::ControlCenter, "www-control-center-postgres-1"),
         (Service::Bambuddy, "bambuddy"),
         (Service::Bambuddy, "bambu-studio-api"),
         (Service::Hindsight, "hindsight"),
@@ -120,17 +129,18 @@ fn control_center_requires_exact_images_revision_database_and_boolean_worker_mod
     let fixture = Fixture::new(vec![Service::ControlCenter]);
     for (field, value) in [
         ("database", json!("error")),
-        ("stopping", json!(true)),
-        ("stopping", Value::Null),
-        ("workersEnabled", json!(true)),
-        ("workersEnabled", json!(0)),
-        ("sourceRevision", json!("b".repeat(40))),
+        ("status", json!("stopping")),
+        ("backend", Value::Null),
+        ("cycles", json!({"enabled":true})),
+        ("cycles", json!({"enabled":0})),
+        ("build", json!("b".repeat(40))),
     ] {
-        fixture.json("control-center.json", json!({"database":"ok","stopping":false,"workersEnabled":false,"sourceRevision":"a".repeat(40)}));
+        fixture.json("control-center.json", json!({"database":"ok","status":"ok","backend":"rust","cycles":{"enabled":false},"build":"a".repeat(40)}));
         fixture.change("control-center.json", field, value);
         assert_eq!(fixture.check(), Err(HealthError::ControlCenterMismatch));
     }
-    for name in ["www-control-center-www-1", "www-control-center-postgres-1"] {
+    {
+        let name = "www-control-center-www-1";
         let fixture = Fixture::new(vec![Service::ControlCenter]);
         fixture.change(&format!("{name}.json"), "image", json!("wrong-image"));
         assert_eq!(fixture.check(), Err(HealthError::ControlCenterMismatch));
@@ -262,5 +272,47 @@ fn checked_javascript_asset_rejects_http_errors_and_emits_only_health_facts() {
         }
         assert!(!String::from_utf8_lossy(&output.stdout).contains("never-output"));
         assert!(output.stderr.is_empty());
+    }
+}
+
+#[test]
+fn penpot_requires_all_components_database_cache_and_http_readiness() {
+    let fixture = Fixture::new(vec![Service::Penpot]);
+    fixture.check().unwrap();
+    assert_eq!(fixture.events().lines().count(), 10);
+    fixture.flag("penpot-http-fails");
+    assert_eq!(
+        fixture.check(),
+        Err(HealthError::UnhealthyContainer("penpot-penpot-frontend-1"))
+    );
+    for name in ["penpot-penpot-postgres-1", "penpot-penpot-valkey-1"] {
+        let fixture = Fixture::new(vec![Service::Penpot]);
+        fixture.change(&format!("{name}.json"), "health", Value::Null);
+        assert_eq!(fixture.check(), Err(HealthError::UnhealthyContainer(name)));
+    }
+    let fixture = Fixture::new(vec![Service::Penpot]);
+    fixture.change("penpot-penpot-mcp-1.json", "running", json!(false));
+    assert_eq!(
+        fixture.check(),
+        Err(HealthError::UnhealthyContainer("penpot-penpot-mcp-1"))
+    );
+}
+
+#[test]
+fn penpot_static_frontend_cannot_hide_backend_or_protocol_failures() {
+    let fixture = Fixture::new(vec![Service::Penpot]);
+    fixture.flag("penpot-backend-fails");
+    assert_eq!(
+        fixture.check(),
+        Err(HealthError::UnhealthyContainer("penpot-penpot-frontend-1"))
+    );
+    for (role, name) in [
+        ("exporter", "penpot-penpot-exporter-1"),
+        ("admin", "penpot-penpot-admin-console-1"),
+        ("mcp", "penpot-penpot-mcp-1"),
+    ] {
+        let fixture = Fixture::new(vec![Service::Penpot]);
+        fixture.flag(&format!("penpot-protocol-fails-{role}"));
+        assert_eq!(fixture.check(), Err(HealthError::UnhealthyContainer(name)));
     }
 }

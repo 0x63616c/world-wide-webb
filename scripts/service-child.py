@@ -12,7 +12,7 @@ COMMANDS = {
 }
 
 
-def run_service(operation, lock_fd, timeout, system=Path('/run/current-system')):
+def run_service(operation, lock_fd, timeout, system=Path('/run/current-system'), log=None):
     if os.geteuid() != 0:
         raise RuntimeError('Only the root updater may invoke service children')
     if operation not in COMMANDS:
@@ -31,7 +31,7 @@ def run_service(operation, lock_fd, timeout, system=Path('/run/current-system'))
     }
     process = subprocess.Popen([str(command)], env=env, cwd='/', user=450, group=450,
                                extra_groups=[450], umask=0o077, pass_fds=(lock_fd,),
-                               start_new_session=True)
+                               start_new_session=True, stdout=log, stderr=log)
     try:
         result = process.wait(timeout=timeout)
     except subprocess.TimeoutExpired:

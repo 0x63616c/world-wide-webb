@@ -13,9 +13,12 @@
   # Owner reports M2 / 32 GB / approximately 500 GB / macOS 27.2. Check free space locally.
   # Services are enabled individually only after isolated restore and cutover.
   homelab.updates.enable = true;
+  # Roll out the transactional updater before assigning production services.
+  homelab.updates.stateful.enable = true;
   homelab.runners = {
     enable = true;
-    admissionEnabled = true;
+    # Keep CI idle while the MacBook hosts the migration rehearsal/services.
+    admissionEnabled = false;
     githubAppId = "5662381";
     repositories."0x63616c/world-wide-webb" = {
       repositoryId = 1260632595;

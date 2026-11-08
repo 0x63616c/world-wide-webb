@@ -137,6 +137,85 @@ class BankExportTests(unittest.TestCase):
         self.assertTrue(any('rm' in call.args[0] for call in run.call_args_list))
         self.assertFalse((self.destination / 'bank-exports').exists())
 
+class OnlineSnapshotTests(unittest.TestCase):
+    def setUp(self):
+        import sqlite3
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+        self.source = self.root/'source.sqlite'
+        with sqlite3.connect(self.source) as db:
+            db.execute('CREATE TABLE records(id INTEGER PRIMARY KEY, value TEXT)')
+            db.execute('INSERT INTO records VALUES(1, ?)', ('restored ✓',))
+        self.destination = self.root/'set';self.destination.mkdir(mode=0o700)
+        self.commands=[]
+        self.failure=None
+
+    def execute(self,args,**kwargs):
+        import json,shutil
+        from unittest.mock import Mock
+        self.commands.append(args)
+        if '{{json .Mounts}}' in args:
+            return Mock(stdout=json.dumps([{'Destination':'/app/data','Type':'volume','Name':'sqlite'}]))
+        if 'volume' in args and 'inspect' in args:
+            return Mock(stdout=json.dumps([{'Driver':'local','Options':{}}]))
+        if self.failure and self.failure in args:
+            raise subprocess.TimeoutExpired(self.failure,10)
+        if 'cp' in args:shutil.copyfile(self.source,args[-1])
+        return Mock()
+
+    @patch.object(snapshot,'container_files')
+    @patch.object(snapshot,'running_state',return_value={'Running':True})
+    def test_hourly_keeps_writer_running_and_restores_consistent_database(self,state,files):
+        import sqlite3,re
+        with patch.object(snapshot,'run',side_effect=self.execute):
+            snapshot.online_control_center(self.destination)
+        with sqlite3.connect(self.destination/'control-center.sqlite') as db:
+            self.assertEqual(db.execute('SELECT value FROM records').fetchone(),('restored ✓',))
+        self.assertFalse(any('stop' in c or 'start' in c for c in self.commands))
+        command=next(c for c in self.commands if 'database-snapshot' in c)
+        self.assertRegex(command[-1],r'^/app/data/\.hourly-\d{8}T\d{6}Z\.sqlite$')
+        self.assertTrue(any('rm' in c and '--' in c for c in self.commands))
+        self.assertFalse(list(self.destination.glob('*.online-snapshot-pending')))
+        files.assert_called_once_with(self.destination/'control-center-media.tar.gz','services','www-control-center-www-1','/app/media')
+
+    @patch.object(snapshot,'running_state',return_value={'Running':True})
+    def test_copy_failure_cleans_owned_remote_file_without_restarting_writer(self,state):
+        self.failure='cp'
+        with patch.object(snapshot,'run',side_effect=self.execute):
+            with self.assertRaises(subprocess.TimeoutExpired):snapshot.online_control_center(self.destination)
+        self.assertTrue(any('rm' in c for c in self.commands))
+        self.assertFalse(any('stop' in c or 'start' in c for c in self.commands))
+        self.assertFalse(list(self.destination.glob('*.online-snapshot-pending')))
+
+    @patch.object(snapshot,'running_state',return_value={'Running':True})
+    def test_uncertain_native_snapshot_retains_marker_and_does_not_delete_unowned_output(self,state):
+        self.failure='database-snapshot'
+        with patch.object(snapshot,'run',side_effect=self.execute):
+            with self.assertRaises(subprocess.TimeoutExpired):snapshot.online_control_center(self.destination)
+        self.assertFalse(any('rm' in c for c in self.commands))
+        self.assertTrue(list(self.destination.glob('*.online-snapshot-pending')))
+
+    @patch.object(snapshot,'running_state',return_value={'Running':True})
+    def test_preexisting_output_never_deleted(self,state):
+        self.failure='test'
+        with patch.object(snapshot,'run',side_effect=self.execute):
+            with self.assertRaises(subprocess.TimeoutExpired):snapshot.online_control_center(self.destination)
+        self.assertFalse(any('rm' in c or 'database-snapshot' in c for c in self.commands))
+        self.assertFalse(list(self.destination.glob('*.online-snapshot-pending')))
+
+    @patch.object(snapshot,'running_state',return_value={'Running':True})
+    def test_network_volume_is_rejected_before_native_snapshot(self,state):
+        from unittest.mock import Mock
+        import json
+        def execute(args,**kwargs):
+            if 'volume' in args and 'inspect' in args:
+                return Mock(stdout=json.dumps([{'Driver':'local','Options':{'type':'nfs'}}]))
+            return self.execute(args,**kwargs)
+        with patch.object(snapshot,'run',side_effect=execute):
+            with self.assertRaisesRegex(RuntimeError,'Network-backed'):snapshot.online_control_center(self.destination)
+        self.assertFalse(any('database-snapshot' in c for c in self.commands))
+
 
 if __name__ == '__main__':
     unittest.main()

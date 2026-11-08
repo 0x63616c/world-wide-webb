@@ -9,21 +9,29 @@ services:
       - '8888:8888'
       - '9999:9999'
     env_file:
-      - ${HINDSIGHT_ENV_FILE:?Provision the existing Hindsight runtime environment securely}
+      - path: ${HINDSIGHT_ENV_FILE:?Provision the existing Hindsight runtime environment securely}
+        format: raw
     volumes:
-      - type: bind
-        source: ${HINDSIGHT_DATA_DIR:?Restore Hindsight database state first}
+      - type: volume
+        source: hindsight_data
         target: /home/hindsight/.pg0
-        bind:
-          create_host_path: false
-      - type: bind
-        source: ${HINDSIGHT_CODEX_HOME:?Restore Hindsight codex-home state first}
+        volume:
+          nocopy: true
+      - type: volume
+        source: hindsight_codex_home
         target: /home/hindsight/.codex-hindsight
-        bind:
-          create_host_path: false
+        volume:
+          nocopy: true
     healthcheck:
       test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8888/health', timeout=5)"]
       interval: 30s
       timeout: 10s
       retries: 10
       start_period: 120s
+volumes:
+  hindsight_data:
+    external: true
+    name: hindsight_pg0
+  hindsight_codex_home:
+    external: true
+    name: hindsight_codex_home

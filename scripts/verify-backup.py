@@ -8,28 +8,34 @@ import re
 import tarfile
 
 PAYLOADS = {
-    'control-center': {'control-center.dump', 'control-center-media.tar.gz'},
+    'control-center': {'control-center.sqlite', 'control-center-media.tar.gz'},
     'home-assistant': {'home-assistant-config.tar.gz'},
     'bambuddy': {'bambuddy-data.tar.gz', 'bambuddy-studio.tar.gz', 'bambuddy-tailscale.tar.gz'},
     'hindsight': {'hindsight.dump', 'hindsight-codex-home.tar.gz'},
     'cloudflared': set(),
+    'penpot': {'penpot.dump', 'penpot-assets.tar.gz', 'penpot-valkey.tar.gz'},
 }
 
 
 CONTAINERS = {
-    'control-center': {'www-control-center-www-1', 'www-control-center-postgres-1'},
+    'control-center': {'www-control-center-www-1'},
     'home-assistant': {'www-home-assistant-home-assistant-1'},
     'bambuddy': {'bambuddy', 'bambu-studio-api', 'bambuddy-tailscale'},
     'hindsight': {'hindsight'},
     'cloudflared': {'www-tunnel-cloudflared-1'},
+    'penpot': {'penpot-penpot-frontend-1', 'penpot-penpot-mcp-1',
+               'penpot-penpot-exporter-1', 'penpot-penpot-admin-console-1',
+               'penpot-penpot-backend-1', 'penpot-penpot-postgres-1',
+               'penpot-penpot-valkey-1'},
 }
 CREDENTIALS = {
-    'control-center': {'POSTGRES_PASSWORD', 'HA_TOKEN', 'ALARM_API_TOKEN', 'HOME_LAT',
+    'control-center': {'HA_TOKEN', 'ALARM_API_TOKEN', 'HOME_LAT',
                        'HOME_LON', 'WIFI_GUEST_SSID', 'WIFI_GUEST_PASSWORD'},
     'bambuddy': {'environment', 'serve.json'},
     'hindsight': {'environment'},
     'cloudflared': {'TUNNEL_TOKEN'},
     'home-assistant': set(),
+    'penpot': {'environment'},
 }
 
 
@@ -76,6 +82,8 @@ def host_metadata(archive):
         required.add('containers.env')
     if 'control-center' in services:
         required.add('compose/control-center/release.json')
+    if 'penpot' in services:
+        required.add('compose/penpot/mcp-locations.conf.template')
     if 'bambuddy' in services:
         required.add('compose/bambuddy/tailscale/serve.json')
     # Inspect archive headers only: credential contents never need to be read.

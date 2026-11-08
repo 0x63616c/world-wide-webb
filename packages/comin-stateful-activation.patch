@@ -1,0 +1,156 @@
+diff --git a/internal/executor/utils.go b/internal/executor/utils.go
+index 08736e6..fa27413 100644
+--- a/internal/executor/utils.go
++++ b/internal/executor/utils.go
+@@ -331,0 +332,55 @@ func deployLinux(ctx context.Context, outPath, operation string, profilePaths []
++// A generation may provide a root transaction that owns backup, the standard
++// profile switch, activation and service health under one durable lock. Failure
++// must never fall back to the unguarded activation path.
++func needsDarwinTransaction(currentSystem, operationsDirectory string) (bool, error) {
++	for _, filename := range []string{"transaction", "hold"} {
++		if _, err := os.Lstat(filepath.Join(operationsDirectory, filename)); err == nil {
++			return true, nil
++		} else if !errors.Is(err, os.ErrNotExist) {
++			return true, err
++		}
++	}
++	if _, err := os.Stat(filepath.Join(currentSystem, "sw", "bin", "homelab-activate-generation")); err == nil {
++		return true, nil
++	} else if !errors.Is(err, os.ErrNotExist) {
++		return true, err
++	}
++	data, err := os.ReadFile(filepath.Join(currentSystem, "etc", "homelab", "deployment.json"))
++	if errors.Is(err, os.ErrNotExist) {
++		return false, nil
++	}
++	if err != nil {
++		return true, err
++	}
++	var state struct {
++		Services []string `json:"services"`
++	}
++	if err := json.Unmarshal(data, &state); err != nil {
++		return true, err
++	}
++	return len(state.Services) > 0, nil
++}
++
++func activateDarwinTransaction(outPath, operation string, stdout, stderr io.WriteCloser) (bool, error) {
++	return activateDarwinTransactionWithPaths(outPath, operation, "/run/current-system", "/var/lib/homelab-operations", stdout, stderr)
++}
++
++func activateDarwinTransactionWithPaths(outPath, operation, currentSystem, operationsDirectory string, stdout, stderr io.WriteCloser) (bool, error) {
++	executable := filepath.Join(outPath, "sw", "bin", "homelab-activate-generation")
++	if _, err := os.Stat(executable); errors.Is(err, os.ErrNotExist) {
++		required, stateErr := needsDarwinTransaction(currentSystem, operationsDirectory)
++		if stateErr != nil {
++			return true, stateErr
++		}
++		if required {
++			return true, fmt.Errorf("current host requires transactional activation; candidate has no transaction executable")
++		}
++		return false, nil
++	} else if err != nil {
++		return true, err
++	}
++	command := exec.Command(executable, "apply", "--candidate", outPath, "--operation", operation)
++	command.Stdout, command.Stderr = stdout, stderr
++	return true, command.Run()
++}
++
+@@ -335,0 +391,19 @@ func deployDarwin(ctx context.Context, outPath, operation string, profilePaths [
++	if handled, activationErr := activateDarwinTransaction(outPath, operation, stdout, stderr); handled {
++		if activationErr != nil {
++			return false, "", activationErr
++		}
++		target, profileErr := os.Readlink("/nix/var/nix/profiles/system")
++		if profileErr != nil {
++			return false, "", profileErr
++		}
++		if !filepath.IsAbs(target) {
++			target = filepath.Join("/nix/var/nix/profiles", target)
++		}
++		resolved, resolveErr := filepath.EvalSymlinks(target)
++		if resolveErr != nil || resolved != outPath {
++			return false, "", fmt.Errorf("transaction profile does not match candidate")
++		}
++		profilePath = target
++		profile.RemoveProfiles(append(profilePaths, profilePath))
++		return beforeCominUnitFileHash != cominUnitFileHashDarwin(), profilePath, nil
++	}
+diff --git a/internal/executor/darwin_transaction_test.go b/internal/executor/darwin_transaction_test.go
+new file mode 100644
+index 0000000..3e3d112
+--- /dev/null
++++ b/internal/executor/darwin_transaction_test.go
+@@ -0,0 +1,70 @@
++package executor
++
++import (
++	"io"
++	"os"
++	"path/filepath"
++	"testing"
++)
++
++func TestDarwinTransactionDoesNotFallBackAfterFailure(t *testing.T) {
++	for _, fail := range []bool{false, true} {
++		root := t.TempDir()
++		directory := filepath.Join(root, "sw", "bin")
++		if err := os.MkdirAll(directory, 0700); err != nil {
++			t.Fatal(err)
++		}
++		executable := filepath.Join(directory, "homelab-activate-generation")
++		script := "#!/bin/sh\n[ \"$1\" = apply ] && [ \"$2\" = --candidate ] && [ \"$3\" = \"" + root + "\" ] && [ \"$4\" = --operation ] && [ \"$5\" = switch ] || exit 9\n"
++		if fail {
++			script += "exit 7\n"
++		}
++		if err := os.WriteFile(executable, []byte(script), 0700); err != nil {
++			t.Fatal(err)
++		}
++		sink := &NopWriteCloser{Writer: io.Discard}
++		handled, err := activateDarwinTransactionWithPaths(root, "switch", t.TempDir(), t.TempDir(), sink, sink)
++		if !handled || (err != nil) != fail {
++			t.Fatalf("handled=%v err=%v fail=%v", handled, err, fail)
++		}
++	}
++}
++
++func TestDarwinBaseGenerationRetainsExistingPath(t *testing.T) {
++	sink := &NopWriteCloser{Writer: io.Discard}
++	handled, err := activateDarwinTransactionWithPaths(t.TempDir(), "switch", t.TempDir(), t.TempDir(), sink, sink)
++	if handled || err != nil {
++		t.Fatalf("handled=%v err=%v", handled, err)
++	}
++}
++
++func TestDarwinStatefulHostAndBarriersNeverFallBackToBaseActivation(t *testing.T) {
++	for _, condition := range []string{"helper", "metadata", "transaction", "hold"} {
++		t.Run(condition, func(t *testing.T) {
++			current, operations := t.TempDir(), t.TempDir()
++			var path, content string
++			switch condition {
++			case "helper":
++				path = filepath.Join(current, "sw", "bin", "homelab-activate-generation")
++				content = "helper"
++			case "metadata":
++				path = filepath.Join(current, "etc", "homelab", "deployment.json")
++				content = `{"services":["hindsight"]}`
++			default:
++				path = filepath.Join(operations, condition)
++				content = "barrier"
++			}
++			if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
++				t.Fatal(err)
++			}
++			if err := os.WriteFile(path, []byte(content), 0600); err != nil {
++				t.Fatal(err)
++			}
++			sink := &NopWriteCloser{Writer: io.Discard}
++			handled, err := activateDarwinTransactionWithPaths(t.TempDir(), "switch", current, operations, sink, sink)
++			if !handled || err == nil {
++				t.Fatalf("unsafe fallback: handled=%v err=%v", handled, err)
++			}
++		})
++	}
++}

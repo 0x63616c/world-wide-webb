@@ -60,6 +60,17 @@ class BackupSafety(unittest.TestCase):
                             '/Homelab/backups/homelab-macbook/', '/Homelab/backups/homelab-macbook/a/b'):
             self.assertFalse(upload.valid_destination(destination))
 
+    def test_scoped_destinations_are_only_new_host_history_or_penpot_snapshots(self):
+        stamp='20261108T000000Z-aaaaaaaa'
+        for host in ['homelab-macbook','homelab-mac-mini']:
+            for scope in ['control-center-history','penpot']:
+                self.assertTrue(upload.valid_destination('/Homelab/backups/'+host+'/'+scope+'/'+stamp))
+        for path in ['/Homelab/backups/mac-mini/control-center-history/'+stamp,
+                     '/Homelab/backups/homelab-macbook/other/'+stamp,
+                     '/Homelab/backups/homelab-macbook/control-center-history/../'+stamp,
+                     '/Homelab/backups/homelab-macbook/penpot/not-a-stamp']:
+            self.assertFalse(upload.valid_destination(path))
+
     def test_uploaded_payload_must_match_download_hash_and_size(self):
         payload = b'synthetic snapshot'
         expected = hashlib.sha256(payload).hexdigest()

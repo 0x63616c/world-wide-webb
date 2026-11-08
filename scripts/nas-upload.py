@@ -158,7 +158,8 @@ class Nas:
 
 def valid_destination(destination):
     return re.fullmatch(
-        r'/Homelab/backups/(?:mac-mini|homelab-mac-mini|homelab-macbook)/[A-Za-z0-9_-]+',
+        r'/Homelab/backups/(?:mac-mini|homelab-mac-mini|homelab-macbook)/[A-Za-z0-9_-]+'
+        r'|/Homelab/backups/(?:homelab-mac-mini|homelab-macbook)/(?:control-center-history|penpot)/\d{8}T\d{6}Z-[a-f0-9]{8}',
         destination) is not None
 
 

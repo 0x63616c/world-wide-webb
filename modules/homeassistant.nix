@@ -4,7 +4,7 @@ let
   home = "/var/lib/_containers/.colima-ha";
   socket = "/var/run/homelab/ha-vmnet.sock";
   profile = pkgs.writeText "ha-colima.yaml" (builtins.toJSON {
-    cpu = 2; memory = 2; disk = 12; rootDisk = 8;
+    cpu = cfg.cpu; memory = cfg.memoryGiB; disk = 12; rootDisk = 8;
     arch = "aarch64"; runtime = "docker"; vmType = "vz";
     autoActivate = false; portForwarder = "none";
     rosetta = false; forwardAgent = false; sshConfig = false;
@@ -37,6 +37,8 @@ let
 in {
   options.homelab.homeassistant = {
     enable = lib.mkEnableOption "existing bridged Home Assistant container VM";
+    cpu = lib.mkOption { type = lib.types.ints.positive; default = 2; };
+    memoryGiB = lib.mkOption { type = lib.types.ints.positive; default = 2; };
     bridgeInterface = lib.mkOption {
       type = lib.types.nullOr (lib.types.strMatching "en[0-9]+");
       default = null;

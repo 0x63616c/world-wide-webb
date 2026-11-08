@@ -26,9 +26,10 @@ class RestoreVerificationTests(unittest.TestCase):
         containers = {
             'cloudflared': ['www-tunnel-cloudflared-1'],
             'home-assistant': ['www-home-assistant-home-assistant-1'],
-            'control-center': ['www-control-center-www-1', 'www-control-center-postgres-1'],
+            'control-center': ['www-control-center-www-1'],
             'bambuddy': ['bambuddy', 'bambu-studio-api', 'bambuddy-tailscale'],
             'hindsight': ['hindsight'],
+            'penpot': list(verify.CONTAINERS['penpot']),
         }
         images = {name: {'id': 'sha256:' + 'a' * 64,
                          'repo_digests': ['example/image@sha256:' + 'b' * 64]}
@@ -43,9 +44,10 @@ class RestoreVerificationTests(unittest.TestCase):
             'cloudflared': ['TUNNEL_TOKEN'],
             'hindsight': ['environment'],
             'bambuddy': ['environment', 'serve.json'],
-            'control-center': ['POSTGRES_PASSWORD', 'HA_TOKEN', 'ALARM_API_TOKEN',
+            'control-center': ['HA_TOKEN', 'ALARM_API_TOKEN',
                                'HOME_LAT', 'HOME_LON', 'WIFI_GUEST_SSID', 'WIFI_GUEST_PASSWORD'],
             'home-assistant': [],
+            'penpot': ['environment'],
         }
         for service in self.host['services']:
             for name in credentials[service]:
@@ -54,6 +56,8 @@ class RestoreVerificationTests(unittest.TestCase):
             files['containers.env'] = b'fixture environment'
         if 'control-center' in self.host['services']:
             files['compose/control-center/release.json'] = b'fixture release'
+        if 'penpot' in self.host['services']:
+            files['compose/penpot/mcp-locations.conf.template'] = b'fixture MCP template'
         if 'bambuddy' in self.host['services']:
             files['compose/bambuddy/tailscale/serve.json'] = b'fixture serve config'
         if omit:
@@ -187,12 +191,26 @@ class RestoreVerificationTests(unittest.TestCase):
         self.manifest()
         self.assertEqual(verify.verify(self.root), self.host)
 
+    def test_penpot_requires_database_assets_cache_credentials_and_mcp_template(self):
+        self.host['services'] = ['penpot']
+        self.images();self.archive()
+        for name in verify.PAYLOADS['penpot']:
+            (self.root/name).write_bytes(b'fixture payload')
+        self.manifest()
+        self.assertEqual(verify.verify(self.root),self.host)
+        for member in ['credentials/penpot/environment','compose/penpot/mcp-locations.conf.template']:
+            self.archive(omit=member);self.manifest()
+            with self.assertRaisesRegex(ValueError,'required service files'):verify.verify(self.root)
+        self.archive()
+        (self.root/'penpot-assets.tar.gz').unlink();self.manifest()
+        with self.assertRaisesRegex(ValueError,'Payloads'):verify.verify(self.root)
+
     def test_all_service_recovery_files_and_image_identities_are_supported(self):
         self.host['services'] = ['cloudflared', 'control-center', 'bambuddy',
                                  'hindsight', 'home-assistant']
         self.images()
         self.archive()
-        for name in ('control-center.dump', 'control-center-media.tar.gz',
+        for name in ('control-center.sqlite', 'control-center-media.tar.gz',
                      'home-assistant-config.tar.gz', 'bambuddy-data.tar.gz',
                      'bambuddy-studio.tar.gz', 'bambuddy-tailscale.tar.gz',
                      'hindsight.dump', 'hindsight-codex-home.tar.gz'):
@@ -203,7 +221,7 @@ class RestoreVerificationTests(unittest.TestCase):
                        'compose/bambuddy/tailscale/serve.json',
                        'credentials/bambuddy/serve.json',
                        'credentials/hindsight/environment',
-                       'credentials/control-center/POSTGRES_PASSWORD'):
+                       'credentials/control-center/HA_TOKEN'):
             with self.subTest(member=member):
                 self.archive(omit=member)
                 self.manifest()

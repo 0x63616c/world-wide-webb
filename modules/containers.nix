@@ -27,7 +27,7 @@ in {
   options.homelab.containers = {
     enable = lib.mkEnableOption "service-owned Colima runtime";
     services = lib.mkOption {
-      type = lib.types.listOf (lib.types.enum [ "bambuddy" "control-center" "hindsight" "cloudflared" ]);
+      type = lib.types.listOf (lib.types.enum [ "bambuddy" "control-center" "hindsight" "cloudflared" "penpot" ]);
       default = [ ];
     };
     memoryGiB = lib.mkOption { type = lib.types.ints.positive; default = 6; };
@@ -50,6 +50,7 @@ in {
         set -eu
         exec colima start --profile services --foreground --vm-type vz \
           --vz-rosetta --cpu 4 --memory ${toString cfg.memoryGiB} \
+          --mount /var/lib/_containers:w \
           --disk ${toString cfg.diskGiB}
       '';
       serviceConfig = {

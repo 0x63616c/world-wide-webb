@@ -29,6 +29,7 @@ pub enum Service {
     Hindsight,
     Cloudflared,
     HomeAssistant,
+    Penpot,
 }
 
 #[derive(Debug, Deserialize)]
@@ -38,6 +39,22 @@ pub struct Config {
     pub workers_enabled: bool,
     pub docker_path: PathBuf,
     pub release_path: PathBuf,
+    #[serde(default = "default_curl")]
+    pub curl_path: PathBuf,
+    #[serde(default = "default_port")]
+    pub control_center_port: u16,
+    #[serde(default = "default_penpot_port")]
+    pub penpot_port: u16,
+}
+
+fn default_curl() -> PathBuf {
+    PathBuf::from("/usr/bin/curl")
+}
+fn default_penpot_port() -> u16 {
+    9001
+}
+fn default_port() -> u16 {
+    4202
 }
 
 #[derive(Clone, Copy, Debug, Error, PartialEq, Eq)]
@@ -91,16 +108,20 @@ struct Release {
     source_repository: String,
     source_revision: String,
     image: String,
-    postgres_image: String,
+    database_engine: String,
 }
 
 #[derive(Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct ControlCenterFacts {
     database: String,
-    stopping: bool,
-    workers_enabled: bool,
-    source_revision: String,
+    status: String,
+    backend: String,
+    build: String,
+    cycles: Cycles,
+}
+#[derive(Deserialize)]
+struct Cycles {
+    enabled: bool,
 }
 
 #[derive(Deserialize)]
@@ -122,7 +143,10 @@ struct LocalNode {
 
 impl Config {
     fn validate(&self) -> Result<(), HealthError> {
-        if !self.docker_path.is_absolute()
+        if !self.curl_path.is_absolute()
+            || self.control_center_port == 0
+            || self.penpot_port == 0
+            || !self.docker_path.is_absolute()
             || !self.release_path.is_absolute()
             || self.services.iter().copied().collect::<HashSet<_>>().len() != self.services.len()
         {
@@ -214,11 +238,11 @@ fn release(path: &Path) -> Result<Release, HealthError> {
     }
     let release: Release =
         serde_json::from_slice(&bytes).map_err(|_| HealthError::InvalidRelease)?;
-    if release.schema_version != 1
+    if release.schema_version != 2
         || release.source_repository != "0x63616c/world-wide-webb"
         || !lower_hex(&release.source_revision, 40)
         || !pinned_image(&release.image)
-        || !pinned_image(&release.postgres_image)
+        || release.database_engine != "sqlite"
     {
         return Err(HealthError::InvalidRelease);
     }
@@ -227,13 +251,7 @@ fn release(path: &Path) -> Result<Release, HealthError> {
 
 fn containers(service: Service) -> (&'static str, &'static [(&'static str, bool)]) {
     match service {
-        Service::ControlCenter => (
-            SERVICES,
-            &[
-                ("www-control-center-www-1", true),
-                ("www-control-center-postgres-1", true),
-            ],
-        ),
+        Service::ControlCenter => (SERVICES, &[("www-control-center-www-1", true)]),
         // Bambuddy's pinned image declares an inherited Docker healthcheck.
         Service::Bambuddy => (
             SERVICES,
@@ -245,6 +263,18 @@ fn containers(service: Service) -> (&'static str, &'static [(&'static str, bool)
         ),
         Service::Hindsight => (SERVICES, &[("hindsight", true)]),
         Service::Cloudflared => (SERVICES, &[("www-tunnel-cloudflared-1", false)]),
+        Service::Penpot => (
+            SERVICES,
+            &[
+                ("penpot-penpot-frontend-1", false),
+                ("penpot-penpot-backend-1", false),
+                ("penpot-penpot-exporter-1", false),
+                ("penpot-penpot-admin-console-1", false),
+                ("penpot-penpot-mcp-1", false),
+                ("penpot-penpot-postgres-1", true),
+                ("penpot-penpot-valkey-1", true),
+            ],
+        ),
         Service::HomeAssistant => (
             HOME_ASSISTANT,
             &[("www-home-assistant-home-assistant-1", true)],
@@ -285,7 +315,6 @@ pub fn check_once(config: &Config, deadline: Instant) -> Result<(), HealthError>
             if let Some(release) = &release {
                 let expected = match name {
                     "www-control-center-www-1" => Some(&release.image),
-                    "www-control-center-postgres-1" => Some(&release.postgres_image),
                     _ => None,
                 };
                 if expected.is_some_and(|image| &facts.image != image) {
@@ -295,26 +324,42 @@ pub fn check_once(config: &Config, deadline: Instant) -> Result<(), HealthError>
         }
         match service {
             Service::ControlCenter => {
-                let bytes = docker(
-                    config,
-                    SERVICES,
-                    &[
-                        "exec",
-                        "www-control-center-www-1",
-                        "bun",
-                        "-e",
-                        include_str!("probes/control-center.mjs"),
-                    ],
-                    deadline,
-                    Duration::from_secs(15),
-                )?;
+                let timeout = remaining(deadline, Duration::from_secs(10))?;
+                let mut command = Command::new(&config.curl_path);
+                command
+                    .args([
+                        "--fail",
+                        "--silent",
+                        "--show-error",
+                        "--max-time",
+                        "10",
+                        "--noproxy",
+                        "*",
+                    ])
+                    .arg(format!(
+                        "http://127.0.0.1:{}/healthz",
+                        config.control_center_port
+                    ))
+                    .env_clear()
+                    .env("PATH", "/usr/bin:/bin")
+                    .stdin(Stdio::null());
+                let result = process::capture(&mut command, timeout)
+                    .map_err(|_| HealthError::ProbeUnavailable)?;
+                if Instant::now() >= deadline {
+                    return Err(HealthError::Deadline);
+                }
+                if !result.status.success() {
+                    return Err(HealthError::ControlCenterMismatch);
+                }
+                let bytes = result.stdout;
                 let facts: ControlCenterFacts = serde_json::from_slice(&bytes)
                     .map_err(|_| HealthError::ControlCenterMismatch)?;
                 let release = release.as_ref().ok_or(HealthError::InvalidRelease)?;
                 if facts.database != "ok"
-                    || facts.stopping
-                    || facts.workers_enabled != config.workers_enabled
-                    || facts.source_revision != release.source_revision
+                    || facts.status != "ok"
+                    || facts.backend != "rust"
+                    || facts.cycles.enabled != config.workers_enabled
+                    || facts.build != release.source_revision
                 {
                     return Err(HealthError::ControlCenterMismatch);
                 }
@@ -366,6 +411,62 @@ pub fn check_once(config: &Config, deadline: Instant) -> Result<(), HealthError>
                     || facts.health.is_some_and(|health| !health.is_empty())
                 {
                     return Err(HealthError::TailscaleNotReady);
+                }
+            }
+            Service::Penpot => {
+                let timeout = remaining(deadline, Duration::from_secs(10))?;
+                let mut command = Command::new(&config.curl_path);
+                command
+                    .args([
+                        "--fail",
+                        "--silent",
+                        "--show-error",
+                        "--max-time",
+                        "10",
+                        "--noproxy",
+                        "*",
+                        "--output",
+                        "/dev/null",
+                    ])
+                    .arg(format!("http://127.0.0.1:{}/readyz", config.penpot_port))
+                    .env_clear()
+                    .env("PATH", "/usr/bin:/bin")
+                    .stdin(Stdio::null());
+                let result = process::capture(&mut command, timeout)
+                    .map_err(|_| HealthError::ProbeUnavailable)?;
+                if Instant::now() >= deadline {
+                    return Err(HealthError::Deadline);
+                }
+                if !result.status.success() {
+                    return Err(HealthError::UnhealthyContainer("penpot-penpot-frontend-1"));
+                }
+                for (name, role) in [
+                    ("penpot-penpot-exporter-1", "exporter"),
+                    ("penpot-penpot-admin-console-1", "admin"),
+                    ("penpot-penpot-mcp-1", "mcp"),
+                ] {
+                    docker(
+                        config,
+                        SERVICES,
+                        &[
+                            "exec",
+                            name,
+                            "node",
+                            "--input-type=module",
+                            "-e",
+                            include_str!("probes/penpot-services.mjs"),
+                            role,
+                        ],
+                        deadline,
+                        Duration::from_secs(20),
+                    )
+                    .map_err(|error| {
+                        if error == HealthError::Deadline {
+                            error
+                        } else {
+                            HealthError::UnhealthyContainer(name)
+                        }
+                    })?;
                 }
             }
             Service::Hindsight | Service::HomeAssistant => {}

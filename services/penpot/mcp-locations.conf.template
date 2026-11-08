@@ -1,0 +1,19 @@
+# Based on Penpot 2.18.6's nginx-mcp-locations.conf.template (MPL-2.0).
+# MCP URLs contain credentials. Suppress access logs for both transports.
+location /mcp/ws {
+    access_log off;
+    error_log /dev/null;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection 'upgrade';
+    set $mcp_ws_backend $PENPOT_MCP_URI_WS;
+    proxy_pass $mcp_ws_backend;
+    proxy_http_version 1.1;
+}
+
+location /mcp/stream {
+    access_log off;
+    error_log /dev/null;
+    set $mcp_stream_backend $PENPOT_MCP_URI/mcp$is_args$args;
+    proxy_pass $mcp_stream_backend;
+    proxy_http_version 1.1;
+}

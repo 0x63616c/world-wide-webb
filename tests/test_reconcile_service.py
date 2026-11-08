@@ -103,8 +103,19 @@ class DeliveryTests(unittest.TestCase):
         release = json.loads(committed.read_text())
         env = run.call_args.kwargs['env']
         self.assertEqual(env['WWW_IMAGE'], release['image'])
-        self.assertEqual(env['POSTGRES_IMAGE'], release['postgresImage'])
+        self.assertNotIn('POSTGRES_IMAGE', env)
 
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class ComposeSecretTests(unittest.TestCase):
+    def test_penpot_model_never_retains_exported_secret_extensions(self):
+        path = Path(__file__).parents[1] / 'services/penpot/compose.yaml'
+        model = json.loads(path.read_text())
+        self.assertFalse(any(k.startswith('x-') for k in model))
+        for service in model['services'].values():
+            for name,value in service.get('environment',{}).items():
+                if any(key in name.upper() for key in ('SECRET','PASSWORD','TOKEN','KEY')):
+                    self.assertTrue(value.startswith('${'), 'Credential must be a private-file reference')

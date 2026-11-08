@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 import re
 import shutil
+import stat
 import sys
 import tempfile
 import uuid
@@ -17,12 +18,15 @@ import snapshot
 spec = importlib.util.spec_from_file_location('nas_upload', Path(__file__).with_name('nas-upload.py'))
 upload = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(upload)
+history_spec = importlib.util.spec_from_file_location('backup_history', Path(__file__).with_name('backup-history.py'))
+history = importlib.util.module_from_spec(history_spec)
+history_spec.loader.exec_module(history)
 verify_spec = importlib.util.spec_from_file_location('verify_backup', Path(__file__).with_name('verify-backup.py'))
 verifier = importlib.util.module_from_spec(verify_spec)
 verify_spec.loader.exec_module(verifier)
 
 
-def verified_copy(destination, remote, nas):
+def verified_copy(destination, remote, nas, health_command=None):
     records = []
     # COMPLETE is created only after every payload passes read-back verification.
     for path in sorted(destination.iterdir()):
@@ -36,7 +40,7 @@ def verified_copy(destination, remote, nas):
     verifier.verify(destination)
     # Publishing completion must not hide a service that failed to recover
     # after its snapshot, including a running but disconnected tunnel/sidecar.
-    snapshot.run(['/run/current-system/sw/bin/homelab-health'], timeout=150)
+    snapshot.run(health_command or ['/run/current-system/sw/bin/homelab-health'], timeout=150)
     nas.upload(complete, remote)
     (destination / 'NAS_VERIFIED').touch(mode=0o600)
 
@@ -62,6 +66,7 @@ def recovery_bundle(destination, services, configuration):
             'host': configuration['host'], 'services': services,
             'system_path': os.path.realpath('/run/current-system'),
             'weeklyHindsightExport': configuration.get('weeklyHindsightExport', False),
+            'scope': configuration.get('scope', 'full'),
         }, indent=2))
         for service in services:
             source = Path('/etc/homelab/services') / service
@@ -79,45 +84,81 @@ def recovery_bundle(destination, services, configuration):
         shutil.rmtree(staging)
 
 
-def backup(config):
-    os.umask(0o077)
+def scoped_configuration(config, scope):
+    if scope not in ('full', 'control-center-hourly', 'penpot'):
+        raise ValueError('Unknown backup scope')
+    services = config['services']
+    if not services or len(set(services)) != len(services) or set(services) - snapshot.NAMES.keys():
+        raise ValueError('Invalid backup service assignment')
+    selected = list(services) if scope == 'full' else ['control-center' if scope == 'control-center-hourly' else 'penpot']
+    if not set(selected) <= set(services):
+        raise ValueError('Requested backup scope is not assigned to this host')
     root = Path(config['root'])
+    if scope != 'full':
+        root = root / ('control-center-history' if scope == 'control-center-hourly' else 'penpot')
+    return {**config, 'scope': scope, 'services': selected, 'root': str(root)}
+
+
+def nas_client():
+    # SOPS paths intentionally are symlinks; inspect the opened target once.
+    with Path('/run/secrets/nas-backup-credentials').open() as source:
+        info = os.fstat(source.fileno())
+        if not stat.S_ISREG(info.st_mode) or info.st_uid != os.geteuid() or info.st_mode & 0o077:
+            raise RuntimeError('NAS credentials must be private and service-owned')
+        return upload.Nas(json.load(source))
+
+
+def backup(config, scope='full'):
+    os.umask(0o077)
+    config = scoped_configuration(config, scope)
+    root = Path(config['root'])
+    # The trusted parent is created first so a scope cannot change other roots.
+    base = root if scope == 'full' else root.parent
+    base.mkdir(mode=0o700, exist_ok=True)
+    if base.is_symlink() or base.stat().st_uid != os.geteuid() or base.stat().st_mode & 0o077:
+        raise RuntimeError('Backup base must be private and service-owned')
     root.mkdir(mode=0o700, exist_ok=True)
     if root.is_symlink() or root.stat().st_uid != os.geteuid() or root.stat().st_mode & 0o077:
         raise RuntimeError('Backup root must be private and service-owned')
     snapshot.durable.sync_directory(root.parent)
-    if list(root.glob('*/*.restart-required')):
+    # Holds from any scope block subsequent snapshots until recovery is checked.
+    base = Path(config['root']) if scope == 'full' else Path(config['root']).parent
+    if list(base.glob('**/*.restart-required')) or list(base.glob('**/*.online-snapshot-pending')):
         raise RuntimeError('An earlier snapshot needs service recovery inspection')
     if shutil.disk_usage(root).free < config['minFreeGiB'] * 1024 ** 3:
         raise RuntimeError('Insufficient free space for backup admission')
     services = config['services']
-    if not services or set(services) - snapshot.NAMES.keys():
-        raise ValueError('Invalid or empty backup service assignment')
-    credentials = Path('/run/secrets/nas-backup-credentials')
-    if credentials.stat().st_mode & 0o077:
-        raise RuntimeError('NAS credentials must be private')
-    nas = upload.Nas(json.loads(credentials.read_text()))
+    nas = nas_client()
     stamp = datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%dT%H%M%SZ')
     stamp += '-' + uuid.uuid4().hex[:8]
     destination = root / stamp
     destination.mkdir(mode=0o700)
     snapshot.durable.sync_directory(root)
-    remote = '/Homelab/backups/' + config['host'] + '/' + stamp
+    remote = '/Homelab/backups/' + config['host'] + '/'
+    if scope != 'full':
+        remote += ('control-center-history' if scope == 'control-center-hourly' else 'penpot') + '/'
+    remote += stamp
     if not upload.valid_destination(remote):
         raise ValueError('Invalid host backup namespace')
     weekly = 'hindsight' in services and datetime.datetime.now().weekday() == 6
     config = {**config, 'weeklyHindsightExport': weekly}
-    snapshot.snapshot(destination, services, weekly_exports=weekly)
+    snapshot.snapshot(destination, services, weekly_exports=weekly,
+                      control_center_online=scope == 'control-center-hourly')
     recovery_bundle(destination, services, config)
     try:
         nas.login()
-        verified_copy(destination, remote, nas)
+        verified_copy(destination, remote, nas, config.get('healthCommands', {}).get(scope))
+        if scope == 'control-center-hourly':
+            history.prune_remote(nas, config['host'], stamp)
     finally:
         nas.logout()
     if weekly:
         retain_weekly(root, destination)
-    prune_verified(root, config['keepLocal'])
-    print('Backup verified: ' + stamp, flush=True)
+    if scope == 'control-center-hourly':
+        history.prune_local(root)
+    else:
+        prune_verified(root, config['keepLocal'])
+    print('Backup verified (' + scope + '): ' + stamp, flush=True)
 
 
 def retain_weekly(root, destination):
@@ -156,10 +197,18 @@ def retain_weekly(root, destination):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', type=Path, required=True)
+    parser.add_argument('--scope', choices=['full', 'control-center-hourly', 'penpot'], default='full')
     args = parser.parse_args()
     if os.geteuid() == 0:
         raise RuntimeError('Backup must run as _containers, never root')
-    backup(json.loads(args.config.read_text()))
+    value = os.environ.get('HOMELAB_OPERATION_FD', '')
+    if not value.isdecimal() or int(value) < 3:
+        raise RuntimeError('Run backup through homelab-operation')
+    spec = importlib.util.spec_from_file_location('backup_operation_lock', Path(__file__).with_name('operation-lock.py'))
+    operation = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(operation)
+    with operation.operation_lock(inherited_fd=int(value)):
+        backup(json.loads(args.config.read_text()), scope=args.scope)
 
 
 if __name__ == '__main__':

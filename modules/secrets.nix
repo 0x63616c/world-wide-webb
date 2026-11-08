@@ -13,7 +13,7 @@ let
   };
   # Names verified on the live mini; no credential values were read/imported.
   wwwNames = [
-    "POSTGRES_PASSWORD" "HA_TOKEN" "ALARM_API_TOKEN"
+    "HA_TOKEN" "ALARM_API_TOKEN"
     "HOME_LAT" "HOME_LON" "WIFI_GUEST_SSID" "WIFI_GUEST_PASSWORD"
   ];
 in {
@@ -53,6 +53,9 @@ in {
         })
         (lib.mkIf (selected "cloudflared") {
           tunnel-token = containerSecret "services/cloudflared/token";
+        })
+        (lib.mkIf (selected "penpot") {
+          penpot-env = containerSecret "services/penpot/environment";
         })
         (lib.mkIf (selected "bambuddy") {
           bambuddy-environment = containerSecret "services/bambuddy/environment";
