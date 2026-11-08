@@ -158,7 +158,10 @@ def host_command(directory, command):
     temporary = directory / "host-request.tmp"
     temporary.write_text(json.dumps({"id": identifier, **command}))
     temporary.replace(directory / "host-request.json")
-    deadline = time.monotonic() + 60
+    # Native menu selection includes several XCTest idle/snapshot waits. A
+    # legitimate command can exceed 60s on hosted Macs; keep the request intact
+    # until its matching acknowledgement arrives, with a bounded outer deadline.
+    deadline = time.monotonic() + 120
     while time.monotonic() < deadline:
         try:
             response = json.loads((directory / "host-response.json").read_text())
@@ -169,7 +172,15 @@ def host_command(directory, command):
         except FileNotFoundError:
             pass
         time.sleep(0.1)
-    raise ValueError("Device Hub did not acknowledge the requested control")
+    try:
+        native_tail = (directory / "host-control.log").read_text(errors="replace")[-4000:]
+    except OSError:
+        native_tail = "Native controller log unavailable"
+    raise ValueError(
+        f"Device Hub did not acknowledge the requested control within 120s "
+        f"(request {identifier}: {json.dumps(command, sort_keys=True)}).\n"
+        f"Native controller log tail:\n{native_tail}"
+    )
 
 
 def serve(udid, directory, output, appearance):
@@ -202,11 +213,11 @@ def serve(udid, directory, output, appearance):
                 orientation = request["name"]
                 if not plan.get("host_control") or orientation not in ("portrait", "landscape-left", "landscape-right"):
                     raise ValueError("Native host orientation is unavailable or invalid")
-                host_command(directory, {"orientation": orientation})
-                # Device Hub's orientation menu and folding controls can leave
-                # different displays selected. Restore the requested physical
-                # pose before acknowledging the combined transition to iOS.
+                # Selecting Open/Closed resets that pose's physical orientation.
+                # Choose the display first, then rotate; reselecting it afterward
+                # can undo a successful landscape command back to portrait.
                 host_pose(directory, pose)
+                host_command(directory, {"orientation": orientation})
                 time.sleep(2)
             elif request["action"] == "capture":
                 screen = request["name"]

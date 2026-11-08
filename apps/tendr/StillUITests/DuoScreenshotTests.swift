@@ -106,7 +106,7 @@ final class DuoScreenshotTests: XCTestCase {
             amount.tap()
             amount.typeText("7.5")
             try snap("log-dose")
-            try orient(.landscapeLeft)
+            try orient(.landscapeLeft, in: app)
             // Inner displays and centered sheets need not adopt the requested
             // device orientation. Verify the draft/actions in the resulting layout.
             XCTAssertEqual(amount.value as? String, "7.5", "Rotation must preserve an unsaved dose")
@@ -133,16 +133,16 @@ final class DuoScreenshotTests: XCTestCase {
         XCTAssertTrue(amount.waitForExistence(timeout: 5))
         amount.tap()
         amount.typeText("7.5")
-        try orient(.landscapeRight)
+        try orient(.landscapeRight, in: app)
         try snap("compact-height-rotation")
         var observedFrame: CGRect?
-        waitUntil("Editor must resize into a short window") {
+        waitUntil("Editor must resize into a short window", timeout: 45) {
             let frame = app.windows.firstMatch.frame
             if observedFrame != frame {
                 print("Compact editor window: \(frame)")
                 observedFrame = frame
             }
-            return frame.width > frame.height
+            return frame.width > frame.height && (!canFold || abs(frame.height - 466) < 1)
         }
         XCTAssertEqual(amount.value as? String, "7.5")
         XCTAssertTrue(app.buttons["saveDose"].isHittable)
@@ -254,7 +254,7 @@ final class DuoScreenshotTests: XCTestCase {
         return app
     }
 
-    @MainActor private func orient(_ orientation: UIDeviceOrientation) throws {
+    @MainActor private func orient(_ orientation: UIDeviceOrientation, in app: XCUIApplication? = nil) throws {
         if canHostOrient {
             let name: String
             switch orientation {
@@ -269,6 +269,8 @@ final class DuoScreenshotTests: XCTestCase {
         } else {
             XCUIDevice.shared.orientation = orientation
         }
+        // Refresh XCTest's active-screen coordinate context after physical rotation.
+        app?.activate()
     }
 
     @MainActor private func select(_ section: String, in app: XCUIApplication) {
@@ -312,22 +314,26 @@ final class DuoScreenshotTests: XCTestCase {
                 to: directory.appendingPathComponent("live-fold-\(foldCheckpoint)-\(pose)-before.txt"), options: .atomic)
         }
         let previousSize = app.windows.firstMatch.frame.size
-        let previousArea = previousSize.width * previousSize.height
         try request("pose", name: pose)
+        // Device Hub can switch the framebuffer before XCTest switches its
+        // application's active-screen coordinate context. Activate (never launch)
+        // to refresh that context without discarding the navigation stack/draft.
+        app.activate()
         var observedSize: CGSize?
         var adapted = false
-        // Native display wakeup exceeded ten seconds in hosted CI.
-        let deadline = Date().addingTimeInterval(20)
+        // Require the full native point area, not just any smaller/larger frame:
+        // XCTest can briefly report a doubly scaled outer window (155 x 226).
+        let targetArea: CGFloat = pose == "inner" ? 669 * 951 : 466 * 678
+        let deadline = Date().addingTimeInterval(45)
         while Date() < deadline {
             let size = app.windows.firstMatch.frame.size
             if observedSize != size {
                 print("Live fold \(pose): \(previousSize) → \(size)")
                 observedSize = size
             }
-            // This fixture occupies the full display: opening must enlarge its
-            // window and closing must shrink it, regardless of either rotation.
+            // This fixture occupies the full native display in either rotation.
             let area = size.width * size.height
-            adapted = size.width > 0 && size.height > 0 && (pose == "inner" ? area > previousArea : area < previousArea)
+            adapted = abs(area - targetArea) < targetArea * 0.01
             if adapted { break }
             RunLoop.current.run(until: Date().addingTimeInterval(0.1))
         }
@@ -377,7 +383,9 @@ final class DuoScreenshotTests: XCTestCase {
         let id = UUID().uuidString
         let data = try JSONSerialization.data(withJSONObject: ["id": id, "action": action, "name": name])
         try data.write(to: directory.appendingPathComponent("request.json"), options: .atomic)
-        let deadline = Date().addingTimeInterval(90)
+        // Orientation restores the active pose using two native commands, each
+        // bounded to 120s by the host. Do not expire the enclosing request first.
+        let deadline = Date().addingTimeInterval(270)
         while Date() < deadline {
             if let responseData = try? Data(contentsOf: directory.appendingPathComponent("response.json")),
                let response = (try? JSONSerialization.jsonObject(with: responseData)) as? [String: Any],

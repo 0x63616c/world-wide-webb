@@ -2,6 +2,27 @@ import XCTest
 @testable import StillCore
 
 final class TrackingTests: XCTestCase {
+    func testExportPreservesCompleteJournalAndUsesThePersistedFormat() throws {
+        var journal = Journal()
+        journal.medication = "Weekly medication"
+        journal.weights = [WeightEntry(date: Date(timeIntervalSince1970: 100), kilograms: 80, note: "A note")]
+        journal.doses = [DoseEntry(date: Date(timeIntervalSince1970: 200), medication: journal.medication, milligrams: 7.5, note: "Dose note")]
+        journal.appearance = "dark"
+        journal.goal = WeightGoal(kilograms: 75, date: Date(timeIntervalSince1970: 300))
+        journal.schedule.weekdays = [2, 5]
+        journal.lastHealthKitSync = Date(timeIntervalSince1970: 400)
+        journal.healthKitWeightsEnabled = true
+
+        let data = try JournalFile.export(journal)
+        XCTAssertEqual(try JSONDecoder().decode(Journal.self, from: data), journal)
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let file = JournalFile(url: directory.appendingPathComponent("export.json"))
+        try data.write(to: file.url)
+        XCTAssertEqual(try file.load(), journal)
+    }
+
     func testIncrementalHealthKitChangesPreserveManualWeightsAndApplyUpdatesAndDeletes() {
         let replacedID = UUID()
         let deletedID = UUID()

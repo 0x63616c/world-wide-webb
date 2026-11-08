@@ -1,1 +1,1 @@
-The first release of Tendr. Log doses in mg, track your weight and goal, read body weight from Apple Health and set reminders for your dose days. Everything stays on your iPhone.
+Save a copy of your journal from Settings. Improved navigation and layouts on iPhone Duo.

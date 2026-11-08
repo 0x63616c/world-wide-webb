@@ -74,6 +74,12 @@ public struct JournalFile {
         let data = try JSONEncoder().encode(journal)
         try data.write(to: url, options: .atomic)
     }
+    /// Uses the journal's persisted schema so an export retains every record and preference.
+    public static func export(_ journal: Journal) throws -> Data {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        return try encoder.encode(journal)
+    }
     public func load() throws -> Journal {
         guard FileManager.default.fileExists(atPath: url.path) else { return Journal() }
         return try JSONDecoder().decode(Journal.self, from: Data(contentsOf: url))

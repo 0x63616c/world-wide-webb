@@ -41,6 +41,7 @@ worker=
 host_worker=
 host_application_worker=
 cleanup() {
+  local capture_status=$?
   if [[ -n "$host_worker" ]]; then
     touch "$work/host-stop"
     kill "$host_worker" 2>/dev/null || true
@@ -51,10 +52,24 @@ cleanup() {
     kill "$host_application_worker" 2>/dev/null || true
     wait "$host_application_worker" 2>/dev/null || true
   fi
+  if (( capture_status != 0 )); then
+    # The release job already retains raw/. Keep failed native evidence there
+    # too, isolated by run and separate from the uploadable gallery.
+    local evidence="$out/diagnostics/${work##*/}"
+    local item
+    if mkdir -p "$evidence"; then
+      for item in "$work"/*.log "$work"/*.txt "$work"/*.json "$work"/*.plist "$work"/*.xcresult "$work/light" "$work/dark"; do
+        [[ -f "$item" || -d "$item" ]] || continue
+        cp -R "$item" "$evidence/" || echo "Could not retain $item" >&2
+      done
+      echo "Duo capture failed; native evidence retained in $evidence" >&2
+    fi
+  fi
   if [[ -n "$udid" ]]; then
     xcrun simctl shutdown "$udid" >/dev/null 2>&1 || true
     xcrun simctl delete "$udid" >/dev/null 2>&1 || true
   fi
+  return "$capture_status"
 }
 trap cleanup EXIT
 
@@ -126,7 +141,7 @@ ENTITLEMENTSPY
   TEST_RUNNER_DUO_HOST_CONTROL_DIR="$work" TEST_RUNNER_DUO_HOST_DEVICE_NAME="$simulator_name" \
     xcodebuild test-without-building -project "$work/host-project/DuoCaptureHost.xcodeproj" \
     -scheme DuoCaptureHost -destination 'platform=macOS' -derivedDataPath "$work/HostDerivedData" \
-    DUO_HOST_CONTROL_DIRECTORY="$work" -parallel-testing-enabled NO -test-timeouts-enabled NO -resultBundlePath "$work/DuoHostControl.xcresult" -quiet \
+    DUO_HOST_CONTROL_DIRECTORY="$work" -parallel-testing-enabled NO -test-timeouts-enabled NO -resultBundlePath "$work/DuoHostControl.xcresult" \
     > "$work/host-control.log" 2>&1 &
   host_worker=$!
   python3 - "$work" "$host_worker" <<'HOSTPY'

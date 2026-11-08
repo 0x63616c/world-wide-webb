@@ -30,6 +30,13 @@ final class PRScreenshotTests: XCTestCase {
         XCTAssertTrue(app.staticTexts["7.5 mg · Weekly medication"].firstMatch.waitForExistence(timeout: 5))
         snap("journal")
 
+        navigation("Settings", in: app).tap()
+        let exportButton = app.buttons["exportData"]
+        XCTAssertTrue(exportButton.waitForExistence(timeout: 5))
+        for _ in 0..<4 where !exportButton.isHittable { app.swipeUp() }
+        XCTAssertTrue(exportButton.isHittable)
+        snap("settings-export")
+
         navigation("Home", in: app).tap()
         app.buttons["logDose"].tap()
         let dose = app.textFields["doseAmount"]
@@ -47,6 +54,23 @@ final class PRScreenshotTests: XCTestCase {
         XCTAssertTrue(app.buttons["saveWeight"].isHittable)
         snap("weight-editor")
 
+    }
+
+    @MainActor func testExportDataOpensFilePicker() throws {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["--demo", "--screenshots", "-accentColor", "Graphite"]
+        app.launch()
+        XCTAssertTrue(app.buttons["logDose"].waitForExistence(timeout: 15))
+        navigation("Settings", in: app).tap()
+        let exportButton = app.buttons["exportData"]
+        XCTAssertTrue(exportButton.waitForExistence(timeout: 5))
+        for _ in 0..<4 where !exportButton.isHittable { app.swipeUp() }
+        exportButton.tap()
+        let save = app.buttons["DOCPicker.actionButton"]
+        XCTAssertTrue(save.waitForExistence(timeout: 15))
+        XCTAssertEqual(save.label, "Save")
+        snap("export-file-picker")
     }
 
     @MainActor private func navigation(_ title: String, in app: XCUIApplication) -> XCUIElement {

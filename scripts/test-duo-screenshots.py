@@ -26,7 +26,37 @@ xcode_spec.loader.exec_module(xcode)
 
 
 class HostControlProtocolTests(unittest.TestCase):
-    def test_orientation_restores_current_display_before_acknowledging(self):
+    def test_slow_native_control_is_not_abandoned_before_acknowledgement(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            elapsed = [0.0]
+
+            def pause(seconds):
+                elapsed[0] += seconds
+                # Recorded native menu interaction takes longer than the old 60s budget.
+                if elapsed[0] >= 65:
+                    request = json.loads((directory / "host-request.json").read_text())
+                    (directory / "host-response.json").write_text(json.dumps({"id": request["id"], "ok": True}))
+
+            with patch.object(duo.time, "monotonic", side_effect=lambda: elapsed[0]), \
+                 patch.object(duo.time, "sleep", side_effect=pause):
+                duo.host_command(directory, {"orientation": "portrait"})
+            self.assertGreaterEqual(elapsed[0], 65)
+
+
+    def test_timeout_identifies_the_control_and_retains_native_log_tail(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            (directory / "host-response.json").write_text(json.dumps({"id": "previous", "ok": True}))
+            (directory / "host-control.log").write_text("Waiting for Device Hub to idle before Portrait\n")
+            with patch.object(duo.time, "monotonic", side_effect=[0, 0, 121]), \
+                 patch.object(duo.time, "sleep"):
+                with self.assertRaises(ValueError) as failure:
+                    duo.host_command(directory, {"orientation": "portrait"})
+            self.assertIn("portrait", str(failure.exception))
+            self.assertIn("Waiting for Device Hub to idle", str(failure.exception))
+
+    def test_orientation_selects_pose_before_rotation_and_waits_for_both(self):
         for accepted in (True, False):
             with self.subTest(accepted=accepted), tempfile.TemporaryDirectory() as temporary:
                 directory = Path(temporary)
@@ -35,25 +65,24 @@ class HostControlProtocolTests(unittest.TestCase):
                     "id": "turn-inner", "action": "orientation", "name": "landscape-right"
                 }))
                 response = directory / "response.json"
-                selected = {"display": "inner"}
+                physical = {"pose": "outer", "orientation": "portrait"}
 
                 def orient(folder, command):
                     self.assertFalse(response.exists())
-                    self.assertEqual(command, {"orientation": "landscape-right"})
-                    selected["display"] = "outer"
+                    physical["orientation"] = command["orientation"]
 
-                def restore(folder, pose):
+                def select_pose(folder, pose):
                     self.assertFalse(response.exists())
                     if not accepted:
-                        raise ValueError("Display re-selection failed")
-                    selected["display"] = pose
+                        raise ValueError("Display selection failed")
+                    physical.update(pose=pose, orientation="portrait")
 
                 def pause(seconds):
                     if response.exists():
                         raise StopIteration
 
                 with patch.object(duo, "host_command", side_effect=orient), \
-                     patch.object(duo, "host_pose", side_effect=restore), \
+                     patch.object(duo, "host_pose", side_effect=select_pose), \
                      patch.object(duo.time, "sleep", side_effect=pause):
                     with self.assertRaises(StopIteration):
                         duo.serve("duo", directory, directory, "light")
@@ -61,9 +90,9 @@ class HostControlProtocolTests(unittest.TestCase):
                 self.assertEqual(result["id"], "turn-inner")
                 self.assertEqual(result["ok"], accepted)
                 if accepted:
-                    self.assertEqual(selected["display"], "inner")
+                    self.assertEqual(physical, {"pose": "inner", "orientation": "landscape-right"})
                 else:
-                    self.assertIn("re-selection failed", result["error"])
+                    self.assertIn("selection failed", result["error"])
 
     def test_orientation_waits_for_its_own_acknowledgement(self):
         for accepted in (True, False):
@@ -141,8 +170,15 @@ elif name == "xcrun":
             sys.exit("Cannot choose between 2 displays. Specify --display")
         pathlib.Path(args[-1]).write_bytes(base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII="))
 elif name == "xcodebuild" and args[0] == "test-without-building":
-    if mode == "test-failure": sys.exit("Mock test failure")
     folder = pathlib.Path(os.environ["TEST_RUNNER_DUO_CONTROL_DIR"])
+    if mode == "test-failure":
+        (folder / "host-control.log").write_text("Native control request stalled at Portrait\n")
+        (folder / "live-fold-1-outer-before.txt").write_text("Synthetic fixture window\n")
+        (folder / "light").mkdir(exist_ok=True)
+        (folder / "light/outer-light-home.png").write_bytes(b"partial fixture capture")
+        (folder / "DuoScreenshotTests-light.xcresult").mkdir()
+        (folder / "DuoScreenshotTests-light.xcresult/Info.plist").write_text("fixture result")
+        sys.exit("Mock test failure")
     def request(action, value):
         identifier = str(time.time_ns())
         temporary = folder / "test-request.tmp"
@@ -355,6 +391,13 @@ class DuoCapabilitiesTests(unittest.TestCase):
                 self.assertNotEqual(result.returncode, 0)
                 self.assertIn("Mock test failure", result.stderr)
                 self.assertEqual([file.name for file in output.glob("*.png")], ["default-screen-unrelated.png"])
+                diagnostics = list((output / "diagnostics").glob("run.*"))
+                self.assertEqual(len(diagnostics), 1, "Release artifacts must retain native failure evidence")
+                evidence = diagnostics[0]
+                self.assertIn("stalled at Portrait", (evidence / "host-control.log").read_text())
+                self.assertEqual((evidence / "live-fold-1-outer-before.txt").read_text(), "Synthetic fixture window\n")
+                self.assertEqual((evidence / "light/outer-light-home.png").read_bytes(), b"partial fixture capture")
+                self.assertTrue((evidence / "DuoScreenshotTests-light.xcresult/Info.plist").is_file())
                 return
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             plan = json.loads((output / "plan.json").read_text())

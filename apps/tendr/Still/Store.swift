@@ -29,6 +29,10 @@ import SwiftUI
             do { journal = try file.load() } catch { canWrite = false; self.error = "Your journal could not be opened. Please keep the app installed to preserve your data. \(error.localizedDescription)" }
         }
     }
+    func exportJournal() throws -> Data {
+        guard canWrite else { throw TrackingError.invalidFile }
+        return try JournalFile.export(journal)
+    }
     func commit(_ changed: Journal) -> Bool {
         guard canWrite else { error = "Your existing journal could not be opened. Saving is paused to preserve it."; return false }
         do {

@@ -1,5 +1,6 @@
 import RDesign
 import SwiftUI
+import UniformTypeIdentifiers
 
 private enum HistoryEntry: Identifiable {
     case weight(WeightEntry), dose(DoseEntry)
@@ -106,6 +107,9 @@ struct SettingsView: View {
     @State private var tipJar = RTipJar.tendr
     @State private var tipping = false
     @State private var thanks: RTipJar.Tip?
+    @State private var exportDocument: JournalExportDocument?
+    @State private var exporting = false
+    @State private var exportError: String?
     var body: some View {
         NavigationStack {
             VStack(spacing: 8) {
@@ -167,6 +171,18 @@ struct SettingsView: View {
                             LabeledContent("First dose") { Text(firstDoseDate, format: .dateTime.month(.abbreviated).day().year()) }
                         }
                     } header: { Text("Weight history") }
+                    Section("Your data") {
+                        Button {
+                            do {
+                                exportDocument = JournalExportDocument(data: try store.exportJournal())
+                                exporting = true
+                            } catch {
+                                exportError = "Your journal could not be exported. \(error.localizedDescription)"
+                            }
+                        } label: {
+                            Label("Export Data", systemImage: "square.and.arrow.up")
+                        }.accessibilityIdentifier("exportData")
+                    }
                     if tipJar.phase == .ready {
                         Section {
                             RSupportRow(appName: "Tendr") { tipping = true }
@@ -185,6 +201,16 @@ struct SettingsView: View {
                         tipJar.simulatedOutcome = RTipJar.SimulatedOutcome(rawValue: arguments[flag + 1])
                     }
                 }
+                .fileExporter(isPresented: $exporting, document: exportDocument, contentType: .json,
+                              defaultFilename: "Tendr Journal \(Date().formatted(.iso8601.year().month().day().dateSeparator(.dash)))") { result in
+                    if case .failure(let error) = result {
+                        exportError = "Your journal could not be exported. \(error.localizedDescription)"
+                    }
+                    exportDocument = nil
+                }
+                .alert("Export failed", isPresented: Binding(get: { exportError != nil }, set: { if !$0 { exportError = nil } })) {
+                    Button("OK") { exportError = nil }
+                } message: { Text(exportError ?? "") }
                 .sheet(isPresented: $tipping, onDismiss: {
                     thanks = tipJar.completed
                     tipJar.completed = nil
@@ -265,5 +291,19 @@ struct JournalDoseRow: View {
             }
         }
         .accessibilityElement(children: .combine)
+    }
+}
+
+private struct JournalExportDocument: FileDocument {
+    static var readableContentTypes: [UTType] { [.json] }
+    let data: Data
+
+    init(data: Data) { self.data = data }
+    init(configuration: ReadConfiguration) throws {
+        guard let data = configuration.file.regularFileContents else { throw CocoaError(.fileReadCorruptFile) }
+        self.data = data
+    }
+    func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
+        FileWrapper(regularFileWithContents: data)
     }
 }
