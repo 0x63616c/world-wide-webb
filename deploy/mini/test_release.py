@@ -3,6 +3,7 @@ import os
 import shutil
 import sqlite3
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -23,6 +24,7 @@ class ReleaseTests(unittest.TestCase):
         with sqlite3.connect(self.db) as db:
             for table in ["settings", "booth_photo", "walk", "_sqlx_migrations"]:
                 db.execute(f'CREATE TABLE "{table}"(id INTEGER)')
+        db.close()
         for name in ["sqlite_preflight.py", "sqlite_snapshot.py", "tailscale_serve.py"]:
             shutil.copyfile(ROOT / name, self.root / name)
         (self.root / "runtime.env").touch()
@@ -95,6 +97,24 @@ elif 'exec' in args and os.environ.get('HEALTH_FAILURE'):sys.exit(1)
         self.assertEqual(self.run_release(1).returncode, 0)
         self.assertEqual(len(self.calls()), count)
         self.assertFalse((self.root / "deploy.lock").exists())
+
+    def test_cold_wal_database_is_validated_and_snapshotted(self):
+        (self.root / "bin/python3").symlink_to(sys.executable)
+        db = sqlite3.connect(self.db)
+        db.execute("PRAGMA journal_mode=WAL")
+        db.execute("INSERT INTO booth_photo VALUES (135)")
+        db.commit()
+        db.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+        db.close()
+        # Reproduce a copied import: WAL header, committed rows, no sidecars.
+        for suffix in ["-wal", "-shm"]:
+            Path(str(self.db) + suffix).unlink(missing_ok=True)
+        self.assertFalse(Path(str(self.db) + "-wal").exists())
+        result = self.run_release()
+        self.assertEqual(result.returncode, 0, result.stderr.decode())
+        snapshot = next((self.root / "backups").glob("*.sqlite"))
+        with sqlite3.connect(snapshot) as restored:
+            self.assertEqual(restored.execute("SELECT id FROM booth_photo").fetchall(), [(135,)])
 
     def test_recovery_preserves_highest_ci_generation(self):
         self.assertEqual(self.run_release(42).returncode, 0)

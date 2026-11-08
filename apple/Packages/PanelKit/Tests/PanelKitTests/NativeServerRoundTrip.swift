@@ -10,6 +10,11 @@ struct NativeServerRoundTrip {
         let configuration = PanelConfiguration(
             baseURL: URL(string: try #require(env["WWW_NATIVE_TEST_URL"]))!)
         let client = PanelAPIClient(configuration: configuration)
+        let climate = try await ClimateAPI(client: client).get()
+        #expect(climate.mode == .cool)
+        #expect(climate.action == .cooling)
+        #expect(climate.ambient == 73)
+        #expect(climate.setpoints == .single(72))
         let walks = WalksAPI(client: client)
         #expect(try await walks.state().active == nil)
         let started = try await walks.start(source: .ipad)

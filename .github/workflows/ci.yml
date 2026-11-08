@@ -73,6 +73,7 @@ jobs:
             target
           key: rust-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock') }}-test
       - run: cargo test --locked --workspace
+      - run: bash tools/check dependencies
       - run: bash tools/check ops
       - run: python3 -m unittest discover -s tools -p 'test_ci.py'
   apple:

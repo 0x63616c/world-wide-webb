@@ -1,6 +1,22 @@
 """Consistent SQLite backups shared by nightly and cutover workflows."""
 
 import sqlite3
+from contextlib import closing, contextmanager
+
+
+@contextmanager
+def read_database(source):
+    """Allow SQLite to initialize cold WAL sidecars while keeping SQL read-only.
+
+    macOS SQLite cannot query a copied WAL-mode database opened with mode=ro
+    until sidecars exist. mode=rw still requires an existing file; query_only
+    prevents database writes, while allowing SQLite's own WAL bookkeeping.
+    """
+    if not source.is_file():
+        raise FileNotFoundError("SQLite source does not exist")
+    with closing(sqlite3.connect(source.resolve().as_uri() + "?mode=rw", uri=True)) as connection:
+        connection.execute("PRAGMA query_only=ON")
+        yield connection
 
 
 def sqlite_snapshot(source, destination):
@@ -8,9 +24,8 @@ def sqlite_snapshot(source, destination):
     if not source.is_file():
         raise FileNotFoundError("SQLite source does not exist")
     destination.touch(exist_ok=False, mode=0o600)
-    # The SQLite URI escapes paths containing question marks or percent signs.
-    with sqlite3.connect(source.resolve().as_uri() + "?mode=ro", uri=True) as src:
-        with sqlite3.connect(destination) as target:
+    with read_database(source) as src:
+        with closing(sqlite3.connect(destination)) as target:
             src.backup(target)
             if target.execute("PRAGMA integrity_check").fetchall() != [("ok",)]:
                 raise RuntimeError("SQLite backup integrity check failed")
