@@ -39,6 +39,7 @@ pub struct Identity {
 pub struct InvalidAccess;
 /// A few embedded browsers serialize same-origin form navigation as Origin: null.
 /// The caller still requires a valid Access JWT and a JWT-bound CSRF token.
+#[cfg(any(target_arch = "wasm32", test))]
 pub(crate) fn admin_form_origin_allowed(
     origin: Option<&str>,
     expected: &str,

@@ -306,3 +306,20 @@ private func observation(
   #expect(reset.isReset)
   #expect(reset.generation == generation)
 }
+
+@Test func competitionBatchCooldownIsSharedAcrossReopensAndCombinesTransitions() async throws {
+  let directory = try temporaryDirectory()
+  defer { try? FileManager.default.removeItem(at: directory) }
+  let store = try TrackingStore(directory: directory, installationID: testInstallation)
+  let epoch = UUID()
+  try await store.setCompetitionEpoch(epoch)
+  _ = try await store.record(observation(.open, at: 1000, epoch: epoch), nowMS: 1000)
+  let first = try #require(await store.leaseCompetitionUpload(nowMS: 1000))
+  try await store.acknowledgeCompetitionUpload(first, dispositions: ["accepted"])
+  let reopened = try TrackingStore(directory: directory, installationID: testInstallation)
+  _ = try await reopened.record(observation(.close, at: 2000, epoch: epoch), nowMS: 2000)
+  _ = try await reopened.record(observation(.open, at: 3000, epoch: epoch), nowMS: 3000)
+  #expect(try await reopened.leaseCompetitionUpload(nowMS: 60_999) == nil)
+  let combined = try #require(await reopened.leaseCompetitionUpload(nowMS: 61_000))
+  #expect(combined.eventIDs.count == 2)
+}

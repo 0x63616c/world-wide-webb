@@ -30,8 +30,13 @@ mod avatar_alerts;
 #[cfg(target_arch = "wasm32")]
 mod avatar_runtime;
 #[cfg(target_arch = "wasm32")]
+mod burst_limit;
+#[cfg(target_arch = "wasm32")]
 mod capabilities_runtime;
 pub mod certificate;
+pub mod client_policy;
+#[cfg(target_arch = "wasm32")]
+mod client_policy_runtime;
 #[cfg(target_arch = "wasm32")]
 mod community_reads;
 #[cfg(target_arch = "wasm32")]
@@ -47,6 +52,7 @@ mod entry_deletion_runtime;
 #[cfg(target_arch = "wasm32")]
 mod finalization_runtime;
 pub mod ingestion;
+pub mod ingestion_neighbors;
 #[cfg(target_arch = "wasm32")]
 mod jobs_admin;
 #[cfg(target_arch = "wasm32")]

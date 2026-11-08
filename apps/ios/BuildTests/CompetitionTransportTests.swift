@@ -123,3 +123,99 @@ final class CompetitionTransportTests: XCTestCase {
     } catch is CancellationError {}
   }
 }
+
+private final class ResourceClock: @unchecked Sendable {
+  let lock = NSLock()
+  var value: Int64 = 1_800_000_000_000
+  func now() -> Int64 { lock.withLock { value } }
+  func advance(_ milliseconds: Int64) { lock.withLock { value += milliseconds } }
+}
+private final class ResourceProtocol: URLProtocol, @unchecked Sendable {
+  static let lock = NSLock()
+  nonisolated(unsafe) static var requests = 0
+  nonisolated(unsafe) static var limited = true
+  override class func canInit(with request: URLRequest) -> Bool { true }
+  override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+  override func startLoading() {
+    let limited = Self.lock.withLock {
+      Self.requests += 1
+      return Self.limited
+    }
+    let response = HTTPURLResponse(
+      url: request.url!, statusCode: limited ? 429 : 200,
+      httpVersion: nil,
+      headerFields: limited
+        ? ["Retry-After": "60", "Content-Type": "text/html"] : ["Content-Type": "application/json"])!
+    client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+    client?.urlProtocol(self, didLoad: Data((limited ? "slow down" : "{\"value\":1}").utf8))
+    client?.urlProtocolDidFinishLoading(self)
+  }
+  override func stopLoading() {}
+}
+extension CompetitionTransportTests {
+  func testServerCooldownSurvivesRestartAndSignoutAndReadCacheExpires() async throws {
+    ResourceProtocol.lock.withLock {
+      ResourceProtocol.requests = 0
+      ResourceProtocol.limited = true
+    }
+    let configuration = URLSessionConfiguration.ephemeral
+    configuration.protocolClasses = [ResourceProtocol.self]
+    let session = URLSession(configuration: configuration)
+    defer { session.invalidateAndCancel() }
+    let clock = ResourceClock()
+    let bundle = "app.getfolding.tests.\(UUID().uuidString)"
+    let credentials = CompetitionCredentialStore(service: "\(bundle).competition.production")
+    defer { try? credentials.remove("server-cooldown") }
+    func transport() throws -> CompetitionTransport {
+      try CompetitionTransport(
+        origin: URL(string: "https://api.getfolding.app")!, deployment: "production",
+        deviceID: UUID(), bundleID: bundle, session: session, nowMS: { clock.now() })
+    }
+    struct Value: Decodable, Sendable { let value: Int }
+    let first = try transport()
+    do {
+      let _: Value = try await first.send("GET", path: "/v1/me", authenticated: false)
+      XCTFail("Expected rate limit")
+    } catch let error as CompetitionTransportError { XCTAssertEqual(error.statusCode, 429) }
+    let restarted = try transport()
+    try await restarted.clearSession()
+    do {
+      let _: Value = try await restarted.send("GET", path: "/v1/me", authenticated: false)
+      XCTFail("Expected persisted cooldown")
+    } catch let error as CompetitionTransportError { XCTAssertEqual(error.statusCode, 429) }
+    do {
+      _ = try await restarted.avatarImage(UUID().uuidString)
+      XCTFail("Expected image cooldown before authentication")
+    } catch let error as CompetitionTransportError { XCTAssertEqual(error.statusCode, 429) }
+    XCTAssertEqual(ResourceProtocol.lock.withLock { ResourceProtocol.requests }, 1)
+    clock.advance(60_001)
+    ResourceProtocol.lock.withLock { ResourceProtocol.limited = false }
+    try await restarted.saveSession(
+      CompetitionSession(
+        access_token: "synthetic", refresh_token: "synthetic", expires_at_ms: Int64.max))
+    async let a: Value = restarted.send("GET", path: "/v1/leaderboards?kind=week")
+    async let b: Value = restarted.send("GET", path: "/v1/leaderboards?kind=week")
+    _ = try await (a, b)
+    let _: Value = try await restarted.send("GET", path: "/v1/leaderboards?kind=week")
+    XCTAssertEqual(ResourceProtocol.lock.withLock { ResourceProtocol.requests }, 2)
+    clock.advance(15_001)
+    let _: Value = try await restarted.send("GET", path: "/v1/leaderboards?kind=week")
+    XCTAssertEqual(ResourceProtocol.lock.withLock { ResourceProtocol.requests }, 3)
+    let _: Value = try await restarted.send("PATCH", path: "/v1/profile", body: Data("{}".utf8))
+    let _: Value = try await restarted.send("GET", path: "/v1/leaderboards?kind=week")
+    XCTAssertEqual(ResourceProtocol.lock.withLock { ResourceProtocol.requests }, 5)
+    try await restarted.clearSession()
+  }
+  func testRetryAfterDatesFallbackAndBounds() {
+    XCTAssertEqual(
+      CompetitionTransport.serverRetryDelay(
+        "Thu, 01 Jan 1970 00:02:00 GMT", fallback: nil, status: 503, nowMS: 60_000), 60)
+    XCTAssertEqual(
+      CompetitionTransport.serverRetryDelay("NaN", fallback: nil, status: 429, nowMS: 0), 60)
+    XCTAssertEqual(
+      CompetitionTransport.serverRetryDelay("-1", fallback: 90, status: 429, nowMS: 0), 90)
+    XCTAssertEqual(
+      CompetitionTransport.serverRetryDelay("1e100", fallback: nil, status: 429, nowMS: 0), 86400)
+    XCTAssertNil(CompetitionTransport.serverRetryDelay(nil, fallback: nil, status: 503, nowMS: 0))
+  }
+}

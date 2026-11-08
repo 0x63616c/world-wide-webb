@@ -32,18 +32,38 @@ fn error(status: u16, code: &str, id: Id, retryable: bool) -> Result<Response> {
 async fn fetch(request: Request, env: Env, context: Context) -> Result<Response> {
     let id = request_id()?;
     let route = crate::monitoring_runtime::route(&request.path());
+    // Log only a bounded numeric build, never arbitrary client-supplied header text.
+    let client_build = request
+        .headers()
+        .get("X-Folding-Build")
+        .ok()
+        .flatten()
+        .and_then(|value| crate::client_policy::parse_build(&value));
     let started = js_sys::Date::now();
     let version = env
         .var("WORKER_VERSION")
         .map(|v| v.to_string())
         .unwrap_or_else(|_| "unconfigured".into());
-    let result = handle(request, &env, id.clone()).await;
+    let burst = if request.path().starts_with("/v1/")
+        && request.url().is_ok_and(|url| url.scheme() == "https")
+    {
+        crate::burst_limit::enforce(&request, &env).await
+    } else {
+        Ok(())
+    };
+    let admitted = burst.is_ok();
+    let result = match burst {
+        Ok(()) => handle(request, &env, id.clone()).await,
+        Err(failure) => error(failure.status, failure.code, id.clone(), failure.retryable),
+    };
     let status = result.as_ref().map(|r| r.status_code()).unwrap_or(500);
-    console_log!(
-        "{}",
-        serde_json::json!({"event":"request","request_id":id,"worker_version":version,"route":route,"outcome":format!("http_{status}"),"status":status,"duration_ms":(js_sys::Date::now()-started).max(0.0) as u64})
-    );
-    if route == "events.submit" {
+    // Object-valued console entries are indexed as fields by Workers Logs.
+    let event = serde_json::json!({"event":"request","request_id":id,"worker_version":version,"client_build":client_build,"route":route,"outcome":format!("http_{status}"),"status":status,"duration_ms":(js_sys::Date::now()-started).max(0.0) as u64});
+    if let Ok(event) = js_sys::JSON::parse(&event.to_string()) {
+        web_sys::console::log_1(&event);
+    }
+    // Rejections must not turn an unauthenticated flood into one D1 write per request.
+    if admitted && route == "events.submit" && ((200..300).contains(&status) || status >= 500) {
         context.wait_until(async move {
             if let Ok(db) = env.d1("DB")
                 && crate::monitoring_runtime::record(&db, status)
@@ -61,6 +81,19 @@ async fn handle(mut request: Request, env: &Env, id: Id) -> Result<Response> {
         return error(400, "malformed_request", id, false);
     }
     let path = request.path();
+    if request.method() == Method::Get && path == "/v1/client-policy" {
+        return match crate::client_policy_runtime::policy(env, &id) {
+            Ok(response) => Ok(response),
+            Err(failure) => error(failure.status, failure.code, id, failure.retryable),
+        };
+    }
+    if path.starts_with("/v1/") {
+        match crate::client_policy_runtime::rejection(&request, env, &id) {
+            Ok(Some(response)) => return Ok(response),
+            Ok(None) => (),
+            Err(failure) => return error(failure.status, failure.code, id, failure.retryable),
+        }
+    }
     if path == "/"
         && matches!(request.method(), Method::Get | Method::Head)
         && env.var("ADMIN_ORIGIN").is_ok_and(|origin| {

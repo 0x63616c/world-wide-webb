@@ -139,6 +139,7 @@ const authenticatedRuntime = new Miniflare(convertV4MiniflareOptions({ workers: 
   ],
   compatibilityDate: "2026-11-04",
   outboundService: syntheticApple,
+  ratelimits: Object.fromEntries(['API_NETWORK_BURST','AUTH_NETWORK_BURST','API_CREDENTIAL_BURST'].map((name,i)=>[name,{namespace_id:String(900+i),simple:{limit:100000,period:60}}])),
   queueProducers: {JOBS:"folding-local-jobs", JOBS_DEAD:"folding-local-dead"},
   queueConsumers: {"folding-local-jobs":{maxBatchSize:1,maxBatchTimeout:0}},
   bindings: {
@@ -161,7 +162,7 @@ test("actual Worker issues bounded challenges and rotates encrypted sessions wit
   const {createHash}=await import("node:crypto");
   const hash=bytes=>createHash("sha256").update(bytes).digest();
   const db=await authenticatedRuntime.getD1Database("DB");
-  for (const migration of ["0001_mutation_fences.sql","0002_sessions.sql","0003_auth_operations.sql","0004_sign_in.sql","0005_attestation_enrollment.sql","0006_competition.sql","0007_community_reads.sql","0008_privacy_lifecycle.sql","0009_period_finalization.sql","0010_moderation.sql","0011_avatars.sql","0012_notifications.sql", "0013_operations.sql", "0014_corrections.sql", "0015_moderation_cases.sql", "0016_monitoring.sql", "0017_external_retries.sql", "0018_entry_deletions.sql"]) {
+  for (const migration of ["0001_mutation_fences.sql","0002_sessions.sql","0003_auth_operations.sql","0004_sign_in.sql","0005_attestation_enrollment.sql","0006_competition.sql","0007_community_reads.sql","0008_privacy_lifecycle.sql","0009_period_finalization.sql","0010_moderation.sql","0011_avatars.sql","0012_notifications.sql", "0013_operations.sql", "0014_corrections.sql", "0015_moderation_cases.sql", "0016_monitoring.sql", "0017_external_retries.sql", "0018_entry_deletions.sql", "0019_resource_protection.sql"]) {
     const source=await readFile(`${root}migrations/${migration}`,"utf8");
     for(const sql of source.split(";").filter(s=>s.trim())) await db.prepare(sql).run();
   }
@@ -372,6 +373,98 @@ test("entry deletion is owned, idempotent and durable before late upload", async
   await db.prepare("INSERT INTO observations(participant_id,event_id,device_id,sequence,event_json,disposition,received_at_ms) VALUES (?,?,?,?,?,'accepted',?)").bind(participant,future,device,4,JSON.stringify(event(future,4,"open")),time).run();
   const recalculate=await send({operation_id:"00000000-0000-0000-0000-000000008123",event_ids:[future],epoch_ids:[epoch]});assert.equal(recalculate.status,200);
   assert.equal(await db.prepare("SELECT folds FROM live_scores WHERE participant_id=? AND period_id='all'").bind(participant).first("folds"),1);
+
+});
+
+const protectionRuntime = new Miniflare(convertV4MiniflareOptions({workers:[{
+ name:'folding-burst-local',modules:[{type:'ESModule',path:`${root}crates/worker/build/index.js`},{type:'CompiledWasm',path:`${root}crates/worker/build/index_bg.wasm`}],
+ compatibilityDate:'2026-11-04',bindings:{DEPLOYMENT:'staging'},d1Databases:{DB:'burst-local'},
+ ratelimits:{API_NETWORK_BURST:{namespace_id:'910',simple:{limit:3,period:60}},AUTH_NETWORK_BURST:{namespace_id:'911',simple:{limit:1,period:60}},API_CREDENTIAL_BURST:{namespace_id:'912',simple:{limit:1,period:60}}}
+}]}));
+after(()=>protectionRuntime.dispose());
+test('pre-database burst limits cover forged credentials and rotating-token floods',async()=>{
+ const db=await protectionRuntime.getD1Database('DB');
+ await db.prepare('CREATE TABLE ingestion_metrics(minute_ms INTEGER PRIMARY KEY,requests INTEGER,failures INTEGER)').run();
+ const get=(ip,token,path='/v1/me')=>protectionRuntime.dispatchFetch(`https://api.example${path}`,{headers:{'CF-Connecting-IP':ip,Authorization:`Bearer ${token}`}});
+ assert.equal((await get('192.0.2.80','one')).status,503);
+ const credential=await get('192.0.2.81','one','/v1/event-batches');
+ assert.equal(credential.status,429); assert.equal(credential.headers.get('Retry-After'),'60');
+ for(let i=0;i<3;i++) assert.equal((await get('192.0.2.82',`rotate-${i}`)).status,503);
+ const network=await protectionRuntime.dispatchFetch('https://api.example/v1/event-batches',{method:'POST',headers:{'CF-Connecting-IP':'192.0.2.82',Authorization:'Bearer new-token'},body:'x'.repeat(256*1024+1)});
+ assert.equal(network.status,429);
+ assert.equal(await db.prepare('SELECT count(*) n FROM ingestion_metrics').first('n'),0);
+ assert.equal((await get('192.0.2.83','fresh')).status,503);
+ await get('192.0.2.84','auth-a','/v1/auth/challenges');
+ assert.equal((await get('192.0.2.84','auth-b','/v1/auth/challenges')).status,429);
+});
+test('scheduler avoids empty categories, duplicate pending work and failed retry resets',async()=>{
+ const db=await authenticatedRuntime.getD1Database('DB');
+ const source=await readFile(`${root}crates/worker/src/jobs_runtime.rs`,'utf8');
+ const sql=name=>source.match(new RegExp(`pub const ${name}: &str = r#"([\\s\\S]*?)"#;`))[1];
+ const time=Date.now()+86400000,slot=Math.floor(time/300000),firstHour=Math.floor(time/3600000)*12;
+ await db.prepare('DELETE FROM jobs').run();
+ await db.prepare('DELETE FROM epochs').run();
+ const due=async()=> (await db.prepare(sql('DUE_CATEGORIES_SQL')).bind(time,firstHour).all()).results.map(r=>r.kind);
+ assert.deepEqual(await due(),['retention']);
+ const insert=(id,kind,version=slot)=>db.prepare(sql('INSERT_CATEGORY_SQL')).bind(id,kind,version,time).run();
+ await insert('hourly-retention','retention'); await insert('duplicate-pending','retention',slot+1);
+ assert.equal(await db.prepare("SELECT count(*) n FROM jobs WHERE kind='retention'").first('n'),1);
+ await db.prepare("UPDATE jobs SET state='completed' WHERE kind='retention'").run();
+ assert.deepEqual(await due(),[]);
+ await db.prepare("INSERT INTO avatar_purge_jobs VALUES ('synthetic-object','nobody',0,0)").run();
+ assert.ok((await due()).includes('avatar_cleanup'));
+ await insert('cleanup-failed','avatar_cleanup');
+ await db.prepare("UPDATE jobs SET state='failed' WHERE job_id='cleanup-failed'").run();
+ await insert('must-not-reset-retries','avatar_cleanup',slot+1);
+ assert.equal(await db.prepare("SELECT count(*) n FROM jobs WHERE kind='avatar_cleanup'").first('n'),1);
+ await db.prepare("DELETE FROM avatar_purge_jobs WHERE object_key='synthetic-object'").run();
+});
+
+test('D1 neighbor lookups stay scoped and negative score deltas apply atomically',async()=>{
+ const db=await protectionRuntime.getD1Database('DB');
+ await db.prepare('CREATE TABLE observations(participant_id TEXT,event_id TEXT,device_id TEXT,sequence INTEGER,event_json TEXT,disposition TEXT,PRIMARY KEY(participant_id,event_id),UNIQUE(participant_id,device_id,sequence))').run();
+ const migration=await readFile(`${root}migrations/0019_resource_protection.sql`,'utf8');
+ await db.prepare(migration.split('CREATE INDEX jobs_category_state')[0]).run();
+ for(const [id,sequence,owner] of [['a',1,'p'],['c',3,'p'],['private',2,'other']]){
+   const event={event_id:id,device_id:'d',sequence,generation:{revision:0,reset_id:'g'},is_test:false};
+   await db.prepare("INSERT INTO observations VALUES (?,?,'d',?,?,'accepted')").bind(owner,id,sequence,JSON.stringify(event)).run();
+ }
+ const source=await readFile(`${root}crates/worker/src/ingestion_neighbors.rs`,'utf8');
+ const query=source.match(/pub const NEIGHBORS_SQL: &str = r#"([\s\S]*?)"#;/)[1];
+ const input={events:[{event_id:'b',device_id:'d',sequence:2,generation:{revision:0,reset_id:'g'}}]};
+ const rows=(await db.prepare(query).bind('p',JSON.stringify(input)).all()).results;
+ assert.deepEqual(rows.map(r=>JSON.parse(r.event_json).event_id).sort(),['a','c']);
+ await db.prepare('CREATE TABLE live_scores(participant_id TEXT,generation_revision INTEGER,generation_id TEXT,period_id TEXT,folds INTEGER CHECK(folds>=0),revision INTEGER,PRIMARY KEY(participant_id,period_id))').run();
+ const scoring=await readFile(`${root}crates/worker/src/competition_runtime.rs`,'utf8');
+ const delta=scoring.match(/const SCORE_DELTA_SQL: &str = r#"([\s\S]*?)"#;/)[1];
+ await db.prepare(delta).bind('p',0,'g','week',1,1).run();
+ await db.prepare(delta).bind('p',0,'g','week',-1,2).run();
+ assert.equal(await db.prepare("SELECT folds FROM live_scores WHERE participant_id='p'").first('folds'),0);
+ await assert.rejects(db.prepare(delta).bind('p',0,'g','week',-1,3).run());
+ assert.equal(await db.prepare("SELECT revision FROM live_scores WHERE participant_id='p'").first('revision'),2);
+});
+
+test('minimum-build policy rejects old business requests before body/DB work and preserves recovery',async()=>{
+ const make=minimum=>new Miniflare(convertV4MiniflareOptions({workers:[{
+  name:`policy-${minimum}`,modules:[{type:'ESModule',path:`${root}crates/worker/build/index.js`},{type:'CompiledWasm',path:`${root}crates/worker/build/index_bg.wasm`}],
+  compatibilityDate:'2026-11-04',bindings:{MINIMUM_IOS_BUILD:minimum}
+ }]}));
+ const worker=make('10'),disabled=make('0'),invalid=make('invalid');
+ try {
+  const policy=await worker.dispatchFetch('https://api.example/v1/client-policy');
+  assert.equal(policy.status,200);assert.equal((await policy.json()).minimum_ios_build,10);assert.equal(policy.headers.get('Cache-Control'),'no-store');
+  for(const build of [undefined,'9','bad','2147483648']) {
+    const headers=build===undefined?{}:{'X-Folding-Build':build};
+    const result=await worker.dispatchFetch('https://api.example/v1/event-batches',{method:'POST',headers,body:'x'.repeat(256*1024+1)});
+    assert.equal(result.status,426);const body=await result.json();assert.equal(body.code,'app_update_required');assert.equal(body.retryable,true);assert.equal(body.retry_after_seconds,3600);assert.equal(body.minimum_ios_build,10);
+    assert.equal(result.headers.get('X-Folding-Minimum-Build'),'10');
+  }
+  const current=await worker.dispatchFetch('https://api.example/v1/event-batches',{method:'POST',headers:{'X-Folding-Build':'10'},body:'x'.repeat(256*1024+1)});
+  assert.equal(current.status,413); // compatibility is not authentication; ordinary checks still run
+  const legacy=await disabled.dispatchFetch('https://api.example/v1/me');assert.equal(legacy.status,503); // reaches unconfigured auth, not retirement
+  const deletion=await worker.dispatchFetch('https://api.example/v1/account/delete',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});assert.equal(deletion.status,503);
+  assert.equal((await invalid.dispatchFetch('https://api.example/v1/client-policy')).status,503);
+ } finally { await Promise.all([worker.dispose(),disabled.dispose(),invalid.dispose()]); }
 });
 
 for (const documentedNames of [true, false]) test(`actual Worker verifies ${documentedNames ? "documented metadata" : "device metadata and flags"} Apple assertions on Join without weakening replay or body binding`, async () => {

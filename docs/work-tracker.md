@@ -245,6 +245,20 @@ GitHub #28, #32 and #40 checklists reflect these partial completions. CI and phy
 - [x] [#58 — Shortcuts partition-busy failures](https://github.com/0x63616c/folding/issues/58): reproduced the reported `FoldingData.PartitionError error 3` through concurrent account startup and brief route-lock contention. Same-account callers now share initialization; bounded recording retries retain observation identity/time and respect account/reset fences. All 89 core and 41 app-hosted simulator tests pass. TestFlight **0.1.10 (11)** is Apple **VALID** and verified in **Folding Internal**, from `da0ac00`. [Evidence](experiments/shortcuts-partition-busy-2026-11-08.md); physical overnight/Shortcuts acceptance remains deferred to #47/F13.
 
 
+## API cost and abuse protection — November 8
+
+- [ ] [#55 — API resource protection and idle-cost reduction](https://github.com/0x63616c/folding/issues/55): local code implemented and verified; staging/production activation and updated client distribution remain open. Includes pre-D1 burst limits, selective/hourly maintenance, ten-message queue batches, indexed score deltas, shared one-minute uploads, persisted cooldowns, bounded read caching and sampled safe route logs. See [implementation and evidence](experiments/resource-protection-2026-11-08.md). Existing physical-device/load/CI/shipping deferrals remain unchanged.
+
+
+## App compatibility and offline startup — November 8
+
+- [x] [#56 — Minimum supported app build](https://github.com/0x63616c/folding/issues/56): whole-app gate chosen by owner; local implementation verified (31 Rust, 11 Worker/D1 and eight focused simulator tests). Provider activation and updated TestFlight/device evidence remain separate. See [compatibility contract](technical/client-compatibility.md).
+- [ ] [#57 — Reliable offline cold startup](https://github.com/0x63616c/folding/issues/57): local implementation verified through 93 core and 51 app-hosted tests, including cold reopening with cloud lookups unavailable, continued recording/history, same-account availability notifications and account/installation fences. See [evidence](experiments/offline-cold-start-2026-11-08.md). Updated TestFlight, physical airplane-mode/Shortcuts and cloud reconnection acceptance remain open in #47/F13; do not mark them passed.
+
+### App copy cleanup — November 8, 2026
+
+- [x] [#25](https://github.com/0x63616c/folding/issues/25): review app/view, widget, notification and Intent wording; remove repeated setup/join/tip explanations, duplicate profile labels and daily-limit body; shorten errors, results and removal copy across ten locales. Persist the product-copy rule. Local app compilation, 207-key catalog validation, ten localization regressions and compiled ten-locale/40-plural runtime checks pass. Final display/device acceptance remains open in #25/#47.
+
 ## Review request timing — November 8
 
 - [x] Owner-approved local policy update in [#40](https://github.com/0x63616c/folding/issues/40): remove the seven-day wait, retain three separate recorded-use days and completed-summary safeguards, and allow another request attempt after 30 days. Existing persisted attempt timestamps are retained.
