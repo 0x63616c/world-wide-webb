@@ -5,8 +5,8 @@ The route is **final verified service backups → you wipe and enroll the Mini �
 You then:
 
 1. Erase the Mini yourself.
-2. Create its first administrator with short name **calum**, UID **501**. Check locally with `id -u calum`.
-3. Set the local hostname to **homelab-mac-mini** and enable **Remote Login** for calum. Keep it powered on the same home network.
+2. Create its first administrator with short name **admin**, UID **501**. Check locally with `id -u admin`.
+3. Set the local hostname to **homelab-mac-mini** and enable **Remote Login** for admin. Keep it powered on the same home network.
 4. At the Mini console, obtain its fresh SSH fingerprint with `ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub`. Compare it with the operator connection; stop for review if saved trust conflicts.
 5. On your operator Mac, open **`homelab`** (installed CLI verified: **0.4.1**), select **0x63616c/homelab → homelab-mac-mini**, and complete setup/reboot verification. GitHub, unlocked 1Password and standalone Tailscale must be available. The reviewed rebuilt-Mini configuration must be on `main`.
 

@@ -23,6 +23,12 @@ time archiving those. Preserve service data, credentials, identities and network
 recovery configuration. Restore the retained services directly
 onto the newly enrolled Mini afterward. Penpot recovery remains optional.
 
+### Fresh Mini account correction
+
+After wiping/updating, Calum created/renamed the first administrator to `admin`
+and enabled Remote Login; FileVault is off. Fresh enrollment must use
+`admin`/UID501. This supersedes earlier `calum` account instructions.
+
 ### Pre-wipe gates completed
 
 The direct-rebuild handoff is ready. Full set `20261108T150608Z` has18 NAS
