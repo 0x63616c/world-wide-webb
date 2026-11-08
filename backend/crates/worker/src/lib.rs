@@ -60,6 +60,7 @@ mod jobs_runtime;
 mod leaderboard_runtime;
 #[cfg(target_arch = "wasm32")]
 mod lifecycle_runtime;
+pub mod milestone_projection;
 #[cfg(any(target_arch = "wasm32", test))]
 mod moderation_eligibility;
 #[cfg(target_arch = "wasm32")]

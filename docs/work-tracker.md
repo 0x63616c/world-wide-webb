@@ -280,3 +280,12 @@ November 8 competition cleanup: removed the active Leave and manual profile-appr
 - [x] [#65](https://github.com/0x63616c/folding/issues/65): Operations owns the persisted minimum build, with existing Access/CSRF/revision/audit safeguards, default 0, bounded policy caching and no deployment-variable override. Local Rust/Wasm checks and 16 Worker/D1 tests verify activation, rollback, authorization, bounds and replay/stale edits; staging/production now have all 20 checksum migrations, the old variable is absent, and both policies remain 0. Actual staging admin activation/rollback and the production form are verified. See [evidence](experiments/admin-minimum-build-2026-11-08.md).
 
 November 8 follow-up: omit the misleading “Building a comparison” fallback from live and finalized results when population is below 20 or no percentile is available. Folds/rank remain visible and the comparison threshold is unchanged. Swift formatting and 202-key × ten-locale checks pass; not yet included in an installed TestFlight build.
+
+## Profiles and milestones implementation — November 8
+
+- [ ] [#71](https://github.com/0x63616c/folding/issues/71), **In progress**, under F07/#8: implement the [single-release plan](technical/profiles-and-milestones.md). All profile, progress, collection, featuring and celebration behavior ships together.
+- [x] Implement and verify the six stable catalog IDs, next-target reveal, accumulated awards, distinct UTC days, correction thresholds, safe-count validation and contribution-delta cancellation. The Rust workspace passes 44 tests (six domain units, seven contracts, 31 Worker units), including ten new milestone/projection/schema tests.
+- [x] Add an unapplied additive migration defining bounded projection/backfill state, counted-event/day indexes, grants, optional featuring and durable acknowledgments. Local schema test rejects unearned featuring, clears the feature on grant revocation and cascades account deletion while retaining acknowledgment across revocation.
+- [ ] Implement guarded service routes, bounded backfill and scoring/lifecycle projection integration, typed client models, full profile/milestone UI, artwork/localization, privacy/accessibility and integrated release evidence. The HTTP amendment defines intended operations; no new route or migration is deployed.
+
+This is an internal implementation checkpoint, not a feature release or broad acceptance. No simulator, credential lookup or deployment was used. Existing CI/storefront/visual/submission/device deferrals remain.

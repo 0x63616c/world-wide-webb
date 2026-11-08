@@ -2,6 +2,19 @@
 
 This catalog fixes wire names and request/response ownership. JSON schemas under `contracts/schemas/` cover the critical event/reset/error messages. Remaining object shapes are defined below and must be encoded in typed Swift/Rust DTOs before implementing their work order. A new route/field meaning requires updating this catalog and shared fixtures in the same PR.
 
+## Profiles and milestones amendment — #71
+
+These additive contracts are implemented as one integrated release with [the feature plan](profiles-and-milestones.md); they do not establish provider acceptance. `BadgeID` is one of `folds_1`, `folds_100`, `folds_1000`, `folds_10000`, `days_7`, `days_30`. Catalog version is 1. All counts are server-owned eligible current-generation competition counts; daily milestones use distinct UTC days. No client-provided count, date or grant is accepted.
+
+- `MilestoneProgress`: `{catalog_version:1, folds, days_used, next:[{track:folds|days,badge_id:BadgeID,current,target}], earned:BadgeID[]}`. At most one unmet target per track; completed tracks have no next entry. The full locked catalog is never returned as progress.
+- `MilestoneGrant`: `{badge_id:BadgeID, earned_at_ms:Instant|null, acknowledged:bool}`; owner-only.
+- `GET /v1/milestones`: authenticated eligible owner → `{generation:Generation, revision, progress:MilestoneProgress, grants:MilestoneGrant[], featured_badge_id:BadgeID|null, request_id}`. Partial/revision-invalid backfills return retryable 503, never partial awards. Confirmed cached owner data may remain visible offline, fenced by account/generation.
+- `GET /v1/participants/{participant_id}`: authenticated eligible community member → `{profile:{participant_id,nickname,avatar_id:ID|null,folds,earned_badges:BadgeID[],featured_badge_id:BadgeID|null},revision,request_id}`. Target must currently be active, joined and unrestricted. No progress, unlock timestamps, pending totals, home timezone or private metadata. Missing/invisible targets return 404 `not_found`. Reads are visibility-fenced and no-store.
+- `PATCH /v1/profile/badge`: session-authorized eligible owner; `{operation_id:ID,generation:Generation,badge_id:BadgeID|null}` → `{operation_id,featured_badge_id:BadgeID|null,request_id}`. Only a currently earned badge can be selected. Null removes featuring. Stale generation returns 409 `generation_stale`. Unknown IDs/unearned badges return 422. An operation ID binds route and normalized body; conflicting reuse returns 409. Feature edits use existing profile edit rate limits, not fold-ingestion attestation.
+- `POST /v1/milestones/acknowledgments`: session-authorized eligible owner; `{operation_id:ID,generation:Generation,badge_ids:BadgeID[]}` (1–6 distinct currently earned IDs) → `{operation_id,state:completed,request_id}`. Persist only the explicitly displayed group. Acknowledgment survives correction/re-earning within the generation; reset erases it. Stale generation and idempotency follow featuring rules. Reads/background refresh never acknowledge awards.
+
+Live ranked entries additionally support optional `featured_badge_id:BadgeID|null`. Old clients may ignore it; new clients treat absence as no featured badge. The feature requires a compatible service/schema before its app release; it does not gate private recording or relax current moderation/attestation rules.
+
 ## Common shapes
 
 - `ID`: lowercase UUID string. `Instant`: integer Unix milliseconds. `Page<T>`: `{items: T[], next_cursor: string|null, snapshot_version: string}`. `Mutation`: request contains `operation_id: ID`; success includes `operation_id` and `request_id: ID`.
