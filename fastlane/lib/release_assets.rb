@@ -70,30 +70,35 @@ module FoldingRelease
             end
             storefront_scenes = review_only ? [] : PLAN.fetch("scenarios")
             next if storefront_scenes.empty? && review_scenes.empty?
-            raw_dir = File.join(output, "raw", display.fetch("id"), locale.fetch("storefront_locale"))
-            context.capture_screenshots(
-              project: File.join(ROOT, "apps/ios/Folding.xcodeproj"), scheme: PLAN.fetch("scheme"),
-              app_identifier: "app.getfolding.Folding.Screenshots",
-              configuration: PLAN.fetch("configuration"), devices: [name],
-              languages: [locale.fetch("snapshot_locale")],
-              launch_arguments: ["--folding-screenshot-locale #{locale.fetch('app_locale')} --folding-screenshot-appearance #{PLAN.fetch('appearance')}"],
-              only_testing: (storefront_scenes + review_scenes).map { |scenario| "#{PLAN.fetch('test_target')}/FoldingScreenshotTests/#{scenario.fetch('test')}" },
-              output_directory: raw_dir, derived_data_path: File.join(ROOT, "build/screenshot-release"),
-              clear_previous_screenshots: true, reinstall_app: true,
-              concurrent_simulators: false, number_of_retries: 0, skip_open_summary: true,
-              override_status_bar: false, xcodebuild_formatter: ""
-            )
-            storefront_scenes.each do |scenario|
-              matches = Dir.glob(File.join(raw_dir, "**/*#{scenario.fetch('id')}.png"))
-              raise "Missing/duplicate current capture" unless matches.length == 1
-              raw = matches.first
-              raise "Wrong Duo display captured" unless png_size(raw) == [display.fetch("pixel_width"), display.fetch("pixel_height")]
-              entries << compose(record, raw, display, locale, scenario)
-            end
-            review_scenes.each do |scenario|
-              matches = Dir.glob(File.join(raw_dir, "**/*#{scenario.fetch('id')}.png"))
-              raise "Missing/duplicate current tip review capture" unless matches.length == 1
-              package_tip_review(record, matches.first, display, locale, scenario)
+            (storefront_scenes + review_scenes).group_by { |scene| scene.fetch("appearance", PLAN.fetch("appearance")) }.each do |appearance, scenes|
+              current_storefront = storefront_scenes & scenes
+              current_review = review_scenes & scenes
+              FoldingRelease.run("xcrun", "simctl", "ui", device, "appearance", appearance)
+              raw_dir = File.join(output, "raw", display.fetch("id"), locale.fetch("storefront_locale"), appearance)
+              context.capture_screenshots(
+                project: File.join(ROOT, "apps/ios/Folding.xcodeproj"), scheme: PLAN.fetch("scheme"),
+                app_identifier: "app.getfolding.Folding.Screenshots",
+                configuration: PLAN.fetch("configuration"), devices: [name],
+                languages: [locale.fetch("snapshot_locale")],
+                launch_arguments: ["--folding-screenshot-locale #{locale.fetch('app_locale')} --folding-screenshot-appearance #{appearance}"],
+                only_testing: scenes.map { |scenario| "#{PLAN.fetch('test_target')}/FoldingScreenshotTests/#{scenario.fetch('test')}" },
+                output_directory: raw_dir, derived_data_path: File.join(ROOT, "build/screenshot-release"),
+                clear_previous_screenshots: true, reinstall_app: true,
+                concurrent_simulators: false, number_of_retries: 0, skip_open_summary: true,
+                override_status_bar: false, xcodebuild_formatter: ""
+              )
+              current_storefront.each do |scenario|
+                matches = Dir.glob(File.join(raw_dir, "**/*#{scenario.fetch('id')}.png"))
+                raise "Missing/duplicate current capture" unless matches.length == 1
+                raw = matches.first
+                raise "Wrong Duo display captured" unless png_size(raw) == [display.fetch("pixel_width"), display.fetch("pixel_height")]
+                entries << compose(record, raw, display, locale, scenario)
+              end
+              current_review.each do |scenario|
+                matches = Dir.glob(File.join(raw_dir, "**/*#{scenario.fetch('id')}.png"))
+                raise "Missing/duplicate current tip review capture" unless matches.length == 1
+                package_tip_review(record, matches.first, display, locale, scenario)
+              end
             end
           end
         end
@@ -111,6 +116,7 @@ module FoldingRelease
         manifest = {"schema_version" => 1, "commit_sha" => record.data.fetch("commit_sha"),
           "configuration_hash" => record.data.fetch("configuration_hash"), "entries" => entries}
         FoldingRelease.atomic_json(File.join(output, "screenshot-manifest.json"), manifest)
+        FoldingRelease.clean_commit!
         validate!(record)
       ensure
         # Only the simulator created by this invocation is ever shut down/deleted.
@@ -166,22 +172,28 @@ module FoldingRelease
 
     def self.compose(record, raw, display, locale, scenario)
       output = File.join(record.directory, "assets")
-      composed = File.join(output, "screenshots", locale.fetch("storefront_locale"), "#{display.fetch('id')}-#{scenario.fetch('id')}.png")
+      composed = File.join(output, "screenshots", locale.fetch("storefront_locale"), "%02d-%s-%s.png" % [scenario.fetch("order") * 2 - (display.fetch("id") == "duo-inner" ? 0 : 1), display.fetch("id"), scenario.fetch("id")])
       FileUtils.mkdir_p(File.dirname(composed))
       captions = SOURCE.fetch("locales").fetch(locale.fetch("storefront_locale")).fetch("captions")
       caption = captions.fetch(scenario.fetch("caption_key"))
       FoldingRelease.run("swift", File.join(ROOT, "fastlane/scripts/compose-screenshot.swift"), raw, composed,
-        display.fetch("pixel_width").to_s, display.fetch("pixel_height").to_s, caption)
+        display.fetch("pixel_width").to_s, display.fetch("pixel_height").to_s, caption,
+        SOURCE.fetch("locales").fetch(locale.fetch("storefront_locale")).fetch("eyebrows").fetch(scenario.fetch("caption_key")),
+        scenario.fetch("appearance"), File.join(ROOT, "fastlane/screenshot-frame.json"))
       {"commit_sha" => record.data.fetch("commit_sha"), "configuration_hash" => record.data.fetch("configuration_hash"),
         "fixture_version" => PLAN.fetch("fixture_version"), "fixed_clock" => PLAN.fetch("fixed_clock"),
         "app_locale" => locale.fetch("app_locale"), "storefront_locale" => locale.fetch("storefront_locale"),
         "device_id" => display.fetch("id"), "device_model" => display.fetch("model"),
         "runtime" => PLAN.fetch("runtime"), "runtime_build" => PLAN.fetch("runtime_build"),
         "pixel_width" => display.fetch("pixel_width"), "pixel_height" => display.fetch("pixel_height"),
-        "raw_pixel_size" => png_size(raw), "appearance" => PLAN.fetch("appearance"), "scenario_id" => scenario.fetch("id"),
+        "raw_pixel_size" => png_size(raw), "appearance" => scenario.fetch("appearance"), "scenario_id" => scenario.fetch("id"),
         "raw_path" => raw.delete_prefix(output + "/"), "composed_path" => composed.delete_prefix(output + "/"),
         "raw_sha256" => FoldingRelease.sha(raw), "composed_sha256" => FoldingRelease.sha(composed),
         "caption_key" => scenario.fetch("caption_key"), "caption_version" => PLAN.fetch("caption_version"),
+        "caption_source_sha256" => FoldingRelease.sha(File.join(ROOT, "fastlane/metadata-source.json")),
+        "plan_sha256" => FoldingRelease.sha(File.join(ROOT, "fastlane/screenshot-plan.json")),
+        "frame_sha256" => FoldingRelease.sha(File.join(ROOT, "fastlane/screenshot-frame.json")),
+        "compositor_sha256" => FoldingRelease.sha(File.join(ROOT, "fastlane/scripts/compose-screenshot.swift")),
         "upload_display_type" => display.fetch("upload_display_type")}
     end
 
@@ -203,8 +215,17 @@ module FoldingRelease
           raise "Invalid screenshot path" unless path.start_with?(output + "/")
           raise "Screenshot content changed" unless FoldingRelease.sha(path) == entry.fetch("#{kind}_sha256")
         end
+        raise "Screenshot copy or plan changed" unless entry["caption_source_sha256"] == FoldingRelease.sha(File.join(ROOT, "fastlane/metadata-source.json")) && entry["plan_sha256"] == FoldingRelease.sha(File.join(ROOT, "fastlane/screenshot-plan.json"))
+        raise "Screenshot template changed" unless entry["frame_sha256"] == FoldingRelease.sha(File.join(ROOT, "fastlane/screenshot-frame.json")) && entry["compositor_sha256"] == FoldingRelease.sha(File.join(ROOT, "fastlane/scripts/compose-screenshot.swift"))
+        require "deliver/app_screenshot"
+        path = File.join(output, entry.fetch("composed_path"))
+        raise "Fastlane screenshot slot mismatch" unless Deliver::AppScreenshot.calculate_display_type(path) == entry.fetch("upload_display_type")
         raise "Screenshot output dimensions changed" unless png_size(File.join(output, entry.fetch("composed_path"))) == entry.values_at("pixel_width", "pixel_height")
       end
+      entries.group_by { |entry| entry.values_at("storefront_locale", "upload_display_type") }.each_value do |gallery|
+        raise "Apple screenshot gallery exceeds ten images" if gallery.length > 10
+      end
+      record.verify_identity!
       metadata = FoldingRelease.read_json(File.join(output, "metadata-manifest.json"))
       raise "Metadata identity mismatch" unless metadata["commit_sha"] == record.data["commit_sha"] && metadata["configuration_hash"] == record.data["configuration_hash"]
       metadata.fetch("files").each do |name, hash|

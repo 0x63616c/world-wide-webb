@@ -81,3 +81,51 @@ For `final-review`, use `kind: review`, `name: final-review`, the source commit,
 Signing preparation attempts are audited separately from archive attempts. A keychain/match failure can retry the same unbuilt reservation. Once `build_app` might have run, use `bundle exec fastlane ios recover_archive tag:v1.0.0 reason:"…"` under the same distribution lock. It verifies the old build is absent from Apple, reserves a strictly newer global build number, records actor/reason/replacement, and retires old local outputs. Sealed candidate archives are published/reconciled instead of rebuilt. An interrupted replacement reuses its durable ledger reservation.
 
 Submission prepares one Apple review submission containing the exact app version and all three `inAppPurchaseVersions`, then reads back every item and its purchase ownership. Retry preparation reconciles existing draft items; unrelated or ambiguous drafts fail closed. The irreversible submit marker is saved before requesting review. A lost submission response is observed, never blindly repeated. Live Apple acceptance of these newer public review resources remains a shipping check.
+
+## Tendr-style marketing frames
+
+The frame renderer is adapted from `0x63616c/apps`'s RDesign `rframe` template:
+tracked uppercase label, large headline, graphite light/dark background and a thin
+frame/shadow around the complete native capture. It fits Duo proportions without
+adding a Dynamic Island or cropping the source UI. Frame geometry is versioned in
+`screenshot-frame.json`; all ten locales' headlines/labels live in
+`metadata-source.json`. Both remain subject to final language/visual review.
+
+`fastlane ios screenshots` captures Today/community in dark mode and
+History/Settings in light mode. Each locale has eight ordered Duo images (outer
+then inner for each scene, sharing Apple's ten-image gallery limit) and four
+medium-canvas images. The latter preserve a Duo capture's aspect ratio and are
+identified as composed canvases in the manifest. Fastlane's pinned image classifier
+must recognise each actual output's intended upload slot. Manifest validation also
+rejects changed copy, capture plan, frame geometry or renderer source.
+
+For a quick **draft frame only**, without starting a simulator:
+
+```sh
+scripts/preview-storefront /absolute/path/to/raw.png build/frame-preview.png --scene today --display duo-outer --locale en-US
+```
+
+Use a raw capture matching the scene's appearance. This command never creates
+release evidence; only capture from a clean, committed source through the release
+lanes can do that. It refuses to overwrite an existing output.
+
+After sealing/reviewing all release assets and completing final preflight, upload
+the listing without requesting App Review:
+
+```sh
+bundle exec fastlane ios storefront tag:v1.0.0 evidence:/absolute/path/evidence.json
+```
+
+The lane uses the same guarded upload path as `submit`. It verifies the exact
+selected build, localized version copy, screenshot gallery count/order, source
+checksums, dimensions and Apple's `COMPLETE` processing state. A completed upload
+is recorded before readback; resume the lane if Apple is still processing images.
+It does not call the review-submission API. Final `submit` rechecks the storefront
+before submitting. This does not enable CI or replace outstanding provider review.
+
+Focused local checks:
+
+```sh
+bundle exec ruby fastlane/tests/screenshot_frames_test.rb
+bundle exec ruby fastlane/tests/storefront_readback_test.rb
+```

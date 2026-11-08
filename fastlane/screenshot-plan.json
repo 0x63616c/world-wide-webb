@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "fixture_version": 1,
-  "caption_version": 1,
+  "caption_version": 2,
   "fixed_clock": "2026-11-02T10:09:00Z",
   "scheme": "FoldingScreenshots",
   "configuration": "Screenshots",
@@ -32,32 +32,67 @@
     {
       "id": "today",
       "test": "testToday",
-      "caption_key": "today"
+      "caption_key": "today",
+      "appearance": "dark",
+      "order": 1
     },
     {
       "id": "history",
       "test": "testHistory",
-      "caption_key": "history"
+      "caption_key": "history",
+      "appearance": "light",
+      "order": 2
     },
     {
       "id": "leaderboard",
       "test": "testLeaderboard",
-      "caption_key": "leaderboard"
+      "caption_key": "leaderboard",
+      "appearance": "dark",
+      "order": 3
     },
     {
       "id": "settings",
       "test": "testSettings",
-      "caption_key": "settings"
+      "caption_key": "settings",
+      "appearance": "light",
+      "order": 4
     }
   ],
   "additional_upload_slots": [
     {
-      "id": "iphone-medium",
+      "id": "iphone-medium-today",
       "pixel_width": 1206,
       "pixel_height": 2622,
       "upload_display_type": "APP_IPHONE_61",
       "source_device_id": "duo-outer",
       "scenario_id": "today",
+      "preserve_source_aspect_ratio": true
+    },
+    {
+      "id": "iphone-medium-history",
+      "pixel_width": 1206,
+      "pixel_height": 2622,
+      "upload_display_type": "APP_IPHONE_61",
+      "source_device_id": "duo-outer",
+      "scenario_id": "history",
+      "preserve_source_aspect_ratio": true
+    },
+    {
+      "id": "iphone-medium-leaderboard",
+      "pixel_width": 1206,
+      "pixel_height": 2622,
+      "upload_display_type": "APP_IPHONE_61",
+      "source_device_id": "duo-outer",
+      "scenario_id": "leaderboard",
+      "preserve_source_aspect_ratio": true
+    },
+    {
+      "id": "iphone-medium-settings",
+      "pixel_width": 1206,
+      "pixel_height": 2622,
+      "upload_display_type": "APP_IPHONE_61",
+      "source_device_id": "duo-outer",
+      "scenario_id": "settings",
       "preserve_source_aspect_ratio": true
     }
   ],

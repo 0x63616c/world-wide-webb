@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "caption_version": 1,
+  "caption_version": 2,
   "translations_status": "draft_pending_final_localization_review",
   "locales": {
     "en-US": {
@@ -11,10 +11,16 @@
       "promotional_text": "Every fold. A little story.",
       "release_notes": "Meet Folding: your personal Duo fold tracker.",
       "captions": {
-        "today": "Every fold. A little story.",
+        "today": "Every fold.\nA little story.",
         "history": "Your day, unfolded.",
-        "leaderboard": "A friendly bit of rivalry.",
+        "leaderboard": "A friendly bit\nof rivalry.",
         "settings": "Make it yours."
+      },
+      "eyebrows": {
+        "today": "Your folds",
+        "history": "History",
+        "leaderboard": "Community",
+        "settings": "Preferences"
       }
     },
     "de-DE": {
@@ -29,6 +35,12 @@
         "history": "Dein Tag, aufgeklappt.",
         "leaderboard": "Ein freundlicher Wettbewerb.",
         "settings": "Ganz nach deinem Geschmack."
+      },
+      "eyebrows": {
+        "today": "Deine Faltungen",
+        "history": "Verlauf",
+        "leaderboard": "Community",
+        "settings": "Einstellungen"
       }
     },
     "fr-FR": {
@@ -43,6 +55,12 @@
         "history": "Votre journée se déplie.",
         "leaderboard": "Une rivalité amicale.",
         "settings": "À votre image."
+      },
+      "eyebrows": {
+        "today": "Vos pliages",
+        "history": "Historique",
+        "leaderboard": "Communauté",
+        "settings": "Préférences"
       }
     },
     "es-ES": {
@@ -57,6 +75,12 @@
         "history": "Tu día, desplegado.",
         "leaderboard": "Una rivalidad amistosa.",
         "settings": "A tu manera."
+      },
+      "eyebrows": {
+        "today": "Tus pliegues",
+        "history": "Historial",
+        "leaderboard": "Comunidad",
+        "settings": "Preferencias"
       }
     },
     "es-MX": {
@@ -71,6 +95,12 @@
         "history": "Tu día, desplegado.",
         "leaderboard": "Una competencia amistosa.",
         "settings": "A tu manera."
+      },
+      "eyebrows": {
+        "today": "Tus pliegues",
+        "history": "Historial",
+        "leaderboard": "Comunidad",
+        "settings": "Preferencias"
       }
     },
     "ja": {
@@ -85,6 +115,12 @@
         "history": "一日の動きを記録。",
         "leaderboard": "気軽に競い合おう。",
         "settings": "あなたらしい表示に。"
+      },
+      "eyebrows": {
+        "today": "折りたたみ",
+        "history": "履歴",
+        "leaderboard": "コミュニティ",
+        "settings": "設定"
       }
     },
     "ko": {
@@ -99,6 +135,12 @@
         "history": "하루의 움직임을 기록해요.",
         "leaderboard": "가볍게 함께 경쟁해요.",
         "settings": "나만의 모습으로."
+      },
+      "eyebrows": {
+        "today": "접기 기록",
+        "history": "기록",
+        "leaderboard": "커뮤니티",
+        "settings": "설정"
       }
     },
     "pt-BR": {
@@ -113,6 +155,12 @@
         "history": "Seu dia, desdobrado.",
         "leaderboard": "Uma disputa amigável.",
         "settings": "Do seu jeito."
+      },
+      "eyebrows": {
+        "today": "Suas dobras",
+        "history": "Histórico",
+        "leaderboard": "Comunidade",
+        "settings": "Preferências"
       }
     },
     "zh-Hans": {
@@ -127,6 +175,12 @@
         "history": "看见一天的开合。",
         "leaderboard": "轻松比一比。",
         "settings": "打造你的专属界面。"
+      },
+      "eyebrows": {
+        "today": "折叠记录",
+        "history": "历史记录",
+        "leaderboard": "社区",
+        "settings": "偏好设置"
       }
     },
     "zh-Hant": {
@@ -141,6 +195,12 @@
         "history": "看見一天的開合。",
         "leaderboard": "輕鬆比一比。",
         "settings": "打造你的專屬介面。"
+      },
+      "eyebrows": {
+        "today": "摺疊記錄",
+        "history": "歷史記錄",
+        "leaderboard": "社群",
+        "settings": "偏好設定"
       }
     }
   }

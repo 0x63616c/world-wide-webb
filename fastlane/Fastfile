@@ -132,6 +132,12 @@ platform :ios do
     FoldingRelease::Operations.beta(self, FoldingRelease::Record.new(options.fetch(:tag)))
   end
 
+  desc "Upload reviewed metadata and screenshots to the exact build without submitting for review"
+  lane :storefront do |options|
+    record = FoldingRelease::Record.new(options.fetch(:tag))
+    FoldingRelease::Operations.storefront(self, record, options.fetch(:evidence))
+  end
+
   desc "Submit the exact reviewed production build and verify Apple review state"
   lane :submit do |options|
     FoldingRelease::Operations.submit(self, FoldingRelease::Record.new(options.fetch(:tag)), options.fetch(:evidence))

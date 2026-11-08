@@ -1,0 +1,10 @@
+{
+  "topInset": 0.065,
+  "sideInset": 0.075,
+  "headlineSize": 0.085,
+  "labelSize": 0.024,
+  "labelTracking": 0.0039,
+  "headlineGap": 0.023,
+  "deviceGap": 0.065,
+  "bottomInset": 0.055
+}
