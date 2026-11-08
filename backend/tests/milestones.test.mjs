@@ -75,6 +75,7 @@ test('real Worker derives owner progress, exposes a public allowlist and persist
  assert.equal((await request(p,'/v1/profile/badge',{operation_id:uuid(++op),generation:{revision:1,reset_id:uuid(888)},badge_id:null},'PATCH')).status,409);
  await db.batch([db.prepare("UPDATE participants SET restriction='banned' WHERE participant_id=?").bind(p.participant),db.prepare('UPDATE participant_revisions SET revision=revision+1 WHERE participant_id=?').bind(p.participant)]);
  assert.equal((await request(viewer,'/v1/participants/'+p.participant)).status,404);
+ assert.equal((await request(p,'/v1/profile/badge',{operation_id:uuid(++op),generation,badge_id:null},'PATCH')).status,401);
 });
 
 test('bounded backfill resumes across causal boundaries and never returns partial awards',async()=>{
