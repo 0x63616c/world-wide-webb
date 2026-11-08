@@ -75,12 +75,12 @@ enum HomeTile: String, CaseIterable, Identifiable {
 struct HomeView: View {
     let store: any HomeDataSource
     @Environment(\.homeIntegration) private var integration
+    @Environment(NotificationCenter.self) private var notifications: NotificationCenter?
     var initialTile: HomeTile?
     var demo = false
     var initialFace = 0
     var onWake: () -> Void = {}
     @State private var shell = PanelShellState()
-    private let launcherMotion = ClockLauncherMotion.current
     @State private var timer: PanelTimerStore
     private let runsTimer: Bool
     private var display = PanelDisplayPreferences()
@@ -189,89 +189,112 @@ struct HomeView: View {
     private func clock() {
         withAnimation(.spring(duration: 0.3, bounce: 0)) { shell.showClock() }
     }
+    private var appPath: Binding<[String]> {
+        Binding(
+            get: { selected.map { [$0.id] } ?? [] },
+            set: { path in
+                if let id = path.last {
+                    _ = shell.open(id, catalog: catalog)
+                } else if selected != nil {
+                    // A system pop returns to Apps, but must not overwrite an
+                    // explicit idle return to the clock (also an empty path).
+                    shell.showLauncher()
+                }
+            })
+    }
     var body: some View {
-        GeometryReader { proxy in
-            ZStack {
-                Color.black.ignoresSafeArea()
+        PanelCanvas { canvas in
+            NavigationStack(path: appPath) {
                 ZStack {
-                    clockSurface(width: proxy.size.width)
-                    if showingClock {
-                        // A tap recognizer cancels on movement; a full-screen Button
-                        // can activate after a drag that ends inside its large bounds.
-                        Color.clear.contentShape(.rect)
-                            .onTapGesture(perform: home)
-                            .gesture(faceDragGesture(width: proxy.size.width))
-                            .accessibilityAdjustableAction { direction in
-                                if direction == .increment { settleFace(by: 1, width: proxy.size.width) }
-                                if direction == .decrement { settleFace(by: -1, width: proxy.size.width) }
-                            }
-                            .accessibilityElement()
-                            .accessibilityLabel("Open apps")
-                            .accessibilityValue(clockFace.rawValue.capitalized)
-                            .accessibilityAddTraits(.isButton)
-                            .accessibilityAction { home() }
-                            .accessibilityIdentifier("launcher-clock")
-                    }
-                    AppLauncher(
-                        apps: catalog.apps, open: open, close: clock, isPresented: !showingClock && selected == nil,
-                        namespace: zoom
-                    )
-                    .environment(\.motionPhase, selected == nil && !showingClock ? nil : 0)
-                    .background {
-                        LauncherGlassSurface()
-                    }
-                    .clipShape(.rect(cornerRadius: PanelSurface.cornerRadius))
-                    .offset(y: showingClock ? proxy.size.height : 0)
-                    .allowsHitTesting(!showingClock && selected == nil)
-                    .accessibilityHidden(showingClock || selected != nil)
-                }
-                .modifier(
-                    LauncherSurfaceMotion(
-                        motion: launcherMotion,
-                        progress: selected == nil ? 0 : 1, width: proxy.size.width,
-                        incoming: false))
-                if let selected {
-                    appScreen(selected)
-                        .clipShape(.rect(cornerRadius: PanelSurface.cornerRadius))
-                        .transition(launcherMotion.incomingTransition(width: proxy.size.width))
-                        .zIndex(2)
-                }
-            }.frame(width: proxy.size.width, height: proxy.size.height).clipped()
-                .environment(\.colorScheme, .dark).foregroundStyle(.white).tint(.white)
-                .onOpenURL { url in if url.host == "dogwalk", let app = catalog.app(id: "walks") { open(app) } }
-                .onChange(of: store.walks.activeWalk, initial: true) { _, walk in
-                    store.walkActivity.synchronize(walk: walk, now: store.now)
-                }
-                .onChange(of: timer.openRequested, initial: true) { _, requested in
-                    guard requested, let app = catalog.app(id: "timer") else { return }
-                    timer.openRequested = false
-                    open(app)
-                }
-                .task(id: scenePhase) {
-                    if runsTimer { await timer.run(while: scenePhase) }
-                }
-                .task {
-                    #if DEBUG
-                        let arguments = ProcessInfo.processInfo.arguments
-                        if let index = arguments.firstIndex(of: "-previewApp"), arguments.indices.contains(index + 1),
-                            let app = catalog.app(id: arguments[index + 1])
-                        {
-                            open(app)
-                            return
+                    Color.black.ignoresSafeArea()
+                    ZStack {
+                        clockSurface(width: canvas.size.width)
+                            .frame(width: canvas.size.width, height: canvas.size.height)
+                        if showingClock {
+                            // A tap recognizer cancels on movement; a full-screen Button
+                            // can activate after a drag that ends inside its large bounds.
+                            Color.clear.contentShape(.rect)
+                                .onTapGesture(perform: home)
+                                .gesture(faceDragGesture(width: canvas.size.width))
+                                .accessibilityAdjustableAction { direction in
+                                    if direction == .increment { settleFace(by: 1, width: canvas.size.width) }
+                                    if direction == .decrement { settleFace(by: -1, width: canvas.size.width) }
+                                }
+                                .accessibilityElement()
+                                .accessibilityLabel("Open apps")
+                                .accessibilityValue(clockFace.rawValue.capitalized)
+                                .accessibilityAddTraits(.isButton)
+                                .accessibilityAction { home() }
+                                .accessibilityIdentifier("launcher-clock")
                         }
-                    #endif
-                    guard selected == nil else { return }
-                    if initialFace != HomeFacePage.clock { shell.showLauncher() }
-                    if let initialTile,
-                        let app = catalog.apps.first(where: { definition in
-                            if case .feature(let feature) = definition.route { return feature.homeTile == initialTile }
-                            return false
-                        })
-                    {
-                        open(app)
+                        AppLauncher(
+                            apps: catalog.apps, open: open, close: clock, isPresented: !showingClock && selected == nil,
+                            namespace: zoom
+                        )
+                        .environment(\.motionPhase, selected == nil && !showingClock ? nil : 0)
+                        .background {
+                            LauncherGlassSurface()
+                        }
+                        .clipShape(.rect(cornerRadius: PanelSurface.cornerRadius))
+                        .frame(width: canvas.size.width, height: canvas.size.height)
+                        .offset(y: showingClock ? canvas.size.height : 0)
+                        .allowsHitTesting(!showingClock && selected == nil)
+                        .accessibilityHidden(showingClock || selected != nil)
                     }
+                }.frame(width: canvas.size.width, height: canvas.size.height).clipped()
+                    .environment(\.colorScheme, .dark).foregroundStyle(.white).tint(.white)
+                    .toolbar(.hidden, for: .navigationBar)
+                    .navigationDestination(for: String.self) { id in
+                        if let app = catalog.app(id: id) {
+                            appScreen(app)
+                                .frame(width: canvas.size.width, height: canvas.size.height)
+                                .toolbar(.hidden, for: .navigationBar)
+                                .navigationTransition(.zoom(sourceID: app.id, in: zoom))
+                        }
+                    }
+            }.frame(width: canvas.size.width, height: canvas.size.height)
+        }
+        .onOpenURL { url in if url.host == "dogwalk", let app = catalog.app(id: "walks") { open(app) } }
+        .onChange(of: store.walks.activeWalk, initial: true) { _, walk in
+            store.walkActivity.synchronize(walk: walk, now: store.now)
+        }
+        .onChange(of: timer.openRequested, initial: true) { _, requested in
+            guard requested, let app = catalog.app(id: "timer") else { return }
+            timer.openRequested = false
+            open(app)
+        }
+        .task(id: scenePhase) {
+            if runsTimer { await timer.run(while: scenePhase) }
+        }
+        .task {
+            #if DEBUG
+                let arguments = ProcessInfo.processInfo.arguments
+                if let index = arguments.firstIndex(of: "-previewApp"),
+                    arguments.indices.contains(index + 1),
+                    let app = catalog.app(id: arguments[index + 1])
+                {
+                    open(app)
+                    return
                 }
-        }.modifier(
+            #endif
+            guard selected == nil else { return }
+            if initialFace != HomeFacePage.clock { shell.showLauncher() }
+            if let initialTile,
+                let app = catalog.apps.first(where: { definition in
+                    if case .feature(let feature) = definition.route {
+                        return feature.homeTile == initialTile
+                    }
+                    return false
+                })
+            {
+                open(app)
+            }
+        }
+        .environment(\.colorScheme, .dark).foregroundStyle(.white).tint(.white)
+        .onChange(of: selected?.id, initial: true) { _, id in
+            notifications?.setVisibleSources(PanelNotifications.sources(for: id))
+        }
+        .modifier(
             PanelIdleDimming(
                 onIdle: clock, timeout: display.returnToClockSeconds, inhibited: keepsAwake, onWake: onWake)
         )
@@ -288,11 +311,16 @@ struct HomeView: View {
             clock()
             return
         }
-        withAnimation(launcherMotion.animation) {
+        withAnimation(.smooth(duration: 0.4)) {
             _ = shell.open(app.id, catalog: catalog)
         }
     }
     private func appScreen(_ app: PanelAppDefinition) -> some View {
+        AppCanvasPage {
+            appContent(app)
+        }
+    }
+    private func appContent(_ app: PanelAppDefinition) -> some View {
         VStack(spacing: 0) {
             Group {
                 switch app.route {

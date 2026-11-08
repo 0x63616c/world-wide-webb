@@ -7,45 +7,57 @@ struct WifiModule: View {
     let provider: LiveWifiProvider
     @State private var passwordVisible = false
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.panelCanvasProfile) private var canvas
+    private var compact: Bool { canvas == .duoClosed }
 
     var body: some View {
-        HStack(spacing: 80) {
-            VStack(alignment: .leading, spacing: 24) {
-                Image(systemName: "wifi").font(.system(size: 52)).foregroundStyle(.cyan)
-                Text(provider.wifi.ssid ?? "Not configured").font(.system(size: 44, weight: .semibold))
-                if let password = provider.wifi.password {
-                    HStack(alignment: .top, spacing: 16) {
-                        Button {
-                            passwordVisible.toggle()
-                        } label: {
-                            Image(systemName: passwordVisible ? "eye.slash" : "eye")
-                                .font(.title3).frame(width: 52, height: 52)
-                        }.buttonStyle(.glass).buttonBorderShape(.circle)
-                            .accessibilityLabel(passwordVisible ? "Hide password" : "Reveal password")
-                            .accessibilityIdentifier("wifi-password")
-                        Text(password).font(.title3.monospaced()).fixedSize(horizontal: false, vertical: true)
-                            .frame(maxWidth: .infinity, minHeight: 52, alignment: .leading)
-                            .opacity(passwordVisible ? 1 : 0)
-                            .accessibilityHidden(!passwordVisible)
-                            .allowsHitTesting(passwordVisible)
+        GeometryReader { geometry in
+            ScrollView {
+                (compact
+                    ? AnyLayout(VStackLayout(alignment: .leading, spacing: 32)) : AnyLayout(HStackLayout(spacing: 80)))
+                {
+                    VStack(alignment: .leading, spacing: 24) {
+                        Image(systemName: "wifi").font(.system(size: 52)).foregroundStyle(.cyan)
+                        Text(provider.wifi.ssid ?? "Not configured").font(
+                            .system(size: compact ? 32 : 44, weight: .semibold))
+                        if let password = provider.wifi.password {
+                            HStack(alignment: .top, spacing: 16) {
+                                Button {
+                                    passwordVisible.toggle()
+                                } label: {
+                                    Image(systemName: passwordVisible ? "eye.slash" : "eye")
+                                        .font(.title3).frame(width: 52, height: 52)
+                                }.buttonStyle(.glass).buttonBorderShape(.circle)
+                                    .accessibilityLabel(passwordVisible ? "Hide password" : "Reveal password")
+                                    .accessibilityIdentifier("wifi-password")
+                                Text(password).font(.title3.monospaced()).fixedSize(horizontal: false, vertical: true)
+                                    .frame(maxWidth: .infinity, minHeight: 52, alignment: .leading)
+                                    .opacity(passwordVisible ? 1 : 0)
+                                    .accessibilityHidden(!passwordVisible)
+                                    .allowsHitTesting(passwordVisible)
+                            }
+                        } else if provider.wifi.ssid != nil {
+                            Text("No password required")
+                        }
+                    }.frame(maxWidth: .infinity, alignment: .leading)
+                    if let payload = provider.qrPayload, let image = GuestWifiCode.render(payload: payload) {
+                        VStack(spacing: 20) {
+                            WifiQRHero(image: image).frame(
+                                width: compact ? 260 : canvas == .duoOpen ? 300 : 380,
+                                height: compact ? 260 : canvas == .duoOpen ? 300 : 380
+                            )
+                            .accessibilityIdentifier("wifi-inline-qr")
+                            Label("scan to connect", systemImage: "qrcode.viewfinder")
+                                .font(.title3).foregroundStyle(.secondary)
+                        }
                     }
-                } else if provider.wifi.ssid != nil {
-                    Text("No password required")
-                }
-            }.frame(maxWidth: .infinity, alignment: .leading)
-            if let payload = provider.qrPayload, let image = GuestWifiCode.render(payload: payload) {
-                VStack(spacing: 20) {
-                    WifiQRHero(image: image).frame(width: 380, height: 380)
-                        .accessibilityIdentifier("wifi-inline-qr")
-                    Label("scan to connect", systemImage: "qrcode.viewfinder")
-                        .font(.title3).foregroundStyle(.secondary)
-                }
+                }.padding(compact ? 24 : 64).frame(maxWidth: .infinity, minHeight: geometry.size.height)
             }
-        }.padding(64).frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(.black).foregroundStyle(.white)
-            .onChange(of: provider.qrPayload) { _, _ in passwordVisible = false }
-            .onChange(of: scenePhase) { _, phase in if phase != .active { passwordVisible = false } }
-            .onDisappear { passwordVisible = false }
+        }
+        .background(.black).foregroundStyle(.white)
+        .onChange(of: provider.qrPayload) { _, _ in passwordVisible = false }
+        .onChange(of: scenePhase) { _, phase in if phase != .active { passwordVisible = false } }
+        .onDisappear { passwordVisible = false }
     }
 }
 

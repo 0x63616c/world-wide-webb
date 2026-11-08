@@ -1,40 +1,23 @@
 import XCTest
 
 final class NotificationHistoryTests: XCTestCase {
-    @MainActor func testPullDownExpandSwipeClearAndClose() {
+    @MainActor func testPullDownSwipeClearAndClose() {
         continueAfterFailure = false
         let app = launch()
-        capture("notification-v2-banners", app)
+        capture("notification-classic-banners", app)
+        XCTAssertFalse(app.buttons["notification-open-history"].exists)
         openHistory(app)
-        capture("notification-v2-history", app)
-        XCTAssertFalse(app.staticTexts["Clear All"].exists)
-        XCTAssertGreaterThanOrEqual(app.buttons["notification-history-clear-all"].frame.width, 44)
-        XCTAssertEqual(rows(app).count, 2)  // One exposed notification per module.
-        app.buttons["notification-history-group-lights"].tap()
+        capture("notification-classic-history", app)
         XCTAssertEqual(rows(app).count, 4)
-        capture("notification-v2-expanded", app)
-        app.buttons["notification-history-group-lights"].tap()
-        XCTAssertEqual(rows(app).count, 2)
-        app.buttons["notification-history-group-lights"].tap()
         let row = rows(app).matching(NSPredicate(format: "label CONTAINS %@", "Reading scene")).firstMatch
-        row.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).press(
-            forDuration: 0.05,
-            thenDragTo: row.coordinate(withNormalizedOffset: CGVector(dx: 0.6, dy: 0.5)))
+        row.swipeLeft()
         app.buttons["Clear"].firstMatch.tap()
-        let remaining = rows(app)
-        XCTAssertEqual(
-            XCTWaiter.wait(
-                for: [
-                    XCTNSPredicateExpectation(
-                        predicate: NSPredicate { _, _ in remaining.count == 3 }, object: app)
-                ], timeout: 10), .completed)
-        app.buttons["notification-history-clear-lights"].tap()
-        XCTAssertTrue(app.buttons["notification-history-group-lights"].waitForNonExistence(timeout: 10))
-        XCTAssertEqual(rows(app).count, 1)
+        let cleared = XCTNSPredicateExpectation(
+            predicate: NSPredicate { _, _ in self.rows(app).count == 3 }, object: app)
+        XCTAssertEqual(XCTWaiter.wait(for: [cleared], timeout: 10), .completed)
         app.buttons["notification-history-clear-all"].tap()
         XCTAssertTrue(
             app.descendants(matching: .any)["notification-history-empty"].firstMatch.waitForExistence(timeout: 10))
-        capture("notification-v2-empty", app)
         let handle = app.buttons["notification-history-handle"]
         let start = handle.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
         start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 0, dy: -180)))
@@ -57,11 +40,9 @@ final class NotificationHistoryTests: XCTestCase {
             app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "More")).firstMatch.waitForExistence(
                 timeout: 20))
         // Restored history remains discoverable even when no banners are live.
-        let inbox = app.buttons["notification-open-history"]
-        XCTAssertTrue(inbox.waitForExistence(timeout: 10))
-        inbox.tap()
-        XCTAssertTrue(app.buttons["notification-history-close"].waitForExistence(timeout: 10))
-        XCTAssertEqual(rows(app).count, 2)
+        XCTAssertFalse(app.buttons["notification-open-history"].exists)
+        openHistory(app)
+        XCTAssertEqual(rows(app).count, 4)
         capture("WWW-60-restored-over-controller", app)
         rows(app).matching(NSPredicate(format: "label CONTAINS %@", "Reading scene")).firstMatch.tap()
         XCTAssertTrue(app.buttons["notification-history-close"].waitForNonExistence(timeout: 10))
@@ -75,17 +56,18 @@ final class NotificationHistoryTests: XCTestCase {
         app.buttons["notification-stack-expand"].tap()
         XCTAssertTrue(app.buttons["notification-stack-collapse"].waitForExistence(timeout: 5))
         capture("notification-v2-banner-stack", app)
-        app.buttons["notification-dismiss-climate"].tap()
-        XCTAssertTrue(app.buttons["notification-banner-climate"].waitForNonExistence(timeout: 5))
-        app.buttons["notification-open-history"].tap()
-        XCTAssertTrue(app.buttons["notification-history-close"].waitForExistence(timeout: 5))
+        let banner = app.buttons["notification-banner-climate"]
+        banner.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.5))
+            .press(forDuration: 0.05, thenDragTo: banner.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.5)))
+        XCTAssertTrue(banner.waitForNonExistence(timeout: 5))
+        openHistory(app)
         // Hiding a banner is distinct from clearing the saved notification.
         XCTAssertTrue(
             rows(app).matching(NSPredicate(format: "label CONTAINS %@", "Temperature reached")).firstMatch.exists)
         app.buttons["notification-history-close"].tap()
         XCTAssertTrue(app.buttons["notification-history-close"].waitForNonExistence(timeout: 5))
         openHistory(app)
-        XCTAssertEqual(rows(app).count, 2)
+        XCTAssertEqual(rows(app).count, 4)
         capture("notification-v2-reopened", app)
     }
 
@@ -115,7 +97,7 @@ final class NotificationHistoryTests: XCTestCase {
             ] + extraArguments
         app.launch()
         app.alignPanelOrientation()
-        XCTAssertTrue(app.staticTexts["notification-stack-count"].waitForExistence(timeout: 30))
+        XCTAssertTrue(app.buttons["notification-stack-expand"].waitForExistence(timeout: 30))
         return app
     }
 
@@ -140,7 +122,7 @@ final class NotificationHistoryTests: XCTestCase {
         XCTAssertLessThanOrEqual(frame.height, 24)
         let start = window.coordinate(withNormalizedOffset: .zero).withOffset(
             CGVector(
-                dx: frame.minX - window.frame.minX + frame.width * 0.08,
+                dx: frame.minX - window.frame.minX + frame.width * 0.5,
                 dy: frame.midY - window.frame.minY))
         start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 0, dy: 300)))
         XCTAssertTrue(app.buttons["notification-history-close"].waitForExistence(timeout: 10))
@@ -152,7 +134,7 @@ final class NotificationHistoryTests: XCTestCase {
 
     @MainActor private func capture(_ name: String, _ app: XCUIApplication) {
         XCTAssertGreaterThan(app.windows.firstMatch.frame.width, app.windows.firstMatch.frame.height)
-        let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        let attachment = XCTAttachment(screenshot: app.windows.firstMatch.screenshot())
         attachment.name = name
         attachment.lifetime = .keepAlways
         add(attachment)

@@ -70,15 +70,10 @@ struct ControlsController: View {
                                 ForEach([Accessory.bedroom, .livingRoom, .ceiling, .cabinet]) { key in toggle(key) }
                             }.frame(maxWidth: .infinity)
                             VStack(alignment: .leading, spacing: 32) {
-                                HStack(alignment: .firstTextBaseline) {
-                                    Text("Lamps").font(.title2.weight(.semibold))
-                                    Spacer()
-                                    Text("\(store.lamps.brightness)%").font(
-                                        .system(size: 56, weight: .medium, design: .rounded)
-                                    ).monospacedDigit()
-                                }
+                                Text("Lamps").font(.title2.weight(.semibold))
                                 FilledLevelControl(
-                                    value: store.lamps.brightness, label: "Lamp brightness", symbol: "sun.max.fill"
+                                    value: store.lamps.brightness, label: "Lamp brightness", symbol: "sun.max.fill",
+                                    showsPercentage: true
                                 ) {
                                     store.send(.brightness($0))
                                 }.frame(height: 70).disabled(!store.lamps.anyOn)

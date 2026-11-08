@@ -44,7 +44,7 @@ struct ClimateController: View {
                     .id("\(climate.mode.rawValue)-\(editingLow)")
                 }
             }
-        }.background(Color(white: 0.055))
+        }.background { Color(white: 0.055).ignoresSafeArea() }
             .overlay(alignment: .bottomTrailing) { controls.padding(24) }
             .accessibilityIdentifier("climate-page")
     }

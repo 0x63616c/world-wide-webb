@@ -15,7 +15,11 @@ extension HomeViewLaunchTests {
         app.openAppGrid()
         app.buttons["app-timer"].tap()
         XCTAssertTrue(app.staticTexts["timer-remaining"].waitForExistence(timeout: 15))
-        if app.buttons["timer-reset"].isEnabled { app.buttons["timer-reset"].tap() }
+        if app.buttons["timer-stop"].exists {
+            app.buttons["timer-stop"].tap()
+        } else if app.buttons["timer-reset"].isEnabled {
+            app.buttons["timer-reset"].tap()
+        }
         app.buttons["timer-edit"].tap()
         app.buttons["timer-preset-15"].tap()
         app.buttons["timer-edit-save"].tap()
@@ -51,22 +55,42 @@ extension HomeViewLaunchTests {
         wait(for: [reset], timeout: 5)
         XCTAssertTrue(app.buttons["timer-edit"].isEnabled)
     }
+    @MainActor func testZeroTimerSelectionReturnsToOneMinute() {
+        let app = launchTimer()
+        defer { app.terminate() }
+        app.buttons["timer-edit"].tap()
+        app.pickerWheels.element(boundBy: 1).adjust(toPickerWheelValue: "0")
+        let minute = app.pickerWheels.element(boundBy: 1)
+        let rebounds = expectation(
+            for: NSPredicate { _, _ in
+                return minute.value as? String == "1"
+            }, evaluatedWith: minute)
+        wait(for: [rebounds], timeout: 5)
+        XCTAssertTrue(app.buttons["timer-edit-save"].isEnabled)
+        app.buttons["timer-edit-save"].tap()
+        XCTAssertEqual(app.staticTexts["timer-remaining"].value as? String, "1 minute")
+    }
+
     @MainActor func testCustomTimerFinishesAndCanBeStopped() {
         let app = launchTimer()
         defer { app.terminate() }
         app.buttons["timer-edit"].tap()
         app.pickerWheels.element(boundBy: 0).adjust(toPickerWheelValue: "0")
-        app.pickerWheels.element(boundBy: 1).adjust(toPickerWheelValue: "0")
         app.pickerWheels.element(boundBy: 2).adjust(toPickerWheelValue: "5")
+        app.pickerWheels.element(boundBy: 1).adjust(toPickerWheelValue: "0")
         app.buttons["timer-edit-save"].tap()
         XCTAssertEqual(app.staticTexts["timer-remaining"].value as? String, "5 seconds")
         app.buttons["timer-start-pause"].tap()
         app.buttons["app-back"].tap()
+        app.buttons["app-climate"].tap()
         let banner = app.buttons["notification-banner-timer"]
         XCTAssertTrue(banner.waitForExistence(timeout: 12))
         banner.tap()
+        let status = app.staticTexts["timer-status"]
         let finished = expectation(
-            for: NSPredicate(format: "label == %@", "Time’s up"), evaluatedWith: app.staticTexts["timer-status"])
+            for: NSPredicate { _, _ in
+                return status.exists && status.label == "Time’s up"
+            }, evaluatedWith: status)
         wait(for: [finished], timeout: 12)
         XCTAssertEqual(app.staticTexts["timer-remaining"].value as? String, "0 seconds")
         XCTAssertTrue(app.buttons["timer-stop"].isHittable)

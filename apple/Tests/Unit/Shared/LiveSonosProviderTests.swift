@@ -85,6 +85,39 @@ import XCTest
         XCTAssertEqual(request?.url?.path, "/api/v1/sound")
     }
 
+    func testAcknowledgedVolumeDoesNotFlashBackWhileHomeAssistantCatchesUp() async throws {
+        let transport = SonosProviderStub([
+            .state(), .void, .state(), .state(alphaVolume: 24), .state(alphaVolume: 30),
+        ])
+        let provider = makeProvider(transport)
+        defer { provider.stop() }
+        await provider.refresh()
+        provider.send(.volume(alpha, 20))
+        try await settled(provider)
+        XCTAssertEqual(provider.rooms[0].rawVolume, 24, "An acknowledged write must survive a stale HA sample")
+        await provider.refresh()
+        XCTAssertEqual(provider.rooms[0].rawVolume, 24)
+        await provider.refresh()
+        XCTAssertEqual(provider.rooms[0].rawVolume, 30, "External changes apply after confirmation")
+    }
+
+    func testUnconfirmedVolumeEventuallyYieldsToReportedState() async throws {
+        var now = Date(timeIntervalSince1970: 1_800_000_000)
+        let transport = SonosProviderStub([.state(), .void, .state(), .state()])
+        let provider = LiveSonosProvider(
+            api: SonosAPI(
+                configuration: PanelConfiguration(baseURL: URL(string: "https://panel.example.invalid")!),
+                transport: transport), now: { now })
+        defer { provider.stop() }
+        await provider.refresh()
+        provider.send(.rawVolume(alpha, 24))
+        try await settled(provider)
+        XCTAssertEqual(provider.rooms[0].rawVolume, 24)
+        now += 6
+        await provider.refresh()
+        XCTAssertEqual(provider.rooms[0].rawVolume, 60)
+    }
+
     func testGroupAndGlobalLockUseEachRoomsBaselineAndSkipOfflineRooms() async throws {
         for global in [false, true] {
             let mutations = global ? 3 : 2

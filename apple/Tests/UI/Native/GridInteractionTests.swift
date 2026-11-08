@@ -77,7 +77,7 @@ import XCTest
         expectWrite("controls.toggle", in: app)
         XCTAssertTrue(app.descendants(matching: .any)["app-screen-climate"].firstMatch.exists)
     }
-    func testFailedFanCommandKeepsNativePageAndShowsBanner() {
+    func testFailedFanCommandKeepsNativePageWithoutItsOwnBanner() {
         let app = launch(writes: false)
         defer { app.terminate() }
         app.openHomeModule("climate")
@@ -86,7 +86,10 @@ import XCTest
         XCTAssertTrue(fan.waitForExistence(timeout: 15))
         let original = fan.isSelected
         fan.tap()
-        XCTAssertTrue(app.buttons["notification-banner-fan"].waitForExistence(timeout: 15))
+        let ownBanner = expectation(
+            for: NSPredicate(format: "exists == true"), evaluatedWith: app.buttons["notification-banner-fan"])
+        ownBanner.isInverted = true
+        wait(for: [ownBanner], timeout: 3)
         app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "More")).firstMatch.tap()
         XCTAssertEqual(fan.isSelected, original)
         XCTAssertTrue(app.descendants(matching: .any)["app-screen-climate"].firstMatch.exists)

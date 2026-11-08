@@ -25,6 +25,16 @@ import XCTest
         XCTAssertTrue(app.buttons["app-settings"].exists)
         capture("native-launcher", app)
     }
+    func testClockSurfaceFillsTheDisplay() {
+        let app = launch()
+        defer { app.terminate() }
+        let surface = app.buttons["launcher-clock"].frame
+        print("CANVAS_DISPLAY \(app.frame) CLOCK \(surface)")
+        XCTAssertEqual(surface.minY, app.frame.minY, accuracy: 1)
+        XCTAssertEqual(surface.maxY, app.frame.maxY, accuracy: 1, "No unused bottom safe-area strip")
+        XCTAssertEqual(surface.width, app.frame.width, accuracy: 1)
+        capture("clock-full-display", app)
+    }
     func testIdleClockCanWakeAndOpenApps() {
         continueAfterFailure = false
         XCUIDevice.shared.orientation = .landscapeLeft

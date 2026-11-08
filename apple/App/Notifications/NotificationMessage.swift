@@ -1,38 +1,43 @@
 import SwiftUI
 
-/// Shared hierarchy for the inbox and incoming banners. Color only communicates
-/// unread/urgent state; source identity lives in the existing app artwork.
-struct NotificationMessage: View {
-    @Environment(\.dynamicTypeSize) private var typeSize
+/// One familiar card layout in banners and history: icon, title, age, two body lines.
+struct NotificationCardContent: View {
     let item: NotificationItem
-    var compact = false
+    let source: NotificationSource
+    @Environment(\.dynamicTypeSize) private var typeSize
+    private var style: String {
+        #if DEBUG
+            UserDefaults.standard.string(forKey: "previewNotificationStyle") ?? "classic"
+        #else
+            "classic"
+        #endif
+    }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                if item.priority == .critical {
-                    Image(systemName: "exclamationmark.circle.fill")
-                        .foregroundStyle(.red)
-                        .accessibilityLabel("Critical")
-                } else if item.readAt == nil {
-                    Circle().fill(.tint).frame(width: 6, height: 6)
-                        .accessibilityLabel("Unread")
-                }
-                Text(item.title).font(.headline)
-                    .lineLimit(compact && !typeSize.isAccessibilitySize ? 2 : nil)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                if !compact {
+        HStack(alignment: .top, spacing: style == "airy" ? 18 : 12) {
+            NotificationSourceIcon(source: source, side: style == "airy" ? 48 : 38)
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text(style == "compact" ? source.name : item.title)
+                        .font(style == "compact" ? .caption.weight(.semibold) : .headline)
+                        .accessibilityLabel(style == "compact" ? source.name : "\(source.name), \(item.title)")
+                        .lineLimit(typeSize.isAccessibilitySize ? nil : 1)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     NotificationTimestamp(date: item.createdAt)
                         .font(.caption).foregroundStyle(.secondary)
                 }
-            }
-            if !item.body.isEmpty {
-                Text(item.body).font(.subheadline).foregroundStyle(.secondary)
-                    .lineLimit(compact && !typeSize.isAccessibilitySize ? 2 : nil)
+                if style == "compact" {
+                    Text(item.title).font(.headline).lineLimit(typeSize.isAccessibilitySize ? nil : 1)
+                }
+                if !item.body.isEmpty {
+                    Text(item.body).font(.subheadline)
+                        .lineLimit(typeSize.isAccessibilitySize ? nil : 2)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
             }
         }
-        .foregroundStyle(.primary)
-        .multilineTextAlignment(.leading)
+        .padding(style == "airy" ? 20 : 16)
+        .foregroundStyle(.primary).multilineTextAlignment(.leading)
         .fixedSize(horizontal: false, vertical: true)
         .accessibilityElement(children: .combine)
     }
@@ -69,11 +74,20 @@ enum NotificationAge {
     ) -> String {
         let age = components(from: date, to: now)
         guard age != DateComponents() else { return String(localized: "Now") }
-        let formatter = DateComponentsFormatter()
-        formatter.allowedUnits = [.year, .month, .weekOfMonth, .day, .hour, .minute]
-        formatter.unitsStyle = unitsStyle
-        formatter.maximumUnitCount = 1
-        return formatter.string(from: age) ?? String(localized: "Now")
+        if unitsStyle == .full {
+            let formatter = DateComponentsFormatter()
+            formatter.allowedUnits = [.year, .month, .weekOfMonth, .day, .hour, .minute]
+            formatter.unitsStyle = .full
+            formatter.maximumUnitCount = 1
+            return (formatter.string(from: age) ?? "") + String(localized: " ago")
+        }
+        for (unit, suffix) in [
+            (Calendar.Component.year, "y"), (.month, "mo"), (.weekOfMonth, "w"),
+            (.day, "d"), (.hour, "h"), (.minute, "m"),
+        ] {
+            if let value = age.value(for: unit), value > 0 { return "\(value)\(suffix) ago" }
+        }
+        return String(localized: "Now")
     }
 }
 

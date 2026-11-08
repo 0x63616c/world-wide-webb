@@ -1,35 +1,19 @@
 import PanelKit
 import SwiftUI
 
-/// Shared iPad/iPhone/desktop geometry, based on the available window, not a device model.
-struct LauncherLayout {
-    let columns: Int
-    let iconFrameSide: CGFloat
-    let horizontalInset: CGFloat
-    let headerInset: CGFloat
-
-    init(width: CGFloat, compact: Bool) {
-        let small = compact || width < 700
-        iconFrameSide = small ? 76 : 112
-        horizontalInset = small ? 20 : 72
-        headerInset = small ? 20 : 40
-        let available = max(0, width - 2 * horizontalInset)
-        columns = min(small ? 3 : 5, max(1, Int((available + 28) / (iconFrameSide + 28))))
-    }
-}
-
 struct AppLauncher: View {
     let apps: [PanelAppDefinition]
     let open: (PanelAppDefinition) -> Void
     let close: () -> Void
     let isPresented: Bool
     let namespace: Namespace.ID
-    @Environment(\.horizontalSizeClass) private var sizeClass
+    @Environment(\.panelCanvasProfile) private var canvas
+    @Environment(\.panelContentInsets) private var contentInsets
     @State private var isAtTop = true
     @State private var swipeStartedAtTop: Bool?
     var body: some View {
         GeometryReader { proxy in
-            let layout = LauncherLayout(width: proxy.size.width, compact: sizeClass == .compact)
+            let layout = LauncherLayout(profile: canvas)
             let columns = layout.columns
             let iconFrameSide = layout.iconFrameSide
             let iconSide = iconFrameSide * 0.9
@@ -38,7 +22,8 @@ struct AppLauncher: View {
             ScrollView(.vertical) {
                 GlassEffectContainer(spacing: 32) {
                     LazyVGrid(
-                        columns: Array(repeating: GridItem(.flexible(), spacing: 28), count: columns), spacing: 48
+                        columns: Array(repeating: GridItem(.flexible(), spacing: 28), count: columns),
+                        spacing: layout.rowSpacing
                     ) {
                         ForEach(apps) { app in
                             Button {
@@ -48,7 +33,7 @@ struct AppLauncher: View {
                                     LauncherAppIcon(app: app, side: iconSide)
                                         .matchedTransitionSource(id: app.id, in: namespace)
                                         .frame(width: iconFrameSide, height: iconFrameSide)
-                                    Text(app.name).font(.system(size: sizeClass == .compact ? 15 : 21, weight: .medium))
+                                    Text(app.name).font(.system(size: layout.labelSize, weight: .medium))
                                         .foregroundStyle(.white).lineLimit(1)
                                 }.frame(maxWidth: .infinity).contentShape(.rect)
                             }.buttonStyle(LauncherPressStyle()).accessibilityIdentifier("app-\(app.id)")
@@ -80,6 +65,7 @@ struct AppLauncher: View {
                 )
                 .modifier(PanelProfileSelector(isAvailable: isPresented, inset: headerInset))
         }
+        .padding(contentInsets)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("app-launcher")
         .accessibilityAction(named: "Return to clock") { close() }
@@ -157,7 +143,7 @@ struct PanelSettingsPage: View {
     }
 }
 
-/// Small, interruptible press feedback; screen navigation itself stays a crossfade.
+/// Small, interruptible press feedback; native zoom handles app presentation.
 private struct LauncherPressStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label

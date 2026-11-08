@@ -172,9 +172,7 @@ struct PanelHome: View {
             PanelHomeDestination(
                 module: tile.panelModule, store: store, session: session,
                 close: close
-            )
-            .overlay { PanelStatusOverlays(store: store, session: session, navigation: navigation) }
-            .modifier(NotificationHistoryAccess()))
+            ))
     }
 }
 

@@ -49,6 +49,7 @@ struct ModulePage: View {
 struct WeatherPage: View {
     let weather: WeatherState
     @Environment(\.horizontalSizeClass) private var sizeClass
+    @Environment(\.panelCanvasProfile) private var canvas
     private var compact: Bool { sizeClass == .compact }
     var body: some View {
         GeometryReader { geometry in
@@ -65,7 +66,9 @@ struct WeatherPage: View {
                         .frame(minHeight: compact ? 300 : max(320, geometry.size.height * 0.45))
                     VStack(alignment: .leading, spacing: 24) {
                         LazyVGrid(
-                            columns: Array(repeating: GridItem(.flexible()), count: compact ? 6 : 12), spacing: 24
+                            columns: Array(
+                                repeating: GridItem(.flexible()), count: compact ? 3 : canvas == .duoOpen ? 6 : 12),
+                            spacing: 24
                         ) {
                             ForEach(weather.hours) { hour in
                                 VStack(spacing: 20) {
@@ -81,7 +84,8 @@ struct WeatherPage: View {
                         Divider().overlay(.white.opacity(0.15))
                         LazyVGrid(
                             columns: Array(
-                                repeating: GridItem(.flexible(), alignment: .leading), count: compact ? 2 : 4),
+                                repeating: GridItem(.flexible(), alignment: .leading),
+                                count: compact || canvas == .duoOpen ? 2 : 4),
                             alignment: .leading, spacing: 24
                         ) {
                             weatherMetric("Feels like", value: "\(weather.feels)°", symbol: "thermometer.medium")
@@ -92,7 +96,7 @@ struct WeatherPage: View {
                     }.padding(24).background(.black.opacity(0.18), in: .rect(cornerRadius: 28))
                 }.padding(.horizontal, compact ? 24 : 48).padding(.top, 32).padding(.bottom, 96)
                     .frame(minHeight: geometry.size.height, alignment: .top)
-            }.scrollDisabled(!compact)
+            }.scrollDisabled(!compact && canvas == .iPad)
         }.foregroundStyle(.white).background { WeatherAtmosphere(weather: weather).ignoresSafeArea() }
     }
     private func weatherMetric(_ title: String, value: String, symbol: String) -> some View {
