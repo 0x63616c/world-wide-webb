@@ -63,3 +63,21 @@ and shared home ownership have not yet moved; root secrets stay encrypted in pla
 - All current root workflow files pass actionlint. Apple jobs now request the existing
   disposable homelab macOS label; image/toolchain canary and Linux migration remain pending.
 - Rust fmt/clippy and 30 Rust tests pass; all 99 PanelKit tests pass. Real Swift/Rust integration and the production Apple checks are running. No production writes have occurred.
+
+## Delivery preparation — approximately 15% overall
+
+Percentages are rough estimates of total migration effort, including live cutover/verification,
+not a count of moved files or passing tests. Current stage: private release and screenshot adapters.
+
+- Control Center real Swift/Rust round trip and production iPad build/unit/iPhone policy checks pass.
+- Callkeep updater/dependency/feed controls removed; native build plus 55 tests pass, with two
+  existing downloaded-ASR/speaker-model smoke checks explicitly skipped. Playback harness passes.
+- Folding Bun frozen install, Rust/Wasm build and all 29 workerd runtime tests pass. Its 17
+  schemas/69 contract-example checks pass using the pinned Python 3.15 interpreter.
+- Tendr release wait points at its actual workflow; private PR screenshot previews use authenticated
+  Actions artifacts and run summaries, replacing anonymous raw links and screenshot branch writes.
+- A notarized installed Callkeep bundle survived an isolated Git shallow-tag clone with strict
+  signature/stapled-ticket verification. Actual Homebrew Git fetching also passes with strict signature/stapled-ticket verification, using an
+  isolated temporary tap/cache/trust configuration; the temporary tap was cleaned up. Private
+  GitHub authorization and a real install/upgrade remain unproved. Current Homebrew requires
+  explicit cask/tap trust; document narrow trust in the installer instructions.

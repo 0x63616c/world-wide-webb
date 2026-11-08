@@ -12,6 +12,8 @@ subagents are allowed for independent final review only. Keep the complete relev
 checks, fixes and Conventional Commits local until final review, then publish, pass required
 checks, merge and verify delivery. Never bypass a required check.
 
+Progress updates include an estimated overall completion percentage and current stage; distinguish estimates from verified delivery.
+
 Prefer substantial working batches, existing product handlers and relevant checks. Reuse valid
 exact-source artifacts/evidence. Products own their UI/components, architecture, fixtures and
 listing facts. Shared tooling owns process and selection; an unrelated app change must not ship

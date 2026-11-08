@@ -23,7 +23,7 @@ class SourceCIGateTests(unittest.TestCase):
         with patch("subprocess.check_output", side_effect=[json.dumps(rows) for rows in replies]) as gh, patch("time.sleep") as sleep, contextlib.redirect_stdout(io.StringIO()) as output:
             runpy.run_path(str(SCRIPT))
         command = gh.call_args.args[0]
-        for option, value in (("--repo", "owner/apps"), ("--commit", "exact-revision"), ("--branch", "main"), ("--event", "push"), ("--workflow", "ci.yml")):
+        for option, value in (("--repo", "owner/apps"), ("--commit", "exact-revision"), ("--branch", "main"), ("--event", "push"), ("--workflow", "tendr-ci.yml")):
             self.assertEqual(command[command.index(option) + 1], value)
         self.assertEqual(sleep.call_count, 2)
         self.assertIn("Source CI passed", output.getvalue())

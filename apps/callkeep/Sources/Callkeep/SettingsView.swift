@@ -3,7 +3,6 @@ import CallkeepCore
 
 struct SettingsView: View {
     @Bindable var model: AppModel
-    @EnvironmentObject private var updates: AppUpdater
     @State private var showingInfo = false
     @State private var showingLogs = false
 
@@ -175,18 +174,6 @@ struct SettingsView: View {
                             .accessibilityLabel("Permission settings").help("Permission settings").disabled(model.isRecording)
                     }
                     RecordingAccessView(permissions: model.permissions, notifications: model.transcriptionNotifications, recording: model.isRecording).modifier(SettingsSurface())
-                }
-                SettingsSection("Updates") {
-                    VStack(spacing: 0) {
-                        SettingsSwitchRow("Check for updates automatically", isOn: $updates.automaticallyChecksForUpdates)
-                        SettingsDivider()
-                        SettingsRow {
-                            Text("Check for updates")
-                            Spacer()
-                            Button("Check Now") { updates.checkForUpdates() }
-                                .disabled(!updates.canCheckForUpdates || model.isRecording || model.isBusy)
-                        }
-                    }
                 }
                 SettingsSection("Diagnostics") {
                     SettingsRow {

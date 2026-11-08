@@ -1,8 +1,6 @@
 name: PR screenshots
 
-# Captures each changed app's PR preview screens (pr_screenshot_test in apps/<app>/app.yml) from its
-# synthetic fixture on an iPhone 18 Pro Max simulator, publishes the PNGs to the pr-screenshots
-# branch and updates one comment on the PR. Dispatch with `pr` to post screens for an existing PR.
+# Capture synthetic previews and link authenticated artifacts in the run summary.
 on:
   pull_request:
   workflow_dispatch:
@@ -18,8 +16,7 @@ on:
         required: false
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 concurrency:
   group: pr-screenshots-${{ github.event.pull_request.number || inputs.pr || github.ref }}
@@ -59,7 +56,7 @@ jobs:
 
   screenshots:
     needs: changes
-    # Same-repo PRs only: fork tokens cannot push the pr-screenshots branch.
+    # Capture only source from this repository on the private runner pool.
     if: needs.changes.outputs.apps != '' && (github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: [self-hosted, macOS, ARM64, homelab-tart]
     timeout-minutes: 60
@@ -112,50 +109,13 @@ jobs:
           name: pr-screenshots
           path: build/pr-screenshots
           if-no-files-found: error
-      - name: Publish to the pr-screenshots branch and comment
-        if: needs.changes.outputs.apps != '' && env.PR != ''
+      - name: Link private screenshot evidence
         env:
-          GH_TOKEN: ${{ github.token }}
-          SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
-          set -euo pipefail
-          dir="$RUNNER_TEMP/pr-screenshots"
-          trap 'git worktree remove --force "$dir" 2>/dev/null || true; git worktree prune' EXIT
-          git worktree remove --force "$dir" 2>/dev/null || true
-          rm -rf "$dir"
-          git worktree prune
-          if git ls-remote --exit-code origin pr-screenshots >/dev/null; then
-            git worktree add "$dir" origin/pr-screenshots
-          else
-            git worktree add --detach "$dir" && (cd "$dir" && git checkout --orphan pr-screenshots && git rm -rfq .)
-          fi
-          short=${SHA:0:7}
-          body="<!-- pr-screenshots -->"$'\n'"### Screenshots (synthetic fixture, iPhone 18 Pro Max, light) at $short"$'\n'
-          for app in ${{ needs.changes.outputs.apps }}; do
-            dest="$dir/$PR/$short/$app"
-            mkdir -p "$dest"
-            cp build/pr-screenshots/"$app"/light/*.png "$dest/"
-            body+=$'\n'"**$app**"$'\n\n'"| "
-            row="| "; sep="|"
-            for png in "$dest"/*.png; do
-              name=$(basename "$png" .png)
-              body+="$name | "; sep+=" --- |"
-              row+="<img src=\"https://raw.githubusercontent.com/$GITHUB_REPOSITORY/pr-screenshots/$PR/$short/$app/$name.png\" width=\"260\"> | "
-            done
-            body+=$'\n'"$sep"$'\n'"$row"$'\n'
-          done
-          (
-            cd "$dir"
-            git add -A
-            git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
-              commit -qm "PR #$PR screenshots at $short" || true
-            git push origin HEAD:pr-screenshots
-          )
-          existing=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" --paginate \
-            --jq '[.[] | select(.user.login == "github-actions[bot]" and (.body | startswith("<!-- pr-screenshots -->")))][0].id // empty')
-          if [[ -n "$existing" ]]; then
-            gh api -X PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$existing" -f body="$body" >/dev/null
-          else
-            gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" -f body="$body" >/dev/null
-          fi
-          echo "$body" >> "$GITHUB_STEP_SUMMARY"
+          {
+            printf '### Synthetic preview screenshots\n\n'
+            printf 'Source commit: %s\n\n' "$SOURCE_SHA"
+            printf '[Download authenticated screenshot artifacts](%s/%s/actions/runs/%s#artifacts)\n' \
+              "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID"
+          } >> "$GITHUB_STEP_SUMMARY"

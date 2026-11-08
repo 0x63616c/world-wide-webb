@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Sign nested Sparkle helpers, frameworks and app from the inside out."""
+"""Sign nested frameworks, helpers and app from the inside out."""
 from pathlib import Path
 import subprocess
 import sys

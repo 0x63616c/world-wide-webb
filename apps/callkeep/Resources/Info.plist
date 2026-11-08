@@ -36,16 +36,6 @@
 			<string>Any</string>
 		</dict>
 	</dict>
-	<key>SUFeedURL</key>
-	<string>https://github.com/0x63616c/callkeep/releases/latest/download/appcast.xml</string>
-	<key>SUPublicEDKey</key>
-	<string>upPaWC9aNZDlGMy/YjcD9ec3XwfVb3UuZPyRKGLlsuY=</string>
-	<key>SUEnableAutomaticChecks</key>
-	<true/>
-	<key>SUScheduledCheckInterval</key>
-	<integer>3600</integer>
-	<key>SUAllowsAutomaticUpdates</key>
-	<false/>
 	<key>CallkeepProduction</key>
 	<string>$(CALLKEEP_PRODUCTION)</string>
 </dict>

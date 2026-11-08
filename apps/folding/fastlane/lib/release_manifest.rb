@@ -259,7 +259,7 @@ module FoldingRelease
       end
     end
     remote.ensure_exists(source)
-    locks = ["Gemfile.lock", "backend/Cargo.lock", "backend/package-lock.json"] + Dir.glob(File.join(ROOT, "apps/ios/**/Package.resolved")).map { |file| file.delete_prefix(ROOT + "/") }
+    locks = ["Gemfile.lock", "backend/Cargo.lock", "backend/bun.lock"] + Dir.glob(File.join(ROOT, "apps/ios/**/Package.resolved")).map { |file| file.delete_prefix(ROOT + "/") }
     manifest = NULL_FIELDS.to_h { |field| [field, nil] }.merge(
       "schema_version" => 1, "revision" => 1, "state" => "planned", "release_id" => SecureRandom.uuid,
       "tag" => tag, "environment" => environment, "commit_sha" => source, "marketing_version" => version,

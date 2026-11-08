@@ -15,9 +15,6 @@ settings:
 packages:
   LocalTranscription:
     path: Packages/LocalTranscription
-  Sparkle:
-    url: https://github.com/sparkle-project/Sparkle
-    exactVersion: 2.10.1
 targets:
   CallkeepCore:
     type: framework
@@ -31,7 +28,6 @@ targets:
     sources: [Sources/Callkeep, Resources]
     dependencies:
       - target: CallkeepCore
-      - package: Sparkle
       - package: LocalTranscription
     settings:
       PRODUCT_BUNDLE_IDENTIFIER: co.calum.callkeep

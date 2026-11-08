@@ -8,4 +8,4 @@ RUSTUP_TOOLCHAIN=$(python3 -c 'import json; print(json.load(open("tool-versions.
 export RUSTUP_TOOLCHAIN
 cargo test --manifest-path backend/Cargo.toml --workspace
 (cd backend/crates/worker && worker-build --release)
-npm --prefix backend run test:runtime
+(cd backend && bun run test:runtime)

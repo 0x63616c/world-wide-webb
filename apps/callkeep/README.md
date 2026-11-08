@@ -41,7 +41,7 @@ Choose and download **Parakeet Ultra** or **Whisper Turbo** in Settings to trans
 
 ## Get started
 
-1. Install and open Callkeep using Homebrew or a release download below.
+1. Install and open Callkeep using the authenticated Homebrew recipe described below.
 2. Open **Settings → Permissions** and enable microphone and system audio access. The app guides you to the relevant macOS controls.
 3. In **Settings → Transcription**, download a model for local after-call transcripts (Apple silicon).
 4. Click **New recording**, then **Stop recording** when the call ends.
@@ -76,8 +76,8 @@ brew tap 0x63616c/tap
 brew install --cask callkeep
 ```
 
-Use **Callkeep → Check for Updates…** for in-app updates, or `brew upgrade --cask callkeep`. In-app updates wait for recording and file operations to finish. You can also download the app from
-[GitHub Releases](https://github.com/0x63616c/callkeep/releases).
+Updates use `brew upgrade --cask 0x63616c/tap/callkeep`. The private transition recipe
+requires GitHub Git access to WWW; its cutover is tracked below.
 Requires macOS 15 or later on Apple silicon or Intel. New release builds are signed with Developer ID and notarized by Apple.
 Versions through 0.1.3 were ad-hoc signed and may require approval in **System Settings → Privacy & Security**.
 
@@ -93,6 +93,17 @@ Open `Callkeep.xcodeproj` in Xcode and run the **Callkeep** scheme, or use:
 open build/Build/Products/Release/Callkeep.app
 ```
 
-Xcode resolves the pinned Sparkle update framework through Swift Package Manager. Local builds use ad-hoc signing by default. Native iCloud storage requires the provisioned, Developer ID signed release; ad-hoc builds keep new recordings local. The optional system-audio permission query uses a private macOS API.
+Xcode resolves the pinned transcription packages through Swift Package Manager. Local builds use ad-hoc signing by default. Native iCloud storage requires the provisioned, Developer ID signed release; ad-hoc builds keep new recordings local. The optional system-audio permission query uses a private macOS API.
 
 [Development and permissions](docs/DEVELOPMENT.md) · [Recording and storage](docs/RECORDING.md) · [Validation](docs/VALIDATION.md)
+
+## Private distribution migration
+
+The monorepo candidate uses Homebrew for updates. Sparkle, the public appcast and in-app
+update controls are removed. Keep the existing bundle/signing and iCloud identities.
+The replacement authenticated recipe and transition upgrade are still being verified; the
+production tap remains on its existing release until that cutover.
+
+Signed/notarized archives and receipts will be retained privately for recovery. Git access
+to the source repository is required for artifact downloads. A GitHub login used only for
+the tap does not automatically authorize a separate HTTP release URL.

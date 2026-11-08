@@ -5,17 +5,14 @@ import UserNotifications
 @main
 struct CallkeepApp: App {
     @State private var model: AppModel
-    @StateObject private var updates: AppUpdater
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
     init() {
         let model = AppModel()
         _model = State(initialValue: model)
-        _updates = StateObject(wrappedValue: AppUpdater(model: model))
     }
     var body: some Scene {
         Window(AppIdentity.title, id: "library") {
             LibraryView(model: model)
-                .environmentObject(updates)
                 .onAppear { delegate.model = model }
                 .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in model.configureStorage() }
                 .frame(minWidth: 790, minHeight: 530)
@@ -25,10 +22,6 @@ struct CallkeepApp: App {
         .defaultLaunchBehavior(.suppressed)
         .restorationBehavior(.disabled)
         .commands {
-            CommandGroup(after: .appInfo) {
-                Button("Check for Updates…") { updates.checkForUpdates() }
-                    .disabled(!updates.canCheckForUpdates || model.isRecording || model.isBusy)
-            }
             CommandGroup(replacing: .sidebar) {
                 Button("Toggle Sidebar") {
                     NSApp.sendAction(#selector(NSSplitViewController.toggleSidebar(_:)), to: nil, from: nil)

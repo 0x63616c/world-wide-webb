@@ -9,8 +9,8 @@ for tool in swift tofu python3 git; do
 done
 python3 -m venv .venv/contracts
 .venv/contracts/bin/python -m pip install -r scripts/requirements-contracts.txt
-git config --local core.hooksPath .githooks
-echo 'Contract environment and repository-local hooks ready. No credentials or cloud resources accessed.'
+lefthook install
+echo 'Contract environment and shared repository hooks ready. No credentials or cloud resources accessed.'
 if [ "${1:-}" = "--apple" ]; then
   python3 scripts/apple-build-environment.py
   bundle check || BUNDLE_FROZEN=true bundle install
