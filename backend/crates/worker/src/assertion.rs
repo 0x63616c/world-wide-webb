@@ -12,6 +12,7 @@ pub enum AssertionError {
     Malformed,
     InvalidBinding,
     WrongApplication,
+    InvalidMetadata,
     Replay,
     InvalidSignature,
 }
@@ -116,7 +117,7 @@ fn verify_assertion_inner(
     match policy {
         Some(policy) => {
             crate::attestation::verify_assertion_metadata(&assertion.authenticator_data, policy)
-                .map_err(|_| AssertionError::WrongApplication)?
+                .map_err(|_| AssertionError::InvalidMetadata)?
         }
         None if assertion.authenticator_data.len() != 37 => return Err(AssertionError::Malformed),
         None => {}
@@ -150,6 +151,54 @@ fn verify_assertion_inner(
 mod tests {
     use super::*;
     use p256::ecdsa::{SigningKey, signature::Signer};
+    #[test]
+    fn join_accepts_signed_assertion_with_apple_documented_extension_names() {
+        use ciborium::value::Value;
+        let key = SigningKey::from_bytes((&[7u8; 32]).into()).unwrap();
+        let policy = crate::attestation::AppPolicy {
+            app_id: "TEAM.app.getfolding.Folding",
+            development: false,
+            allowed_bundle_versions: &["9"],
+        };
+        let binding = client_data_hash(&Binding {
+            deployment: "production",
+            method: "POST",
+            path: "/v1/enrollment/join",
+            challenge_id: &Id::nil(),
+            nonce_base64url: &URL_SAFE_NO_PAD.encode([1u8; 32]),
+            exact_body: b"{\"nickname\":\"Folder\"}",
+        })
+        .unwrap();
+        let mut auth = Sha256::digest(policy.app_id.as_bytes()).to_vec();
+        auth.push(0x80);
+        auth.extend(1u32.to_be_bytes());
+        let extensions = Value::Map(vec![
+            (
+                Value::Text("validationCategory".into()),
+                Value::Bytes(2u32.to_le_bytes().to_vec()),
+            ),
+            (Value::Text("bundleVersion".into()), Value::Text("9".into())),
+        ]);
+        ciborium::into_writer(&extensions, &mut auth).unwrap();
+        let nonce = Sha256::digest([auth.as_slice(), &binding].concat());
+        let signature: Signature = key.sign(&nonce);
+        let assertion = Assertion {
+            signature: signature.to_der().as_bytes().to_vec(),
+            authenticator_data: auth,
+        };
+        let mut encoded = Vec::new();
+        ciborium::into_writer(&assertion, &mut encoded).unwrap();
+        assert_eq!(
+            verify_assertion_with_policy(
+                &encoded,
+                &key.verifying_key().to_sec1_bytes(),
+                0,
+                &binding,
+                &policy
+            ),
+            Ok(1)
+        );
+    }
     fn signed(hash: &[u8; 32], app: &str, counter: u32) -> (Vec<u8>, Vec<u8>) {
         let key = SigningKey::from_bytes((&[7u8; 32]).into()).unwrap();
         let mut auth = Sha256::digest(app.as_bytes()).to_vec();

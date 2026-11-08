@@ -125,24 +125,28 @@ pub(crate) async fn upload(
     // Reservation makes orphan cleanup possible if execution stops after either object write.
     writes.push(statement(db,"INSERT INTO mutation_guards VALUES (?1,CASE WHEN EXISTS(SELECT 1 FROM avatar_objects WHERE avatar_id=?2 AND participant_id=?3 AND state='uploading' AND normalized_hash=?4 AND created_at_ms>?5) THEN 1 ELSE 0 END)",&[text(&format!("{guard}-business")),text(&asset.avatar_id),text(&session.participant_id),blob(&hash),number(now()-3600000)])?);
     writes.extend(verified.consume(db)?);
-    writes.push(statement(db,"INSERT INTO avatar_purge_jobs(object_key,participant_id) SELECT original_key,participant_id FROM avatar_objects WHERE participant_id=?1 AND state='pending' UNION SELECT derivative_key,participant_id FROM avatar_objects WHERE participant_id=?1 AND state='pending' ON CONFLICT(object_key) DO NOTHING",&[text(&session.participant_id)])?);
-    writes.push(statement(db,"UPDATE avatar_objects SET state='rejected',reason_code='superseded',revision=revision+1 WHERE participant_id=?1 AND state='pending'",&[text(&session.participant_id)])?);
+    writes.push(statement(db,"INSERT INTO avatar_purge_jobs(object_key,participant_id) SELECT original_key,participant_id FROM avatar_objects WHERE participant_id=?1 AND state IN ('pending','approved') AND avatar_id<>?2 UNION SELECT derivative_key,participant_id FROM avatar_objects WHERE participant_id=?1 AND state IN ('pending','approved') AND avatar_id<>?2 ON CONFLICT(object_key) DO NOTHING",&[text(&session.participant_id),text(&asset.avatar_id)])?);
+    writes.push(statement(db,"UPDATE avatar_objects SET state='removed',reason_code='replaced',revision=revision+1 WHERE participant_id=?1 AND state IN ('pending','approved') AND avatar_id<>?2",&[text(&session.participant_id),text(&asset.avatar_id)])?);
     writes.push(statement(
         db,
-        "UPDATE avatar_objects SET state='pending',revision=revision+1 WHERE avatar_id=?1",
+        "UPDATE avatar_objects SET state='approved',revision=revision+1 WHERE avatar_id=?1",
         &[text(&asset.avatar_id)],
     )?);
     writes.push(statement(
         db,
-        "UPDATE profiles SET avatar_status='pending' WHERE participant_id=?1",
+        "UPDATE profiles SET avatar_id=?1,avatar_status='approved' WHERE participant_id=?2",
+        &[text(&asset.avatar_id), text(&session.participant_id)],
+    )?);
+    // Only the sanitized derivative is needed after publication.
+    writes.push(statement(db,"INSERT INTO avatar_purge_jobs(object_key,participant_id) VALUES (?1,?2) ON CONFLICT(object_key) DO NOTHING",&[text(&asset.original_key),text(&session.participant_id)])?);
+    writes.push(statement(
+        db,
+        "UPDATE avatar_alerts SET state='reviewed' WHERE avatar_id IN (SELECT avatar_id FROM avatar_objects WHERE participant_id=?1)",
         &[text(&session.participant_id)],
     )?);
-    writes.push(statement(
-        db,
-        "INSERT INTO avatar_alerts(avatar_id,state) VALUES (?1,'pending')",
-        &[text(&asset.avatar_id)],
-    )?);
-    let value = serde_json::json!({"avatar_id":asset.avatar_id,"state":"pending","operation_id":operation,"request_id":request_id});
+    // Existing clients require a pending upload receipt, then immediately refresh
+    // the profile. Publication is already committed as approved in this same batch.
+    let value = serde_json::json!({"avatar_id":asset.avatar_id,"publication_state":"approved","state":"pending","operation_id":operation,"request_id":request_id});
     writes.push(statement(
         db,
         "INSERT INTO competition_operations VALUES (?1,?2,?3,?4,?5)",

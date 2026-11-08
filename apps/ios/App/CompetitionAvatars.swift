@@ -44,7 +44,8 @@ extension CompetitionAPI {
     let result: Response = try await transport.protected(
       "PUT", path: "/v1/avatars/\(upload.operationID)", purpose: "avatar_upload", body: bytes,
       contentType: contentType)
-    guard UUID(uuidString: result.avatarID) != nil, result.state == .pending else {
+    guard UUID(uuidString: result.avatarID) != nil, [.pending, .approved].contains(result.state)
+    else {
       throw CompetitionTransportError.invalidResponse
     }
     upload.avatarID = result.avatarID

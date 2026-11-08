@@ -297,22 +297,23 @@ pub(crate) async fn dispatch(
         page.title = "Avatars".into();
         #[derive(Deserialize)]
         struct PendingAvatar {
+            state: String,
             avatar_id: String,
             participant_id: String,
             revision: i64,
         }
-        let rows=statement(&db,"SELECT avatar_id,participant_id,revision FROM avatar_objects WHERE state='pending' AND avatar_id>?1 ORDER BY avatar_id LIMIT 51",&[text(after)])?.all().await.map_err(|_|Failure::unavailable())?.results::<PendingAvatar>().map_err(|_|Failure::unavailable())?;
+        let rows=statement(&db,"SELECT avatar_id,participant_id,revision,state FROM avatar_objects WHERE state IN ('pending','approved') AND avatar_id>?1 ORDER BY avatar_id LIMIT 51",&[text(after)])?.all().await.map_err(|_|Failure::unavailable())?.results::<PendingAvatar>().map_err(|_|Failure::unavailable())?;
         for row in rows.iter().take(50) {
             page.rows.push(Row {
                 image: format!("/admin/avatars/{}/image", row.avatar_id),
                 participant: row.participant_id.clone(),
                 label: row.avatar_id.clone(),
-                details: "Pending avatar".into(),
+                details: format!("{} photo", row.state),
                 path: format!("/admin/avatars/{}/decision", row.avatar_id),
                 revision: row.revision,
                 event_id: String::new(),
                 operation: uuid()?,
-                actions: vec!["approve".into(), "reject".into(), "remove".into()],
+                actions: vec!["remove".into()],
             });
         }
         if rows.len() > 50 {
@@ -395,19 +396,19 @@ pub(crate) async fn dispatch(
             );
         }
     } else if path == "/admin/queue" {
-        page.title = "Queue".into();
-        let rows=statement(&db,"SELECT n.participant_id,n.requested_nickname,r.revision FROM nickname_requests n JOIN participant_revisions r ON r.participant_id=n.participant_id WHERE n.participant_id>?1 ORDER BY n.participant_id LIMIT 51",&[text(after)])?.all().await.map_err(|_|Failure::unavailable())?.results::<Pending>().map_err(|_|Failure::unavailable())?;
+        page.title = "Names".into();
+        let rows=statement(&db,"SELECT f.participant_id,f.nickname AS requested_nickname,r.revision FROM profiles f JOIN participant_revisions r ON r.participant_id=f.participant_id JOIN participants p ON p.participant_id=f.participant_id WHERE f.participant_id>?1 AND p.account_state='active' ORDER BY f.participant_id LIMIT 51",&[text(after)])?.all().await.map_err(|_|Failure::unavailable())?.results::<Pending>().map_err(|_|Failure::unavailable())?;
         for row in rows.iter().take(50) {
             page.rows.push(Row {
                 image: String::new(),
                 participant: row.participant_id.clone(),
                 label: row.requested_nickname.clone(),
-                details: "Pending name".into(),
+                details: "Public name".into(),
                 path: format!("/admin/names/{}/decision", row.participant_id),
                 revision: row.revision,
                 event_id: String::new(),
                 operation: uuid()?,
-                actions: vec!["approve".into(), "reject".into(), "remove".into()],
+                actions: vec!["remove".into()],
             });
         }
         if rows.len() > 50 {
