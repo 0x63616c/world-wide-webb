@@ -16,7 +16,7 @@ client = boto3.client('s3', region_name='auto',
     endpoint_url='https://eb3ea2e5ef93e58704d39980583fee38.r2.cloudflarestorage.com')
 bucket = 'folding-infrastructure-state'
 if args.environment == 'bootstrap':
-    body = (pathlib.Path(__file__).resolve().parents[1] / 'infra/bootstrap/terraform.tfstate').read_bytes()
+    body = (pathlib.Path(__file__).resolve().parents[3] / 'infra/cloudflare/folding/bootstrap/terraform.tfstate').read_bytes()
 else:
     body = client.get_object(Bucket=bucket, Key=f'folding/{args.environment}.tfstate')['Body'].read()
 state = json.loads(body)

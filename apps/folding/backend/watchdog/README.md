@@ -10,7 +10,7 @@ There is one **logical** notice per incident/category, enforced by a unique key.
 
 ## Deployment ownership and defaults
 
-OpenTofu `infra/modules/monitoring` owns only the isolated D1 database. The staging and production roots expose `monitoring_bindings`. Wrangler owns the Worker, its bindings and Cron schedule in a single deploy; no second Terraform resource manages the same schedule. The crate has its own workspace/lockfile and does not modify the API artifact.
+OpenTofu `infra/cloudflare/folding/modules/monitoring` owns only the isolated D1 database. The staging and production roots expose `monitoring_bindings`. Wrangler owns the Worker, its bindings and Cron schedule in a single deploy; no second Terraform resource manages the same schedule. The crate has its own workspace/lockfile and does not modify the API artifact.
 
 Both root variables default false:
 

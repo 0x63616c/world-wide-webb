@@ -30,7 +30,7 @@ def main():
         dirs = [Path(temp) / name for name in ("first", "contender", "restored")]
         for directory in dirs:
             directory.mkdir()
-            shutil.copyfile(ROOT / "infra/state-verification/main.tf", directory / "main.tf")
+            shutil.copyfile(ROOT.parents[1] / "infra/cloudflare/folding/state-verification/main.tf", directory / "main.tf")
         for directory in dirs[:2]:
             run(directory, "init", "-input=false", f"-backend-config=key={evidence_key}")
         first = subprocess.Popen(

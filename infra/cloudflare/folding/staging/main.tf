@@ -1,7 +1,7 @@
 terraform {
   required_version = "= 1.13.9"
   backend "s3" {
-    key                         = "folding/production.tfstate"
+    key                         = "folding/staging.tfstate"
     bucket                      = "folding-infrastructure-state"
     region                      = "auto"
     endpoints                   = { s3 = "https://eb3ea2e5ef93e58704d39980583fee38.r2.cloudflarestorage.com" }
@@ -43,24 +43,6 @@ variable "state_passphrase" {
 
 provider "cloudflare" {}
 variable "zone_id" { type = string }
-variable "support_destination" {
-  type      = string
-  sensitive = true
-}
-module "support_email" {
-  source      = "../../modules/support-email"
-  zone_id     = var.zone_id
-  destination = var.support_destination
-}
-
-# Outbound operational mail uses a separate Cloudflare Email Sending setup.
-# This resource owns the sender domain; it does not send messages or enable Cron.
-resource "cloudflare_email_sending_subdomain" "alerts" {
-  zone_id         = var.zone_id
-  name            = "getfolding.app"
-  preview_enabled = false
-  lifecycle { prevent_destroy = true }
-}
 
 variable "account_id" { type = string }
 variable "admin_emails" {
@@ -72,10 +54,10 @@ variable "application_routes_enabled" {
   default = false
 }
 module "application" {
-  source                 = "../../modules/application"
+  source                 = "../modules/application"
   account_id             = var.account_id
   zone_id                = var.zone_id
-  environment            = "production"
+  environment            = "staging"
   admin_emails           = var.admin_emails
   routes_enabled         = var.application_routes_enabled
   website_routes_enabled = var.website_routes_enabled
@@ -97,9 +79,9 @@ variable "monitoring_outbound_delivery_verified" {
   default = false
 }
 module "monitoring" {
-  source                     = "../../modules/monitoring"
+  source                     = "../modules/monitoring"
   account_id                 = var.account_id
-  environment                = "production"
+  environment                = "staging"
   enabled                    = var.monitoring_enabled
   outbound_delivery_verified = var.monitoring_outbound_delivery_verified
 }

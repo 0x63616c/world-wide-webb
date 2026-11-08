@@ -81,3 +81,19 @@ not a count of moved files or passing tests. Current stage: private release and 
   isolated temporary tap/cache/trust configuration; the temporary tap was cleaned up. Private
   GitHub authorization and a real install/upgrade remain unproved. Current Homebrew requires
   explicit cask/tap trust; document narrow trust in the installer instructions.
+
+## Infrastructure source preparation — approximately 20% overall
+
+Refreshed WWW main to `56acbffe5c3ceab90a6db04936b109d68f4acb11` and merged its
+new Beszel route and positive remote-apply confirmation guard into the moved layout. The
+monitoring chat reports live login, two reporting Macs and backup/restore acceptance; migration
+handover still requires independent current-state verification. Linux runner work remains active.
+
+Home HCL now lives at `infra/cloudflare/home`; Folding retains independent bootstrap/staging/
+production roots and modules under `infra/cloudflare/folding`. State/resource addresses, remote
+keys and credentials are unchanged. Shared home scripts/writers have not handed over yet.
+Folding website source moved intact to `sites/folding`; both public asset builds succeed.
+
+Home OpenTofu formatting/validation, two mocked route tests and the isolated encrypted-state/
+exclusive-lock/wrong-key/backup-restore proof pass at the new path. All three Folding roots initialize with backends disabled and validate successfully using
+fixture encryption inputs. No live infrastructure apply has been performed by this migration.

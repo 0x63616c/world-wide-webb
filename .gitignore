@@ -101,3 +101,14 @@ ci-selection.json
 /apps/control-center/ci-selection.json
 /apps/control-center/ci-image.json
 /apps/control-center/testflight-receipt.json
+
+# Infrastructure state, plans and private runtime configuration remain outside Git.
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.tfvars
+*.tfvars.json
+backend.hcl
+/sites/folding/dist/
+/sites/folding/dist-staging/

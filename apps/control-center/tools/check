@@ -33,10 +33,10 @@ case "${1:-all}" in
     ;;
   infra)
     export TF_VAR_state_passphrase=fixture-only-open-tofu-encryption-passphrase
-    tofu -chdir=../../infra/cloudflare fmt -check
-    tofu -chdir=../../infra/cloudflare init -backend=false -lockfile=readonly
-    tofu -chdir=../../infra/cloudflare validate
-    tofu -chdir=../../infra/cloudflare test
+    tofu -chdir=../../infra/cloudflare/home fmt -check
+    tofu -chdir=../../infra/cloudflare/home init -backend=false -lockfile=readonly
+    tofu -chdir=../../infra/cloudflare/home validate
+    tofu -chdir=../../infra/cloudflare/home test
     python3 tools/test_state_backend.py
     ;;
   all)

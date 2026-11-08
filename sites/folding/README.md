@@ -3,10 +3,10 @@
 Static HTML/CSS for `getfolding.app`, with no client JavaScript, framework, cookies, analytics, external fonts, API credentials, or signup database. Product, support, privacy, deletion, appeal and 404 pages share one template. The pages follow system light/dark appearance and reduced-motion preferences.
 
 ```sh
-node apps/web/build.mjs
+node sites/folding/build.mjs
 ```
 
-The dependency-free builder writes production assets to `apps/web/dist/` and staging assets to `apps/web/dist-staging/`. Both are ignored generated artifacts. Source content lives in `src/pages.mjs`; `build.mjs` owns the common document/navigation and response headers; `assets/` owns the stylesheet and original vector mark. Node is pinned to the repository's 26.13.0 toolchain in `package.json`.
+The dependency-free builder writes production assets to `sites/folding/dist/` and staging assets to `sites/folding/dist-staging/`. Both are ignored generated artifacts. Source content lives in `src/pages.mjs`; `build.mjs` owns the common document/navigation and response headers; `assets/` owns the stylesheet and original vector mark. Node is pinned to the repository's 26.13.0 toolchain in `package.json`.
 
 ## Deployment ownership
 

@@ -5,10 +5,10 @@ The first managed service is incoming support-email forwarding. Remote state is 
 From one persistent authorized shell:
 
 ```sh
-tofu -chdir=infra/environments/production init
-tofu -chdir=infra/environments/production plan -out=production.tfplan
+tofu -chdir=infra/cloudflare/folding/production init
+tofu -chdir=infra/cloudflare/folding/production plan -out=production.tfplan
 # Inspect the saved plan before applying.
-tofu -chdir=infra/environments/production apply production.tfplan
+tofu -chdir=infra/cloudflare/folding/production apply production.tfplan
 python3 scripts/backup-infrastructure-state.py production
 ```
 

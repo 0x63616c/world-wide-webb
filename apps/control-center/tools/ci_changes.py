@@ -14,14 +14,15 @@ def classify(paths, force=False):
     # Routing policy/tests are exercised by the always-on operations checks.
     # They do not change the Apple application or its container inputs.
     selection_policy = {"tools/ci_changes.py", "tools/test_ci.py"}
+    cloudflare_operations = {".github/workflows/cloudflare.yml", "tools/infra_apply.py"}
     penpot_operations = {
         "deploy/mini/penpot_backup.py",
         "deploy/mini/penpot_provision.py",
         "deploy/mini/test_penpot_backup.py",
     }
     all_changed = force or any(
-        p.startswith(".github/")
-        or (p.startswith("tools/") and p not in selection_policy)
+        (p.startswith(".github/") and p not in cloudflare_operations)
+        or (p.startswith("tools/") and p not in selection_policy | cloudflare_operations)
         or p
         in {
             "tools/ci_gate.py",
@@ -73,7 +74,8 @@ def classify(paths, force=False):
             }
             for p in paths
         ),
-        "infra": all_changed or any(p.startswith("infra/") or p == ".opentofu-version" for p in paths),
+        "infra": all_changed
+        or any(p.startswith("infra/") or p == ".opentofu-version" or p in cloudflare_operations for p in paths),
     }
 
 
