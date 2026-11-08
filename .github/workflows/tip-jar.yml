@@ -26,10 +26,10 @@ jobs:
   tip-jar:
     needs: changes
     if: github.event_name == 'workflow_dispatch' || contains(fromJSON(needs.changes.outputs.apps), 'tendr')
-    runs-on: xcode-27
+    runs-on: [self-hosted, macOS, ARM64, homelab-tart]
     timeout-minutes: 60
     env:
-      DEVELOPER_DIR: /Applications/Xcode_27.1.app/Contents/Developer
+      DEVELOPER_DIR: /Applications/Xcode.app/Contents/Developer
     steps:
       - uses: actions/checkout@v4
       - name: Build for testing

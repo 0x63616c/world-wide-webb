@@ -10,6 +10,9 @@ on:
         description: Successful main CI run to apply
         type: string
         required: true
+defaults:
+  run:
+    working-directory: apps/control-center
 permissions:
   contents: read
   actions: read
@@ -38,6 +41,7 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: ci-selection
+          path: apps/control-center
           run-id: ${{ steps.source.outputs.run_id }}
           github-token: ${{ github.token }}
       - id: selection
@@ -63,7 +67,7 @@ jobs:
       - name: Load deployment credentials once
         env:
           SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
-        run: sops exec-env secrets/vault.yaml 'python3 tools/ci_deploy_env.py'
+        run: sops exec-env ../../secrets/vault.yaml 'python3 tools/ci_deploy_env.py'
       - uses: tailscale/github-action@v4
         with:
           oauth-client-id: ${{ env.TS_CLIENT_ID }}
@@ -84,7 +88,7 @@ jobs:
           # shellcheck disable=SC2029 # The validated staging path must expand locally.
           cleanup() { ssh "${options[@]}" "$remote" "rm -rf -- '$stage'"; }
           trap cleanup EXIT
-          scp "${options[@]}" infra/cloudflare/*.tf infra/cloudflare/.terraform.lock.hcl \
-            .opentofu-version tools/infra_apply.py "$remote:$stage/"
+          scp "${options[@]}" ../../infra/cloudflare/*.tf ../../infra/cloudflare/.terraform.lock.hcl \
+            ../../.opentofu-version tools/infra_apply.py "$remote:$stage/"
           # shellcheck disable=SC2029 # Pass locally validated paths and release identity.
           ssh "${options[@]}" "$remote" "python3 '$stage/infra_apply.py' '$stage'"

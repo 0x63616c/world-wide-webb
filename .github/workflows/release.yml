@@ -52,10 +52,10 @@ jobs:
   screenshots:
     needs: resolve
     if: ${{ !inputs.skip_screenshots }}
-    runs-on: xcode-27
+    runs-on: [self-hosted, macOS, ARM64, homelab-tart]
     timeout-minutes: 120
     env:
-      DEVELOPER_DIR: /Applications/Xcode_27.1.app/Contents/Developer
+      DEVELOPER_DIR: /Applications/Xcode.app/Contents/Developer
       DUO_HOST_CONTROL: '1'
       APP: ${{ needs.resolve.outputs.app }}
       RELEASE_VERSION: ${{ needs.resolve.outputs.version }}
@@ -112,13 +112,13 @@ jobs:
   app-store-connect:
     needs: [resolve, screenshots]
     if: ${{ !cancelled() && needs.resolve.result == 'success' && (needs.screenshots.result == 'success' || needs.screenshots.result == 'skipped') }}
-    runs-on: xcode-27
+    runs-on: [self-hosted, macOS, ARM64, homelab-tart]
     timeout-minutes: 60
     concurrency:
       group: app-store-${{ needs.resolve.outputs.app }}
       cancel-in-progress: false
     env:
-      DEVELOPER_DIR: /Applications/Xcode_27.1.app/Contents/Developer
+      DEVELOPER_DIR: /Applications/Xcode.app/Contents/Developer
       FASTLANE_SKIP_UPDATE_CHECK: '1'
       FASTLANE_HIDE_CHANGELOG: '1'
       FASTLANE_SKIP_DOCS: '1'

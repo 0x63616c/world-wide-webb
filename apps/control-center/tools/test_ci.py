@@ -1,6 +1,6 @@
 import unittest
 
-from ci_changes import classify
+from ci_changes import classify, classify_repository
 from ci_gate import verify
 
 
@@ -51,7 +51,7 @@ class CITests(unittest.TestCase):
 
     def test_gate_rejects_missing_failed_cancelled_and_unexpectedly_skipped_checks(self):
         needs = {k: {"result": "success"} for k in ["changes", "typecheck", "test-unit", "apple", "image", "infra"]}
-        needs["changes"]["outputs"] = dict(apple="true", image="true", infra="false")
+        needs["changes"]["outputs"] = dict(apple="true", image="true", infra="false", checks="true")
         needs["infra"]["result"] = "skipped"
         verify(needs)
         for job in ["changes", "typecheck", "test-unit", "apple", "image", "infra"]:
@@ -87,3 +87,32 @@ class CITests(unittest.TestCase):
             dict(apple=True, image=False, publish_apple=True, infra=True),
         )
         self.assertTrue(all(classify(paths, True).values()))
+
+
+class RepositorySelectionTests(unittest.TestCase):
+    def test_unrelated_app_does_not_run_control_center(self):
+        self.assertFalse(any(classify_repository(["apps/tendr/Still/Store.swift"]).values()))
+
+    def test_product_native_keeps_existing_publication_policy(self):
+        selected = classify_repository(["apps/control-center/apple/App/Clock.swift"])
+        self.assertTrue(selected["checks"])
+        self.assertTrue(selected["publish_apple"])
+        self.assertFalse(selected["image"])
+
+    def test_docs_can_skip_every_product_job(self):
+        needs = {key: {"result": "skipped"} for key in ["typecheck", "test-unit", "apple", "image", "infra"]}
+        needs["changes"] = {
+            "result": "success",
+            "outputs": dict(checks="false", apple="false", image="false", infra="false"),
+        }
+        verify(needs)
+        needs["test-unit"]["result"] = "failure"
+        with self.assertRaises(ValueError):
+            verify(needs)
+
+    def test_force_verifies_without_publishing(self):
+        selected = classify_repository([], True)
+        self.assertTrue(selected["checks"])
+        self.assertTrue(selected["apple"])
+        self.assertTrue(selected["infra"])
+        self.assertFalse(selected["publish_apple"])

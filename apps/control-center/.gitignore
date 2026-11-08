@@ -1,0 +1,98 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+
+# Postgres migration artifacts (Swarm->CNPG dump + count tsvs, www-j934.8).
+# The dump is the rollback copy held OFF any pgdata volume; never committed.
+.pg-migration/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Database
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Tilt
+.tilt/
+
+
+# Vite
+.vite/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Chrome unpacked-extension metadata; machine-local artifact.
+
+# IDE
+.idea/
+*.swp
+*.swo
+
+# Claude Code
+.claude/settings.local.json
+
+# OpenCode local quota state
+opencode-quota/*
+!opencode-quota/quota-toast.json
+
+# Test coverage
+coverage/
+.vitest-reports/
+
+# TypeScript build cache
+*.tsbuildinfo
+
+# ship workflow scratch + build worktrees
+.claude/worktrees/
+.claire/
+
+# Runtime scheduler lock , ephemeral, never commit
+.claude/scheduled_tasks.lock
+
+# Worktrees
+.worktrees/
+
+# Talos/kube clusterconfig — ephemeral, rebuilt each session. Holds cluster CA +
+# admin client cert/key + talos secrets. talhelper's generated inner .gitignore
+# only shields talosconfig + the machine config, NOT the kubeconfigs, so ignore
+# the whole dir here to stop an accidental `git add` leaking cluster-admin creds.
+infra/talos/clusterconfig/
+
+# Local prod DB dumps taken during the #111 postgres migration. Multi-MB
+# snapshots of real data — never commit them.
+.pg-snapshots/
+
+# Native panel machine credentials (never bundled as a resource).
+apple/App/Platform/Config/Secrets.xcconfig
+
+# Rust build outputs and local migration data
+/target/
+/server/data/
+__pycache__/
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+
+**/Secrets.xcconfig
+**/.build/
+**/*.xcodeproj/
+
+ci-selection.json
+
+# Review screenshots and recordings belong outside the repository.
+/docs/screenshots/
+/docs/pr-screenshots/
+/apple/docs/screenshots/
+/apple/App/Platform/Verification/
+
+/ci-image.json

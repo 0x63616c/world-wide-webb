@@ -34,10 +34,10 @@ concurrency:
 
 jobs:
   screenshots:
-    runs-on: xcode-27
+    runs-on: [self-hosted, macOS, ARM64, homelab-tart]
     timeout-minutes: 120
     env:
-      DEVELOPER_DIR: /Applications/Xcode_27.1.app/Contents/Developer
+      DEVELOPER_DIR: /Applications/Xcode.app/Contents/Developer
       APP: ${{ inputs.app || 'tendr' }}
       DUO_HOST_CONTROL: '1'
       REQUESTED_DEVELOPER_DIR: ${{ inputs.developer_dir || '/Applications/Xcode_27.1.app/Contents/Developer' }}

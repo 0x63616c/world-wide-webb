@@ -82,10 +82,10 @@ jobs:
   rdesign:
     needs: changes
     if: needs.changes.outputs.rdesign == 'true'
-    runs-on: xcode-27
+    runs-on: [self-hosted, macOS, ARM64, homelab-tart]
     timeout-minutes: 60
     env:
-      DEVELOPER_DIR: /Applications/Xcode_27.1.app/Contents/Developer
+      DEVELOPER_DIR: /Applications/Xcode.app/Contents/Developer
     steps:
       - uses: actions/checkout@v4
       - name: RDesign tests (macOS)
@@ -100,10 +100,10 @@ jobs:
       fail-fast: false
       matrix:
         app: ${{ fromJSON(needs.changes.outputs.apps) }}
-    runs-on: xcode-27
+    runs-on: [self-hosted, macOS, ARM64, homelab-tart]
     timeout-minutes: 60
     env:
-      DEVELOPER_DIR: /Applications/Xcode_27.1.app/Contents/Developer
+      DEVELOPER_DIR: /Applications/Xcode.app/Contents/Developer
       APP: ${{ matrix.app }}
     steps:
       - uses: actions/checkout@v4
@@ -136,10 +136,10 @@ jobs:
   template:
     needs: changes
     if: needs.changes.outputs.template == 'true'
-    runs-on: xcode-27
+    runs-on: [self-hosted, macOS, ARM64, homelab-tart]
     timeout-minutes: 60
     env:
-      DEVELOPER_DIR: /Applications/Xcode_27.1.app/Contents/Developer
+      DEVELOPER_DIR: /Applications/Xcode.app/Contents/Developer
     steps:
       - uses: actions/checkout@v4
       - name: Scaffold a throwaway app from templates/new-app

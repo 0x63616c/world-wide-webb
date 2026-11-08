@@ -61,10 +61,10 @@ jobs:
     needs: changes
     # Same-repo PRs only: fork tokens cannot push the pr-screenshots branch.
     if: needs.changes.outputs.apps != '' && (github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository)
-    runs-on: xcode-27
+    runs-on: [self-hosted, macOS, ARM64, homelab-tart]
     timeout-minutes: 60
     env:
-      DEVELOPER_DIR: /Applications/Xcode_27.1.app/Contents/Developer
+      DEVELOPER_DIR: /Applications/Xcode.app/Contents/Developer
       PR: ${{ github.event.pull_request.number || inputs.pr }}
       SCREENSHOT_TEST_KEY: pr_screenshot_test
     steps:

@@ -2,6 +2,7 @@
 """One path-selection policy shared by CI and release workflows."""
 
 import argparse
+import importlib.util
 import json
 import os
 import re
@@ -76,6 +77,28 @@ def classify(paths, force=False):
     }
 
 
+def classify_repository(paths, force=False):
+    """Adapt the existing product policy to repository-relative inputs."""
+    root = Path(__file__).resolve().parents[3]
+    spec = importlib.util.spec_from_file_location("monorepo_selection", root / "scripts/ci/select.py")
+    policy = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(policy)
+    selection = policy.select(paths, json.loads(policy.CONFIG.read_text()), force=force)
+    selected = set(selection["verify"])
+    local = [path[len("apps/control-center/") :] for path in paths if path.startswith("apps/control-center/")]
+    result = classify(local)
+    result.update(
+        {
+            "apple": result["apple"] or "control-center.native" in selected,
+            "image": result["image"] or "control-center.server" in selected,
+            "infra": "cloudflare.home" in selected,
+            "checks": any(unit.startswith("control-center.") for unit in selected),
+        }
+    )
+    # Publication remains product-input based; force/shared verification cannot upload.
+    return result
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("base")
@@ -85,14 +108,14 @@ def main():
     if not all(re.fullmatch("[a-f0-9]{40}", ref) for ref in [args.base, args.head]):
         parser.error("base and head must be full commit SHAs")
     if args.base == "0" * 40:
-        selected = classify([], True)
+        selected = classify_repository([], True)
     else:
         paths = (
-            subprocess.check_output(["git", "diff", "--name-only", "-z", args.base, args.head, "--"])
+            subprocess.check_output(["git", "diff", "--no-renames", "--name-only", "-z", args.base, args.head, "--"])
             .decode()
             .split("\0")
         )
-        selected = classify(paths, args.force)
+        selected = classify_repository(paths, args.force)
     Path("ci-selection.json").write_text(json.dumps(selected) + "\n")
     if os.environ.get("GITHUB_OUTPUT"):
         with open(os.environ["GITHUB_OUTPUT"], "a") as output:

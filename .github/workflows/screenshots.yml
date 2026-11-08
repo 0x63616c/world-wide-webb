@@ -20,10 +20,10 @@ permissions:
 
 jobs:
   screenshots:
-    runs-on: xcode-27
+    runs-on: [self-hosted, macOS, ARM64, homelab-tart]
     timeout-minutes: 60
     env:
-      DEVELOPER_DIR: /Applications/Xcode_27.1.app/Contents/Developer
+      DEVELOPER_DIR: /Applications/Xcode.app/Contents/Developer
       APP: ${{ inputs.app }}
     steps:
       - uses: actions/checkout@v4

@@ -49,3 +49,17 @@ Tendr requirements document. Do not silently discard or freeze these; refresh be
 - Xcode 27.2: regenerated Tendr/Air Miles projects and built both for generic iOS
   Simulator successfully with signing disabled. This proves build compatibility locally,
   not unattended VM posture capture or signed distribution.
+
+## Control Center relocation
+
+The complete Swift/Rust/Docker/deploy/tooling root now lives under `apps/control-center`,
+with product docs/instructions preserved. Shared root guidance maps all products.
+The original check/setup entrypoints delegate to the moved product. Infrastructure source/state
+and shared home ownership have not yet moved; root secrets stay encrypted in place.
+
+- All 96 Control Center operations/tool tests pass from the new location.
+- Eight product-CI tests and nine shared selection tests pass; unrelated app changes skip
+  Control Center jobs and forced verification cannot upload a native build.
+- All current root workflow files pass actionlint. Apple jobs now request the existing
+  disposable homelab macOS label; image/toolchain canary and Linux migration remain pending.
+- Rust fmt/clippy and 30 Rust tests pass; all 99 PanelKit tests pass. Real Swift/Rust integration and the production Apple checks are running. No production writes have occurred.

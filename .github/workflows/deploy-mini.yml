@@ -10,6 +10,9 @@ on:
         description: Successful main CI run to deploy
         type: string
         required: true
+defaults:
+  run:
+    working-directory: apps/control-center
 permissions:
   contents: read
   actions: read
@@ -40,6 +43,7 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: ci-selection
+          path: apps/control-center
           run-id: ${{ steps.source.outputs.run_id }}
           github-token: ${{ github.token }}
       - id: selection
@@ -54,6 +58,7 @@ jobs:
         if: steps.selection.outputs.image == 'true'
         with:
           name: ci-image
+          path: apps/control-center
           run-id: ${{ steps.source.outputs.run_id }}
           github-token: ${{ github.token }}
       - id: image
@@ -76,7 +81,7 @@ jobs:
       - name: Load deployment credentials once
         env:
           SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
-        run: sops exec-env secrets/vault.yaml 'python3 tools/ci_deploy_env.py'
+        run: sops exec-env ../../secrets/vault.yaml 'python3 tools/ci_deploy_env.py'
       - uses: tailscale/github-action@v4
         with:
           oauth-client-id: ${{ env.TS_CLIENT_ID }}
