@@ -14,6 +14,7 @@ fn config() -> Config {
     Config {
         host_name: "homelab-macbook".into(),
         admission_enabled: true,
+        max_concurrent_jobs: 1,
         repositories: vec![repo("a", 1), repo("b", 2)],
         image: format!("registry/image@sha256:{}", "a".repeat(64)),
         cpu: 4,
@@ -583,4 +584,433 @@ fn allowlist_trust_and_pinned_image_are_required_for_admission() {
             .active
             .is_none()
     );
+}
+
+fn running_attempt(nonce: char, id: u64) -> Attempt {
+    let mut a = listening().active.unwrap();
+    a.nonce = nonce.to_string().repeat(32);
+    a.vm_name = format!("homelab-macbook-job-{}", a.nonce);
+    a.runner_name = a.vm_name.clone();
+    a.candidate = job("owner/a", id);
+    a.assigned = Some(a.candidate.clone());
+    a.phase = Phase::Running;
+    a.running_deadline = Some(10000);
+    a.runner_id = Some(id + 100);
+    a
+}
+fn fleet(count: usize) -> Journal {
+    let mut j = listening();
+    j.active = Some(running_attempt('a', 1));
+    j.additional = (1..count)
+        .map(|i| {
+            running_attempt(
+                char::from_digit((10 + i as u32) % 16, 16).unwrap(),
+                i as u64 + 1,
+            )
+        })
+        .collect();
+    j.last_attempt = None;
+    j
+}
+fn fleet_observation(journal: &Journal) -> Observation {
+    let mut observed = observation();
+    observed.free_bytes = Some(10000);
+    observed.admission_nonce = Some(format!("{:032x}", u64::MAX));
+    observed.candidates = (1..=10).map(|id| candidate("owner/a", id, id)).collect();
+    observed.revalidated = observed.candidates.iter().map(|c| c.job.clone()).collect();
+    for attempt in journal.attempts() {
+        observed.attempts.insert(
+            attempt.nonce.clone(),
+            Box::new(Observation {
+                vm: VmObservation::Running,
+                runner: attempt
+                    .assigned
+                    .clone()
+                    .map_or(RunnerObservation::Idle, RunnerObservation::Busy),
+                free_bytes: Some(10000),
+                ..Observation::default()
+            }),
+        );
+    }
+    observed
+}
+#[test]
+fn configured_capacity_admits_second_but_never_third_macos_guest() {
+    let n = 2;
+    let mut cfg = config();
+    cfg.max_concurrent_jobs = n;
+    let j = fleet(n - 1);
+    let o = fleet_observation(&j);
+    let d = decide(&cfg, &j, &o, 200);
+    assert_eq!(d.next.attempts().count(), n);
+    assert_eq!(d.effect.unwrap().operation, Operation::CloneVm);
+    let mut full = d.next;
+    let a = full.additional.last_mut().unwrap();
+    a.pending = None;
+    a.phase = Phase::Cleaning;
+    let o = fleet_observation(&full);
+    let d = decide(&cfg, &full, &o, 201);
+    assert_eq!(d.next.attempts().count(), n);
+    assert_ne!(d.effect.map(|e| e.operation), Some(Operation::CloneVm));
+}
+
+#[test]
+fn unsupported_macos_capacity_is_rejected_before_admission() {
+    for limit in [0, 3, 8, 128, usize::MAX] {
+        let mut cfg = config();
+        cfg.max_concurrent_jobs = limit;
+        assert!(cfg.validate().unwrap_err().contains("1 or 2 jobs per host"));
+        let observed = fleet_observation(&Journal::default());
+        let decision = decide(&cfg, &Journal::default(), &observed, 200);
+        assert!(decision.effect.is_none());
+        assert!(decision.next.is_idle());
+    }
+}
+#[test]
+fn second_guest_requires_storage_for_both_growth_reservations() {
+    let mut cfg = config();
+    cfg.max_concurrent_jobs = 2;
+    let j = fleet(1);
+    let mut o = fleet_observation(&j);
+    o.free_bytes = Some(189);
+    assert!(decide(&cfg, &j, &o, 200).effect.is_none());
+    o.free_bytes = Some(190);
+    assert_eq!(
+        decide(&cfg, &j, &o, 200).effect.unwrap().operation,
+        Operation::CloneVm
+    );
+}
+#[test]
+fn slot_reduction_and_hold_leave_running_attempts_intact() {
+    let j = fleet(3);
+    let o = fleet_observation(&j);
+    for enabled in [true, false] {
+        let mut cfg = config();
+        cfg.admission_enabled = enabled;
+        let d = decide(&cfg, &j, &o, 200);
+        assert_eq!(d.next, j);
+        assert!(d.effect.is_none());
+    }
+}
+#[test]
+fn missing_peer_observation_never_borrows_another_vms_absence() {
+    let j = fleet(2);
+    let mut o = fleet_observation(&j);
+    o.attempts.remove(&j.additional[0].nonce);
+    o.vm = VmObservation::Absent;
+    assert_eq!(decide(&config(), &j, &o, 200).next, j);
+}
+#[test]
+fn cleanup_releases_only_its_slot_and_drain_requires_every_attempt() {
+    let mut j = fleet(2);
+    j.active.as_mut().unwrap().phase = Phase::Cleaning;
+    let mut o = fleet_observation(&j);
+    let a = o
+        .attempts
+        .get_mut(&j.active.as_ref().unwrap().nonce)
+        .unwrap();
+    a.vm = VmObservation::Absent;
+    a.runner = RunnerObservation::Absent;
+    let d = decide(&config(), &j, &o, 200);
+    assert_eq!(d.next.attempts().count(), 1);
+    assert_eq!(d.next.active.as_ref().unwrap(), &j.additional[0]);
+    assert!(!d.next.is_idle());
+    j = d.next;
+    j.active.as_mut().unwrap().phase = Phase::Cleaning;
+    let mut o = fleet_observation(&j);
+    let a = o
+        .attempts
+        .get_mut(&j.active.as_ref().unwrap().nonce)
+        .unwrap();
+    a.vm = VmObservation::Absent;
+    a.runner = RunnerObservation::Absent;
+    assert!(decide(&config(), &j, &o, 201).next.is_idle());
+}
+#[test]
+fn simultaneous_pending_intents_have_unique_tickets_and_resolve_independently() {
+    let mut j = fleet(2);
+    let mut o = fleet_observation(&j);
+    for a in j.active.iter_mut().chain(j.additional.iter_mut()) {
+        a.phase = Phase::Cleaning;
+    }
+    let first = decide(&config(), &j, &o, 200);
+    let first_effect = first.effect.unwrap();
+    j = first.next;
+    let second = decide(&config(), &j, &o, 200);
+    let second_effect = second.effect.unwrap();
+    j = second.next;
+    assert_ne!(first_effect.attempt.nonce, second_effect.attempt.nonce);
+    assert_ne!(first_effect.ticket, second_effect.ticket);
+    j.validate().unwrap();
+    // A later sequence number must not invalidate the earlier pending operation.
+    o = Observation {
+        effect_result: Some(EffectResult {
+            ticket: first_effect.ticket,
+            outcome: Outcome::Succeeded { runner_id: None },
+        }),
+        ..Observation::default()
+    };
+    let resolved = decide(&config(), &j, &o, 201);
+    assert!(resolved.effect.is_none());
+    let earlier = resolved
+        .next
+        .attempts()
+        .find(|a| a.nonce == first_effect.attempt.nonce)
+        .unwrap();
+    let later = resolved
+        .next
+        .attempts()
+        .find(|a| a.nonce == second_effect.attempt.nonce)
+        .unwrap();
+    assert!(earlier.pending.is_none());
+    assert_eq!(later.pending.as_ref().unwrap().ticket, second_effect.ticket);
+}
+#[test]
+fn stalled_pending_attempt_does_not_block_a_peer_timeout() {
+    let mut j = fleet(2);
+    j.active.as_mut().unwrap().pending = Some(Intent {
+        ticket: j.sequence,
+        operation: Operation::StopVm,
+    });
+    j.additional[0].running_deadline = Some(150);
+    let o = fleet_observation(&j);
+    let d = decide(&config(), &j, &o, 200);
+    assert_eq!(d.effect.unwrap().attempt.nonce, j.additional[0].nonce);
+    assert_eq!(d.next.active.as_ref().unwrap(), j.active.as_ref().unwrap());
+}
+#[test]
+fn demand_reservations_follow_actual_assignment_and_exclude_provisioning_hints() {
+    let mut j = fleet(2);
+    j.additional[0].assigned = None;
+    j.active.as_mut().unwrap().assigned = Some(job("owner/a", 9));
+    let mut demand = (1..=10).map(|id| candidate("owner/a", id, id)).collect();
+    filter_reserved(&mut demand, &j);
+    let ids: Vec<_> = demand.iter().map(|c| c.job.job_id).collect();
+    assert!(ids.contains(&1));
+    assert!(!ids.contains(&2));
+    assert!(!ids.contains(&9));
+}
+#[test]
+fn restart_preserves_every_owned_attempt_and_rejects_duplicate_ownership() {
+    let root = tempfile::tempdir().unwrap();
+    std::fs::set_permissions(
+        root.path(),
+        std::os::unix::fs::PermissionsExt::from_mode(0o700),
+    )
+    .unwrap();
+    let store = homelab_runner::store::Store::open(root.path()).unwrap();
+    let j = fleet(3);
+    store.save(&j).unwrap();
+    drop(store);
+    let store = homelab_runner::store::Store::open(root.path()).unwrap();
+    assert_eq!(store.load().unwrap(), j);
+    let mut invalid = j.clone();
+    invalid.additional.push(invalid.active.clone().unwrap());
+    assert!(store.save(&invalid).is_err());
+    assert_eq!(store.load().unwrap(), j);
+}
+#[test]
+fn legacy_journal_and_policy_migrate_without_losing_owned_attempt() {
+    use std::os::unix::fs::PermissionsExt;
+    let root = tempfile::tempdir().unwrap();
+    std::fs::set_permissions(
+        root.path(),
+        std::os::unix::fs::PermissionsExt::from_mode(0o700),
+    )
+    .unwrap();
+    let store = homelab_runner::store::Store::open(root.path()).unwrap();
+    let j = fleet(1);
+    let mut old = serde_json::to_value(&j).unwrap();
+    old["version"] = 1.into();
+    old.as_object_mut().unwrap().remove("last_attempt");
+    std::fs::write(
+        root.path().join("journal.json"),
+        serde_json::to_vec(&old).unwrap(),
+    )
+    .unwrap();
+    std::fs::set_permissions(
+        root.path().join("journal.json"),
+        std::fs::Permissions::from_mode(0o600),
+    )
+    .unwrap();
+    let loaded = store.load().unwrap();
+    assert_eq!(loaded.version, JOURNAL_VERSION);
+    assert_eq!(loaded.active, j.active);
+    let mut old_policy = serde_json::to_value(config()).unwrap();
+    old_policy
+        .as_object_mut()
+        .unwrap()
+        .remove("max_concurrent_jobs");
+    let cfg: Config = serde_json::from_value(old_policy).unwrap();
+    assert_eq!(cfg.max_concurrent_jobs, 1);
+    let mut invalid = cfg;
+    invalid.max_concurrent_jobs = 0;
+    assert!(invalid.validate().is_err());
+}
+
+#[derive(Default)]
+struct FleetBackendFixture {
+    journal_file: std::path::PathBuf,
+    vms: std::collections::BTreeMap<String, bool>,
+    runners: std::collections::BTreeMap<String, bool>,
+    finished: Option<String>,
+    effects: Vec<(String, Operation)>,
+}
+impl homelab_runner::engine::EngineBackend for FleetBackendFixture {
+    async fn observe(&mut self, _: &Config, journal: &Journal, _: u64) -> Observation {
+        let mut observed = fleet_observation(journal);
+        observed.admission_nonce = Some(format!(
+            "{:032x}",
+            u64::MAX as u128 + journal.sequence as u128
+        ));
+        for attempt in journal.attempts() {
+            let vm = match self.vms.get(&attempt.nonce) {
+                Some(true) => VmObservation::Running,
+                Some(false) => VmObservation::Stopped,
+                None => VmObservation::Absent,
+            };
+            let runner = match self.runners.get(&attempt.nonce) {
+                Some(true) => RunnerObservation::Busy(attempt.candidate.clone()),
+                Some(false) => RunnerObservation::Idle,
+                None => RunnerObservation::Absent,
+            };
+            let guest = if self.finished.as_ref() == Some(&attempt.nonce) {
+                GuestObservation::Exited
+            } else {
+                GuestObservation::Ready
+            };
+            observed.attempts.insert(
+                attempt.nonce.clone(),
+                Box::new(Observation {
+                    vm,
+                    runner,
+                    guest,
+                    free_bytes: Some(10000),
+                    ..Observation::default()
+                }),
+            );
+        }
+        observed
+    }
+    async fn execute(&mut self, effect: &Effect) -> Outcome {
+        // Production's durable engine must have written this exact attempt's intent first.
+        let saved: Journal =
+            serde_json::from_slice(&std::fs::read(&self.journal_file).unwrap()).unwrap();
+        let attempt = saved
+            .attempts()
+            .find(|a| a.nonce == effect.attempt.nonce)
+            .unwrap();
+        assert_eq!(attempt.pending.as_ref().unwrap().ticket, effect.ticket);
+        assert_eq!(
+            attempt.pending.as_ref().unwrap().operation,
+            effect.operation
+        );
+        self.effects.push((attempt.nonce.clone(), effect.operation));
+        let nonce = attempt.nonce.clone();
+        match effect.operation {
+            Operation::CloneVm => {
+                assert!(self.vms.insert(nonce, false).is_none());
+            }
+            Operation::BootVm => {
+                self.vms.insert(nonce, true);
+            }
+            Operation::CreateJit => {
+                assert!(self.runners.insert(nonce, false).is_none());
+                return Outcome::Succeeded {
+                    runner_id: Some(effect.ticket + 100),
+                };
+            }
+            Operation::StartRunner => {
+                self.runners.insert(nonce, true);
+            }
+            Operation::StopVm => {
+                self.vms.insert(nonce, false);
+            }
+            Operation::DeleteVm => {
+                self.vms.remove(&nonce);
+            }
+            Operation::DeleteRunner => {
+                self.runners.remove(&nonce);
+            }
+            Operation::PrepareGuest => {}
+        }
+        Outcome::Succeeded { runner_id: None }
+    }
+}
+#[tokio::test]
+async fn production_engine_runs_two_jobs_and_cleans_one_without_touching_its_peer() {
+    use homelab_runner::{engine::Engine, store::Store};
+    use std::os::unix::fs::PermissionsExt;
+    let directory = tempfile::tempdir().unwrap();
+    std::fs::set_permissions(directory.path(), std::fs::Permissions::from_mode(0o700)).unwrap();
+    let backend = FleetBackendFixture {
+        journal_file: directory.path().join("journal.json"),
+        ..Default::default()
+    };
+    let mut engine = Engine::open(Store::open(directory.path()).unwrap(), backend).unwrap();
+    let mut cfg = config();
+    cfg.max_concurrent_jobs = 2;
+    for _ in 0..80 {
+        engine.step(&cfg, 200).await.unwrap();
+        if engine.journal().attempts().count() == 2
+            && engine
+                .journal()
+                .attempts()
+                .all(|a| a.phase == Phase::Running)
+        {
+            break;
+        }
+    }
+    assert_eq!(
+        engine
+            .journal()
+            .attempts()
+            .filter(|a| a.phase == Phase::Running)
+            .count(),
+        2
+    );
+    let first = engine.journal().active.as_ref().unwrap().nonce.clone();
+    let survivor = engine.journal().additional[0].clone();
+    cfg.admission_enabled = false;
+    engine.backend.finished = Some(first.clone());
+    for _ in 0..40 {
+        engine.step(&cfg, 201).await.unwrap();
+        if engine.journal().attempts().count() == 1 {
+            break;
+        }
+    }
+    assert_eq!(engine.journal().attempts().count(), 1);
+    assert_eq!(engine.journal().active.as_ref().unwrap(), &survivor);
+    assert!(!engine.backend.vms.contains_key(&first));
+    assert!(!engine.backend.runners.contains_key(&first));
+    assert!(engine.backend.vms[&survivor.nonce]);
+    assert!(
+        !engine
+            .backend
+            .effects
+            .iter()
+            .any(|(nonce, op)| nonce == &survivor.nonce
+                && matches!(
+                    op,
+                    Operation::StopVm | Operation::DeleteVm | Operation::DeleteRunner
+                ))
+    );
+    // Reopen the real durable store and keep the surviving job's identity/deadline.
+    let backend = std::mem::take(&mut engine.backend);
+    let saved = engine.journal().clone();
+    drop(engine);
+    let mut engine = Engine::open(Store::open(directory.path()).unwrap(), backend).unwrap();
+    assert_eq!(engine.journal(), &saved);
+    engine.step(&cfg, 202).await.unwrap();
+    assert_eq!(engine.journal().active.as_ref().unwrap(), &survivor);
+    engine.backend.finished = Some(survivor.nonce.clone());
+    for _ in 0..40 {
+        engine.step(&cfg, 203).await.unwrap();
+        if engine.journal().is_idle() {
+            break;
+        }
+    }
+    assert!(engine.journal().is_idle());
+    assert!(engine.backend.vms.is_empty());
+    assert!(engine.backend.runners.is_empty());
 }

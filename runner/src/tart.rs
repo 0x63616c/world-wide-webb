@@ -168,6 +168,7 @@ pub struct TartConfig {
     pub runner_archive: PathBuf,
     pub runner_version: String,
 }
+#[derive(Clone)]
 pub struct Tart {
     config: TartConfig,
 }

@@ -426,7 +426,7 @@ async fn launchdaemon_two_vm_peer_and_ipv6_isolation() {
         .expect("reviewed root-owned proof configuration");
     let runtime = load_config(Path::new(&configuration)).expect("unsafe peer proof configuration");
     let store = Store::open(&runtime.state_directory).expect("exclusive idle controller lock");
-    assert!(store.load().expect("valid journal").active.is_none());
+    assert!(store.load().expect("valid journal").is_idle());
     private_directory(&runtime.state_directory).unwrap();
     private_directory(&runtime.tart.tart_home).unwrap();
     let tart = Tart::new(runtime.tart.clone()).unwrap();
@@ -1257,9 +1257,8 @@ async fn launchdaemon_stock_vm_lifecycle() {
         store
             .load()
             .expect("journal invalid; preserve it")
-            .active
-            .is_none(),
-        "an active controller attempt must finish before proof"
+            .is_idle(),
+        "all controller attempts must finish before proof"
     );
     private_directory(&runtime.tart.tart_home)
         .expect("TART_HOME must be service-owned and private");
@@ -1316,7 +1315,7 @@ async fn launchdaemon_existing_vm_boot_diagnostic() {
         "probe LaunchDaemon must use the production service working directory"
     );
     let store = Store::open(&runtime.state_directory).expect("exclusive controller lock");
-    assert!(store.load().expect("valid journal").active.is_none());
+    assert!(store.load().expect("valid journal").is_idle());
     private_directory(&runtime.state_directory).expect("private proof directory");
     let file = OpenOptions::new()
         .read(true)

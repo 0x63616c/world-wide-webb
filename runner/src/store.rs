@@ -81,7 +81,9 @@ impl Store {
         if bytes.len() as u64 > MAX_JOURNAL_BYTES {
             return Err(StoreError::Invalid);
         }
-        let journal: Journal = serde_json::from_slice(&bytes).map_err(|_| StoreError::Invalid)?;
+        let mut journal: Journal =
+            serde_json::from_slice(&bytes).map_err(|_| StoreError::Invalid)?;
+        journal.migrate();
         if journal.version != JOURNAL_VERSION || journal.validate().is_err() {
             return Err(StoreError::Invalid);
         }

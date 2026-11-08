@@ -1,12 +1,12 @@
 # Disposable macOS runners: implementation plan
 
-Status: researched proposal, not implemented or enabled. 7 November 2026.
+Status: implementation reference, updated 8 November 2026. Configurable concurrency is implemented in source; deploying this change and proving two live jobs remain pending. The original research and rollout gates below are retained.
 
 ## What we are building
 
-One small Rust service on `homelab-macbook`. It watches an explicit list of GitHub repositories, creates a fresh Tart macOS VM when work is waiting, runs one GitHub job, then deletes the VM. No waiting VMs; one active VM at a time.
+One small Rust service on `homelab-macbook`. It watches an explicit list of GitHub repositories, creates a fresh Tart macOS VM when work is waiting, runs one GitHub job, then deletes the VM. No waiting VMs. Capacity is configurable; the MacBook is configured for up to two owned attempts, subject to disk admission reserves. VM startup is serialized; prepared guests can run jobs concurrently.
 
-The initial repository is `0x63616c/world-wide-webb`. The controller accepts a typed repository allowlist from private Git configuration; no project name or workflow is hardcoded into its scheduling or lifecycle. Adding another repository later requires granting the GitHub App access, adding it to that allowlist and updating its workflow routing, without controller code changes. Capacity remains one active VM across the allowlist, with a new repository-scoped runner for each execution. Personal-account repositories cannot simply share one organization runner registration. GitHub still owns job assignment, execution status, cancellation and logs.
+The initial repository is `0x63616c/world-wide-webb`. The controller accepts a typed repository allowlist from private Git configuration; no project name or workflow is hardcoded into its scheduling or lifecycle. Adding another repository later requires granting the GitHub App access, adding it to that allowlist and updating its workflow routing, without controller code changes. Capacity is shared across the allowlist, with a new repository-scoped runner for each execution. Personal-account repositories cannot simply share one organization runner registration. GitHub still owns job assignment, execution status, cancellation and logs.
 
 Your private `homelab` repository remains the source of truth. Its existing Comin service checks main every five minutes and applies Nix configuration. The runner controller never pulls Git or deploys itself. The setup CLI only enrolls a Mac; it does not become another runner management tool.
 
@@ -68,9 +68,69 @@ The stock Xcode image and official Actions runner are pinned separately. `packag
 
 Initial explicit defaults: queue polling 30 seconds, boot readiness deadline 10 minutes, unassigned runner deadline 5 minutes, and running-job deadline 2 hours. These are proposed policy values, not vendor guarantees or startup benchmarks. Persist absolute deadlines so restarting the controller cannot reset them. Workflow timeouts may be shorter.
 
-The host retains one protected typed summary, `state_directory/last-attempt.json` (0600 inside the service's 0700 state directory, maximum 4 KiB). It records the attempt nonce, timestamps, operation/outcome, first and latest safe error categories, and validated guest status including the official wrapper process's exit code. The controller attempts to persist this snapshot before stopping or deleting the VM; it survives slot release and is replaced by the next attempt. Diagnostic write failure warns and does not independently block safe emergency-space cleanup. This is a typed summary, not raw diagnostics: job stdout/stderr, runner `_diag`, credentials and environment values are never copied into it. The helper invokes pinned official `run.sh` with the SDK root as working directory and a fixed image tool PATH, including `/Users/admin/.cargo/bin`. The official wrapper retains its retry/update lifecycle for listener codes 2/3/4; supported `ACTIONS_RUNNER_RETURN_VERSION_DEPRECATED_EXIT_CODE=1` propagates deprecated-version exit 7. Wrapper exit zero can mask listener failures (including 1/5) and does not prove job success. Actual job outcome requires GitHub observations; this helper adds no custom runner retry loop or raw output parser.
+The host retains protected typed summaries in `state_directory/attempt-<nonce>.json`, plus a `last-attempt.json` compatibility snapshot (0600 inside the service's 0700 state directory, maximum 4 KiB each). Every owned attempt and the latest 32 completed summaries are retained. It records the attempt nonce, timestamps, operation/outcome, first and latest safe error categories, and validated guest status including the official wrapper process's exit code. The controller attempts to persist this snapshot before stopping or deleting the VM; it survives slot release within that retention window. Diagnostic write failure warns and does not independently block safe emergency-space cleanup. This is a typed summary, not raw diagnostics: job stdout/stderr, runner `_diag`, credentials and environment values are never copied into it. The helper invokes pinned official `run.sh` with the SDK root as working directory and a fixed image tool PATH, including `/Users/admin/.cargo/bin`. The official wrapper retains its retry/update lifecycle for listener codes 2/3/4; supported `ACTIONS_RUNNER_RETURN_VERSION_DEPRECATED_EXIT_CODE=1` propagates deprecated-version exit 7. Wrapper exit zero can mask listener failures (including 1/5) and does not prove job success. Actual job outcome requires GitHub observations; this helper adds no custom runner retry loop or raw output parser.
 
 Running-job cancellation remains the official listener's responsibility. Missing runner registration or unavailable API state does not itself prove cancellation; absent guest termination, VM interruption or a disk emergency, the persisted running deadline bounds recovery. Cleanup stops/deletes the owned VM before deleting its registration. A busy-registration HTTP rejection retains the slot and retries reconciliation; only observed absence of both owned resources releases it.
+
+## Activation acknowledgement race
+
+Drain reads the service's atomically replaced acknowledgement file. A reader
+can open the old inode immediately before replacement unlinks it; the open
+snapshot then has a link count of zero. Treat that already-open regular file
+as valid after checking its mode and bounded contents, while still rejecting
+extra hard links, symlinks and stale hold tokens. Requiring exactly one link
+caused spurious permission failures and left an activation hold and an
+interrupted update transaction. Deterministic replacement and concurrent-reader
+regressions cover this case. Recovery must preserve the transaction, verify the
+held runner is idle, and align the live and boot generations under the operation
+lock before allowing another update.
+
+## Concurrent capacity
+
+`homelab.runners.maxConcurrentJobs` is emitted as `policy.max_concurrent_jobs`.
+It defaults to one for older policy files. Both Nix options accept only 1 or 2,
+and the controller rejects runtime policies outside that range before accessing
+state or credentials. macOS limits each physical Mac to two concurrent macOS
+guests; raising capacity beyond two requires another host. The Nix configuration
+also requires the job limit to fit `tart.maxMacOSGuests`. The MacBook sets both
+to two; disk admission reserves still apply. `nix flake check` verifies both
+option types reject three, and runtime regression tests verify early rejection.
+
+Starting, listening, running and cleaning attempts all occupy capacity. The slot
+is released only after the exact VM, operation lease and runner registration are
+confirmed absent. Lowering capacity leaves existing attempts intact and prevents
+new admissions until ownership falls below the new limit. Holds suppress all
+new work; drain acknowledges idle only when every attempt and owned resource is
+absent. A v2 journal requires the new binary; drain and preserve a copy before
+rolling back to a binary that only understands v1.
+
+One durable writer allocates globally unique intent tickets and rotates fairly
+across attempts. Temporary JIT inputs, VM process handles, operation tasks,
+backoff and diagnostic summaries are isolated by attempt nonce. GitHub discovery,
+installation token caching and API backoff remain shared. A queued job already
+covered by an attempt is excluded from admission; the observed actual assignment
+supersedes that attempt's provisional demand hint.
+
+Clone, prepare, runner delivery, stop and delete execute as background tasks after
+intent has been persisted. Completion is retained until journal reconciliation
+commits it. After restart, missing process-local results are reconciled through
+the existing leases and authoritative observations, never blindly replayed.
+Startup and unproven startup cleanup suppress global Tart inventory across all
+attempts, including stop/delete and lease retirement. Other prepared guests are
+observed through positive guest-agent RPCs during that interval. One global VM
+inventory snapshot is shared across an observation pass once startup is safe.
+
+Admission reserves future disk growth for each owned guest. With admission
+threshold A, emergency floor E, and K already owned attempts, a new guest needs
+at least `A + K × (A − E)` free bytes. The MacBook's unchanged 140/80 GiB
+thresholds therefore require 200 GiB free to admit the second guest. The observed
+145 GiB on November 8 does not meet that gate. Disk emergencies apply the existing
+cleanup policy to each attempt; uncertain cleanup retains capacity.
+
+Implementation validation covers the two-job limit, early rejection of three, independent pending intents,
+peer progress during a stalled operation, storage reservations, migration,
+restart ownership, and all-attempt draining. Actual concurrent build capacity
+requires a live two-job trial after deployment and sufficient disk space.
 
 ## Trust and secrets
 
@@ -92,7 +152,7 @@ Use a Rust workspace, `just` recipes, pinned dependencies, and standard librarie
 
 The scheduler is a pure decision module: typed configuration + observations + durable state + time produce explicit actions. GitHub and Tart/guest adapters execute those actions. Tests replace adapters and the clock; the production code uses the same decision logic.
 
-A versioned atomic state file records one active attempt. Use private permissions, write/fsync/rename/directory-fsync, and an exclusive controller lock. Lifecycle:
+A versioned atomic state file records every owned attempt. Version 2 retains the first attempt in `active` and the rest in `additional`; version 1 journals are migrated on load without dropping ownership. Use private permissions, write/fsync/rename/directory-fsync, and an exclusive controller lock. Lifecycle:
 
 `Idle → Starting → Listening → Running → Cleaning → Idle`
 
@@ -119,7 +179,7 @@ If either fails, stop and report that precise blocker. Do not build another orch
 
 ## Tests and rollout
 
-**Local and public CI:** exercise the state machine using deterministic fake adapters. Cover simultaneous demand, fairness, matrices/dependencies, old-run reruns, unsupported labels, cancellation, candidate/actual-job mismatch, API outages/rate limits/pagination saturation, and runner updates. Inject crashes before and after every side effect and failed atomic write; verify one slot, no replayed job, owned-resource-only cleanup and no secrets in captured logs. Test recorded Tart JSON fixtures and argv, with no shell interpolation.
+**Local and public CI:** exercise the state machine using deterministic fake adapters. Cover simultaneous demand, fairness, matrices/dependencies, old-run reruns, unsupported labels, cancellation, candidate/actual-job mismatch, API outages/rate limits/pagination saturation, and runner updates. Inject crashes before and after every side effect and failed atomic write; verify the configured capacity, no replayed job, owned-resource-only cleanup and no secrets in captured logs. Test recorded Tart JSON fixtures and argv, with no shell interpolation.
 
 Explicit recovery fixtures include partial clone, rejected JIT creation, a lost successful JIT response and failed deletion. Assert eventual return to Idle after confirmed cleanup, with no premature slot release. Test admission disabled in Starting, Listening, Running and Cleaning; stopping new work must not skip cleanup.
 

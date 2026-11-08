@@ -17,6 +17,8 @@
   homelab.updates.stateful.enable = true;
   homelab.runners = {
     enable = true;
+    maxConcurrentJobs = 2;
+    tart.maxMacOSGuests = 2;
     admissionEnabled = true;
     githubAppId = "5662381";
     repositories."0x63616c/world-wide-webb" = {

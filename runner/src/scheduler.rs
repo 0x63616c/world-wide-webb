@@ -50,6 +50,7 @@ pub struct EffectResult {
 pub struct Observation {
     /// False for stale/partial discovery, API backoff, or unknown orphan inventory.
     pub admission_safe: bool,
+    pub attempts: std::collections::BTreeMap<String, Box<Observation>>,
     pub candidates: Vec<Candidate>,
     /// Freshly revalidated queued jobs, after full discovery and immediately before admission.
     pub revalidated: Vec<JobIdentity>,
@@ -66,6 +67,7 @@ impl Default for Observation {
     fn default() -> Self {
         Self {
             admission_safe: false,
+            attempts: Default::default(),
             candidates: vec![],
             revalidated: vec![],
             free_bytes: None,
@@ -134,7 +136,7 @@ fn supported(candidate: &Candidate) -> bool {
             .all(|s| ["self-hosted", "macos", "arm64", "homelab-tart"].contains(&s.as_str()))
 }
 
-pub fn decide(config: &Config, journal: &Journal, observed: &Observation, now: u64) -> Decision {
+fn decide_one(config: &Config, journal: &Journal, observed: &Observation, now: u64) -> Decision {
     let mut next = journal.clone();
     if journal.validate().is_err() {
         return stay(next, "invalid journal; admission blocked");
@@ -353,4 +355,116 @@ pub fn decide(config: &Config, journal: &Journal, observed: &Observation, now: u
         }
         stay(next, "no eligible demand")
     }
+}
+
+/// Advance independent lifecycles fairly, then admit at most one new attempt.
+/// One durable writer allocates globally unique operation tickets.
+pub fn decide(config: &Config, journal: &Journal, observed: &Observation, now: u64) -> Decision {
+    if journal.validate().is_err() {
+        return stay(journal.clone(), "invalid journal; admission blocked");
+    }
+    let mut attempts: Vec<_> = journal.attempts().cloned().collect();
+    let start = journal
+        .last_attempt
+        .as_ref()
+        .and_then(|last| attempts.iter().position(|a| &a.nonce == last))
+        .map_or(0, |i| i + 1);
+    for offset in 0..attempts.len() {
+        let i = (start + offset) % attempts.len();
+        let attempt = &attempts[i];
+        // Fleet observations never borrow another attempt's VM/runner evidence.
+        let unknown = Observation::default();
+        let observation = if let Some(result) = &observed.effect_result {
+            if attempt
+                .pending
+                .as_ref()
+                .is_none_or(|p| p.ticket != result.ticket)
+            {
+                continue;
+            }
+            observed
+        } else {
+            observed
+                .attempts
+                .get(&attempt.nonce)
+                .map(|o| o.as_ref())
+                .unwrap_or(
+                    if journal.additional.is_empty() && observed.attempts.is_empty() {
+                        observed
+                    } else {
+                        &unknown
+                    },
+                )
+        };
+        let projected = journal.project(Some(attempt.clone()));
+        let mut decision = decide_one(config, &projected, observation, now);
+        if decision.next == projected && decision.effect.is_none() {
+            continue;
+        }
+        let next_attempt = decision.next.active.take();
+        let nonce = attempts[i].nonce.clone();
+        match next_attempt {
+            Some(next) => attempts[i] = next,
+            None => {
+                attempts.remove(i);
+            }
+        }
+        let mut next = journal.clone();
+        next.sequence = decision.next.sequence;
+        // Cleanup backoff must not stall healthy peers or unrelated free slots.
+        if attempts.is_empty() {
+            next.retry_after = decision.next.retry_after;
+        }
+        next.last_attempt = Some(nonce);
+        next.active = attempts.first().cloned();
+        next.additional = attempts.into_iter().skip(1).collect();
+        return Decision { next, ..decision };
+    }
+    // Resolution steps only record their result; they never create an unexecuted effect.
+    if observed.effect_result.is_some() {
+        return stay(journal.clone(), "effect result retained for reconciliation");
+    }
+    if attempts.len() >= config.max_concurrent_jobs {
+        return stay(journal.clone(), "capacity occupied");
+    }
+    if observed
+        .admission_nonce
+        .as_ref()
+        .is_some_and(|nonce| attempts.iter().any(|a| &a.nonce == nonce))
+    {
+        return stay(journal.clone(), "attempt nonce already owned");
+    }
+    let projected = journal.project(None);
+    let mut demand = observed.clone();
+    filter_reserved(&mut demand.candidates, journal);
+    // Reserve the admission/emergency gap for each already owned guest's future growth.
+    let reserve = config
+        .admission_free_bytes
+        .saturating_sub(config.emergency_free_bytes);
+    demand.free_bytes = demand
+        .free_bytes
+        .map(|free| free.saturating_sub(reserve.saturating_mul(attempts.len() as u64)));
+    let mut decision = decide_one(config, &projected, &demand, now);
+    if let Some(attempt) = decision.next.active.take() {
+        attempts.push(attempt);
+        let mut next = decision.next;
+        next.active = attempts.first().cloned();
+        next.additional = attempts.into_iter().skip(1).collect();
+        next.last_attempt = journal.last_attempt.clone();
+        Decision {
+            next,
+            effect: decision.effect,
+            reason: decision.reason,
+        }
+    } else {
+        stay(journal.clone(), decision.reason)
+    }
+}
+
+pub fn filter_reserved(candidates: &mut Vec<Candidate>, journal: &Journal) {
+    candidates.retain(|candidate| {
+        !journal.attempts().any(|attempt| {
+            attempt.assigned.as_ref().unwrap_or(&attempt.candidate) == &candidate.job
+        })
+    });
 }

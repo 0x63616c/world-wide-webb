@@ -150,11 +150,24 @@ fn directory(path: &Path) -> std::io::Result<()> {
     Ok(())
 }
 pub fn load(directory_path: &Path, nonce: &str) -> std::io::Result<Option<Summary>> {
+    if !crate::guest::valid_attempt(nonce) {
+        return Err(std::io::ErrorKind::InvalidInput.into());
+    }
+    match load_file(directory_path, nonce, &format!("attempt-{nonce}.json"))? {
+        Some(summary) => Ok(Some(summary)),
+        None => load_file(directory_path, nonce, FILE),
+    }
+}
+fn load_file(
+    directory_path: &Path,
+    nonce: &str,
+    filename: &str,
+) -> std::io::Result<Option<Summary>> {
     directory(directory_path)?;
     let file = match OpenOptions::new()
         .read(true)
         .custom_flags((rustix::fs::OFlags::NOFOLLOW | rustix::fs::OFlags::NONBLOCK).bits() as i32)
-        .open(directory_path.join(FILE))
+        .open(directory_path.join(filename))
     {
         Ok(file) => file,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
@@ -175,6 +188,15 @@ pub fn load(directory_path: &Path, nonce: &str) -> std::io::Result<Option<Summar
     Ok((summary.nonce == nonce).then_some(summary))
 }
 pub fn save(directory_path: &Path, summary: &Summary) -> std::io::Result<()> {
+    summary.validate()?;
+    save_file(
+        directory_path,
+        summary,
+        &format!("attempt-{}.json", summary.nonce),
+    )?;
+    save_file(directory_path, summary, FILE)
+}
+fn save_file(directory_path: &Path, summary: &Summary, filename: &str) -> std::io::Result<()> {
     directory(directory_path)?;
     summary.validate()?;
     let bytes = serde_json::to_vec(summary)?;
@@ -188,9 +210,38 @@ pub fn save(directory_path: &Path, summary: &Summary) -> std::io::Result<()> {
     pending.write_all(&bytes)?;
     pending.as_file().sync_all()?;
     pending
-        .persist(directory_path.join(FILE))
+        .persist(directory_path.join(filename))
         .map_err(|error| error.error)?;
     File::open(directory_path)?.sync_all()
+}
+
+/// Retain every owned attempt and the latest 32 completed summaries.
+pub fn prune(directory_path: &Path, owned: &[&str]) -> std::io::Result<()> {
+    directory(directory_path)?;
+    let mut completed = Vec::new();
+    for entry in fs::read_dir(directory_path)? {
+        let entry = entry?;
+        let name = entry.file_name();
+        let Some(nonce) = name
+            .to_str()
+            .and_then(|name| name.strip_prefix("attempt-"))
+            .and_then(|name| name.strip_suffix(".json"))
+        else {
+            continue;
+        };
+        if !crate::guest::valid_attempt(nonce) || owned.contains(&nonce) {
+            continue;
+        }
+        let metadata = fs::symlink_metadata(entry.path())?;
+        if metadata.is_file() && private(&metadata) {
+            completed.push((metadata.modified()?, entry.path()));
+        }
+    }
+    completed.sort_by(|a, b| b.0.cmp(&a.0).then_with(|| a.1.cmp(&b.1)));
+    for (_, path) in completed.into_iter().skip(32) {
+        fs::remove_file(path)?;
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -227,6 +278,26 @@ mod tests {
             latest_failure: None,
             guest: None,
         }
+    }
+    #[test]
+    fn concurrent_summaries_survive_each_other_and_retention_preserves_owned_attempts() {
+        let dir = directory();
+        let mut first_nonce = String::new();
+        for i in 0..36 {
+            let mut record = summary();
+            record.nonce = format!("{i:032x}");
+            record.vm_name = Some(format!("homelab-macbook-job-{}", record.nonce));
+            record.runner_name = record.vm_name.clone();
+            if i == 0 {
+                first_nonce = record.nonce.clone();
+            }
+            save(dir.path(), &record).unwrap();
+        }
+        assert!(load(dir.path(), &first_nonce).unwrap().is_some());
+        prune(dir.path(), &[&first_nonce]).unwrap();
+        assert!(load(dir.path(), &first_nonce).unwrap().is_some());
+        assert_eq!(fs::read_dir(dir.path()).unwrap().count(), 34);
+        assert!(load(dir.path(), "../other").is_err());
     }
     #[test]
     fn legacy_summaries_remain_readable_and_name_mismatches_are_rejected() {
@@ -279,7 +350,7 @@ mod tests {
         );
         assert!(load(dir.path(), &"b".repeat(32)).unwrap().is_none());
         assert!(fs::metadata(dir.path().join(FILE)).unwrap().len() < LIMIT);
-        assert_eq!(fs::read_dir(dir.path()).unwrap().count(), 1);
+        assert_eq!(fs::read_dir(dir.path()).unwrap().count(), 2);
     }
     #[test]
     fn job_identity_validation_is_bounded_and_keeps_assignment_in_candidate_repository() {
