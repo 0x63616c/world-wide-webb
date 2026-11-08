@@ -1,4 +1,4 @@
-{ ... }: {
+{ pkgs, ... }: {
   networking.hostName = "homelab-mac-mini";
   # Fresh rebuild target. NEVER activate this over the existing production mini.
   homelab.updates.enable = true;
@@ -8,6 +8,7 @@
   homelab.containers.memoryGiB = 4;
   homelab.homeassistant.memoryGiB = 2;
   homelab.runners.enable = false;
+  environment.systemPackages = [ (import ../packages/opentofu.nix { inherit pkgs; }) ];
   # Verified on the rebuilt Mini: en1 is the home-LAN default route.
   homelab.homeassistant.bridgeInterface = "en1";
   homelab.homeassistant.lanIPv4 = "192.168.0.130/24";
