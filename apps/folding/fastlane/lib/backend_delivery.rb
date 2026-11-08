@@ -18,6 +18,16 @@ module FoldingRelease
         value.fetch("account_id").match?(/\A[0-9a-f]{32}\z/) && variables["DEPLOYMENT"] == ENVIRONMENT &&
         variables["APP_ATTEST_APP_ID"] == "#{CONFIG.fetch('apple_team_id')}.#{identity.fetch('bundle_id')}" &&
         database.length == 1 && database.first["binding"] == "DB" && database.first["database_name"] == "folding-production"
+      claims = JSON.parse(variables.fetch("VERIFIED_CAPABILITIES"))
+      raise "Invalid configured capability claims" unless claims.is_a?(Array) && claims.uniq == claims && claims.all? { |claim| claim.is_a?(String) && !claim.empty? }
+      flags = %w[APNS_ENABLED AVATAR_UPLOADS_ENABLED ADMIN_EMAIL_ENABLED]
+      raise "Explicit configured feature flags are required" unless flags.all? { |name| %w[true false].include?(variables.fetch(name)) }
+      promoted = !claims.empty? || %w[APNS_ENABLED AVATAR_UPLOADS_ENABLED ADMIN_EMAIL_ENABLED].any? { |name| variables[name] == "true" }
+      approved = variables.fetch("WORKER_VERSION")
+      raise "Invalid approved Worker source" unless approved.match?(/\A[0-9a-f]{40}\z/)
+      if promoted && approved != source && FoldingRelease.backend_input_hash(approved) != FoldingRelease.backend_input_hash(source)
+        raise "Refresh the source-bound configuration through the existing readiness/evidence generator before deploying changed backend inputs"
+      end
       variables["WORKER_VERSION"] = source
       value["main"] = File.join(ROOT, "backend/crates/worker/build/worker/shim.mjs")
       database.first["migrations_dir"] = File.join(ROOT, "backend/migrations")
@@ -75,6 +85,7 @@ module FoldingRelease
     def self.record_native_delivery(record)
       source = record.data.fetch("commit_sha")
       raise "Record a confirmed processed distribution only" unless record.data["testflight_distributed_build_id"] && record.data["asc_processing_state"] == "VALID"
+      raise "Internal-group readback is required before recording delivery" unless record.data["testflight_group_ids"].is_a?(Array) && !record.data["testflight_group_ids"].empty? && record.data["testflight_group_assignment_verified_at"]
       5.times do
         delivered = store.latest("native-delivery")
         return if delivered && ((delivered["source_sha"] == source && delivered["asc_build_id"] == record.data.fetch("testflight_distributed_build_id")) || superseded?(source, delivered.fetch("source_sha")))
@@ -171,7 +182,13 @@ module FoldingRelease
           "runtime_configuration" => runtime, "backend_check" => check}
         name = receipt_name(source, version)
         output = File.join(directory, name)
-        FoldingRelease.atomic_json(output, receipt)
+        if store.info.fetch("assets").any? { |asset| asset.fetch("name") == name }
+          # A CI rerun adds a new attempt, not a new provider deployment. Keep
+          # the original successful attempt's immutable, independently checked proof.
+          store.download(name, directory)
+        else
+          FoldingRelease.atomic_json(output, receipt)
+        end
         ENV["FOLDING_BACKEND_DEPLOYMENT_RECEIPT"] = output
         identity = FoldingAppleAccount.config.fetch(ENVIRONMENT)
         record = Record.new({"commit_sha" => source, "environment" => ENVIRONMENT,

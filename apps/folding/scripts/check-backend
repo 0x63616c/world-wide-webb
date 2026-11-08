@@ -4,7 +4,7 @@ cd "$(dirname "$0")/.."
 # The Homebrew host compiler may lack the Wasm sysroot. Use the pinned Rustup
 # toolchain for both host tests and the exact Worker artifact tested by workerd.
 export PATH="$HOME/.cargo/bin:$PATH"
-RUSTUP_TOOLCHAIN=$(python3 -c 'import json; print(json.load(open("tool-versions.json"))["rust"])')
+RUSTUP_TOOLCHAIN=$(python3 -c 'import json,re; version=json.load(open("backend/tool-versions.json"))["rust"]; assert re.search(r"(?m)^channel\s*=\s*\""+re.escape(version)+r"\"\s*$", open("backend/rust-toolchain.toml").read()), "Align backend toolchain pins"; print(version)')
 export RUSTUP_TOOLCHAIN
 cargo test --manifest-path backend/Cargo.toml --workspace
 (cd backend/crates/worker && worker-build --release)

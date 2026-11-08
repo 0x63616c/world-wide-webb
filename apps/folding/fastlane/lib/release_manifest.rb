@@ -81,6 +81,16 @@ module FoldingRelease
     @client ||= FoldingAppleAccount.client
   end
 
+  def self.release_actor
+    if ENV["GITHUB_ACTIONS"] == "true"
+      value = ENV.fetch("GITHUB_ACTOR")
+      raise "Missing trusted workflow actor" if value.strip.empty?
+      value
+    else
+      JSON.parse(run("gh", "api", "user")).fetch("login")
+    end
+  end
+
   def self.app(manifest)
     value = Spaceship::ConnectAPI::App.find(manifest.fetch("bundle_id"), client: client)
     raise "App Store identity changed" unless value && value.id == manifest.fetch("asc_app_id")
@@ -316,6 +326,7 @@ module FoldingRelease
       "apple_team_id" => CONFIG.fetch("apple_team_id"), "asc_app_id" => app.id,
       "configuration_hash" => configuration_hash(environment), "archive_configuration" => config,
       "toolchain_versions" => read_json(File.join(ROOT, "tool-versions.json")),
+      "backend_toolchain_versions" => read_json(File.join(ROOT, "backend/tool-versions.json")),
       "dependency_lock_hashes" => locks.to_h { |path| [path, sha(File.join(ROOT, path))] },
       "fixture_version" => CONFIG.fetch("fixture_version"), "backend_contract_version" => CONFIG.fetch("backend_contract_version"),
       "minimum_backend_capabilities" => CONFIG.fetch("minimum_backend_capabilities"),
@@ -390,13 +401,14 @@ module FoldingRelease
     raise "Invalid backend source" unless source.match?(/\A[0-9a-f]{40}\z/)
     repository = run("git", "rev-parse", "--show-toplevel")
     prefix = run("git", "-C", repository, "ls-tree", "-r", "--name-only", source, "--", "apps/folding/backend/Cargo.toml").empty? ? "" : "apps/folding/"
-    paths = %w[backend/Cargo.toml backend/Cargo.lock backend/package.json backend/bun.lock backend/package-lock.json backend/crates backend/migrations scripts/generate-worker-config.py]
+    paths = %w[backend/Cargo.toml backend/Cargo.lock backend/rust-toolchain.toml backend/crates backend/migrations]
     entries = run("git", "-C", repository, "ls-tree", "-r", source, "--", *paths.map { |path| prefix + path }).lines.map do |line|
       metadata, path = line.chomp.split("\t", 2)
       [path.delete_prefix(prefix), metadata]
     end.reject { |path, _| path.end_with?(".md") || path.include?("/tests/") }
     raise "Backend input tree is incomplete" unless entries.any? { |path, _| path == "backend/Cargo.toml" }
-    pins = JSON.parse(run("git", "show", "#{source}:#{prefix}tool-versions.json"))
+    pin_file = run("git", "-C", repository, "ls-tree", "--name-only", source, "--", "#{prefix}backend/tool-versions.json").empty? ? "tool-versions.json" : "backend/tool-versions.json"
+    pins = JSON.parse(run("git", "show", "#{source}:#{prefix}#{pin_file}"))
     Digest::SHA256.hexdigest(JSON.generate({"files" => entries.sort, "rust" => pins.fetch("rust"), "worker_build" => pins.fetch("worker_build", "0.8.7")}))
   end
 

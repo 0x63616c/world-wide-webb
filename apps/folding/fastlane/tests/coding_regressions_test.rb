@@ -3,6 +3,17 @@ require_relative "../lib/release_operations"
 require_relative "../lib/tip_products"
 
 class CodingRegressionsTest < Minitest::Test
+  def test_workflow_recovery_uses_its_actor_without_the_user_only_api
+    previous = ENV.values_at("GITHUB_ACTIONS", "GITHUB_ACTOR")
+    ENV["GITHUB_ACTIONS"] = "true"
+    ENV["GITHUB_ACTOR"] = "synthetic-ci-actor"
+    FoldingRelease.stub(:run, ->(*_arguments) { raise "Installation token cannot call /user" }) do
+      assert_equal "synthetic-ci-actor", FoldingRelease.release_actor
+    end
+  ensure
+    ENV["GITHUB_ACTIONS"], ENV["GITHUB_ACTOR"] = previous
+  end
+
   Record = Struct.new(:data, :directory, :remote) do
     def verify_identity!; end
     def save(values); data.merge!(values); end
@@ -67,15 +78,21 @@ class CodingRegressionsTest < Minitest::Test
     build = Struct.new(:id, :processing_state).new("apple42", "VALID")
     reads = 0
     uploads = []
+    member = false
+    group = Struct.new(:id, :name, :has_access_to_all_builds).new("group42", "Owner Preview", false)
     context = Object.new
-    context.define_singleton_method(:upload_to_testflight) { |**options| uploads << options }
+    context.define_singleton_method(:upload_to_testflight) { |**options| uploads << options; member = true }
     FoldingRelease.stub(:preview_prerequisites!, "worker") do
       FoldingRelease.stub(:minimum_supported_build, 0) do
         FoldingRelease.stub(:api_key, {}) do
           FoldingRelease.stub(:exact_build, ->(_data) { reads += 1; reads == 1 ? nil : build }) do
             FoldingRelease::Operations.stub(:register_build_policy, nil) do
               FoldingRelease::Operations.stub(:verify_processed!, build) do
-                2.times { FoldingRelease::Operations.beta(context, record, wait_for_processing: true) }
+                FoldingRelease::Operations.stub(:internal_groups, [group]) do
+                  FoldingRelease::Operations.stub(:groups_include_build?, ->(_groups, _build) { member }) do
+                    2.times { FoldingRelease::Operations.beta(context, record, wait_for_processing: true) }
+                  end
+                end
               end
             end
           end
@@ -108,7 +125,7 @@ class CodingRegressionsTest < Minitest::Test
         assert_equal "1.0.0", arguments.fetch(:version)
         replacement
       end
-      FoldingRelease.stub(:run, '{"login":"test-actor"}') do
+      FoldingRelease.stub(:release_actor, "test-actor") do
         FoldingRelease.stub(:client, :test_client) do
           Spaceship::ConnectAPI::App.stub(:find, find) do
             FoldingRelease.stub(:reserve, reserve) do

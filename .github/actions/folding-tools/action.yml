@@ -13,7 +13,9 @@ runs:
       run: |
         python3 - <<'PYTHON' >> "$GITHUB_OUTPUT"
         import json
-        for key, value in json.load(open("apps/folding/tool-versions.json")).items():
+        pins = json.load(open("apps/folding/tool-versions.json"))
+        pins.update(json.load(open("apps/folding/backend/tool-versions.json")))
+        for key, value in pins.items():
             if isinstance(value, str):
                 print(f"{key}={value}")
         PYTHON

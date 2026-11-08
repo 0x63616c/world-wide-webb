@@ -82,7 +82,9 @@
         "apps/folding/backend/crates/**",
         "apps/folding/backend/Cargo.toml",
         "apps/folding/backend/Cargo.lock",
-        "apps/folding/backend/migrations/**"
+        "apps/folding/backend/migrations/**",
+        "apps/folding/backend/tool-versions.json",
+        "apps/folding/backend/rust-toolchain.toml"
       ],
       "delivery_exclude": [
         "**/Tests/**",

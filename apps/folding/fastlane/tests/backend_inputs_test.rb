@@ -92,6 +92,17 @@ class BackendInputsTest < Minitest::Test
         write.call("apps/folding/tool-versions.json", JSON.generate({"rust" => "1.99.1", "xcode" => {"version" => "28.0"}}))
         client = commit.call
         assert_equal expected, FoldingRelease.backend_input_hash(client)
+        write.call("apps/folding/backend/bun.lock", "changed test dependency")
+        write.call("apps/folding/backend/package.json", "changed test tools")
+        write.call("apps/folding/scripts/generate-worker-config.py", "changed configuration generator")
+        write.call("apps/folding/backend/tool-versions.json", JSON.generate({"rust" => "1.99.1", "worker_build" => "0.8.7"}))
+        write.call("apps/folding/tool-versions.json", JSON.generate({"xcode" => {"version" => "28.0"}}))
+        tooling = commit.call
+        assert_equal expected, FoldingRelease.backend_input_hash(tooling)
+        write.call("apps/folding/backend/tool-versions.json", JSON.generate({"rust" => "1.100.0", "worker_build" => "0.8.7"}))
+        compiler = commit.call
+        refute_equal expected, FoldingRelease.backend_input_hash(compiler)
+        write.call("apps/folding/backend/tool-versions.json", JSON.generate({"rust" => "1.99.1", "worker_build" => "0.8.7"}))
         write.call("apps/folding/backend/crates/worker/src/lib.rs", "changed backend source")
         changed = commit.call
         refute_equal expected, FoldingRelease.backend_input_hash(changed)
@@ -110,6 +121,7 @@ class BackendInputsTest < Minitest::Test
     [{"event" => "pull_request"}, {"head_branch" => "feature"}, {"run_attempt" => 3}, {"head_repository" => {"full_name" => "other/repo"}}, {}].each do |change|
       run = base.merge(change)
       command = lambda do |*args|
+        assert_equal "repos/0x63616c/world-wide-webb/actions/runs/1/attempts/2", args.last unless args.last.include?("jobs?")
         args.last.include?("jobs?") ? JSON.generate([{"jobs" => [{"name" => "Folding backend", "head_sha" => source, "status" => "completed", "conclusion" => "success"}]}]) : JSON.generate(run)
       end
       FoldingRelease.stub(:run, command) do

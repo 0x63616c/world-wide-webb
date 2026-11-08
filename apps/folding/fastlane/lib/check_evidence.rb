@@ -75,7 +75,8 @@ module FoldingRelease
         match = check.fetch("run_url").match(%r{\Ahttps://github\.com/#{Regexp.escape(CONFIG.fetch("repository"))}/actions/runs/(\d+)(?:/attempts/(\d+))?/?\z})
         raise "Expected exact Actions run URL" unless match
         prefix = "repos/#{CONFIG.fetch('repository')}/actions/runs/#{match[1]}"
-        run = JSON.parse(FoldingRelease.run("gh", "api", prefix))
+        attempt = match[2] ? "#{prefix}/attempts/#{match[2]}" : prefix
+        run = JSON.parse(FoldingRelease.run("gh", "api", attempt))
         trusted_event = run["event"] == "push" || (name == "screenshots" && run["event"] == "workflow_dispatch")
         raise "Wrong workflow/source or unsuccessful run" unless run["head_sha"] == source && run["path"] == workflow && run["status"] == "completed" && run["conclusion"] == "success" &&
           trusted_event && run["head_branch"] == "main" && run.dig("head_repository", "full_name") == CONFIG.fetch("repository") &&

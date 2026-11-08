@@ -191,7 +191,7 @@ module FoldingRelease
       raise "No interrupted archive" unless record.data["archive_attempt_started_at"]
       raise "Publish sealed artifacts instead" if record.data["archive_candidates"]
       old_number = record.data.fetch("build_number")
-      actor = JSON.parse(FoldingRelease.run("gh", "api", "user")).fetch("login")
+      actor = FoldingRelease.release_actor
       builds = %w[production staging].flat_map do |environment|
         identity = FoldingRelease.configuration(environment).fetch("identity")
         app = Spaceship::ConnectAPI::App.find(identity.fetch("bundle_id"), client: FoldingRelease.client)
@@ -338,17 +338,47 @@ module FoldingRelease
       if wait_for_processing && record.data.fetch("build_number") < FoldingRelease.minimum_supported_build(record.data.fetch("environment"))
         raise "Build was retired while Apple processed it; do not distribute"
       end
-      raise "Explicit TestFlight groups are required" if groups.empty?
+      raise "Explicit unique TestFlight groups are required" if groups.empty? || groups.uniq != groups
+      resolved = internal_groups(record, groups)
       if record.data["testflight_distributed_build_id"] == build.id
         raise "Previously distributed groups differ" unless record.data["testflight_groups"] == groups
-        return
+        raise "Previously recorded group membership is no longer present" unless groups_include_build?(resolved, build.id)
+      elsif !groups_include_build?(resolved, build.id)
+        manual = resolved.reject(&:has_access_to_all_builds)
+        unless manual.empty? || record.data["testflight_assignment_attempt_started_at"]
+          record.save("testflight_assignment_attempt_started_at" => Time.now.utc.iso8601)
+          context.upload_to_testflight(api_key: FoldingRelease.api_key, app_identifier: record.data.fetch("bundle_id"),
+            apple_id: record.data.fetch("asc_app_id"), app_platform: "ios",
+            app_version: record.data.fetch("marketing_version"), build_number: record.data.fetch("build_number").to_s,
+            distribute_only: true, groups: manual.map(&:name), distribute_external: false,
+            submit_beta_review: false, notify_external_testers: false)
+        end
+        deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + (wait_for_processing ? 120 : 0)
+        until groups_include_build?(resolved, build.id)
+          raise "Internal group assignment is not confirmed; reconcile the existing attempt before retrying" if Process.clock_gettime(Process::CLOCK_MONOTONIC) >= deadline
+          sleep 10
+        end
       end
-      context.upload_to_testflight(api_key: FoldingRelease.api_key, app_identifier: record.data.fetch("bundle_id"),
-        apple_id: record.data.fetch("asc_app_id"), app_platform: "ios",
-        app_version: record.data.fetch("marketing_version"), build_number: record.data.fetch("build_number").to_s,
-        distribute_only: true, groups: groups, distribute_external: false,
-        submit_beta_review: false, notify_external_testers: false)
-      record.save("testflight_distributed_build_id" => build.id, "testflight_groups" => groups)
+      record.save("testflight_distributed_build_id" => build.id, "testflight_groups" => groups,
+        "testflight_group_ids" => resolved.map(&:id), "testflight_group_assignment_verified_at" => Time.now.utc.iso8601)
+    end
+
+    def self.internal_groups(record, names)
+      available = FoldingRelease.app(record.data).get_beta_groups(client: FoldingRelease.client)
+      names.map do |name|
+        matching = available.select { |group| group.name == name }
+        raise "Configured TestFlight group is missing or ambiguous" unless matching.length == 1
+        group = matching.first
+        raise "Only explicitly internal TestFlight groups are allowed" unless group.is_internal_group == true && !group.public_link_enabled && !group.id.to_s.empty?
+        group
+      end
+    end
+
+    def self.groups_include_build?(groups, build_id)
+      groups.all? do |group|
+        pages = FoldingRelease.client.get_builds_for_beta_group(group_id: group.id).all_pages
+        pages.flat_map(&:to_models).any? { |build| build.id == build_id }
+      end
     end
 
     def self.version(record)

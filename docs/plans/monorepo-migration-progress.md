@@ -261,3 +261,19 @@ The completed local automatic-delivery batch passes all 28 Folding release tests
 live DB binding, crash/retry order and queue coalescing; the upload-response test distributes the
 already processed build once without uploading another IPA. Complete independent batch review
 is next; live channels remain off pending the documented acceptance gates.
+
+### Automatic delivery review complete
+
+Astra identified and rechecked five integration fixes: workflow recovery now uses its trusted
+actor rather than the user-only API; original exact CI attempts/immutable deployment receipts
+remain usable after reruns; runtime compatibility excludes pure JS/test tooling while canonical
+backend compiler/build pins select deployment; internal-group membership is read back before
+native delivery is recorded; accepted capabilities/flags cannot be relabelled over changed backend
+inputs. The existing source-bound readiness/evidence generator remains the authority for actual
+backend changes, carried forward only when normalized compiled inputs match.
+
+Independent final checks pass: 33 Folding release tests / 656 assertions, 13 selector/input-hash
+tests and the existing readiness-generator regression. Full report and exact reviewed file blobs
+are outside Git at `/tmp/monorepo-folding-automatic-delivery-astra-review.md`. This closes the local
+batch review; private-source/account gates, live credentials/ledger, actual runner/provider/Apple
+and screenshot acceptance remain outstanding.

@@ -15,10 +15,8 @@
   "ruby": "3.3.13",
   "bundler": "4.0.23",
   "fastlane": "2.241.2",
-  "rust": "1.99.1",
   "node": "26.13.0",
   "opentofu": "1.13.9",
   "python": "3.15.2",
-  "worker_build": "0.8.7",
   "bun": "1.4.4"
 }

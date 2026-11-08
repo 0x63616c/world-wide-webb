@@ -37,7 +37,7 @@ class BuildReservationsTest < Minitest::Test
     @temporary = Dir.mktmpdir("folding-build-reservations-test")
     FoldingRelease.send(:remove_const, :ROOT)
     FoldingRelease.const_set(:ROOT, @temporary)
-    ["Gemfile.lock", "backend/Cargo.lock", "backend/bun.lock", "tool-versions.json", "apps/ios/project.yml"].each do |name|
+    ["Gemfile.lock", "backend/Cargo.lock", "backend/bun.lock", "tool-versions.json", "backend/tool-versions.json", "apps/ios/project.yml"].each do |name|
       file = File.join(@temporary, name)
       FileUtils.mkdir_p(File.dirname(file))
       FileUtils.cp(File.join(@original_root, name), file)

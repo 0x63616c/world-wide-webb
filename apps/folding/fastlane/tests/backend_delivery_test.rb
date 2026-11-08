@@ -29,7 +29,7 @@ class BackendDeliveryTest < Minitest::Test
     @source, @old = "a" * 40, "b" * 40
     @version = "11111111-2222-3333-4444-555555555555"
     @config = {"name" => "folding-api-production", "account_id" => "c" * 32,
-      "vars" => {"DEPLOYMENT" => "production", "APP_ATTEST_APP_ID" => "#{FoldingRelease::CONFIG.fetch('apple_team_id')}.app.getfolding.Folding", "WORKER_VERSION" => @old, "ADMIN_EMAIL_ALLOWLIST" => "operator-private-value"},
+      "vars" => {"DEPLOYMENT" => "production", "APP_ATTEST_APP_ID" => "#{FoldingRelease::CONFIG.fetch('apple_team_id')}.app.getfolding.Folding", "WORKER_VERSION" => @old, "ADMIN_EMAIL_ALLOWLIST" => "operator-private-value", "VERIFIED_CAPABILITIES" => "[]", "APNS_ENABLED" => "false", "AVATAR_UPLOADS_ENABLED" => "false", "ADMIN_EMAIL_ENABLED" => "false"},
       "d1_databases" => [{"binding" => "DB", "database_name" => "folding-production", "database_id" => @version}]}
     @previous = ENV["FOLDING_PRODUCTION_WORKER_CONFIG"]
     ENV["FOLDING_PRODUCTION_WORKER_CONFIG"] = JSON.generate(@config)
@@ -53,10 +53,25 @@ class BackendDeliveryTest < Minitest::Test
     assert_raises(RuntimeError) { Delivery.verify_artifact!(@source) }
   end
 
+  def test_readiness_claims_cannot_be_relabelled_over_changed_backend_inputs
+    @config.fetch("vars")["VERIFIED_CAPABILITIES"] = '["profiles.milestones"]'
+    ENV["FOLDING_PRODUCTION_WORKER_CONFIG"] = JSON.generate(@config)
+    FoldingRelease.stub(:backend_input_hash, ->(source) { source == @source ? "changed" : "approved" }) do
+      assert_raises(RuntimeError) { Delivery.configuration(@source) }
+    end
+    FoldingRelease.stub(:backend_input_hash, "same-runtime-inputs") do
+      assert_equal @source, Delivery.configuration(@source).fetch("vars").fetch("WORKER_VERSION")
+    end
+    assert_equal @old, JSON.parse(ENV.fetch("FOLDING_PRODUCTION_WORKER_CONFIG")).fetch("vars").fetch("WORKER_VERSION")
+    @config.fetch("vars").delete("VERIFIED_CAPABILITIES")
+    ENV["FOLDING_PRODUCTION_WORKER_CONFIG"] = JSON.generate(@config)
+    assert_raises(KeyError) { Delivery.configuration(@source) }
+  end
+
   def test_native_queue_coalesces_inputs_and_never_rolls_back_a_newer_delivered_source
     store = Store.new
     input = "same-native-inputs"
-    record = Struct.new(:data).new({"commit_sha" => @old, "tag" => "folding/build-42", "build_number" => 42, "asc_processing_state" => "VALID", "testflight_distributed_build_id" => "apple42"})
+    record = Struct.new(:data).new({"commit_sha" => @old, "tag" => "folding/build-42", "build_number" => 42, "asc_processing_state" => "VALID", "testflight_distributed_build_id" => "apple42", "testflight_group_ids" => ["group42"], "testflight_group_assignment_verified_at" => "2026-11-08T00:00:00Z"})
     Delivery.stub(:store, store) do
       Delivery.stub(:native_input_hash, ->(_source) { input }) do
         Delivery.record_native_delivery(record)
@@ -139,7 +154,7 @@ class BackendDeliveryTest < Minitest::Test
                   Delivery.stub(:store, store) do
                     Delivery.stub(:current, ->(_config) { [live_source, @version] }) do
                       assert_raises(RuntimeError) { Delivery.deploy(run_url: "trusted-ci-run") }
-                      2.times { Delivery.deploy(run_url: "trusted-ci-run") }
+                      2.times { |index| Delivery.deploy(run_url: "trusted-ci-rerun-#{index}") }
                     end
                   end
                 end
@@ -153,6 +168,7 @@ class BackendDeliveryTest < Minitest::Test
       assert_equal(boundary == :migration ? 2 : 1, events.count(:migration))
       receipt = JSON.parse(store.assets.fetch(Delivery.receipt_name(@source, @version)))
       assert_equal @source, receipt.fetch("runtime_configuration").fetch("vars").fetch("WORKER_VERSION")
+      assert_equal "trusted-ci-rerun-0", receipt.fetch("backend_check").fetch("run_url")
       refute receipt.to_json.include?("operator-private-value")
     end
   end
