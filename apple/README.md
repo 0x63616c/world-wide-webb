@@ -42,4 +42,3 @@ and launcher content respect the actual system camera and gesture insets, read
 outside the full-bleed canvas. Launcher columns are 5/3/5 for iPad/closed/open.
 Weather uses 12/3/6 hourly columns and allows scrolling on both Duo displays;
 closed Duo Wi-Fi stacks its network information above the QR code.
-
