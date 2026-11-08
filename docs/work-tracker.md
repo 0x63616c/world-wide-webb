@@ -238,3 +238,9 @@ GitHub #28, #32 and #40 checklists reflect these partial completions. CI and phy
 ## API cost and abuse protection — November 8
 
 - [ ] [#55 — API resource protection and idle-cost reduction](https://github.com/0x63616c/folding/issues/55): local code implemented and verified; staging/production activation and updated client distribution remain open. Includes pre-D1 burst limits, selective/hourly maintenance, ten-message queue batches, indexed score deltas, shared one-minute uploads, persisted cooldowns, bounded read caching and sampled safe route logs. See [implementation and evidence](experiments/resource-protection-2026-11-08.md). Existing physical-device/load/CI/shipping deferrals remain unchanged.
+
+
+## App compatibility and offline startup — November 8
+
+- [x] [#56 — Minimum supported app build](https://github.com/0x63616c/folding/issues/56): whole-app gate chosen by owner; local implementation verified (31 Rust, 11 Worker/D1 and eight focused simulator tests). Provider activation and updated TestFlight/device evidence remain separate. See [compatibility contract](technical/client-compatibility.md).
+- [ ] [#57 — Reliable offline cold startup](https://github.com/0x63616c/folding/issues/57): discovered iCloud identity verification before reopening the local journal. Warm local tracking/queued uploads do not prove offline cold-start acceptance. Keep account isolation and #47/F13 device deferrals intact.

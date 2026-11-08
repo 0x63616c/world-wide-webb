@@ -24,6 +24,8 @@ The iOS client spaces new event batches by 60 seconds using the shared journal l
 
 ## Release capabilities
 
+Minimum supported app builds use the separate public `GET /v1/client-policy` and HTTP 426 business-API contract in [client compatibility](client-compatibility.md). The owner chose a whole-app update screen for confirmed unsupported builds; policy failures with no known requirement do not gate the UI. The capability handshake itself still does not disable tracking.
+
 - `GET /v1/capabilities`: unauthenticated, read-only → `{contract_version:1, worker_version:string, capabilities:string[], request_id:ID}`. `worker_version` is the exact deployed `WORKER_VERSION` binding. `VERIFIED_CAPABILITIES` is a deployment-owner-managed JSON allowlist of implemented capabilities whose final acceptance has passed; missing allowlist returns an empty array. Unknown/unimplemented capability names fail configuration instead of being advertised. This handshake never disables private tracking.
 - Names: `auth.apple`, `auth.refresh`, `auth.reauthenticate`, `attest.enroll`, `enrollment.join`, `enrollment.transfer`, `enrollment.leave`, `events.submit`, `events.receipt`, `account.delete`, `account.deletion_status`, `account.deletion_recovery`, `history.reset`, `leaderboard.live`, `results.finalized`, `results.share`. Additional launch features reserve `avatars.upload`, `avatars.moderation`, `profiles.edit`, `moderation.reports`, `moderation.blocks`, `notifications.results`; they cannot be enabled until implemented and accepted. Release preflight fails while any required capability is missing.
 

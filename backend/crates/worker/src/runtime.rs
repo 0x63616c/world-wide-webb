@@ -73,6 +73,19 @@ async fn handle(mut request: Request, env: &Env, id: Id) -> Result<Response> {
         return error(400, "malformed_request", id, false);
     }
     let path = request.path();
+    if request.method() == Method::Get && path == "/v1/client-policy" {
+        return match crate::client_policy_runtime::policy(env, &id) {
+            Ok(response) => Ok(response),
+            Err(failure) => error(failure.status, failure.code, id, failure.retryable),
+        };
+    }
+    if path.starts_with("/v1/") {
+        match crate::client_policy_runtime::rejection(&request, env, &id) {
+            Ok(Some(response)) => return Ok(response),
+            Ok(None) => (),
+            Err(failure) => return error(failure.status, failure.code, id, failure.retryable),
+        }
+    }
     if request.method() == Method::Get && path == "/v1/health" {
         return crate::monitoring_runtime::health(env).await;
     }

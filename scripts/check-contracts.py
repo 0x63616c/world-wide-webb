@@ -32,6 +32,12 @@ def invalid(schema, value):
     assert not validators[schema].is_valid(value), f'{schema} accepted invalid example'
     checks += 1
 
+policy = {'minimum_ios_build': 10, 'request_id': '00000000-0000-0000-0000-000000000001'}
+valid('client-policy.schema.json', policy)
+valid('error.schema.json', dict(policy, code='app_update_required', retryable=True, retry_after_seconds=3600))
+for floor in [-1, 2147483648, '10', None]:
+    invalid('client-policy.schema.json', dict(policy, minimum_ios_build=floor))
+
 for stem in ('event-batch', 'event-receipt', 'reset-request', 'error', 'entry-deletion-request', 'entry-deletion-receipt'):
     valid(f'{stem}.schema.json', json.loads((FIXTURES / f'{stem}.json').read_text()))
 auth = json.loads((FIXTURES / 'auth-requests.json').read_text())

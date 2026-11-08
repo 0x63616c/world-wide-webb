@@ -22,6 +22,10 @@ if args.testflight_preview and args.readiness:
     raise SystemExit('TestFlight preview and reviewed release readiness are separate deployment modes')
 bindings = json.load(sys.stdin)
 configuration = json.loads(args.configuration.read_text())
+minimum_ios_build = configuration.pop('MINIMUM_IOS_BUILD', '0')
+if (not isinstance(minimum_ios_build, str) or not re.fullmatch(r'[0-9]{1,10}', minimum_ios_build)
+        or int(minimum_ios_build) > 2147483647):
+    raise SystemExit('MINIMUM_IOS_BUILD must be an integer string from 0 to 2147483647')
 environment = bindings['environment']
 if environment not in ('staging', 'production'):
     raise SystemExit('Invalid environment')
@@ -55,6 +59,7 @@ if not re.fullmatch(r'https://[a-zA-Z0-9-]+\.cloudflareaccess\.com', configurati
     raise SystemExit('Invalid Access team domain')
 bundle = 'app.getfolding.Folding' + ('.Staging' if environment == 'staging' else '')
 variables = dict(configuration, DEPLOYMENT=environment,
+    MINIMUM_IOS_BUILD=minimum_ios_build,
     AUTH_ENCRYPTION_KEY_VERSION='v1', AUTH_SUBJECT_HMAC_KEY_VERSION='v1',
     APPLE_SIGN_IN_CLIENT_ID=bundle,
     APNS_TOPIC=bundle, APNS_ENVIRONMENT='production',

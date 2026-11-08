@@ -75,7 +75,10 @@ actor CompetitionUploader {
       if case CompetitionTransportError.service(
         let status, let code, let retryable, let retryAfter) = error
       {
-        if code == "epoch_stale" || code == "generation_stale" {
+        if code == "app_update_required" {
+          // Preserve queued observations and operation identity until the app is updated.
+          delay = max(delay, 3600)
+        } else if code == "epoch_stale" || code == "generation_stale" {
           let me: CompetitionMe = try await transport.send("GET", path: "/v1/me")
           guard me.profile.membership == "joined", me.profile.restriction == "none",
             let enrollment = me.enrollment,

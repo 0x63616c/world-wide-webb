@@ -34,6 +34,9 @@ mod burst_limit;
 #[cfg(target_arch = "wasm32")]
 mod capabilities_runtime;
 pub mod certificate;
+pub mod client_policy;
+#[cfg(target_arch = "wasm32")]
+mod client_policy_runtime;
 #[cfg(target_arch = "wasm32")]
 mod community_reads;
 #[cfg(target_arch = "wasm32")]

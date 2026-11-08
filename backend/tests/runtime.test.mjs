@@ -438,3 +438,26 @@ test('D1 neighbor lookups stay scoped and negative score deltas apply atomically
  await assert.rejects(db.prepare(delta).bind('p',0,'g','week',-1,3).run());
  assert.equal(await db.prepare("SELECT revision FROM live_scores WHERE participant_id='p'").first('revision'),2);
 });
+
+test('minimum-build policy rejects old business requests before body/DB work and preserves recovery',async()=>{
+ const make=minimum=>new Miniflare(convertV4MiniflareOptions({workers:[{
+  name:`policy-${minimum}`,modules:[{type:'ESModule',path:`${root}crates/worker/build/index.js`},{type:'CompiledWasm',path:`${root}crates/worker/build/index_bg.wasm`}],
+  compatibilityDate:'2026-11-04',bindings:{MINIMUM_IOS_BUILD:minimum}
+ }]}));
+ const worker=make('10'),disabled=make('0'),invalid=make('invalid');
+ try {
+  const policy=await worker.dispatchFetch('https://api.example/v1/client-policy');
+  assert.equal(policy.status,200);assert.equal((await policy.json()).minimum_ios_build,10);assert.equal(policy.headers.get('Cache-Control'),'no-store');
+  for(const build of [undefined,'9','bad','2147483648']) {
+    const headers=build===undefined?{}:{'X-Folding-Build':build};
+    const result=await worker.dispatchFetch('https://api.example/v1/event-batches',{method:'POST',headers,body:'x'.repeat(256*1024+1)});
+    assert.equal(result.status,426);const body=await result.json();assert.equal(body.code,'app_update_required');assert.equal(body.retryable,true);assert.equal(body.retry_after_seconds,3600);assert.equal(body.minimum_ios_build,10);
+    assert.equal(result.headers.get('X-Folding-Minimum-Build'),'10');
+  }
+  const current=await worker.dispatchFetch('https://api.example/v1/event-batches',{method:'POST',headers:{'X-Folding-Build':'10'},body:'x'.repeat(256*1024+1)});
+  assert.equal(current.status,413); // compatibility is not authentication; ordinary checks still run
+  const legacy=await disabled.dispatchFetch('https://api.example/v1/me');assert.equal(legacy.status,503); // reaches unconfigured auth, not retirement
+  const deletion=await worker.dispatchFetch('https://api.example/v1/account/delete',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});assert.equal(deletion.status,503);
+  assert.equal((await invalid.dispatchFetch('https://api.example/v1/client-policy')).status,503);
+ } finally { await Promise.all([worker.dispose(),disabled.dispose(),invalid.dispose()]); }
+});

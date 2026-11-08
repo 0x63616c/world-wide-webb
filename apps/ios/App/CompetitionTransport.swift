@@ -22,9 +22,11 @@ struct CompetitionServiceFailure: Decodable, Sendable {
   let code: String
   let retryable: Bool?
   let retryAfterSeconds: Int?
+  let minimumBuild: Int?
   enum CodingKeys: String, CodingKey {
     case code, retryable
     case retryAfterSeconds = "retry_after_seconds"
+    case minimumBuild = "minimum_ios_build"
   }
 }
 enum CompetitionTransportError: Error {
@@ -142,6 +144,8 @@ actor CompetitionTransport {
   private var recentReads: [String: (data: Data, expiresMS: Int64)] = [:]
   private var pendingReads: [String: Task<Data, Error>] = [:]
   private let nowMS: @Sendable () -> Int64
+  private let installedBuild: Int
+  private let onUpdateRequired: @Sendable (Int) async -> Void
 
   private struct ServerCooldown: Codable {
     let untilMS: Int64
@@ -151,7 +155,10 @@ actor CompetitionTransport {
   init(
     origin: URL, deployment: String, deviceID: UUID, bundleID: String,
     session injectedSession: URLSession? = nil, attestation: (any CompetitionAttestation)? = nil,
-    nowMS: @escaping @Sendable () -> Int64 = { TrackingRuntime.nowMS }
+    nowMS: @escaping @Sendable () -> Int64 = { TrackingRuntime.nowMS },
+    installedBuild: Int = Int(
+      Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "0") ?? 0,
+    onUpdateRequired: (@Sendable (Int) async -> Void)? = nil
   ) throws {
     let expectedHost =
       deployment == "production" ? "api.getfolding.app" : "api-staging.getfolding.app"
@@ -164,6 +171,11 @@ actor CompetitionTransport {
     self.deployment = deployment
     self.deviceID = deviceID
     self.nowMS = nowMS
+    self.installedBuild = installedBuild
+    self.onUpdateRequired =
+      onUpdateRequired ?? { minimum in
+        await AppUpdatePolicy.shared.require(minimumBuild: minimum, environment: deployment)
+      }
     credentials = CompetitionCredentialStore(service: "\(bundleID).competition.\(deployment)")
     let configuration = URLSessionConfiguration.ephemeral
     configuration.urlCache = nil
@@ -522,6 +534,7 @@ actor CompetitionTransport {
     else { throw CompetitionTransportError.invalidResponse }
     var request = URLRequest(url: url)
     request.httpMethod = method
+    request.setValue("\(installedBuild)", forHTTPHeaderField: "X-Folding-Build")
     request.httpBody = body
     request.setValue(contentType, forHTTPHeaderField: "Content-Type")
     request.setValue("application/json", forHTTPHeaderField: "Accept")
@@ -536,6 +549,11 @@ actor CompetitionTransport {
     }
     guard (200..<300).contains(http.statusCode) else {
       let failure = try? JSONDecoder().decode(CompetitionServiceFailure.self, from: data)
+      if http.statusCode == 426, failure?.code == "app_update_required",
+        let minimum = failure?.minimumBuild, minimum > installedBuild, minimum <= Int(Int32.max)
+      {
+        await onUpdateRequired(minimum)
+      }
       try rememberServerCooldown(http, fallback: failure?.retryAfterSeconds.map(TimeInterval.init))
       if http.statusCode == 401 { throw CompetitionTransportError.unauthorized }
       if let failure {
@@ -641,9 +659,16 @@ actor CompetitionTransport {
       let url = URL(string: "/v1/avatars/\(id)/image", relativeTo: origin)?.absoluteURL
     else { throw CompetitionTransportError.invalidResponse }
     var request = URLRequest(url: url)
+    request.setValue("\(installedBuild)", forHTTPHeaderField: "X-Folding-Build")
     request.setValue("Bearer \(try await accessToken())", forHTTPHeaderField: "Authorization")
     let (bytes, response) = try await session.bytes(for: request)
     if let http = response as? HTTPURLResponse {
+      if http.statusCode == 426,
+        let value = http.value(forHTTPHeaderField: "X-Folding-Minimum-Build"),
+        let minimum = Int(value), minimum > installedBuild, minimum <= Int(Int32.max)
+      {
+        await onUpdateRequired(minimum)
+      }
       try rememberServerCooldown(http)
     }
     guard let http = response as? HTTPURLResponse, http.statusCode == 200,
