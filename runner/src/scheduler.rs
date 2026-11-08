@@ -470,40 +470,31 @@ pub fn decide(config: &Config, journal: &Journal, observed: &Observation, now: u
             a.disk_growth_bytes
         })
     });
+    // Resolve eligibility before testing today's free resources. Otherwise a
+    // temporarily blocked macOS job disappears from the reservation calculation
+    // and replacement Linux guests can keep it waiting indefinitely.
+    let mut seen = std::collections::BTreeSet::new();
     demand.candidates.retain(|c| {
-        if !observed.revalidated.contains(&c.job) || c.group.is_some() {
-            return false;
-        }
-        if !config
-            .repositories
-            .iter()
-            .any(|r| r.trust_approved && r.key() == c.job.repository)
-        {
-            return false;
-        }
-        let Some(platform) = Platform::resolve(&c.labels) else {
-            return false;
-        };
-        let (cpu, memory, growth) = match platform {
-            Platform::MacosArm64 if mac_count < config.max_macos_guests => {
-                (config.cpu, config.memory_mib, legacy_growth)
+        observed.revalidated.contains(&c.job)
+            && c.group.is_none()
+            && seen.insert((
+                c.job.repository.clone(),
+                c.job.run_id,
+                c.job.run_attempt,
+                c.job.job_id,
+            ))
+            && config
+                .repositories
+                .iter()
+                .any(|r| r.trust_approved && r.key() == c.job.repository)
+            && match Platform::resolve(&c.labels) {
+                Some(Platform::MacosArm64) => mac_count < config.max_macos_guests,
+                Some(Platform::LinuxArm64) => config
+                    .linux
+                    .as_ref()
+                    .is_some_and(|linux| linux.routing_audit_approved),
+                None => false,
             }
-            Platform::LinuxArm64 => match &config.linux {
-                Some(linux) if linux.routing_audit_approved => {
-                    (linux.cpu, linux.memory_mib, linux.disk_growth_bytes)
-                }
-                _ => return false,
-            },
-            _ => return false,
-        };
-        used_cpu + u64::from(cpu) <= u64::from(config.cpu_budget)
-            && used_memory + u64::from(memory) <= u64::from(config.memory_budget_mib)
-            && observed.free_bytes.is_some_and(|free| {
-                free >= config
-                    .emergency_free_bytes
-                    .saturating_add(used_growth)
-                    .saturating_add(growth)
-            })
     });
     // Already-owned candidate/assignment identities were removed above. Other
     // unassigned compatible listeners can cover one further queued job each.
@@ -528,8 +519,56 @@ pub fn decide(config: &Config, journal: &Journal, observed: &Observation, now: u
         }
     }
     demand.candidates.retain(|c| !covered.contains(&c.job));
+    let waiting_macs = demand
+        .candidates
+        .iter()
+        .filter(|c| Platform::resolve(&c.labels) == Some(Platform::MacosArm64))
+        .count()
+        .min(config.max_macos_guests.saturating_sub(mac_count));
+    demand.candidates.retain(|c| {
+        let Some(platform) = Platform::resolve(&c.labels) else {
+            return false;
+        };
+        let (cpu, memory, growth) = match platform {
+            Platform::MacosArm64 if mac_count < config.max_macos_guests => {
+                (config.cpu, config.memory_mib, legacy_growth)
+            }
+            Platform::LinuxArm64 => match &config.linux {
+                Some(linux) if linux.routing_audit_approved => {
+                    (linux.cpu, linux.memory_mib, linux.disk_growth_bytes)
+                }
+                _ => return false,
+            },
+            _ => return false,
+        };
+        let reserve_macs = if platform == Platform::LinuxArm64 {
+            waiting_macs
+        } else {
+            0
+        };
+        attempts
+            .len()
+            .saturating_add(1)
+            .saturating_add(reserve_macs)
+            <= config.max_concurrent_jobs
+            && used_cpu
+                .saturating_add(u64::from(cpu))
+                .saturating_add((reserve_macs as u64).saturating_mul(u64::from(config.cpu)))
+                <= u64::from(config.cpu_budget)
+            && used_memory
+                .saturating_add(u64::from(memory))
+                .saturating_add((reserve_macs as u64).saturating_mul(u64::from(config.memory_mib)))
+                <= u64::from(config.memory_budget_mib)
+            && observed.free_bytes.is_some_and(|free| {
+                free >= config
+                    .emergency_free_bytes
+                    .saturating_add(used_growth)
+                    .saturating_add(growth)
+                    .saturating_add((reserve_macs as u64).saturating_mul(legacy_growth))
+            })
+    });
     // Prioritize uncovered macOS demand without preempting borrowed Linux slots.
-    // Only feasible demand reserves capacity; no reservation charges macOS twice.
+    // Future reservations prevent resource fragmentation; macOS is not charged twice.
     if demand
         .candidates
         .iter()

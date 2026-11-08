@@ -1201,3 +1201,47 @@ fn already_starting_mac_attempts_do_not_reserve_linux_capacity_twice() {
         homelab_runner::config::Platform::LinuxArm64
     );
 }
+
+#[test]
+fn borrowed_linux_does_not_refill_resources_needed_by_waiting_large_mac() {
+    let mut cfg = mixed_config();
+    cfg.memory_mib = 16384;
+    let j = linux_fleet(3);
+    let o = demand(
+        fleet_observation(&j),
+        vec![linux_candidate(44), candidate("owner/a", 55, 99)],
+    );
+    // A fourth Linux VM would fit today but would stop the waiting macOS job
+    // fitting after one of the three already-borrowed slots is released.
+    let d = decide(&cfg, &j, &o, 200);
+    assert!(d.effect.is_none());
+    assert_eq!(d.next, j);
+    let freed = linux_fleet(2);
+    let o = demand(
+        fleet_observation(&freed),
+        vec![linux_candidate(44), candidate("owner/a", 55, 99)],
+    );
+    let d = decide(&cfg, &freed, &o, 200);
+    assert_eq!(
+        d.effect.unwrap().attempt.platform,
+        homelab_runner::config::Platform::MacosArm64
+    );
+}
+
+#[test]
+fn malformed_linux_runner_versions_are_rejected_before_a_slot_is_owned() {
+    for version in ["2..3", ".2.3", "2.3.", "0.1.0", "123456.1.2", "2.3.70000"] {
+        let mut cfg = mixed_config();
+        cfg.linux.as_mut().unwrap().runner_version = version.into();
+        assert!(
+            cfg.validate().is_err(),
+            "invalid version admitted: {version}"
+        );
+        let observed = demand(observation(), vec![linux_candidate(44)]);
+        assert!(
+            decide(&cfg, &Journal::default(), &observed, 200)
+                .effect
+                .is_none()
+        );
+    }
+}

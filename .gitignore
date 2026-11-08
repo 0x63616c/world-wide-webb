@@ -11,3 +11,5 @@ host/target/
 runner/target/
 
 /linux-image-build.json
+
+/linux-image-cache.tar.gz

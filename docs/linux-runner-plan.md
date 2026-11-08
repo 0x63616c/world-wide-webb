@@ -253,3 +253,12 @@ Recommendation: implement the user's flexible four-slot policy. The measured
 hardware makes it a credible target with 8-GiB macOS and 4-GiB Linux guests;
 whether four simultaneous real builds improve throughput remains the load gate.
 This planning work changed no host configuration or workflow routing.
+
+## Implementation refinements
+
+The Linux helper is built inside the image rather than uploaded from a Darwin
+package. Private registry authentication stays on the operator's Mac; a verified
+pinned cache bundle is staged to the node before its image pin changes. This
+preserves unattended cached clones without adding a registry credential to the
+node. Native component and network evidence, rollout status and remaining gates
+are recorded in [Linux runner validation](research/linux-runner-validation.md).

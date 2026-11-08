@@ -55,14 +55,45 @@ all four stopped test clones and their daemons were removed, and the hold was
 released afterward. The stopped prepared image remains available in the separate
 test inventory for follow-up validation.
 
+## Native guest preparation and network controls
+
+The ignored `linux_preparation_and_one_shot_transport` test passed under a UID451
+system LaunchDaemon against a separate prepared Linux clone. It used the real
+pinned Linux runner archive: preparation reached Ready, an unclaimed retry stayed
+Ready, and the helper accepted one synthetic invalid input. The wrapper exited;
+a second input and preparation of the claimed clone were rejected. This exercised
+no GitHub job or credential. The official `run.sh` wrapper returned zero despite
+the invalid listener input, so wrapper exit must not be treated as job success.
+See [component proof](evidence/linux-component-proof.json).
+
+Two Linux clones passed network checks in both directions. Each reached public
+GitHub HTTPS and its own IPv4/IPv6 proof listeners, while connections to the host
+LAN listener, host tailnet IPv4 listener, physical router HTTPS and the other
+guest's IPv4/IPv6 link-local listeners failed. Host-side controls reached the LAN,
+router and tailnet IPv4 endpoints. The host tailnet IPv6 control itself timed out,
+so that negative guest result is inconclusive. The independent Softnet networks
+also isolate peers; these checks establish the combined architecture, not that the
+filter alone caused every negative result. No macOS peer or public IPv6 control
+was exercised here. See [network proof](evidence/linux-network-proof.json).
+
+The scheduling suite now also rejects malformed Linux runner versions before
+owning a slot and reserves CPU/RAM/disk for a waiting macOS job even if borrowed
+Linux resources temporarily prevent it fitting. This prevents replacement Linux
+jobs from repeatedly taking the resources the macOS job needs.
+
+Private image delivery uses an operator-side authenticated publish/download and
+a verified offline cache bundle. The MacBook receives image content only, with
+no registry credential. Bundle checks cover path/link rejection, sparse allocation,
+manifest identity, raw metadata and uncompressed disk chunk integrity.
+
 ## Remaining acceptance gates
 
-- Publish and inspect an immutable derived image digest, and verify that the host
-  can pull it without exposing registry credentials to guests.
+- Build and inspect the immutable derived image from the final reviewed source;
+  verify private registry visibility and credential-free cache staging/clone.
 - Exercise preparation/JIT/job completion/cancellation and restart cleanup through
   the actual updated controller, including mixed macOS/Linux ownership.
-- Repeat public-network positive controls and host/LAN/tailnet/peer negative
-  controls between Linux/Linux and macOS/Linux guests, including IPv6.
+- Repeat network controls with macOS/Linux peers and record any remaining IPv6
+  control limitations explicitly.
 - Compare representative four-Linux and two-macOS/two-Linux build throughput against
   the two-job baseline, including pressure, swap, thermal and disk-growth samples.
 - Build the final Nix host generation and run the final source checks before

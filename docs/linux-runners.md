@@ -27,24 +27,48 @@ repositories and recorded in `/usr/local/share/homelab/image-packages.txt`; rebu
 can resolve newer packages, so identical source does not promise identical image
 bytes. Each promoted image is immutable by digest.
 
-The operator needs permission to publish the GHCR package. The controller
-also needs to pull it: verify anonymous access if the package is public, or use a
-separately reviewed host registry credential arrangement for a private package.
+The template stays private. Registry authentication is used only on the operator's
+Mac while publishing or downloading it. The verified pinned cache is then preloaded
+onto the MacBook, where Tart clones it without contacting the registry. No registry
+credential is stored on the MacBook or copied into guests. The controller sets
+`TART_NO_AUTO_PRUNE=1`; retain the active image cache across reboots. If it is lost,
+hold Linux admission and preload it again before resuming.
+
 No registry token, password-manager credential, Actions registration or host secret
 belongs in the image. The helper service is installed by the controller only on
 a fresh clone. The image disables SSH at future boot and uses public DNS because
 production Softnet blocks the private gateway. Job Docker runs inside that guest.
 
-For a local reviewed image build, authenticate Tart to the destination registry
-and run from the repository root:
+On the operator's physical Mac, build a reviewed committed source revision. The
+optional bundle preserves sparse disk allocation and contains only the pinned image:
 
 ```sh
 python3 runner/images/linux/build-image.py \
-  --destination ghcr.io/OWNER/homelab-linux-runner:source-REVISION
+  --destination ghcr.io/OWNER/homelab-linux-runner:source-REVISION \
+  --cache-bundle linux-image-cache.tar.gz
 ```
 
-The builder uses its own temporary Tart inventory and deletes its exact local VM
-and cache after completion. It never operates on the production runner inventory.
+Use protected Tart registry authentication or the supported `TART_REGISTRY_*`
+environment credentials. Environment credentials are passed only to publication,
+never the VM process or guest commands. Do not paste credential values into commands.
+The builder uses its own temporary inventory and deletes the exact local VM/cache
+after a confirmed stop. An unconfirmed stop preserves the inventory for reconciliation.
+
+Before merging a new Linux image pin, transfer its bundle through SSH and install
+it as `_runner`, opening the input on the administrator side of the identity drop:
+
+```sh
+sudo -u _runner /usr/bin/python3 /etc/homelab/linux/cache-image.py install \
+  --tart-home /var/lib/_runner/tart --image ghcr.io/OWNER/PACKAGE@sha256:DIGEST \
+  --bundle - < linux-image-cache.tar.gz
+```
+
+Installation refuses root execution, arbitrary archive paths, links, unexpected
+files and existing cache replacements. It checks the manifest digest, VM metadata,
+NVRAM and every uncompressed disk chunk against the pinned manifest before atomically
+publishing the cache. `verify` runs the same checks on a staged cache. The installer
+supports flat Linux ARM64 raw disks; it refuses external disk stacks. A changed pin
+must be preloaded and verified before Comin applies the corresponding configuration.
 
 ## Enable a validated profile
 

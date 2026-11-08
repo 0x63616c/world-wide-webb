@@ -167,6 +167,7 @@ in {
       ];
       environment.systemPackages = [ package tools.tart ];
       environment.etc."homelab/runner.json".source = settings;
+      environment.etc."homelab/linux/cache-image.py".source = ../runner/images/linux/cache-image.py;
       sops.secrets.runner-github-app-key = {
         key = "runners/github-app-private-key";
         owner = "_runner";

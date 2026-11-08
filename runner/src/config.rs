@@ -143,11 +143,7 @@ impl Config {
                 || !(1024..=16384).contains(&linux.memory_mib)
                 || linux.disk_growth_bytes == 0
                 || !linux.runner_archive.is_absolute()
-                || linux.runner_version.split('.').count() != 3
-                || !linux
-                    .runner_version
-                    .bytes()
-                    .all(|b| b.is_ascii_digit() || b == b'.'))
+                || !valid_runner_version(&linux.runner_version))
         {
             return Err("invalid or unaudited Linux profile".into());
         }
@@ -208,4 +204,16 @@ pub fn valid_image_digest(image: &str) -> bool {
         && digest
             .bytes()
             .all(|c| c.is_ascii_digit() || (b'a'..=b'f').contains(&c))
+}
+
+pub fn valid_runner_version(version: &str) -> bool {
+    let parts = version.split('.').collect::<Vec<_>>();
+    parts.len() == 3
+        && parts.iter().all(|part| {
+            !part.is_empty()
+                && part.len() <= 5
+                && part.bytes().all(|b| b.is_ascii_digit())
+                && part.parse::<u16>().is_ok()
+        })
+        && parts[0].parse::<u16>().is_ok_and(|major| major > 0)
 }

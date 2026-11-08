@@ -1,4 +1,5 @@
 //! Narrow adapter for Tart 2.41.1. Runtime/headless and network proof is external.
+use crate::config::valid_runner_version;
 use crate::guest::{GuestPhase, GuestStatus, MAX_JIT_BYTES};
 use serde::{Deserialize, Serialize};
 use std::{
@@ -1338,17 +1339,6 @@ fn open_runner_archive(path: &Path) -> Result<File, TartError> {
         return Err(TartError::Configuration);
     }
     File::open(path).map_err(|e| io_error("runner archive open", e))
-}
-fn valid_runner_version(version: &str) -> bool {
-    let parts = version.split('.').collect::<Vec<_>>();
-    parts.len() == 3
-        && parts.iter().all(|part| {
-            !part.is_empty()
-                && part.len() <= 5
-                && part.bytes().all(|b| b.is_ascii_digit())
-                && part.parse::<u16>().is_ok()
-        })
-        && parts[0].parse::<u16>().is_ok_and(|major| major > 0)
 }
 fn protected_executable_component(
     path: &Path,
