@@ -77,8 +77,7 @@
       ],
       "delivery": "worker",
       "delivery_paths": [
-        "apps/folding/backend/crates/*/src/**",
-        "apps/folding/backend/crates/*/Cargo.toml",
+        "apps/folding/backend/crates/**",
         "apps/folding/backend/Cargo.toml",
         "apps/folding/backend/Cargo.lock",
         "apps/folding/backend/migrations/**"

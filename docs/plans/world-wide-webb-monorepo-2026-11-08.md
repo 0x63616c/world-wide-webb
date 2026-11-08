@@ -409,6 +409,14 @@ Consulted Matt's architecture/design/workflow guidance: favor deep modules with 
 
 ## 13. Fast execution: prepare, make it work, then clean up
 
+Owner reconfirmed this execution order during implementation: prioritize the usable app cutover,
+then the homelab authority handover as its current work lands, then retirement and cleanup.
+Do not make optional documentation polish, helper unification, library adoption, scaffold
+extensions or archive administration prerequisites for resuming app development. Essential
+working instructions, data/signing integrity, independent review and real delivery proof remain
+part of the applicable cutover. Review completed batches in parallel with the next independent
+implementation batch; do one integrated review before publication, without new tiny review gates.
+
 ### Pass 1 — independent preparation now
 
 Start from refreshed WWW main in an isolated worktree. Fetch each relevant source, inventory active work, preserve histories and prepare source-to-destination path mapping. Stage imports locally. Adapt existing app scripts and Fastlane handlers, minimal product manifests and the selective CI gate. Avoid broad renaming, framework extraction, formatter changes or dependency upgrades.

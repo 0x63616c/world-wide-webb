@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Resolve app impact from committed changes. Requires PyYAML (scripts/requirements.txt)."""
 import argparse
+import importlib.util
 import fnmatch
 import json
 from pathlib import Path
@@ -94,6 +95,15 @@ def main():
                 if binary_config(before) == binary_config(after):
                     files.remove(path)
     build_tooling = any(tooling(path) for path in files)
+    delivery_units = None
+    selector = ROOT / "scripts/ci/select.py"
+    if args.intent == "ship" and selector.exists():
+        spec = importlib.util.spec_from_file_location("unit_selection", selector)
+        shared = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(shared)
+        manifest = (yaml.safe_load(git("show", f"{head}:scripts/ci/units.json")) if args.head else
+                    json.loads(shared.CONFIG.read_text()))
+        delivery_units = shared.select(files, manifest)["delivery_candidates"]
     apps = []
     for app, config in configs.items():
         # This is the standard iOS handler's resolver. Other products use the
@@ -101,6 +111,8 @@ def main():
         if config.get("delivery_handler", "standard_ios") != "standard_ios":
             continue
         if args.intent == "ship" and config.get("testflight") is not True:
+            continue
+        if args.intent == "ship" and config.get("delivery_handler") == "standard_ios" and delivery_units is not None and f"{app}.native" not in delivery_units:
             continue
         if args.only and not config.get(args.only):
             continue

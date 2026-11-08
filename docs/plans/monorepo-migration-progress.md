@@ -198,3 +198,17 @@ node was renamed `homelab-retired`. Preserve this service route; host SSH must u
 homelab candidate is `ec73547` (publication pending when reported). An existing resolver symlink
 health issue remains for the homelab owner to reconcile. These are reported repair findings;
 this migration still owes independent delivery verification.
+
+### Reconfirmed speed and working instructions
+
+The owner explicitly reconfirmed fastest usable app cutover first, homelab handover once current
+changes land, and remaining cleanup/retirement afterward. The active goal was recreated with
+this ordering after the prior goal was cleared. All migration scope remains required; optional
+polish will not hold up working apps. Continue substantial implementation batches and concurrent
+independent Astra review, reusing valid checks/artifacts and reporting overall progress honestly.
+
+Astra's CI/capture review is complete with no remaining actionable findings after fixes:
+full screenshot job names match evidence validation, active Tendr shipping uses shared delivery
+inputs (test-only edits do not publish), and Worker embedded HTML/policy/certificate/build inputs
+select backend delivery. Twelve selector/real-Git delivery tests, existing impact fixtures and all
+six evidence workflow/job-name pairs pass. Report: `/tmp/monorepo-ci-capture-astra-review.md`.

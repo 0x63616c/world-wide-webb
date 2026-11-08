@@ -34,6 +34,11 @@ class SelectionTests(unittest.TestCase):
         self.assertEqual(result["verify"], ["folding.backend", "folding.contracts", "folding.native"])
         self.assertEqual(result["delivery_candidates"], [])
 
+    def test_worker_embedded_resources_are_delivery_inputs(self):
+        for suffix in ["templates/admin.html", "policies/names-v1.json", "roots/apple.der", "build.rs"]:
+            result = selection.select(["apps/folding/backend/crates/worker/" + suffix], CONFIG)
+            self.assertEqual(result["delivery_candidates"], ["folding.backend"])
+
     def test_tooling_verifies_but_does_not_ship(self):
         result = selection.select([".github/workflows/ci.yml"], CONFIG)
         self.assertEqual(set(result["verify"]), set(CONFIG["units"]))

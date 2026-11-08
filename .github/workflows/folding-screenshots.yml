@@ -21,7 +21,7 @@ jobs:
       - id: select
         uses: ./.github/actions/select
   capture:
-    name: JOBFolding PR screenshots
+    name: Folding PR previews
     needs: selection
     if: contains(fromJSON(needs.selection.outputs.verify), 'folding.native')
     runs-on: [self-hosted, macOS, ARM64, homelab-tart]

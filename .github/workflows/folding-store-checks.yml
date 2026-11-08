@@ -20,7 +20,7 @@ jobs:
       - id: select
         uses: ./.github/actions/select
   capture:
-    name: JOBFolding App Store checks
+    name: Folding App Store screenshots
     needs: selection
     if: contains(fromJSON(needs.selection.outputs.verify), 'folding.native')
     runs-on: [self-hosted, macOS, ARM64, homelab-tart]
