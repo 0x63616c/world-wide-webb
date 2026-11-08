@@ -17,7 +17,8 @@ in {
     ];
     nix.enable = false;
     time.timeZone = "America/Los_Angeles";
-    environment.systemPackages = (with pkgs; [ git jq curl age sops ]) ++ [
+    # Let SSH sessions recognize Ghostty without installing its GUI application.
+    environment.systemPackages = (with pkgs; [ git jq curl age sops ghostty-bin.terminfo ]) ++ [
       (import ../packages/client.nix { inherit pkgs; })
       (import ../packages/host.nix { inherit pkgs; })
     ];
