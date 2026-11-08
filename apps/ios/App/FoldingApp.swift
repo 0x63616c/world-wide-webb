@@ -39,7 +39,10 @@ import SwiftUI
       .task { controller.attachPushDelegate(pushDelegate) }
       .task { TipStore.shared.start() }
       .task { await controller.restoreCompetition() }
-      .task { await controller.maintainCompetitionUploads() }
+      .task(id: scenePhase) {
+        guard scenePhase == .active else { return }
+        await controller.maintainCompetitionUploads()
+      }
       .task(id: controller.presentation.competitionRemoval) { await controller.watchRemoval() }
       .task { await controller.synchronizePrivateHistory() }
       .onReceive(NotificationCenter.default.publisher(for: .CKAccountChanged)) { _ in
@@ -49,6 +52,7 @@ import SwiftUI
         NotificationCenter.default.publisher(
           for: NSPersistentCloudKitContainer.eventChangedNotification)
       ) { _ in
+        guard scenePhase == .active else { return }
         Task { await controller.synchronizePrivateHistory() }
       }
       .task { await controller.watch() }

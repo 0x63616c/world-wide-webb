@@ -16,6 +16,7 @@ actor TrackingRuntime {
   private var exportTickets: [UUID: PreparedTrackingExport] = [:]
   init(journal: TrackingStore? = nil) { self.journal = journal }
 
+  private var synchronizing = false
   private var privateSyncFailed = false
   private var observers: [UUID: AsyncStream<Void>.Continuation] = [:]
 
@@ -85,6 +86,9 @@ actor TrackingRuntime {
   }
 
   func synchronizePrivateHistory() async {
+    guard !synchronizing else { return }
+    synchronizing = true
+    defer { synchronizing = false }
     let revision = accountRevision
     do {
       _ = try await store()

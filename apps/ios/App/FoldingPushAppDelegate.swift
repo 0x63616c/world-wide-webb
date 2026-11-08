@@ -37,6 +37,7 @@ final class FoldingPushAppDelegate: NSObject, UIApplicationDelegate,
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
   ) -> Bool {
+    StorageBackgroundExecution.install()
     UNUserNotificationCenter.current().delegate = self
     return true
   }

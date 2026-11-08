@@ -11,8 +11,9 @@ let package = Package(
   ],
   targets: [
     .target(name: "FoldingDomain"),
+    .target(name: "FoldingSQLite", linkerSettings: [.linkedLibrary("sqlite3")]),
     .target(
-      name: "FoldingData", dependencies: ["FoldingDomain"],
+      name: "FoldingData", dependencies: ["FoldingDomain", "FoldingSQLite"],
       linkerSettings: [.linkedLibrary("sqlite3")]),
     .executableTarget(name: "FoldingJournalProbe", dependencies: ["FoldingData", "FoldingDomain"]),
     .testTarget(

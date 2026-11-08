@@ -790,10 +790,6 @@ import struct FoldingData.SetupProgress
 
   func refresh() async throws {
     guard !accountChanging else { throw CancellationError() }
-    // A fold can move the app to the background while its shared journal is open.
-    // Finish the short SQLite read before iOS suspends the process.
-    let backgroundTask = UIApplication.shared.beginBackgroundTask(withName: "Refresh tracking")
-    defer { UIApplication.shared.endBackgroundTask(backgroundTask) }
     let token = UUID()
     request = token
     let store = try await runtime.store()

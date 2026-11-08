@@ -1,3 +1,4 @@
+import FoldingSQLite
 import Foundation
 import SQLite3
 
@@ -16,21 +17,35 @@ final class SQLiteConnection {
   private var handle: OpaquePointer?
 
   init(url: URL) throws {
-    let result = sqlite3_open_v2(
-      url.path, &handle,
-      SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_FULLMUTEX, nil)
-    guard result == SQLITE_OK else {
-      if let handle { sqlite3_close(handle) }
-      self.handle = nil
-      throw StoreError.database(result)
+    try StorageAccess.withProtection { _ in
+      let result = sqlite3_open_v2(
+        url.path, &handle,
+        SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_FULLMUTEX, nil)
+      guard result == SQLITE_OK else {
+        if let handle { sqlite3_close(handle) }
+        self.handle = nil
+        throw StoreError.database(result)
+      }
+      // Close never initiates a checkpoint or WAL deletion if iOS denies execution time.
+      let configured = folding_sqlite_disable_close_checkpoint(handle)
+      guard configured == SQLITE_OK else { throw StoreError.database(configured) }
+      var persistWAL: Int32 = 1
+      let persisted = sqlite3_file_control(handle, nil, SQLITE_FCNTL_PERSIST_WAL, &persistWAL)
+      guard persisted == SQLITE_OK else { throw StoreError.database(persisted) }
+      sqlite3_busy_timeout(handle, 1000)
+      try retryBusy { try execute("PRAGMA journal_mode=WAL") }
+      try execute("PRAGMA foreign_keys=ON")
+      try execute("PRAGMA synchronous=FULL")
     }
-    sqlite3_busy_timeout(handle, 1000)
-    try retryBusy { try execute("PRAGMA journal_mode=WAL") }
-    try execute("PRAGMA foreign_keys=ON")
-    try execute("PRAGMA synchronous=FULL")
   }
 
-  deinit { sqlite3_close(handle) }
+  deinit {
+    // sqlite3_close may checkpoint. Keep its lock under an assertion as well.
+    if (try? StorageAccess.withProtection({ _ in sqlite3_close(handle) })) == nil {
+      // No checkpoint or WAL deletion is allowed on an unasserted idle close.
+      sqlite3_close_v2(handle)
+    }
+  }
 
   enum Value {
     case text(String)
@@ -43,6 +58,24 @@ final class SQLiteConnection {
   }
 
   func rows(_ sql: String, _ bindings: [Value] = []) throws -> [[String: String]] {
+    try StorageAccess.withProtection { lease in
+      try unprotectedRows(sql, bindings, lease: lease)
+    }
+  }
+
+  private func unprotectedRows(
+    _ sql: String, _ bindings: [Value] = [], lease: StorageAccessLease? = nil
+  ) throws -> [[String: String]] {
+    if let lease {
+      sqlite3_progress_handler(
+        handle, 1000,
+        { context in
+          guard let context else { return 0 }
+          return Unmanaged<StorageAccessLease>.fromOpaque(context).takeUnretainedValue().isCancelled
+            ? 1 : 0
+        }, Unmanaged.passUnretained(lease).toOpaque())
+    }
+    defer { sqlite3_progress_handler(handle, 0, nil, nil) }
     var statement: OpaquePointer?
     let prepared = sqlite3_prepare_v2(handle, sql, -1, &statement, nil)
     guard prepared == SQLITE_OK else { throw StoreError.database(prepared) }
@@ -67,7 +100,9 @@ final class SQLiteConnection {
     }
     var output: [[String: String]] = []
     while true {
+      try lease?.checkCancellation()
       let result = sqlite3_step(statement)
+      if result == SQLITE_INTERRUPT { try lease?.checkCancellation() }
       if result == SQLITE_DONE { return output }
       guard result == SQLITE_ROW else { throw StoreError.database(result) }
       var row: [String: String] = [:]
@@ -96,14 +131,18 @@ final class SQLiteConnection {
   }
 
   func transaction<T>(write: Bool = true, _ operation: () throws -> T) throws -> T {
-    try retryBusy { try execute(write ? "BEGIN IMMEDIATE" : "BEGIN DEFERRED") }
-    do {
-      let result = try operation()
-      try execute("COMMIT")
-      return result
-    } catch {
-      try? execute("ROLLBACK")
-      throw error
+    try StorageAccess.withProtection { lease in
+      try retryBusy { try execute(write ? "BEGIN IMMEDIATE" : "BEGIN DEFERRED") }
+      do {
+        let result = try operation()
+        try lease?.checkCancellation()
+        try execute("COMMIT")
+        return result
+      } catch {
+        // Expiry must still roll back while the assertion protects the held lock.
+        _ = try? unprotectedRows("ROLLBACK")
+        throw error
+      }
     }
   }
 }

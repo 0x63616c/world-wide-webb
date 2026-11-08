@@ -11,6 +11,7 @@ struct RecordOpeningIntent: AppIntent {
   static let authenticationPolicy: IntentAuthenticationPolicy = .alwaysAllowed
 
   func perform() async throws -> some IntentResult {
+    await StorageBackgroundExecution.install()
     try await TrackingRuntime.shared.record(.open)
     return .result()
   }
@@ -26,6 +27,7 @@ struct RecordClosingIntent: AppIntent {
   static let authenticationPolicy: IntentAuthenticationPolicy = .alwaysAllowed
 
   func perform() async throws -> some IntentResult {
+    await StorageBackgroundExecution.install()
     try await TrackingRuntime.shared.record(.close)
     return .result()
   }

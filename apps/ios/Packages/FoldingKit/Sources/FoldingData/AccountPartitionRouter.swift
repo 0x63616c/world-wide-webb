@@ -159,23 +159,28 @@ public struct AccountPartitionRouter: Sendable {
   }
 
   fileprivate func locked<T>(exclusive: Bool, _ operation: () throws -> T) throws -> T {
-    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-    #if os(iOS)
-      try FileManager.default.setAttributes(
-        [.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication],
-        ofItemAtPath: directory.path)
-    #endif
-    let descriptor = open(
-      directory.appendingPathComponent("route.lock").path, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR)
-    guard descriptor >= 0 else { throw PartitionError.filesystem(errno) }
-    defer { close(descriptor) }
-    let deadline = ProcessInfo.processInfo.systemUptime + 1
-    while flock(descriptor, (exclusive ? LOCK_EX : LOCK_SH) | LOCK_NB) != 0 {
-      guard errno == EWOULDBLOCK else { throw PartitionError.filesystem(errno) }
-      guard ProcessInfo.processInfo.systemUptime < deadline else { throw PartitionError.busy }
-      Thread.sleep(forTimeInterval: 0.01)
+    try StorageAccess.withProtection { lease in
+      try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+      #if os(iOS)
+        try FileManager.default.setAttributes(
+          [.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication],
+          ofItemAtPath: directory.path)
+      #endif
+      let descriptor = open(
+        directory.appendingPathComponent("route.lock").path, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR)
+      guard descriptor >= 0 else { throw PartitionError.filesystem(errno) }
+      defer { close(descriptor) }
+      let deadline = ProcessInfo.processInfo.systemUptime + 1
+      try lease?.checkCancellation()
+      while flock(descriptor, (exclusive ? LOCK_EX : LOCK_SH) | LOCK_NB) != 0 {
+        guard errno == EWOULDBLOCK else { throw PartitionError.filesystem(errno) }
+        guard ProcessInfo.processInfo.systemUptime < deadline else { throw PartitionError.busy }
+        try lease?.checkCancellation()
+        Thread.sleep(forTimeInterval: 0.01)
+      }
+      defer { flock(descriptor, LOCK_UN) }
+      try lease?.checkCancellation()
+      return try operation()
     }
-    defer { flock(descriptor, LOCK_UN) }
-    return try operation()
   }
 }
