@@ -203,6 +203,30 @@ fn revalidation_candidates(
     }
     selected
 }
+fn acknowledge_fleet_hold(
+    gate: &Gate,
+    journal: &Journal,
+    observed: &mut Observation,
+    inventory_safe: bool,
+    busy_inventory: bool,
+) {
+    match gate.read_hold() {
+        Ok(Some(request)) => {
+            // Root may publish a hold after discovery's earlier gate read.
+            // Apply it to this decision before promising that the fleet is idle.
+            observed.admission_safe = false;
+            if let Err(error) = gate.acknowledge(
+                &request,
+                journal.is_idle() && inventory_safe && !busy_inventory,
+            ) {
+                tracing::warn!(category=%error, "activation hold acknowledgement failed");
+            }
+        }
+        Err(_) => observed.admission_safe = false,
+        Ok(None) => {}
+    }
+}
+
 #[derive(Default)]
 struct RepositorySnapshot {
     jobs: Vec<GithubJob>,
@@ -1394,14 +1418,13 @@ impl EngineBackend for LiveBackend {
                 "diagnostic retention unavailable"
             );
         }
-        if let Ok(Some(request)) = self.gate.read_hold()
-            && let Err(error) = self.gate.acknowledge(
-                &request,
-                journal.is_idle() && inventory_safe && !busy_inventory,
-            )
-        {
-            tracing::warn!(category=%error, "activation hold acknowledgement failed");
-        }
+        acknowledge_fleet_hold(
+            &self.gate,
+            journal,
+            &mut observed,
+            inventory_safe,
+            busy_inventory,
+        );
         observed
     }
     async fn execute(&mut self, effect: &Effect) -> Outcome {
@@ -1625,6 +1648,57 @@ mod tests {
                 .is_empty()
         );
     }
+    #[test]
+    fn hold_arriving_after_discovery_blocks_admission_before_idle_ack() {
+        let directory = tempfile::tempdir().unwrap();
+        let gate = Gate::new(
+            directory.path().join("control"),
+            directory.path().join("status"),
+        );
+        let config = runtime().policy;
+        let job = pending(Operation::CloneVm).active.unwrap().candidate;
+        let mut observed = Observation {
+            admission_safe: true,
+            admission_nonce: Some("a".repeat(32)),
+            free_bytes: Some(10000),
+            candidates: vec![Candidate {
+                job: job.clone(),
+                created_at: 1,
+                labels: crate::config::Platform::MacosArm64
+                    .labels()
+                    .iter()
+                    .map(|s| (*s).to_owned())
+                    .collect(),
+                group: None,
+            }],
+            revalidated: vec![job],
+            ..Observation::default()
+        };
+        assert!(
+            crate::scheduler::decide(&config, &Journal::default(), &observed, 10)
+                .effect
+                .is_some()
+        );
+        // Discovery observed no hold. Root publishes one before the final fleet
+        // acknowledgement; a positive idle ack must prevent this admission.
+        let request = gate.request_hold().unwrap();
+        acknowledge_fleet_hold(&gate, &Journal::default(), &mut observed, true, false);
+        assert!(gate.read_ack(&request).unwrap().unwrap().idle);
+        assert!(
+            crate::scheduler::decide(&config, &Journal::default(), &observed, 10)
+                .effect
+                .is_none()
+        );
+
+        // A late malformed hold must also fail closed instead of retaining the
+        // earlier healthy discovery result.
+        gate.release(&request).unwrap();
+        std::fs::write(directory.path().join("control/hold.json"), b"not JSON").unwrap();
+        observed.admission_safe = true;
+        acknowledge_fleet_hold(&gate, &Journal::default(), &mut observed, true, false);
+        assert!(!observed.admission_safe);
+    }
+
     fn pending(operation: Operation) -> Journal {
         let config = runtime();
         let nonce = "a".repeat(32);
