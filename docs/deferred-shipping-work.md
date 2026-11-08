@@ -29,3 +29,5 @@ The active goal covers live iCloud and Cloudflare integration. This list also pr
 - [ ] Restore CI on owner-provided runners when available (#46); do not retry hosted-CI billing.
 
 The [GitHub Project](https://github.com/users/0x63616c/projects/9) and existing shipping issues remain open. Keep secrets in Folding's 1Password vault, referenced by existing setup evidence; never put their values here. All credential work uses the primary persistent shell.
+
+- [x] Deploy API resource protections and default-disabled minimum-build policy to staging then production, verify all 19 checksum migrations/settings/health, and distribute **0.1.11 (12)** to Folding Internal with exact Apple membership readback. Includes offline cold startup, current Shortcuts capture/retries and concise app copy. [Evidence](experiments/api-offline-release-2026-11-08.md). Post-rollout 24-hour cost observation and physical-device behavior remain unverified.
