@@ -1,6 +1,6 @@
 # Runner validation
 
-Status: final rollout, 2026-11-07. Runtime proofs below passed; the follow-up configuration enables admission on the MacBook only.
+Status: deployed, 2026-11-08. Admission is enabled on the MacBook only. Ordinary Apple CI passed on the managed pool after restart without desktop login, and application PR949 is merged.
 
 ## Passed
 
@@ -14,13 +14,13 @@ Status: final rollout, 2026-11-07. Runtime proofs below passed; the follow-up co
 
 The fresh-clone lifecycle passed as UID 451 under a system LaunchDaemon: boot, public guest helper Ready, stop, delete, confirmed absence and clone-lease cleanup. [Durable evidence](evidence/runner-vm-lifecycle.json) records the image, tools, identity and each completed stage. No GitHub credentials or job were used. This proves this boot's service context; the evidence explicitly records that a host GUI session was present.
 
-The same lifecycle subsequently passed with the actual pinned Xcode image in 31 seconds. Its [separate evidence](evidence/xcode-runner-vm-lifecycle.json) also proves the native Tart operation lease was held during startup and after guest readiness, then released after stop before deletion. The cached image left approximately 171 GiB free; the host configuration uses a 140 GiB admission reserve and 80 GiB emergency floor. Production admission remains disabled.
+The same lifecycle subsequently passed with the actual pinned Xcode image in 31 seconds. Its [separate evidence](evidence/xcode-runner-vm-lifecycle.json) also proves the native Tart operation lease was held during startup and after guest readiness, then released after stop before deletion. The cached image left approximately 171 GiB free; the host configuration uses a 140 GiB admission reserve and 80 GiB emergency floor. Admission remained disabled during these initial probes.
 
 The real [GitHub success job](evidence/github-runner-success.json) passed its arm64, non-root and Xcode checks. The [cancellation job](evidence/github-runner-cancellation.json) completed cancellation and cleanup. Both exact VM directories and GitHub runner registrations were confirmed absent afterward.
 
 [Network probes](evidence/runner-network-probes.json) proved public GitHub HTTPS access, blocked LAN router/physical-host/tailnet DNS access with positive host controls, and blocked inbound guest SSH with a positive guest loopback control. Peer VM and IPv6 isolation are not established by these endpoint probes.
 
-The [complete ordinary Apple CI run](evidence/apple-ci-success.json) passed every workflow job. Its Apple job completed in 442 seconds, including Rust setup, Swift/Rust integration, the iPad build/tests and iPhone policy tests. Workflow routing remains on the application PR until rollout is verified.
+The [complete ordinary Apple CI run](evidence/apple-ci-success.json) passed every workflow job. Its Apple job completed in 442 seconds, including Rust setup, Swift/Rust integration, the iPad build/tests and iPhone policy tests. The [managed post-reboot run](evidence/managed-apple-ci-success.json) subsequently passed in 396 seconds without desktop login; routing is now merged.
 
 ## Resolved startup failure
 
@@ -38,13 +38,13 @@ The early probe used a system LaunchDaemon with `SessionCreate=true` while a hum
 2. Apple's `security login-keychain -s` implementation always fails despite advertising the setter. Creating the standard login keychain already made the native getter identify it. Preparation now verifies that getter's canonical path rather than invoking the disabled setter. [Apple implementation](https://github.com/apple-oss-distributions/Security/blob/main/SecurityTool/macOS/keychain_list.c).
 3. Journal ownership could briefly outlive its owner through an incidental forked descriptor. A deterministic duplicated-descriptor regression failed before explicit owner unlock and passed afterward. Operation-lease probes similarly release only their own temporary locks; native clone/run owner leases deliberately remain inherited by their intended child.
 4. The plugged-in MacBook repeatedly entered maintenance sleep/dark wake despite idle sleep being disabled. An AC-only native `caffeinate -s` assertion stopped further observed sleep cycles; the Xcode download completed and encrypted Tailscale ping succeeded. The original one-hour test assertion expired and cycling resumed. The live test daemon now holds the AC-only assertion until unloaded; the equivalent declaration is scoped to the MacBook.
-5. A physical restart returned LAN SSH at the login screen without user login, but the temporary raw-ProgramArguments daemon attempted to execute before the Nix volume mounted and received EX_CONFIG. The service now uses nix-darwin's standard command abstraction, which waits for `/nix/store` before exec. The old installed generation also restored the rejected resolver symlink at boot. The next reboot must exercise the actual managed generation containing both fixes, with admission disabled.
+5. A host restart returned LAN SSH at the login screen without user login, but the temporary raw-ProgramArguments daemon attempted to execute before the Nix volume mounted and received EX_CONFIG. The service now uses nix-darwin's standard command abstraction, which waits for `/nix/store` before exec. The old installed generation also restored the rejected resolver symlink at boot. The subsequent managed reboot exercised both fixes successfully with admission disabled, before enabling the validated pool.
 
 ## Controller interruption: regression fixed and repeated
 
 Ordinary Apple CI reached checkout, Xcode selection, XcodeGen installation, caching and Swift formatting. Killing only the controller under launchd also terminated its Tart descendant; the replacement controller correctly retained the attempt, deleted the stopped VM and waited for GitHub's busy registration to clear. Cancelling/force-cancelling the interrupted workflow eventually allowed exact registration cleanup and returned the slot to idle. This was an interrupted build, not a successful recovery of its execution.
 
-The launchd declaration now sets `AbandonProcessGroup=true`, so launchd does not kill Tart merely because its parent controller exits. A generated-plist check covers that setting. The [repeat test](evidence/controller-restart.json) recovered the same Running VM with a new controller PID and a successful guest RPC. The job continued through Swift package tests, then failed separately because the image lacked Cargo. The repository workflow now installs its pinned Rust toolchain explicitly; the next CI run must verify that correction.
+The launchd declaration now sets `AbandonProcessGroup=true`, so launchd does not kill Tart merely because its parent controller exits. A generated-plist check covers that setting. The [repeat test](evidence/controller-restart.json) recovered the same Running VM with a new controller PID and a successful guest RPC. The job continued through Swift package tests, then failed separately because the image lacked Cargo. The repository workflow now installs its pinned Rust toolchain explicitly; both complete CI runs linked above verified that correction.
 
 The update hold refused immediate drain while the job was busy, remained active, and acknowledged idle after cleanup. The [binary replacement test](evidence/controller-update.json) replaced the controller while that hold remained active, released it afterward and admitted the next real job. The full enabled host generation also built without activation. Host reboot necessarily interrupts VMs; it must reconcile and clean rather than claim to resume a build.
 
@@ -60,6 +60,8 @@ The reboot test was a software restart, not a physical power cut. The controller
 
 ## Final rollout
 
-The first merge was automatically installed by Comin with admission disabled. The follow-up enables admission after these proofs. The application PR changes only ordinary CI routing and pinned Rust setup. Its existing main-push CI success would trigger a Mac mini deployment, so this routing-only merge must skip the redundant main-push run after PR checks pass. Deployment and TestFlight workflows and enablement settings remain unchanged.
+Comin automatically installed private PR15 with admission disabled, then PR16 enabled admission at revision `5d1d21f87405994b31d185f76a92465b6b9ca6de`. The managed pool passed application PR CI after restart with the console still owned by root. Its exact VM and GitHub registration were removed, and the journal returned to idle.
+
+[Application PR949](https://github.com/0x63616c/world-wide-webb/pull/949) is merged at `ff3edc54ba4929673020d08dacb19187e0b834b3`. Only ordinary CI routing, pinned Rust setup and actionlint label metadata changed. Its squash message includes `[skip ci]` after all PR checks passed: redundant main-push CI would otherwise trigger the existing Mac mini deployment. Deployment and TestFlight workflows and enablement settings remain unchanged.
 
 Runtime probe logs and evidence stay private on the target. Passwords, App keys, JIT payloads and tokens are never part of this document.
