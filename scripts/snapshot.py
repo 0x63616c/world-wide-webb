@@ -39,7 +39,8 @@ def docker(runtime, *args):
 
 def run(args, **kwargs):
     kwargs.setdefault('timeout', 900)
-    kwargs.setdefault('stderr', subprocess.DEVNULL)
+    if not kwargs.get('capture_output'):
+        kwargs.setdefault('stderr', subprocess.DEVNULL)
     return subprocess.run(args, check=True, **kwargs)
 
 

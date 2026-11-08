@@ -1,6 +1,7 @@
 import importlib.util
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -22,6 +23,19 @@ class SnapshotSafetyTests(unittest.TestCase):
         self.temporary = tempfile.TemporaryDirectory()
         self.addCleanup(self.temporary.cleanup)
         self.destination = Path(self.temporary.name)
+
+    def test_running_state_captures_real_process_output_without_stderr_conflict(self):
+        command = [sys.executable, '-c',
+                   'import json,sys; print(json.dumps({"Running": True, "Health": None})); '
+                   'print("diagnostic fixture", file=sys.stderr)']
+        with patch.object(snapshot, 'docker', return_value=command):
+            self.assertEqual(snapshot.running_state('services', 'fixture'),
+                             {'Running': True, 'Health': None})
+
+    def test_non_capture_process_still_suppresses_stderr_by_default(self):
+        result = snapshot.run([sys.executable, '-c',
+                               'import sys; print("diagnostic fixture", file=sys.stderr)'])
+        self.assertIsNone(result.stderr)
 
     @patch.object(snapshot.time, 'monotonic', side_effect=[0, 241])
     @patch.object(snapshot, 'running_state', return_value={'Running': True, 'Health': None})
