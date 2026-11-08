@@ -35,6 +35,7 @@ class ReleaseTests(unittest.TestCase):
             MINI_TEST_LOG=str(self.root / "calls"),
             PATH=str(self.root / "bin") + ":" + os.environ["PATH"],
             TEST_REVISION=REVISION,
+            WWW_DOCKER_BIN=str(self.root / "bin/docker"),
         )
         tailnet = self.root / "bin/tailscale"
         tailnet.write_text("""#!/usr/bin/env python3
@@ -46,14 +47,32 @@ elif 'status' in sys.argv:print(json.dumps({'TCP':{'443':{'HTTPS':True}},'Web':{
         self.env["WWW_TAILSCALE_BIN"] = str(tailnet)
         docker = self.root / "bin/docker"
         docker.write_text("""#!/usr/bin/env python3
-import json,os,sys
+import json,os,sys,shutil,sqlite3
 from pathlib import Path
 args=sys.argv[1:]
+if args[:2]==['--context','orbstack']:args=args[2:]
 with open(os.environ['MINI_TEST_LOG'],'a') as log:log.write(json.dumps(args)+'\\n')
 if args[0]=='run':
- print('bad' if os.environ.get('IMAGE_FAILURE') else os.environ['TEST_REVISION'])
+ if args[-1]=='capabilities':print(json.dumps({'databaseCheck':True}))
+ elif args[-1]=='database-check':
+  try:
+   db=sqlite3.connect('file:'+os.environ['WWW_ROOT']+'/sqlite/control-center.sqlite?mode=rw',uri=True)
+   db.execute('PRAGMA query_only=ON')
+   assert db.execute('PRAGMA quick_check').fetchall()==[('ok',)]
+   db.close()
+  except Exception:sys.exit(1)
+ else:print('bad' if os.environ.get('IMAGE_FAILURE') else os.environ['TEST_REVISION'])
+elif args[:2]==['volume','inspect']:
+ print(json.dumps([{'Driver':'local','Options':None}]))
+elif args[0]=='inspect' and '--format' in args:
+ print('accepted-validator')
+elif args[0]=='inspect':
+ print(json.dumps([{'State':{'Running':False},'Mounts':[{'Destination':'/app/data','Type':'volume','Name':'www-control-center-sqlite'}]}]))
+elif args[0]=='cp':
+ if os.environ.get('COPY_FAILURE'):sys.exit(1)
+ for p in Path(os.environ['WWW_ROOT']+'/sqlite').iterdir():shutil.copyfile(p,Path(args[-1])/p.name)
 elif 'config' in args and '--format' in args:
- print(json.dumps({'services':{'www':{'ports':[{'host_ip':('0.0.0.0' if os.environ.get('PUBLIC_LISTENER') else '127.0.0.1'),'target':4201,'published':('4201' if os.environ.get('LEGACY_ORIGIN') else '4202')}], 'volumes':[{'type':'bind','source':os.environ['WWW_ROOT']+'/sqlite','target':'/app/data'}]}}}))
+ print(json.dumps({'services':{'www':{'ports':[{'host_ip':('0.0.0.0' if os.environ.get('PUBLIC_LISTENER') else '127.0.0.1'),'target':4201,'published':('4201' if os.environ.get('LEGACY_ORIGIN') else '4202')}], 'user':'501:20','image':'test-image','volumes':[{'type':'volume','source':'sqlite','target':'/app/data'}]}},'volumes':{'sqlite':{'external':True,'name':'www-control-center-sqlite'}}}))
 elif 'exec' in args and os.environ.get('HEALTH_FAILURE'):sys.exit(1)
 """)
         docker.chmod(0o755)
@@ -97,6 +116,12 @@ elif 'exec' in args and os.environ.get('HEALTH_FAILURE'):sys.exit(1)
         self.assertEqual(self.run_release(1).returncode, 0)
         self.assertEqual(len(self.calls()), count)
         self.assertFalse((self.root / "deploy.lock").exists())
+
+    def test_failed_snapshot_restarts_existing_app_without_advancing_release(self):
+        self.assertNotEqual(self.run_release(COPY_FAILURE="1").returncode, 0)
+        self.assertIn(["start", "www-control-center-www-1"], self.calls())
+        self.assertFalse((self.root / "current.env").exists())
+        self.assertFalse((self.root / "generation").exists())
 
     def test_cold_wal_database_is_validated_and_snapshotted(self):
         (self.root / "bin/python3").symlink_to(sys.executable)

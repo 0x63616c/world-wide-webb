@@ -1,10 +1,14 @@
-use std::{env, path::PathBuf};
+use std::{env, future::IntoFuture, path::PathBuf};
 use www_server::{AppState, http, storage};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     if env::args().nth(1).as_deref() == Some("version") {
         println!("{}", option_env!("BUILD_HASH").unwrap_or("local"));
+        return Ok(());
+    }
+    if env::args().nth(1).as_deref() == Some("capabilities") {
+        println!("{{\"databaseCheck\":true}}");
         return Ok(());
     }
     if env::args().nth(1).as_deref() == Some("healthcheck") {
@@ -26,6 +30,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let database = env::var("WWW_DATABASE_PATH")
         .map(PathBuf::from)
         .unwrap_or_else(|_| data.join("control-center.sqlite"));
+    if env::args().nth(1).as_deref() == Some("database-check") {
+        storage::validate(&database).await?;
+        println!("Existing database integrity and schema verified");
+        return Ok(());
+    }
+    if env::args().nth(1).as_deref() == Some("database-snapshot") {
+        let destination = env::args().nth(2).ok_or("Snapshot destination required")?;
+        storage::snapshot(&database, std::path::Path::new(&destination)).await?;
+        println!("Online snapshot integrity and foreign keys verified");
+        return Ok(());
+    }
+    if env::args().nth(1).as_deref() == Some("database-clean-snapshots") {
+        storage::clean_snapshots(database.parent().ok_or("Database directory required")?).await?;
+        return Ok(());
+    }
+    if env::var("WWW_REQUIRE_DATABASE").as_deref() == Ok("on") {
+        // Existing zero-length/truncated files must not silently become a new household.
+        storage::validate(&database).await?;
+    }
     let db = storage::open(&database).await?;
     if env::args().nth(1).as_deref() == Some("migrate") {
         db.close().await;
@@ -38,12 +61,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing::info!(address = %listen, "server ready");
     let runtime = www_server::runtime::Runtime::start(state.clone())?;
     let stopping = state.shutdown.clone();
-    axum::serve(listener, http::router(state))
+    let server = axum::serve(listener, http::router(state))
         .with_graceful_shutdown(async move {
             shutdown().await;
             let _ = stopping.send(true);
         })
-        .await?;
+        .into_future();
+    tokio::select! {
+        result = server => result?,
+        worker = runtime.failure() => {
+            tracing::error!(worker, "worker failed or stalled; exiting for container recovery");
+            // Bounded recovery even if a worker is stuck in storage I/O. WAL remains crash-safe.
+            std::process::exit(1);
+        }
+    }
     runtime.stop().await;
     db.close().await;
     Ok(())

@@ -46,30 +46,16 @@ class CutoverBackupTests(unittest.TestCase):
                     reader.execute("INSERT INTO records VALUES (1)")
                 self.assertEqual(reader.execute("SELECT count(*) FROM records").fetchone(), (0,))
 
-    def test_complete_sqlite_snapshot_retains_lock_and_archives_media(self):
+    def test_retired_sqlite_cutover_cannot_snapshot_stale_host_data_or_stop_the_app(self):
         with tempfile.TemporaryDirectory() as temp:
             app, dest = Path(temp) / "app", Path(temp) / "snapshot"
-            (app / "data/sqlite").mkdir(parents=True)
-            (app / "data/media").mkdir()
-            (app / "data/media/photo.jpg").write_bytes(b"preserved-photo")
-            (app / "secrets").mkdir()
-            for name in ("runtime.env", "current.env", "compose.yaml", "release.sh", "recover.sh"):
-                (app / name).write_text("test fixture")
-            with sqlite3.connect(app / "data/sqlite/control-center.sqlite") as db:
-                db.execute("CREATE TABLE records (id TEXT PRIMARY KEY)")
-                db.execute("INSERT INTO records VALUES ('keep-me')")
-            with (
-                patch.object(backup.subprocess, "check_output", side_effect=["false", "false"]),
-                patch.object(backup.subprocess, "run") as run,
-            ):
-                backup.snapshot(app, dest, "sqlite")
-            run.assert_not_called()
-            manifest = json.loads((dest / "SNAPSHOT.json").read_text())
-            self.assertEqual(len(manifest["files"]), 2)
-            self.assertTrue(all(len(f["sha256"]) == 64 for f in manifest["files"]))
-            self.assertTrue((app / "deploy.lock").exists())
-            with backup.tarfile.open(dest / "control-center-files.tar.gz") as archive:
-                self.assertEqual(archive.extractfile("data/media/photo.jpg").read(), b"preserved-photo")
+            app.mkdir()
+            with patch.object(backup.subprocess, "run") as run:
+                with self.assertRaisesRegex(ValueError, "retired"):
+                    backup.snapshot(app, dest, "sqlite")
+                run.assert_not_called()
+            self.assertFalse(dest.exists())
+            self.assertFalse((app / "deploy.lock").exists())
 
     def test_failure_keeps_writer_stopped_and_lock_owned(self):
         with tempfile.TemporaryDirectory() as temp:

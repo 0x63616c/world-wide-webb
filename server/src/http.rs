@@ -39,7 +39,14 @@ impl ApiError {
 impl From<sqlx::Error> for ApiError {
     fn from(error: sqlx::Error) -> Self {
         // Do not log bind values, SQL or row contents.
-        tracing::error!(kind = "database", "database operation failed");
+        // SQLite's numeric extended error code distinguishes corruption, I/O and locking
+        // failures without exposing SQL, bound values, paths or database contents.
+        let code = error.as_database_error().and_then(|e| e.code());
+        tracing::error!(
+            kind = "database",
+            sqlite_code = code.as_deref(),
+            "database operation failed"
+        );
         if error
             .as_database_error()
             .is_some_and(|e| e.is_unique_violation())
@@ -174,7 +181,15 @@ async fn restrict_release(State(state): State<AppState>, request: Request, next:
     response
 }
 async fn health(State(state): State<AppState>) -> Result<Json<Value>> {
-    sqlx::query("SELECT 1").execute(&state.db).await?;
+    sqlx::query("SELECT value FROM notification_revision WHERE id=1")
+        .execute(&state.db)
+        .await?;
+    if !crate::runtime::workers_ready(&state.workers) {
+        return Err(ApiError {
+            status: StatusCode::SERVICE_UNAVAILABLE,
+            message: "Workers unavailable",
+        });
+    }
     Ok(Json(
         json!({"status":"ok","timestamp":chrono::Utc::now().timestamp_millis(),"database":"ok","cycles":{"enabled":state.config.workers_enabled}, "workers":state.workers.read().expect("worker lock").clone(), "backend":"rust", "build": option_env!("BUILD_HASH").unwrap_or("local")}),
     ))

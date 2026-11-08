@@ -35,6 +35,8 @@ def digest(path):
 
 
 def snapshot(app_root, destination, engine):
+    if engine == "sqlite":
+        raise ValueError("Historical host SQLite cutover is retired; use the active Linux-volume backup tools")
     app_root = app_root.resolve()
     destination = destination.resolve()
     if destination == app_root or app_root in destination.parents:

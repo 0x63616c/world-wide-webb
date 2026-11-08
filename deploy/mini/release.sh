@@ -39,7 +39,7 @@ compose pull www
 observed=$(docker run --rm --read-only --network none --entrypoint www-server "$image" version)
 [[ "$observed" == "$revision" ]] || { echo 'Image revision does not match the requested release.' >&2; exit 1; }
 # A deployment must never create a fresh production DB because of a wrong path.
-data_dir=$(compose config --format json | python3 "$code/sqlite_preflight.py")
+compose config --format json | python3 "$code/sqlite_preflight.py"
 legacy_pg_id=""
 if [[ -f "$root/compose.yaml" ]] && grep -q '^  postgres:' "$root/compose.yaml"; then
   test -f "$root/.sqlite-import-verified.json" || { echo 'Finish and verify the frozen-writer SQLite import before the first Rust release.' >&2; exit 1; }
@@ -49,8 +49,12 @@ if [[ -f "$root/current.env" ]]; then cp "$root/current.env" "$root/previous.env
 # Ensure only one cycle owner runs; never bring the entire project down.
 compose stop www
 mkdir -p "$root/backups"
-python3 "$code/sqlite_snapshot.py" "$data_dir/control-center.sqlite" \
-  "$root/backups/before-release-$generation-$revision-$(date -u +%Y%m%dT%H%M%SZ)-$$.sqlite"
+if ! python3 "$code/sqlite_snapshot.py" --container www-control-center-www-1 \
+  "$root/backups/before-release-$generation-$revision-$(date -u +%Y%m%dT%H%M%SZ)-$$.sqlite"; then
+  # A failed backup must not leave the previously running app stopped.
+  docker --context orbstack start www-control-center-www-1 >/dev/null
+  exit 1
+fi
 compose up -d --no-deps --wait --wait-timeout 180 www
 compose exec -T -e EXPECTED_REVISION="$revision" www www-server healthcheck
 python3 "$code/tailscale_serve.py"
@@ -65,10 +69,12 @@ if [[ "$code" != "$root" ]]; then
     cp "$code/$name" "$backup_root/$name.tmp"
     mv "$backup_root/$name.tmp" "$backup_root/$name"
   done
+  python3 "$backup_root/backup.py" --install-hourly
 fi
 if [[ -n "$legacy_pg_id" ]]; then docker stop "$legacy_pg_id" >/dev/null; fi
 cp "$release" "$root/current.env.tmp"
 mv "$root/current.env.tmp" "$root/current.env"
 printf '%s\n' "$generation" > "$root/generation.tmp"
 mv "$root/generation.tmp" "$root/generation"
+python3 "$code/sqlite_snapshot.py" --prune "$root/backups"
 echo "Verified release $revision"

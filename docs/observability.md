@@ -5,12 +5,16 @@ Grafana, Prometheus or Loki stack and no new health alerts.
 
 ```sh
 ssh homelab '/opt/homebrew/bin/docker --context orbstack logs --tail 100 www-control-center-www-1'
-ssh homelab 'curl -fsS http://127.0.0.1:4201/healthz'
+ssh homelab 'curl -fsS http://127.0.0.1:4202/healthz'
 ```
 
 `/healthz` reports database connectivity, shutdown state, cycle ownership and
-per-worker failure counts. The Compose healthcheck uses this endpoint. App and
-PostgreSQL logs rotate at 10 MB with three files per container. Browser and
+per-worker failure counts. SQLite failures include only a numeric extended
+`sqlite_code` (no SQL, bound values or row contents). Dead/stalled workers and repeated
+worker storage failures fail readiness and cause process exit for container recovery;
+transient external-integration errors do not restart the app. See
+[worker recovery](runbooks/control-center-history.md#worker-recovery). The Compose healthcheck uses this endpoint. App and
+retained PostgreSQL logs rotate at 10 MB with three files per container. Browser and
 physical-panel issues still require browser inspection or local reproduction.
 Never print runtime environment files or secret mounts while debugging.
 
