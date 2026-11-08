@@ -518,8 +518,6 @@ private struct CompetitionResultScreen: View {
             String(
               localized: "results.percentile",
               defaultValue: "More folds than \(percentile)% of participants"))
-        } else {
-          Text(String(localized: "results.building", defaultValue: "Building a comparison"))
         }
         Text(result.start..<result.end, format: .interval.day().month().year())
           .foregroundStyle(.secondary)

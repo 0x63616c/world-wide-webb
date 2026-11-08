@@ -144,7 +144,7 @@ Allow 24 hours after a weekly/monthly period ends for valid late uploads. Attrib
 
 Use the selected leaderboard's population and period; do not maintain a separate confusing seven-day cohort. Include opted-in, eligible, non-banned accounts with at least one accepted fold in that period. All-time includes accounts with a positive accepted total.
 
-Display “More folds than X% of participants,” using the number of other participants with strictly lower totals divided by all other participants. Equal scores receive equal values. Round to whole percentages; show participant count and “Building a comparison” below 20 eligible participants. This is a usage comparison, not a health score.
+Display “More folds than X% of participants,” using the number of other participants with strictly lower totals divided by all other participants. Equal scores receive equal values. Round to whole percentages; show participant count and omit the percentage comparison below 20 eligible participants, without placeholder text. This is a usage comparison, not a health score.
 
 ### Historical results
 
