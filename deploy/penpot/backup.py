@@ -73,6 +73,7 @@ def snapshot(destination):
                 "provision.py",
                 "backup.py",
                 "bootstrap.yaml",
+                "mcp-locations.conf.template",
             ],
             check=True,
         )

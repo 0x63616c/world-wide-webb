@@ -38,7 +38,8 @@ uses the owner's saved email; its login is saved in 1Password as
 Images are version-pinned, logs rotate and containers restart independently.
 Explicit memory caps protect the mini's other services; check real memory use
 and exports after installation. Backend heap is bounded to 640 MiB. Export
-concurrency is one. Do not restart OrbStack or unrelated containers to deploy this.
+concurrency is one. MCP transport access logs are disabled because their URLs
+contain agent credentials. Do not restart OrbStack or unrelated containers to deploy this.
 
 ## Agent connection
 
