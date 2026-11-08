@@ -325,8 +325,8 @@ pub fn decide(config: &Config, journal: &Journal, observed: &Observation, now: u
                 next.last_repository = Some(repo.key());
                 next.active = Some(Attempt {
                     nonce: nonce.clone(),
-                    vm_name: format!("homelab-job-{nonce}"),
-                    runner_name: format!("homelab-job-{nonce}"),
+                    vm_name: crate::names::attempt_name(&config.host_name, nonce),
+                    runner_name: crate::names::attempt_name(&config.host_name, nonce),
                     repository: repo.clone(),
                     image: config.image.clone(),
                     cpu: config.cpu,

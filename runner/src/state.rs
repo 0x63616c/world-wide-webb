@@ -12,6 +12,14 @@ pub struct JobIdentity {
     pub run_attempt: u32,
     pub job_id: u64,
 }
+impl JobIdentity {
+    pub fn url(&self) -> String {
+        format!(
+            "https://github.com/{}/actions/runs/{}/job/{}",
+            self.repository, self.run_id, self.job_id
+        )
+    }
+}
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum Phase {
     Starting,
@@ -103,8 +111,8 @@ impl Journal {
                     .nonce
                     .bytes()
                     .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
-                || a.vm_name != format!("homelab-job-{}", a.nonce)
-                || a.runner_name != format!("homelab-job-{}", a.nonce)
+                || crate::names::parse(&a.vm_name).map(|(_, nonce)| nonce) != Some(a.nonce.as_str())
+                || a.runner_name != a.vm_name
             {
                 return Err("invalid attempt ownership");
             }

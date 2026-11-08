@@ -125,6 +125,7 @@ mod tests {
     };
     fn config() -> Config {
         Config {
+            host_name: "homelab-macbook".into(),
             admission_enabled: true,
             repositories: vec![RepositoryConfig {
                 owner: "test".into(),

@@ -40,6 +40,7 @@ impl Default for Deadlines {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct Config {
+    pub host_name: String,
     pub admission_enabled: bool,
     pub repositories: Vec<RepositoryConfig>,
     pub image: String,
@@ -51,6 +52,11 @@ pub struct Config {
 }
 impl Config {
     pub fn validate(&self) -> Result<(), String> {
+        if !crate::names::valid_host(&self.host_name) {
+            return Err(
+                "runner host name must be a lowercase DNS label of at most 26 characters".into(),
+            );
+        }
         if !valid_image_digest(&self.image) {
             return Err("image must be pinned by a sha256 OCI digest".into());
         }

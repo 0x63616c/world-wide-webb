@@ -438,7 +438,7 @@ async fn launchdaemon_two_vm_peer_and_ipv6_isolation() {
             .await
             .expect("initial stopped inventory")
             .iter()
-            .any(|vm| vm.running || vm.name.starts_with("homelab-job-")),
+            .any(|vm| vm.running || homelab_runner::names::parse(&vm.name).is_some()),
         "all controller-owned VMs must be absent before this two-VM gate"
     );
     let storage = rustix::fs::statvfs(&runtime.tart.tart_home).unwrap();
@@ -448,10 +448,16 @@ async fn launchdaemon_two_vm_peer_and_ipv6_isolation() {
     keychain::prepare(runtime.keychain.as_ref().unwrap())
         .await
         .expect("dedicated service keychain");
-    let client =
-        OwnedVmName::parse(&format!("homelab-job-{}", uuid::Uuid::new_v4().simple())).unwrap();
-    let target =
-        OwnedVmName::parse(&format!("homelab-job-{}", uuid::Uuid::new_v4().simple())).unwrap();
+    let client = OwnedVmName::parse(&homelab_runner::names::attempt_name(
+        &runtime.policy.host_name,
+        &uuid::Uuid::new_v4().simple().to_string(),
+    ))
+    .unwrap();
+    let target = OwnedVmName::parse(&homelab_runner::names::attempt_name(
+        &runtime.policy.host_name,
+        &uuid::Uuid::new_v4().simple().to_string(),
+    ))
+    .unwrap();
     let evidence_path = runtime.state_directory.join(format!(
         "vm-peer-proof-{}.json",
         uuid::Uuid::new_v4().simple()
@@ -1077,7 +1083,7 @@ async fn lifecycle(
         .map_err(|_| "initial_inventory_failed")?;
     if inventory
         .iter()
-        .any(|vm| vm.running || vm.name.starts_with("homelab-job-"))
+        .any(|vm| vm.running || homelab_runner::names::parse(&vm.name).is_some())
     {
         return Err("existing_running_or_owned_vm");
     }
@@ -1257,8 +1263,11 @@ async fn launchdaemon_stock_vm_lifecycle() {
     );
     private_directory(&runtime.tart.tart_home)
         .expect("TART_HOME must be service-owned and private");
-    let name = OwnedVmName::parse(&format!("homelab-job-{}", uuid::Uuid::new_v4().simple()))
-        .expect("generated exact owned name");
+    let name = OwnedVmName::parse(&homelab_runner::names::attempt_name(
+        &runtime.policy.host_name,
+        &uuid::Uuid::new_v4().simple().to_string(),
+    ))
+    .expect("generated exact owned name");
     let tart = Tart::new(runtime.tart.clone()).expect("invalid Tart configuration");
     let mut proof = Proof::create(&runtime, &name)
         .expect("preserve existing evidence or repair private evidence directory");

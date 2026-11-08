@@ -58,6 +58,10 @@ pub struct Summary {
     pub candidate: JobIdentity,
     pub assigned: Option<JobIdentity>,
     pub runner_id: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub runner_name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub vm_name: Option<String>,
     pub updated_at: u64,
     pub last_operation: Operation,
     pub last_outcome: EffectState,
@@ -73,6 +77,8 @@ impl Summary {
             candidate: attempt.candidate.clone(),
             assigned: attempt.assigned.clone(),
             runner_id: attempt.runner_id,
+            runner_name: Some(attempt.runner_name.clone()),
+            vm_name: Some(attempt.vm_name.clone()),
             updated_at: now,
             last_operation: operation,
             last_outcome: EffectState::Started,
@@ -101,6 +107,10 @@ impl Summary {
                 .as_ref()
                 .is_some_and(|job| !valid_job(job) || job.repository != self.candidate.repository)
             || self.runner_id == Some(0)
+            || self.vm_name.as_deref().is_some_and(|name| {
+                crate::names::parse(name).map(|(_, nonce)| nonce) != Some(self.nonce.as_str())
+            })
+            || self.runner_name != self.vm_name
         {
             return Err(std::io::ErrorKind::InvalidData.into());
         }
@@ -208,6 +218,8 @@ mod tests {
                 job_id: 4,
             }),
             runner_id: Some(5),
+            runner_name: Some(format!("homelab-macbook-job-{}", "a".repeat(32))),
+            vm_name: Some(format!("homelab-macbook-job-{}", "a".repeat(32))),
             updated_at: 1,
             last_operation: Operation::StartRunner,
             last_outcome: EffectState::Started,
@@ -216,6 +228,27 @@ mod tests {
             guest: None,
         }
     }
+    #[test]
+    fn legacy_summaries_remain_readable_and_name_mismatches_are_rejected() {
+        let dir = directory();
+        let mut old = serde_json::to_value(summary()).unwrap();
+        old.as_object_mut().unwrap().remove("runner_name");
+        old.as_object_mut().unwrap().remove("vm_name");
+        let legacy: Summary = serde_json::from_value(old).unwrap();
+        save(dir.path(), &legacy).unwrap();
+        assert!(
+            load(dir.path(), &legacy.nonce)
+                .unwrap()
+                .unwrap()
+                .vm_name
+                .is_none()
+        );
+
+        let mut invalid = summary();
+        invalid.runner_name = Some(format!("homelab-other-job-{}", "b".repeat(32)));
+        assert!(save(dir.path(), &invalid).is_err());
+    }
+
     #[test]
     fn private_bounded_summary_survives_restart_and_never_crosses_attempts() {
         let dir = directory();

@@ -100,14 +100,7 @@ pub enum TartError {
 pub struct OwnedVmName(String);
 impl OwnedVmName {
     pub fn parse(value: &str) -> Result<Self, TartError> {
-        let suffix = value
-            .strip_prefix("homelab-job-")
-            .ok_or(TartError::Ownership)?;
-        if suffix.len() != 32
-            || !suffix
-                .bytes()
-                .all(|c| c.is_ascii_digit() || (b'a'..=b'f').contains(&c))
-        {
+        if crate::names::parse(value).is_none() {
             return Err(TartError::Ownership);
         }
         Ok(Self(value.to_owned()))
@@ -116,7 +109,7 @@ impl OwnedVmName {
         &self.0
     }
     pub fn attempt_id(&self) -> &str {
-        &self.0[12..]
+        self.0.rsplit_once("-job-").expect("validated name").1
     }
 }
 impl<'de> Deserialize<'de> for OwnedVmName {
@@ -466,6 +459,24 @@ impl Tart {
             None,
         )
         .await?;
+        // GitHub reports the guest hostname separately from its runner name.
+        // Set both before registration so its logs identify the same resource.
+        for key in ["ComputerName", "LocalHostName", "HostName"] {
+            self.guest_command(
+                name,
+                "guest hostname",
+                &[
+                    "/usr/bin/sudo",
+                    "-n",
+                    "/usr/sbin/scutil",
+                    "--set",
+                    key,
+                    name.as_str(),
+                ],
+                None,
+            )
+            .await?;
+        }
         self.prepare_runner(name).await?;
         if already_ready {
             return Ok(());
@@ -1819,7 +1830,7 @@ exit 0
         let after = std::fs::read_to_string(directory.path().join("events")).unwrap();
         assert_eq!(
             after.lines().count(),
-            before + 8,
+            before + 11,
             "Ready preparation must enforce DNS and verify SDK without rewriting service files"
         );
         assert_eq!(
@@ -1841,6 +1852,21 @@ exit 0
                     name.as_str()
                 ),
                 dns_command,
+                format!(
+                    "exec {} /usr/bin/sudo -n /usr/sbin/scutil --set ComputerName {}",
+                    name.as_str(),
+                    name.as_str()
+                ),
+                format!(
+                    "exec {} /usr/bin/sudo -n /usr/sbin/scutil --set LocalHostName {}",
+                    name.as_str(),
+                    name.as_str()
+                ),
+                format!(
+                    "exec {} /usr/bin/sudo -n /usr/sbin/scutil --set HostName {}",
+                    name.as_str(),
+                    name.as_str()
+                ),
                 format!(
                     "exec {} /Users/admin/actions-runner/bin/Runner.Listener --version",
                     name.as_str()

@@ -5,6 +5,7 @@ pub mod gate;
 pub mod github;
 pub mod guest;
 pub mod keychain;
+pub mod names;
 pub mod provision;
 pub mod scheduler;
 pub mod service;

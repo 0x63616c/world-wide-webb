@@ -8,6 +8,7 @@ let
   helperDirectory = "/var/lib/homelab-runner-helpers/${builtins.baseNameOf tools.softnet.outPath}";
   settings = pkgs.writeText "homelab-runner.json" (builtins.toJSON {
     policy = {
+      host_name = config.networking.hostName;
       admission_enabled = cfg.admissionEnabled;
       repositories = lib.mapAttrsToList (name: repository: {
         owner = builtins.elemAt (lib.splitString "/" name) 0;

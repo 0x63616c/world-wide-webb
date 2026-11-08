@@ -12,6 +12,7 @@ fn repo(name: &str, id: u64) -> RepositoryConfig {
 }
 fn config() -> Config {
     Config {
+        host_name: "homelab-macbook".into(),
         admission_enabled: true,
         repositories: vec![repo("a", 1), repo("b", 2)],
         image: format!("registry/image@sha256:{}", "a".repeat(64)),
@@ -58,6 +59,37 @@ fn observation() -> Observation {
 }
 fn reserved() -> Journal {
     decide(&config(), &Journal::default(), &observation(), 100).next
+}
+
+#[test]
+fn host_identity_is_snapshotted_and_legacy_attempts_still_recover() {
+    let current = reserved();
+    let attempt = current.active.as_ref().unwrap();
+    assert_eq!(
+        attempt.vm_name,
+        format!("homelab-macbook-job-{}", attempt.nonce)
+    );
+    assert_eq!(attempt.runner_name, attempt.vm_name);
+    current.validate().unwrap();
+
+    let mut renamed_host = config();
+    renamed_host.host_name = "other-mac".into();
+    let after = decide(&renamed_host, &current, &observation(), 101).next;
+    assert_eq!(after.active.as_ref().unwrap().vm_name, attempt.vm_name);
+
+    let mut legacy = current.clone();
+    let active = legacy.active.as_mut().unwrap();
+    active.vm_name = format!("homelab-job-{}", active.nonce);
+    active.runner_name = active.vm_name.clone();
+    legacy.validate().unwrap();
+    assert_eq!(
+        decide(&config(), &legacy, &observation(), 101)
+            .next
+            .active
+            .unwrap()
+            .vm_name,
+        legacy.active.unwrap().vm_name
+    );
 }
 fn resolve(j: &Journal, outcome: Outcome, now: u64) -> Journal {
     let ticket = j.active.as_ref().unwrap().pending.as_ref().unwrap().ticket;

@@ -101,6 +101,10 @@ Repository access, image digest, resources and storage floors live in
 [`hosts/homelab-macbook.nix`](hosts/homelab-macbook.nix). Start with
 `world-wide-webb`; add further installed repositories to the same allowlist.
 Updates hold new admission and wait for cleanup before replacing the service.
+Runner and VM names include the physical host and a unique attempt ID, for example
+`homelab-macbook-job-43dba142054549308342c9486695204d`. The guest hostname matches.
+Controller logs record that name and the actual assigned GitHub job URL; the
+private `last-attempt.json` retains both resource names and job IDs after cleanup.
 See the [controller plan](docs/runner-controller-plan.md) and
 [validation evidence](docs/research/runner-validation.md).
 

@@ -111,7 +111,8 @@ impl RuntimeConfig {
         Ok(())
     }
     fn same_runtime(&self, other: &Self) -> bool {
-        self.app_id == other.app_id
+        self.policy.host_name == other.policy.host_name
+            && self.app_id == other.app_id
             && self.app_key_file == other.app_key_file
             && self.state_directory == other.state_directory
             && self.control_directory == other.control_directory
@@ -285,6 +286,8 @@ impl LiveBackend {
         summary.candidate = attempt.candidate.clone();
         summary.assigned = attempt.assigned.clone();
         summary.runner_id = attempt.runner_id;
+        summary.vm_name = Some(attempt.vm_name.clone());
+        summary.runner_name = Some(attempt.runner_name.clone());
         summary
     }
     fn save_diagnostic(&self) {
@@ -632,7 +635,8 @@ impl EngineBackend for LiveBackend {
         let vm_orphan = inventory.as_ref().is_some_and(|inventory| {
             inventory.as_ref().is_ok_and(|rows| {
                 rows.iter().any(|vm| {
-                    vm.name.starts_with("homelab-job-")
+                    (crate::names::parse(&vm.name).is_some()
+                        || crate::names::belongs_to_host(&vm.name, &self.runtime.policy.host_name))
                         && journal
                             .active
                             .as_ref()
@@ -642,7 +646,7 @@ impl EngineBackend for LiveBackend {
         });
         let runner_orphan = self.snapshots.iter().any(|(repo, snapshot)| {
             snapshot.runners.iter().any(|runner| {
-                runner.name.starts_with("homelab-job-")
+                crate::names::belongs_to_host(&runner.name, &self.runtime.policy.host_name)
                     && journal.active.as_ref().is_none_or(|attempt| {
                         attempt.repository.key() != *repo || attempt.runner_name != runner.name
                     })
@@ -1052,6 +1056,21 @@ pub async fn run(config_path: &Path) -> Result<(), ServiceError> {
             reason = report.reason,
             active = engine.journal().active.is_some(),
             sequence = engine.journal().sequence,
+            runner = engine
+                .journal()
+                .active
+                .as_ref()
+                .map(|attempt| attempt.runner_name.as_str()),
+            vm = engine
+                .journal()
+                .active
+                .as_ref()
+                .map(|attempt| attempt.vm_name.as_str()),
+            job_url = engine
+                .journal()
+                .active
+                .as_ref()
+                .and_then(|attempt| attempt.assigned.as_ref().map(JobIdentity::url)),
             "controller decision"
         );
         let pause = if report.changed || report.executed {
@@ -1079,6 +1098,7 @@ mod tests {
     fn runtime() -> RuntimeConfig {
         RuntimeConfig {
             policy: Config {
+                host_name: "homelab-macbook".into(),
                 admission_enabled: true,
                 repositories: vec![RepositoryConfig {
                     owner: "test".into(),
@@ -1248,6 +1268,9 @@ mod tests {
         changed.policy.admission_enabled = false;
         changed.policy.repositories.clear();
         assert!(config.same_runtime(&changed));
+        changed.policy.host_name = "renamed-mac".into();
+        assert!(!config.same_runtime(&changed));
+        changed.policy.host_name = config.policy.host_name.clone();
         changed.tart.binary = "/different-generation/tart".into();
         assert!(!config.same_runtime(&changed));
         let mut invalid = config;
@@ -1493,6 +1516,15 @@ mod tests {
             saved.assigned.as_ref().unwrap().job_id
         );
         assert_eq!(saved.runner_id, Some(9));
+        assert_eq!(
+            saved.runner_name.as_deref(),
+            Some(attempt.runner_name.as_str())
+        );
+        assert_eq!(saved.vm_name.as_deref(), Some(attempt.vm_name.as_str()));
+        assert_eq!(
+            saved.assigned.as_ref().unwrap().url(),
+            "https://github.com/test/repo/actions/runs/7/job/42"
+        );
         let mut restarted = LiveBackend::new(backend.runtime.clone()).unwrap();
         let recovered = restarted.diagnostic_for(&attempt, Operation::DeleteRunner);
         assert_eq!(recovered.guest.as_ref().unwrap().exit_code, Some(5));
