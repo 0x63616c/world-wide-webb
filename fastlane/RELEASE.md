@@ -48,9 +48,9 @@ For unprivileged local capture:
 bundle exec fastlane ios screenshots
 ```
 
-This requires no Apple key or signing repository access. It creates and deletes its own Duo simulator; it never shuts down the owner's simulator. `screenshot-plan.json` pins the installed model/runtime, outer and inner display dimensions, deterministic fixture version/clock and all four native-view scenes. The separate simulator scheme includes real UI view sources with fixture-only composition and excludes live clients. Its fixture condition cannot be enabled in the device archive.
+This requires no Apple key or signing repository access. It creates and deletes its own Duo simulator; it never shuts down the owner's simulator. `screenshot-plan.json` pins the installed model/runtime, outer and inner display dimensions, deterministic fixture version/clock and all five native-view scenes. The separate simulator scheme includes real UI view sources with fixture-only composition and excludes live clients. Its fixture condition cannot be enabled in the device archive.
 
-Fastlane snapshot captures each locale/display/scenario. Screen power is selected before capture; wrong dimensions fail rather than being relabeled. The Swift compositor preserves the whole native UI at its original aspect ratio on an opaque caption canvas. The required medium upload canvas is explicitly marked as composed from a Duo capture, not claimed to be a medium-device capture. Every raw/composed hash and exact tuple is in the capture manifest. App locale, notification locale and Apple storefront locale are separate mappings.
+Fastlane runs direct hosted XCTest renders of production views for each locale/display/scenario. It captures the inner native landscape display first (951 × 669 points), then the outer portrait display (466 × 678 points). The native-control request JSON pauses for Device Hub’s Open/Closed control and a matching acknowledgment; use the actual pose buttons, not the hinge slider or a resized host. XCTest asserts the real window-scene geometry before every capture; wrong dimensions fail rather than being relabeled. Each locale uses explicit test language/region. The task-owned simulator is shut down and deleted on success or failure; existing devices remain untouched. The Swift compositor preserves the whole native UI at its original aspect ratio on an opaque caption canvas. The required medium upload canvas is explicitly marked as composed from a Duo capture, not claimed to be a medium-device capture. Every raw/composed hash and exact tuple is in the capture manifest. App locale, notification locale and Apple storefront locale are separate mappings.
 
 `metadata-source.json` is the content source; committed deliver `.txt` files must match it. Metadata is deliberately marked draft until final language review. `release_assets` seals its own current captures and metadata to the selected release identity. It does not silently reuse unrelated screenshots or replace a missing image with an older one. Independent visual review, real Fastlane capture execution, ASC upload-size acceptance and locale readback remain required before release acceptance.
 
@@ -64,7 +64,7 @@ Fastlane snapshot captures each locale/display/scenario. Screen power is selecte
 
 ## Remaining integration acceptance
 
-The lanes load and helpers compile, but the following are deliberately not claimed: real capture/render review; signed production archive/profile matching; TestFlight processing/distribution; App Store metadata/product/privacy readback; interruption/concurrency fault tests; live delivery against the current Apple asset API; final submission/readback; GitHub release workflow activation. Run those in the final validation/release phase. The app now validates the full registered runtime configuration and refuses development storage in Release. Signed archive/entitlement and live account behavior still need final integration evidence.
+Current-source native capture/visual review, draft listing upload/readback and Apple privacy/age/review setup are recorded in the November 8 preparation evidence. These do not establish a signed production 1.0 archive/profile match, full backend capability acceptance, full release rehearsal, final submission/readback or GitHub release workflow activation. Earlier internal TestFlight distribution is separately evidenced and is not the new App Store candidate. Run those in the final validation/release phase. The app now validates the full registered runtime configuration and refuses development storage in Release. Signed archive/entitlement and live account behavior still need final integration evidence.
 
 Tip review assets are included in the sealed asset archive and have their own manifest/map hashes in the release record. The single native Tip jar PNG maps to all three consumables, remains outside the storefront image directory and is never captioned or replaced with a simulated Apple checkout. `tip_review_screenshots` captures just that reviewer scene without credentials; `setup_tip_review_assets [tag:v1.0.0]` explicitly associates verified images with Apple products and records association IDs when using a release tag. See [tip packaging](TIPS.md#reproducible-review-image-packaging). Final visual review remains required for the full matrix and this reviewer image.
 
@@ -91,9 +91,9 @@ adding a Dynamic Island or cropping the source UI. Frame geometry is versioned i
 `screenshot-frame.json`; all ten locales' headlines/labels live in
 `metadata-source.json`. Both remain subject to final language/visual review.
 
-`fastlane ios screenshots` captures Today/community in dark mode and
-History/Settings in light mode. Each locale has eight ordered Duo images (outer
-then inner for each scene, sharing Apple's ten-image gallery limit) and four
+`fastlane ios screenshots` captures Today, Patterns and Milestones in dark mode,
+and History and Leaderboard in light mode. Each locale has ten ordered Duo images
+(outer then inner for each scene, sharing Apple's ten-image gallery limit) and five
 medium-canvas images. The latter preserve a Duo capture's aspect ratio and are
 identified as composed canvases in the manifest. Fastlane's pinned image classifier
 must recognise each actual output's intended upload slot. Manifest validation also
@@ -129,3 +129,29 @@ Focused local checks:
 bundle exec ruby fastlane/tests/screenshot_frames_test.rb
 bundle exec ruby fastlane/tests/storefront_readback_test.rb
 ```
+
+## Reversible App Store draft preparation
+
+From a clean capture commit, prepare the existing editable version without selecting a binary or requesting review:
+
+```sh
+bundle exec fastlane ios screenshots
+bundle exec fastlane ios storefront_draft version:1.0
+```
+
+The draft lane verifies capture provenance, uploads ten-locale listing copy and the
+150 screenshots, and checks Apple's categories, names/subtitles/privacy URLs,
+version fields, copyright and exact ordered galleries. It records processed state,
+checksums and dimensions in `draft-listing-readback.json`. It only accepts the
+existing `PREPARE_FOR_SUBMISSION` version and verifies its identity before/after
+upload. It does not select an old preview binary, submit App Review or claim full
+release acceptance. Use the guarded `storefront`/`submit` lanes for the final release.
+
+`apple-declarations.json` records the saved privacy, age-rating and owner-confirmed
+content-rights answers. Reassess them when app behavior changes; declaring them in
+Git does not publish them to Apple. Review contact values are stored in Folding's
+1Password vault and release environment/secrets; the new number has been verified
+on all eight existing non-staging App Store review records across the owner's apps.
+
+See [preparation evidence](../docs/experiments/app-store-preparation-2026-11-08.md)
+for exact source, artifact/readback identities and remaining shipping gates.

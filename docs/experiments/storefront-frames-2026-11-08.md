@@ -44,3 +44,11 @@ ongoing app changes and other chats have active simulators; this task did not
 interrupt them or label old/synthetic captures as current release screenshots.
 No listing upload, App Review submission, public Duo badge, CI pass, or device pass
 is claimed by this checkpoint. See `fastlane/RELEASE.md` for repeatable commands.
+
+
+## Superseding current-main capture
+
+The four-scene local checkpoint above is historical. The current five-scene,
+150-image native capture and actual Apple draft upload are tracked in
+[App Store preparation](app-store-preparation-2026-11-08.md). Do not use the earlier
+preview or synthetic render output as current release capture evidence.

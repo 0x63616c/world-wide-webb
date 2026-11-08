@@ -326,3 +326,12 @@ November 8 follow-up: the owner removed crowns after preview review. Crown artwo
 - [ ] #71 remains **Deferred formal acceptance** for its two original unchecked visual/accessibility/native-language criteria, preserved in #25 and #47. Implementation/internal release is complete; broader shipping, CI, submission and physical acceptance remain open.
 
 [Exact release evidence and limits](experiments/profile-milestones-implementation-2026-11-08.md#single-integrated-internal-release).
+
+### App Store listing preparation on current main
+
+- [x] Adapt Tendr's templates to all five current scenes including Patterns and Milestones, with committed copy/frame/fixtures and app/widget privacy manifests. Clean source `6a768f3` produces 150 images in ten locales using actual native Duo Open/Closed geometry.
+- [x] Complete independent visual review of all 150 gallery images and the separate English Tip jar reviewer image; no blocking geometry/clipping/fallback findings. This does not pass formal native-language or accessibility acceptance.
+- [x] Publish owner-approved App Privacy answers, save calculated age rating and owner-confirmed content rights, and verify the new review phone across eight existing non-staging app versions and secure release sources.
+- [x] Verify Apple’s draft listing and all 150 processed images across ten locales, including exact order, dimensions and file checksums. #42 stays In progress for final release sealing/native-language acceptance. No 1.0 binary selection or App Review submission; broader #12/#43, #25/#71, #46 and #47/F13 gates stay open.
+
+[Exact source and evidence](experiments/app-store-preparation-2026-11-08.md). Original shared worktree changes and other chats' booted devices are preserved.
