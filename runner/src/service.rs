@@ -162,6 +162,47 @@ fn candidate(repo: &RepositoryConfig, job: &GithubJob) -> Option<Candidate> {
         group: None,
     })
 }
+
+/// Keep both platform queues visible to the shared scheduler. Revalidating only
+/// the oldest job can hide waiting macOS demand behind older Linux jobs.
+fn revalidation_candidates(
+    config: &Config,
+    candidates: &[Candidate],
+    repo: &str,
+    journal: &Journal,
+) -> Vec<Candidate> {
+    use crate::config::Platform;
+    let mut demand = candidates.to_vec();
+    crate::scheduler::filter_reserved(&mut demand, journal);
+    let mut selected = Vec::new();
+    for (platform, limit) in [
+        (Platform::MacosArm64, config.max_macos_guests),
+        (
+            Platform::LinuxArm64,
+            usize::from(
+                config
+                    .linux
+                    .as_ref()
+                    .is_some_and(|p| p.routing_audit_approved),
+            ),
+        ),
+    ] {
+        let mut queue: Vec<_> = demand
+            .iter()
+            .filter(|c| c.job.repository == repo && Platform::resolve(&c.labels) == Some(platform))
+            .collect();
+        queue.sort_by_key(|c| (c.created_at, c.job.job_id));
+        let mut seen = std::collections::BTreeSet::new();
+        selected.extend(
+            queue
+                .into_iter()
+                .filter(|c| seen.insert((c.job.run_id, c.job.run_attempt, c.job.job_id)))
+                .take(limit)
+                .cloned(),
+        );
+    }
+    selected
+}
 #[derive(Default)]
 struct RepositorySnapshot {
     jobs: Vec<GithubJob>,
@@ -775,17 +816,18 @@ impl LiveBackend {
             additional: self.fleet_owned.iter().skip(1).cloned().collect(),
             ..Journal::default()
         };
-        crate::scheduler::filter_reserved(&mut observed.candidates, &reservation_journal);
-        // Revalidate one oldest eligible candidate per repository before the scheduler's fair choice.
+        // Preserve raw queued identities for the scheduler's listener coverage.
+        // Only fresh-admission selection excludes already-owned identities.
+        // Revalidate bounded demand from each platform before fair admission and
+        // macOS reservations; a single oldest job cannot represent both queues.
         if journal.active.is_none() && observed.admission_safe && config.admission_enabled {
             for repo in &config.repositories {
-                let oldest = observed
-                    .candidates
-                    .iter()
-                    .filter(|c| c.job.repository == repo.key())
-                    .min_by_key(|c| (c.created_at, c.job.job_id))
-                    .cloned();
-                if let Some(oldest) = oldest {
+                for oldest in revalidation_candidates(
+                    config,
+                    &observed.candidates,
+                    &repo.key(),
+                    &reservation_journal,
+                ) {
                     match self
                         .github
                         .get_job(&repository(repo), oldest.job.job_id)
@@ -798,8 +840,14 @@ impl LiveBackend {
                         {
                             observed.revalidated.push(oldest.job)
                         }
-                        Ok(_) => {}
-                        Err(error) if error.category == ErrorCategory::NotFound => {}
+                        Ok(_) => {
+                            self.next_github_poll = 0;
+                            observed.admission_safe = false;
+                        }
+                        Err(error) if error.category == ErrorCategory::NotFound => {
+                            self.next_github_poll = 0;
+                            observed.admission_safe = false;
+                        }
                         Err(_) => observed.admission_safe = false,
                     }
                 }
@@ -1477,6 +1525,105 @@ mod tests {
             },
             keychain: None,
         }
+    }
+    #[test]
+    fn revalidation_keeps_waiting_macs_visible_to_admission() {
+        use crate::config::{LinuxProfile, Platform};
+        let mut config = runtime().policy;
+        config.max_concurrent_jobs = 4;
+        config.linux = Some(LinuxProfile {
+            image: format!("ghcr.io/test/linux@sha256:{}", "b".repeat(64)),
+            cpu: 2,
+            memory_mib: 4096,
+            disk_growth_bytes: 30,
+            routing_audit_approved: true,
+            runner_archive: "/fixture-linux-runner.tar.gz".into(),
+            runner_version: "2.338.2".into(),
+        });
+        let job = |id, platform: Platform| Candidate {
+            job: JobIdentity {
+                repository: "test/repo".into(),
+                run_id: 1,
+                run_attempt: 1,
+                job_id: id,
+            },
+            created_at: id,
+            labels: platform.labels().iter().map(|s| (*s).to_owned()).collect(),
+            group: None,
+        };
+        let mut candidates = vec![
+            job(1, Platform::LinuxArm64),
+            job(2, Platform::LinuxArm64),
+            job(3, Platform::MacosArm64),
+            job(3, Platform::MacosArm64),
+            job(4, Platform::MacosArm64),
+            job(5, Platform::MacosArm64),
+        ];
+        let fresh = revalidation_candidates(&config, &candidates, "test/repo", &Journal::default());
+        assert_eq!(
+            fresh.iter().map(|c| c.job.job_id).collect::<Vec<_>>(),
+            vec![3, 4, 1]
+        );
+        let mut observed = Observation {
+            admission_safe: true,
+            admission_nonce: Some("a".repeat(32)),
+            free_bytes: Some(10000),
+            revalidated: fresh.into_iter().map(|c| c.job).collect(),
+            candidates: candidates.clone(),
+            ..Observation::default()
+        };
+        let decision = crate::scheduler::decide(&config, &Journal::default(), &observed, 10);
+        assert_eq!(decision.next.active.unwrap().platform, Platform::MacosArm64);
+
+        // One unassigned listener covers its own queued candidate, not the
+        // second queued macOS job as well. Preserve raw identities for coverage.
+        let mut listener = peer_attempt();
+        listener.phase = Phase::Listening;
+        listener.assigned = None;
+        listener.unassigned_deadline = Some(300);
+        listener.candidate = candidates[2].job.clone();
+        let journal = Journal {
+            active: Some(listener.clone()),
+            ..Journal::default()
+        };
+        let listener_candidates = candidates[..5].to_vec();
+        observed.candidates = listener_candidates.clone();
+        observed.revalidated =
+            revalidation_candidates(&config, &listener_candidates, "test/repo", &journal)
+                .into_iter()
+                .map(|c| c.job)
+                .collect();
+        observed.attempts.insert(
+            listener.nonce.clone(),
+            Box::new(Observation {
+                vm: VmObservation::Running,
+                runner: RunnerObservation::Idle,
+                guest: GuestObservation::Listening,
+                ..Observation::default()
+            }),
+        );
+        let decision = crate::scheduler::decide(&config, &journal, &observed, 10);
+        assert_eq!(decision.next.additional.len(), 1, "{}", decision.reason);
+        assert_eq!(decision.next.additional[0].platform, Platform::MacosArm64);
+        assert_eq!(decision.next.additional[0].candidate.job_id, 4);
+        observed.attempts.clear();
+
+        // A Linux queue must not hide macOS work when Linux admission is off.
+        config.linux = None;
+        observed.revalidated =
+            revalidation_candidates(&config, &candidates, "test/repo", &Journal::default())
+                .into_iter()
+                .map(|c| c.job)
+                .collect();
+        assert_eq!(observed.revalidated.len(), 2);
+        let decision = crate::scheduler::decide(&config, &Journal::default(), &observed, 10);
+        assert_eq!(decision.next.active.unwrap().candidate.job_id, 3);
+
+        candidates.retain(|c| Platform::resolve(&c.labels) == Some(Platform::LinuxArm64));
+        assert!(
+            revalidation_candidates(&config, &candidates, "test/repo", &Journal::default())
+                .is_empty()
+        );
     }
     fn pending(operation: Operation) -> Journal {
         let config = runtime();

@@ -102,7 +102,8 @@ stopped and deleted. See [private image proof](evidence/linux-private-image-proo
 
 The real canary at app revision `0dc16a972` is
 [run 42524243431](https://github.com/0x63616c/world-wide-webb/actions/runs/42524243431).
-Both Linux baseline jobs passed through actual JIT registration, checkout, native
+All ten jobs passed in this initial smoke run. The Linux baseline jobs passed
+through actual JIT registration, checkout, native
 tool checks, Rust compilation/tests, artifact upload and disposable guest cleanup.
 Their measured build/test times were 42.4 and 43.4 seconds. These short jobs do
 not establish four simultaneous build workloads: some finish while later guests
@@ -118,6 +119,17 @@ Ten-second host samples independently record journal ownership, CPU/RAM
 reservations, VM processes, free space, pressure, swap and thermal status. Assess
 actual overlap and throughput from these samples and per-job timing artifacts;
 a successful matrix alone is insufficient evidence of concurrency.
+
+Live-path inspection found two admission integration gaps after the smoke run:
+revalidating only one oldest job per repository could hide macOS demand behind
+older Linux work, and removing owned queued identities before listener coverage
+could let one macOS listener cover two jobs. The controller now revalidates bounded
+per-platform demand, preserves raw queued identities for coverage, and suspends
+admission for a fresh discovery when selected cached demand has become stale.
+The helper-to-scheduler regression covers older Linux demand, duplicate Mac jobs,
+Linux disabled, and one Mac listener with a second queued Mac job. Full Rust tests
+and Clippy pass. The heavier canary is held between its completed Linux baseline
+and later cohorts while this controller fix is built and installed.
 
 ## Remaining acceptance gates
 
