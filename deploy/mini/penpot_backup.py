@@ -44,6 +44,9 @@ def quiesced():
                 failures.append(name)
         if failures:
             raise RuntimeError("Failed to restart " + ", ".join(failures))
+        # Penpot's /api upstream resolves its Docker address when nginx loads.
+        # Refresh it after writer restarts so a changed address cannot strand API access.
+        docker("exec", "penpot-penpot-frontend-1", "nginx", "-s", "reload", stdout=subprocess.DEVNULL)
 
 
 def snapshot(destination):

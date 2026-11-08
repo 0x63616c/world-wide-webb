@@ -30,6 +30,7 @@ the password through stdin in memory. Then return to normal configuration:
 
 ```sh
 docker --context orbstack compose --env-file runtime.env -f compose.yaml up -d
+docker --context orbstack exec penpot-penpot-frontend-1 nginx -s reload
 ```
 
 Verify the REPL is disabled and the account logs in before publishing ingress.
@@ -42,6 +43,9 @@ Explicit memory caps protect the mini's other services; check real memory use
 and exports after installation. Backend heap is bounded to 640 MiB. Export
 concurrency is one. MCP transport access logs are disabled because their URLs
 contain agent credentials. Do not restart OrbStack or unrelated containers to deploy this.
+Penpot's API proxy resolves its upstream address at nginx configuration load;
+reload it after backend container recreation. The backup job does this after
+restarting its writers. Allow backend startup before evaluating API readiness.
 
 ## Agent connection
 

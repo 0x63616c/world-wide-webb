@@ -12,6 +12,17 @@ spec.loader.exec_module(backup)
 
 
 class BackupSafety(unittest.TestCase):
+    def test_writer_restarts_refresh_the_frontend_upstream(self):
+        with patch.object(backup, "docker", return_value=Mock(stdout="true")) as docker:
+            with backup.quiesced():
+                pass
+        self.assertEqual(
+            docker.call_args_list[-1].args,
+            ("exec", "penpot-penpot-frontend-1", "nginx", "-s", "reload"),
+        )
+        starts = [i for i, call in enumerate(docker.call_args_list) if call.args[0] == "start"]
+        self.assertTrue(all(i < len(docker.call_args_list) - 1 for i in starts))
+
     def test_snapshot_failure_restarts_both_writers(self):
         with patch.object(backup, "docker", return_value=Mock(stdout="true\n")) as docker:
             with self.assertRaisesRegex(RuntimeError, "disk full"):
