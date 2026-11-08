@@ -29,7 +29,6 @@ struct CompetitionWireRank: Decodable, Sendable {
   let avatar_id: String?
   let folds: Int
   let rank: Int
-  let percentile: Int?
   let medal: String?
 }
 struct CompetitionWirePage<Item: Decodable & Sendable>: Decodable, Sendable {
@@ -146,7 +145,6 @@ struct CompetitionWireResult: Decodable, Sendable {
   let folds: Int
   let rank: Int
   let population: Int
-  let percentile: Int?
   let medal: String?
 }
 struct CompetitionWireShare: Decodable, Sendable {

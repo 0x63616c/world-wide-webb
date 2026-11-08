@@ -512,7 +512,7 @@ import struct FoldingData.SetupProgress
       end: Date(timeIntervalSince1970: Double(result.end_ms) / 1000), version: result.version,
       finalizedAt: Date(timeIntervalSince1970: Double(result.finalized_at_ms) / 1000),
       folds: result.folds, rank: result.rank, population: result.population,
-      percentile: result.percentile, medal: result.medal.flatMap(CompetitionMedal.init(rawValue:)))
+      medal: result.medal.flatMap(CompetitionMedal.init(rawValue:)))
   }
 
   private func loadCompetition(_ period: CompetitionPeriod, cursor: String? = nil) async throws
@@ -542,13 +542,13 @@ import struct FoldingData.SetupProgress
         id: row.participant_id, rank: row.rank, displayName: row.nickname,
         folds: row.folds, approvedAvatarURL: nil,
         isCurrentUser: row.participant_id == board.you?.participant_id,
-        approvedAvatarData: row.avatar_id.flatMap { avatars[$0] }, percentile: row.percentile)
+        approvedAvatarData: row.avatar_id.flatMap { avatars[$0] })
     }
     return LeaderboardPresentation(
       periodTitle: period.title, entries: board.page.items.map(entry),
       currentUser: board.you.map(entry),
       pendingFolds: try await runtime.store().pendingCompetitionEventCount(), updatedAt: Date(),
-      population: board.population, percentile: board.you?.percentile,
+      population: board.population,
       nextCursor: board.page.next_cursor, snapshotVersion: board.page.snapshot_version,
       periodID: board.period.id)
   }
