@@ -371,20 +371,20 @@ test("entry deletion is owned, idempotent and durable before late upload", async
   assert.equal(await db.prepare("SELECT folds FROM live_scores WHERE participant_id=? AND period_id='all'").bind(participant).first("folds"),1);
 });
 
-test("actual Worker verifies Apple assertion extension names on Join without weakening replay or body binding", async () => {
+for (const documentedNames of [true, false]) test(`actual Worker verifies ${documentedNames ? "documented metadata" : "device metadata and flags"} Apple assertions on Join without weakening replay or body binding`, async () => {
   const db = await authenticatedRuntime.getD1Database("DB");
   const hash = value => createHash("sha256").update(value).digest();
   const pair = generateKeyPairSync("ec", { namedCurve: "prime256v1" });
   const jwk = pair.publicKey.export({ format: "jwk" });
   const publicKey = Buffer.concat([Buffer.from([4]), Buffer.from(jwk.x, "base64url"), Buffer.from(jwk.y, "base64url")]);
   const keyID = hash(publicKey).toString("base64");
-  const token = Buffer.alloc(32, 46);
-  const participant = "00000000-0000-4000-8000-000000000046";
-  const device = "00000000-0000-4000-8000-000000000047";
-  const session = "join-metadata-session";
+  const token = Buffer.alloc(32, documentedNames ? 46 : 56);
+  const participant = `00000000-0000-4000-8000-0000000000${documentedNames ? "46" : "56"}`;
+  const device = `00000000-0000-4000-8000-0000000000${documentedNames ? "47" : "57"}`;
+  const session = `join-metadata-session-${documentedNames}`;
   const now = Date.now();
   await db.batch([
-    db.prepare("INSERT INTO participants(participant_id,subject_hmac,membership,restriction,generation_revision,generation_id) VALUES (?,?,'not_joined','none',0,'00000000-0000-0000-0000-000000000000')").bind(participant, "join-metadata-subject"),
+    db.prepare("INSERT INTO participants(participant_id,subject_hmac,membership,restriction,generation_revision,generation_id) VALUES (?,?,'not_joined','none',0,'00000000-0000-0000-0000-000000000000')").bind(participant, `join-metadata-subject-${documentedNames}`),
     db.prepare("INSERT INTO participant_revisions VALUES (?,0)").bind(participant),
     db.prepare("INSERT INTO profiles VALUES (?,'Folder',NULL,'approved','none')").bind(participant),
     db.prepare("INSERT INTO sessions VALUES (?, ?, ?, 'staging', ?, ?, ?, ?, 0)").bind(session, participant, device, now, now, now + 900000, now + 900000),
@@ -404,8 +404,8 @@ test("actual Worker verifies Apple assertion extension names on Join without wea
   const bytes = value => Buffer.concat([length(2, value.length), value]);
   const text = value => { const b = Buffer.from(value); return Buffer.concat([length(3, b.length), b]); };
   const category = Buffer.alloc(4); category.writeUInt32LE(3);
-  const extensions = Buffer.concat([Buffer.from([0xa2]), text("validationCategory"), bytes(category), text("bundleVersion"), text("1")]);
-  const auth = Buffer.concat([hash("TEAM123456.app.test.Folding"), Buffer.from([0x80, 0, 0, 0, 1]), extensions]);
+  const extensions = Buffer.concat([Buffer.from([0xa2]), text(documentedNames ? "validationCategory" : "apple_validation_category_01"), bytes(category), text(documentedNames ? "bundleVersion" : "apple_bundle_version_01"), text("1")]);
+  const auth = Buffer.concat([hash("TEAM123456.app.test.Folding"), Buffer.from([documentedNames ? 0x80 : 0xc0, 0, 0, 0, 1]), extensions]);
   const signature = sign("sha256", hash(Buffer.concat([auth, binding])), pair.privateKey);
   const assertion = Buffer.concat([Buffer.from([0xa2]), text("signature"), bytes(signature), text("authenticatorData"), bytes(auth)]);
   const signedHeaders = {...headers, "X-Folding-Key-ID": keyID, "X-Folding-Challenge-ID": challenge.challenge_id, "X-Folding-Assertion": assertion.toString("base64url")};

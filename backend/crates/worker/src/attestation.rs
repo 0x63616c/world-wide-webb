@@ -65,13 +65,27 @@ fn verify_named_extensions(
     category_name: &str,
     version_name: &str,
 ) -> Result<(), AttestationError> {
+    let map = decode_extensions(encoded)?;
+    verify_extension_values(&map, policy, category_name, version_name)
+}
+fn decode_extensions(encoded: &[u8]) -> Result<Vec<(Value, Value)>, AttestationError> {
     let mut reader = Cursor::new(encoded);
     let value: Value =
         ciborium::from_reader(&mut reader).map_err(|_| AttestationError::Malformed)?;
     if reader.position() as usize != encoded.len() {
         return Err(AttestationError::Malformed);
     }
-    let map = value.as_map().ok_or(AttestationError::InvalidExtensions)?;
+    match value {
+        Value::Map(map) => Ok(map),
+        _ => Err(AttestationError::InvalidExtensions),
+    }
+}
+fn verify_extension_values(
+    map: &[(Value, Value)],
+    policy: &AppPolicy<'_>,
+    category_name: &str,
+    version_name: &str,
+) -> Result<(), AttestationError> {
     let category = match value_at(map, category_name)? {
         Value::Bytes(bytes) => u32::from_le_bytes(
             bytes
@@ -102,12 +116,34 @@ pub fn verify_assertion_metadata(
     auth: &[u8],
     policy: &AppPolicy<'_>,
 ) -> Result<(), AttestationError> {
-    if auth.len() <= 37 || auth[32] & 0xc0 != 0x80 {
+    if auth.len() <= 37 || auth[32] & 0x80 == 0 {
         return Err(AttestationError::InvalidExtensions);
     }
-    // Apple uses different extension keys for assertions and key attestations.
-    // Keep the same required distribution/build policy; do not accept missing metadata.
-    verify_named_extensions(&auth[37..], policy, "validationCategory", "bundleVersion")
+    // The owner's production assertions set both AT and ED (0xc0), while still
+    // placing the signed extensions directly after the 37-byte assertion header.
+    // Parse the assertion's actual shape; an attestation credential section would
+    // fail this exact CBOR-map parse. Metadata remains mandatory.
+    let map = decode_extensions(&auth[37..])?;
+    let has_key = |names: &[&str]| {
+        map.iter()
+            .any(|(key, _)| key.as_text().is_some_and(|key| names.contains(&key)))
+    };
+    let documented = has_key(&["validationCategory", "bundleVersion"]);
+    let enrolled = has_key(&["apple_validation_category_01", "apple_bundle_version_01"]);
+    // Support both Apple metadata naming schemes, but reject mixed or
+    // conflicting aliases instead of choosing whichever passes policy.
+    match (documented, enrolled) {
+        (true, false) => {
+            verify_extension_values(&map, policy, "validationCategory", "bundleVersion")
+        }
+        (false, true) => verify_extension_values(
+            &map,
+            policy,
+            "apple_validation_category_01",
+            "apple_bundle_version_01",
+        ),
+        _ => Err(AttestationError::InvalidExtensions),
+    }
 }
 pub fn verify_credential_stage(
     encoded: &[u8],
@@ -261,6 +297,57 @@ pub fn verify_attestation(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn assertion_wire_shapes_require_complete_unambiguous_metadata() {
+        let policy = AppPolicy {
+            app_id: "TEAM.app",
+            development: false,
+            allowed_bundle_versions: &["9"],
+        };
+        let entry = |key: &str, value: Value| (Value::Text(key.into()), value);
+        let category = || Value::Bytes(2u32.to_le_bytes().to_vec());
+        let version = || Value::Text("9".into());
+        let encode = |flags: u8, fields| {
+            let mut auth = vec![0; 37];
+            auth[32] = flags;
+            ciborium::into_writer(&Value::Map(fields), &mut auth).unwrap();
+            auth
+        };
+        let device = || {
+            vec![
+                entry("apple_validation_category_01", category()),
+                entry("apple_bundle_version_01", version()),
+            ]
+        };
+        let actual_shape = encode(0xc0, device());
+        assert_eq!(actual_shape.len(), 99);
+        assert!(verify_assertion_metadata(&actual_shape, &policy).is_ok());
+        for flags in [0, 0x40] {
+            assert!(verify_assertion_metadata(&encode(flags, device()), &policy).is_err());
+        }
+        for fields in [
+            vec![
+                entry("validationCategory", category()),
+                entry("apple_bundle_version_01", version()),
+            ],
+            vec![
+                entry("validationCategory", category()),
+                entry("validationCategory", category()),
+                entry("bundleVersion", version()),
+            ],
+            vec![
+                entry("validationCategory", category()),
+                entry("bundleVersion", version()),
+                entry("apple_validation_category_01", category()),
+                entry("apple_bundle_version_01", version()),
+            ],
+        ] {
+            assert!(verify_assertion_metadata(&encode(0xc0, fields), &policy).is_err());
+        }
+        let mut trailing = actual_shape;
+        trailing.push(0);
+        assert!(verify_assertion_metadata(&trailing, &policy).is_err());
+    }
     #[test]
     fn extensions_are_required_and_distribution_and_version_are_server_policy() {
         let policy = AppPolicy {
