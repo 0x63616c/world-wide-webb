@@ -275,6 +275,7 @@ struct HomeView: View {
             PanelIdleDimming(
                 onIdle: clock, timeout: display.returnToClockSeconds, inhibited: keepsAwake, onWake: onWake)
         )
+        .ignoresSafeArea(.container)
         #if targetEnvironment(simulator)
             .background {
                 Button("Open apps") { if showingClock || selected != nil { home() } else { clock() } }
