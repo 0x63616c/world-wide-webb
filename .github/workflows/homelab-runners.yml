@@ -54,12 +54,16 @@ jobs:
         with:
           cache: false
           build-warnings: ''
-      - name: Exercise Apple package and real Swift/Rust contract
+      - name: Select supported Xcode
+        run: echo "DEVELOPER_DIR=$(python3 .github/scripts/apple-toolchain.py)" >> "$GITHUB_ENV"
+      - run: brew install xcodegen
+      - name: Build and test the production Apple app and Swift/Rust contract
         env:
           CARGO_BUILD_JOBS: '4'
+          APPLE_DERIVED_DATA: ${{ runner.temp }}/apple-derived
         run: >-
           python3 tools/measure_runner_job.py --cohort baseline-macos --slot ${{ matrix.slot }} --
-          bash -c 'bash tools/check apple && bash tools/check integration'
+          bash -c 'bash tools/check apple && bash tools/check integration && bash tools/test_apple.sh'
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -129,12 +133,16 @@ jobs:
         with:
           cache: false
           build-warnings: ''
-      - name: Exercise Apple package and real Swift/Rust contract
+      - name: Select supported Xcode
+        run: echo "DEVELOPER_DIR=$(python3 .github/scripts/apple-toolchain.py)" >> "$GITHUB_ENV"
+      - run: brew install xcodegen
+      - name: Build and test the production Apple app and Swift/Rust contract
         env:
           CARGO_BUILD_JOBS: '4'
+          APPLE_DERIVED_DATA: ${{ runner.temp }}/apple-derived
         run: >-
           python3 tools/measure_runner_job.py --cohort mixed-macos --slot ${{ matrix.slot }} --
-          bash -c 'bash tools/check apple && bash tools/check integration'
+          bash -c 'bash tools/check apple && bash tools/check integration && bash tools/test_apple.sh'
       - uses: actions/upload-artifact@v4
         if: always()
         with:
