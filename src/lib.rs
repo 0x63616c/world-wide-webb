@@ -3,6 +3,7 @@
 /// Version shared by the CLI, its bundled helper and terminal presentation.
 pub const VERSION: &str = env!("HOMELAB_BUILD_VERSION");
 
+pub mod admin_credential;
 pub mod bootstrap;
 pub mod bootstrap_privileged;
 pub mod bootstrap_state;

@@ -30,7 +30,17 @@ Changed saved host keys are blocked. SSH-agent keys stay in your agent.
 
 **Begin setup.** One approval covers prerequisites, credentials, publishing the
 encrypted enrollment configuration to Git, installation and reboot. A live
-checklist shows completed, active and pending steps. The wizard creates or
+checklist shows completed, active and pending steps. Before the first privileged
+step, the wizard checks its saved administrator Login in the Git-configured
+`onePassword.backupVault`. When there is no saved password, it asks once in a
+masked form, validates that password against sudo on the verified SSH peer, and
+saves it in 1Password. A rejected password is never saved. A changed password is
+validated before updating the same item. The item is bound to the repository,
+host, administrator and pinned SSH host key; ambiguous or mismatched items stop
+setup for review. Historical setups retain their verified backup-vault identity
+while migrating to the explicit Git configuration.
+
+The wizard creates or
 restores age identities, saves and verifies their backups in 1Password, and
 encrypts the host's enrollment key. It generates a Git key on the target and
 registers its public half as a read-only deploy key using your client GitHub login.
@@ -48,9 +58,19 @@ The wizard checks services and Git access, verifies Tailscale SSH, restarts the
 Mac, and checks it again before releasing the update hold. Administrator prompts
 stay inside the TUI with masked typing feedback. During one setup attempt, the
 CLI can reuse the accepted password in memory for the same pinned SSH identity.
-It clears that password when the attempt ends or authentication fails; it never
-writes it to disk, Git, logs or 1Password. Reopening the CLI requires authentication
-again. A Tailscale-native fallback may also need a separate prompt.
+It clears that memory when the attempt ends or authentication fails. Later setup
+or verification reuses the canonical 1Password item after validating it again.
+Local state records only the vault/item identity and a save receipt. Passwords
+never enter plaintext files, Git, logs, command arguments or exported environment
+variables. The client alone accesses 1Password; nothing is installed on the target.
+A Tailscale-native fallback may still need a separate prompt. Opening the details
+of a completed host does not request its password; choosing **Verify setup** may
+authorize privileged verification.
+
+To add the saved credential to an already enrolled Mac without installing,
+rebooting or rerunning verification, use
+`homelab setup --host homelab-macbook --authorize-only`. It runs the same masked
+credential step after verifying the Git-defined administrator and SSH identity.
 The checklist shows developer tools, repository access, recovery and secrets,
 Git configuration, Mac configuration, startup checks, and automatic updates.
 Enabling updates lets Comin build and apply current `main`; verification itself

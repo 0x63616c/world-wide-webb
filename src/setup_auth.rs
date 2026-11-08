@@ -12,26 +12,26 @@ use zeroize::Zeroizing;
 
 use crate::inventory::HostProfile;
 
-struct Password {
+pub(crate) struct Password {
     bytes: Zeroizing<[u8; 1024]>,
     length: usize,
     cacheable: bool,
 }
 
 impl Password {
-    fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             bytes: Zeroizing::new([0; 1024]),
             length: 0,
             cacheable: true,
         }
     }
-    fn clear(&mut self) {
+    pub(crate) fn clear(&mut self) {
         self.bytes.fill(0);
         self.length = 0;
         self.cacheable = true;
     }
-    fn key(&mut self, key: KeyEvent) {
+    pub(crate) fn key(&mut self, key: KeyEvent) {
         match key.code {
             KeyCode::Char('u') if key.modifiers.contains(KeyModifiers::CONTROL) => self.clear(),
             KeyCode::Backspace if self.length > 0 => {
@@ -59,12 +59,24 @@ impl Password {
             _ => self.cacheable = false,
         }
     }
+    pub(crate) fn masked_length(&self) -> usize {
+        std::str::from_utf8(&self.bytes[..self.length]).map_or(0, |s| s.chars().count())
+    }
+    pub(crate) fn into_secret(
+        self,
+    ) -> Result<crate::admin_credential::Secret, crate::admin_credential::Error> {
+        if !self.cacheable {
+            return Err(crate::admin_credential::Error::Password);
+        }
+        crate::admin_credential::Secret::new(&self.bytes[..self.length])
+    }
 }
 
 struct Attempt {
     target: HostProfile,
     password: Option<Password>,
     host_key: Option<tempfile::NamedTempFile>,
+    host_key_value: Option<String>,
 }
 thread_local! { static ATTEMPT: RefCell<Option<Attempt>> = const { RefCell::new(None) }; }
 
@@ -94,7 +106,12 @@ impl Scope {
         let mut file = tempfile::NamedTempFile::new()?;
         writeln!(file, "{} {key}", target.address)?;
         let scope = Self::begin(target)?;
-        ATTEMPT.with(|state| state.borrow_mut().as_mut().unwrap().host_key = Some(file));
+        ATTEMPT.with(|state| {
+            let mut state = state.borrow_mut();
+            let attempt = state.as_mut().unwrap();
+            attempt.host_key = Some(file);
+            attempt.host_key_value = Some(key.to_owned());
+        });
         Ok(scope)
     }
     pub(crate) fn begin(target: &HostProfile) -> io::Result<Self> {
@@ -116,10 +133,90 @@ impl Scope {
                 target: target.clone(),
                 password: None,
                 host_key: None,
+                host_key_value: None,
             })
         });
         Ok(Self)
     }
+}
+
+pub(crate) fn verified_host_key(target: &HostProfile) -> Option<String> {
+    ATTEMPT.with(|state| {
+        state
+            .borrow()
+            .as_ref()
+            .filter(|a| a.target == *target)
+            .and_then(|a| a.host_key_value.clone())
+    })
+}
+
+pub(crate) fn cache(
+    target: &HostProfile,
+    secret: &crate::admin_credential::Secret,
+) -> io::Result<()> {
+    ATTEMPT.with(|state| {
+        let mut state = state.borrow_mut();
+        let attempt = state
+            .as_mut()
+            .filter(|a| a.target == *target)
+            .ok_or_else(|| {
+                io::Error::other("Setup authentication scope does not match this Mac")
+            })?;
+        let mut password = Password::new();
+        password.bytes[..secret.as_bytes().len()].copy_from_slice(secret.as_bytes());
+        password.length = secret.as_bytes().len();
+        attempt.password = Some(password);
+        Ok(())
+    })
+}
+
+/// Validate the submitted value, ignoring any existing sudo ticket. The pinned
+/// SSH peer receives it through stdin, before any helper or build can execute.
+pub(crate) fn validate_password(
+    target: &HostProfile,
+    ssh: &Path,
+    secret: &crate::admin_credential::Secret,
+) -> Result<bool, crate::admin_credential::Error> {
+    if verified_host_key(target).is_none() {
+        return Err(crate::admin_credential::Error::Target);
+    }
+    let mut command = Command::new(ssh);
+    pin(&mut command, target);
+    let _identity = crate::ssh_identity::configure(&mut command, target.identity.as_ref())
+        .map_err(|_| crate::admin_credential::Error::Target)?;
+    let mut nonce = [0u8; 8];
+    File::open("/dev/urandom")
+        .and_then(|mut f| f.read_exact(&mut nonce))
+        .map_err(|_| crate::admin_credential::Error::Validation)?;
+    let prompt = format!(
+        "HL-{} password:",
+        nonce.iter().map(|b| format!("{b:02x}")).collect::<String>()
+    );
+    command
+        .args(crate::ssh::OPTIONS)
+        .args(["-T", "-l"])
+        .arg(&target.user)
+        .arg(&target.address)
+        .arg(format!("LC_ALL=C /usr/bin/sudo -k -S -p '{prompt}' -v"));
+    let mut input = Zeroizing::new(secret.as_bytes().to_vec());
+    input.push(b'\n');
+    let mut output = crate::process::capture_input(&mut command, &input, Duration::from_secs(30))
+        .map_err(|_| crate::admin_credential::Error::Validation)?;
+    use zeroize::Zeroize;
+    let challenged = output
+        .stderr
+        .windows(prompt.len())
+        .any(|bytes| bytes == prompt.as_bytes());
+    output.stdout.zeroize();
+    output.stderr.zeroize();
+    if output.status.code().is_none_or(|code| code == 255) {
+        return Err(crate::admin_credential::Error::Validation);
+    }
+    if output.status.success() && !challenged {
+        // NOPASSWD did not check the supplied value. Never save it as verified.
+        return Err(crate::admin_credential::Error::Validation);
+    }
+    Ok(output.status.success())
 }
 
 pub(crate) fn pin(command: &mut Command, target: &HostProfile) {
@@ -321,6 +418,47 @@ mod tests {
             identity: None,
             configuration_host: Some("fixture".into()),
         }
+    }
+    #[test]
+    fn frontloaded_password_is_validated_on_pinned_ssh_stdin_then_reused_by_sudo() {
+        let root = tempfile::tempdir().unwrap();
+        let executable = root.path().join("fixture-ssh");
+        let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/admin_ssh.rs");
+        assert!(
+            Command::new("rustc")
+                .arg(source)
+                .arg("-o")
+                .arg(&executable)
+                .status()
+                .unwrap()
+                .success()
+        );
+        let target = target();
+        let _scope = Scope::begin_verified(&target, &executable).unwrap();
+        let secret = crate::admin_credential::Secret::new(b"synthetic-validated-password").unwrap();
+        assert!(validate_password(&target, &executable, &secret).unwrap());
+        let wrong = crate::admin_credential::Secret::new(b"synthetic-wrong-password").unwrap();
+        assert!(!validate_password(&target, &executable, &wrong).unwrap());
+        let unchallenged = crate::admin_credential::Secret::new(b"synthetic-no-prompt").unwrap();
+        assert!(matches!(
+            validate_password(&target, &executable, &unchallenged),
+            Err(crate::admin_credential::Error::Validation)
+        ));
+        cache(&target, &secret).unwrap();
+        let (_, mut exchange) = Exchange::prepare(&target, "true").unwrap().unwrap();
+        let mut sent = Vec::new();
+        exchange
+            .observe(exchange.prompt.clone().as_bytes(), &mut sent)
+            .unwrap();
+        assert_eq!(sent, b"synthetic-validated-password\r");
+        assert_eq!(exchange.display(&exchange.prompt), "Authenticating…");
+        let mut other = target.clone();
+        other.user = "other".into();
+        assert!(cache(&other, &secret).is_err());
+        assert!(matches!(
+            validate_password(&other, &executable, &secret),
+            Err(crate::admin_credential::Error::Target)
+        ));
     }
     fn enter(exchange: &mut Exchange) {
         exchange
