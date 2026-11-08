@@ -866,61 +866,61 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Something went wrong. Try again."
+            "value": "Something went wrong."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Etwas ist schiefgelaufen. Versuche es erneut."
+            "value": "Etwas ist schiefgelaufen."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Une erreur est survenue. Réessayez."
+            "value": "Une erreur est survenue."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Algo ha salido mal. Inténtalo de nuevo."
+            "value": "Algo salió mal."
           }
         },
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "Algo salió mal. Inténtalo de nuevo."
+            "value": "Algo salió mal."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "問題が発生しました。もう一度お試しください。"
+            "value": "問題が発生しました。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "문제가 발생했습니다. 다시 시도해 주세요."
+            "value": "문제가 발생했습니다."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Algo deu errado. Tente novamente."
+            "value": "Algo deu errado."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "出现了问题。请重试。"
+            "value": "出了点问题。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "發生問題。請再試一次。"
+            "value": "發生問題。"
           }
         }
       }
@@ -2439,72 +2439,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "尚無摺疊記錄"
-          }
-        }
-      }
-    },
-    "leaderboard.joinDetail": {
-      "comment": "Private tracking remains available; competition is optional. Non-English copy is an AI draft; see docs/localization.md for QA status.",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Compare folds. Keep tracking personal."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Vergleiche Faltungen. Dein Verlauf bleibt privat."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Comparez les pliages. Votre suivi reste privé."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Compara pliegues. Tu historial sigue siendo privado."
-          }
-        },
-        "es-419": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Compara pliegues. Tu historial sigue siendo privado."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "折りたたみ回数を比較。個人の記録は非公開です。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "폴딩 횟수를 비교하세요. 개인 기록은 비공개로 유지됩니다."
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Compare dobras. Seu histórico continua privado."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "比较折叠次数，保留个人记录的隐私。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "比較摺疊次數，保留個人記錄的隱私。"
           }
         }
       }
@@ -4275,72 +4209,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "通知已關閉"
-          }
-        }
-      }
-    },
-    "notifications.limitBody": {
-      "comment": "Competition UI or local notification. AI translations; native-speaker review pending.",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "You’ve reached your fold limit for today."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Du hast dein heutiges Faltlimit erreicht."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Vous avez atteint votre limite de pliages du jour."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Has alcanzado tu límite de pliegues de hoy."
-          }
-        },
-        "es-419": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Alcanzaste tu límite de pliegues de hoy."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "今日の折りたたみ回数の上限に達しました。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "오늘의 접기 한도에 도달했어요."
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Você atingiu seu limite de dobras de hoje."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "你已达到今天的折叠次数限额。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "你已達到今天的摺疊次數上限。"
           }
         }
       }
@@ -6728,61 +6596,61 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Removes public scores and results. Personal history stays."
+            "value": "Removes public scores and results."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Entfernt öffentliche Punkte und Ergebnisse. Dein Verlauf bleibt."
+            "value": "Entfernt öffentliche Punkte und Ergebnisse."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Supprime les scores et résultats publics. L’historique personnel reste."
+            "value": "Supprime les scores et résultats publics."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Elimina puntuaciones y resultados públicos. El historial personal se conserva."
+            "value": "Elimina las puntuaciones y los resultados públicos."
           }
         },
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "Elimina puntuaciones y resultados públicos. El historial personal se conserva."
+            "value": "Elimina las puntuaciones y los resultados públicos."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "公開スコアと結果を削除します。個人の履歴は残ります。"
+            "value": "公開スコアと結果を削除します。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "공개 점수와 결과를 삭제합니다. 개인 기록은 유지됩니다."
+            "value": "공개 점수와 결과를 삭제합니다."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Remove pontuações e resultados públicos. O histórico pessoal fica."
+            "value": "Remove pontuações e resultados públicos."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "移除公开分数和结果，保留个人历史记录。"
+            "value": "删除公开分数和结果。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "移除公開分數和結果，保留個人歷史記錄。"
+            "value": "刪除公開分數和結果。"
           }
         }
       }
@@ -8708,61 +8576,61 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Your Results"
+            "value": "Results"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Deine Ergebnisse"
+            "value": "Ergebnisse"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vos résultats"
+            "value": "Résultats"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tus resultados"
+            "value": "Resultados"
           }
         },
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tus resultados"
+            "value": "Resultados"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "あなたの結果"
+            "value": "結果"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "내 결과"
+            "value": "결과"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Seus resultados"
+            "value": "Resultados"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "我的结果"
+            "value": "结果"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "我的結果"
+            "value": "結果"
           }
         }
       }
@@ -10681,72 +10549,6 @@
         }
       }
     },
-    "setup.completeDetail": {
-      "comment": "Setup UI: Your folds are ready to track.. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Your folds are ready to track."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Deine Faltungen können jetzt erfasst werden."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Vos pliages sont prêts à être enregistrés."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ya puedes registrar tus pliegues."
-          }
-        },
-        "es-419": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ya puedes registrar tus pliegues."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "折りたたみの記録を開始できます。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "이제 폴딩을 기록할 수 있습니다."
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tudo pronto para registrar suas dobras."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "可以开始记录折叠了。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "可以開始記錄摺疊了。"
-          }
-        }
-      }
-    },
     "setup.existingHelp": {
       "comment": "Manual setup guidance; generic trigger description, not an exact OS trigger label. AI translations require review.",
       "extractionState": "manual",
@@ -10754,61 +10556,61 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Already created it? Edit the existing shortcut to avoid duplicates."
+            "value": "Edit existing automations to avoid duplicates."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Schon erstellt? Bearbeite den vorhandenen Kurzbefehl, um Duplikate zu vermeiden."
+            "value": "Bearbeite vorhandene Automationen, um Duplikate zu vermeiden."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Déjà créé ? Modifiez le raccourci existant pour éviter les doublons."
+            "value": "Modifiez les automatisations existantes pour éviter les doublons."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "¿Ya lo creaste? Edita el atajo existente para evitar duplicados."
+            "value": "Edita las automatizaciones existentes para evitar duplicados."
           }
         },
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "¿Ya lo creaste? Edita el atajo existente para evitar duplicados."
+            "value": "Edita las automatizaciones existentes para evitar duplicados."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "作成済みの場合は、重複を避けるため既存のショートカットを編集します。"
+            "value": "重複を避けるため既存のオートメーションを編集してください。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "이미 만들었다면 중복되지 않도록 기존 단축어를 편집하세요."
+            "value": "중복을 피하려면 기존 자동화를 편집하세요."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Já criou? Edite o atalho existente para evitar duplicatas."
+            "value": "Edite automações existentes para evitar duplicatas."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "已创建过？编辑现有快捷指令，避免重复。"
+            "value": "编辑现有自动化以避免重复。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "已建立過？編輯現有捷徑，避免重複。"
+            "value": "編輯現有自動化以避免重複。"
           }
         }
       }
@@ -11018,61 +10820,61 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Check the shortcut’s privacy settings to allow running while locked."
+            "value": "Allow the shortcut to run while locked."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Erlaube in den Datenschutzeinstellungen des Kurzbefehls die Ausführung bei gesperrtem Gerät."
+            "value": "Erlaube die Ausführung des Kurzbefehls im Sperrzustand."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Autorisez l’exécution lorsque l’appareil est verrouillé dans les réglages de confidentialité du raccourci."
+            "value": "Autorisez le raccourci à s’exécuter lorsque l’appareil est verrouillé."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Permite la ejecución con el dispositivo bloqueado en la privacidad del atajo."
+            "value": "Permite que el atajo se ejecute con el dispositivo bloqueado."
           }
         },
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "Permite la ejecución con el dispositivo bloqueado en la privacidad del atajo."
+            "value": "Permite que el atajo se ejecute con el dispositivo bloqueado."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ショートカットのプライバシー設定でロック中の実行を許可します。"
+            "value": "ロック中のショートカット実行を許可してください。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "단축어의 개인정보 보호 설정에서 잠금 상태의 실행을 허용하세요."
+            "value": "잠긴 상태에서 단축어 실행을 허용하세요."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Nas opções de privacidade do atalho, permita a execução com o aparelho bloqueado."
+            "value": "Permita a execução do atalho com o dispositivo bloqueado."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "检查快捷指令的隐私设置，允许锁定时运行。"
+            "value": "允许快捷指令在锁定时运行。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "檢查捷徑的隱私權設定，允許鎖定時執行。"
+            "value": "允許捷徑在鎖定時執行。"
           }
         }
       }
@@ -13189,72 +12991,6 @@
         }
       }
     },
-    "tips.supportThanks": {
-      "comment": "App UI. Keep concise. Non-English copy is an AI draft; native-speaker review remains pending.",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Thanks for supporting indie developers"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Danke für deine Unterstützung unabhängiger Entwickler"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Merci de soutenir les développeurs indépendants"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Gracias por apoyar a los desarrolladores independientes"
-          }
-        },
-        "es-419": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Gracias por apoyar a los desarrolladores independientes"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "個人開発者へのご支援ありがとうございます"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "독립 개발자를 응원해 주셔서 감사합니다"
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Obrigado por apoiar desenvolvedores independentes"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "感谢支持独立开发者"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "感謝支持獨立開發者"
-          }
-        }
-      }
-    },
     "tips.thanks": {
       "comment": "Widget, notification preference or optional tip UI. AI translations; native-speaker review pending.",
       "extractionState": "manual",
@@ -13592,61 +13328,61 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Couldn’t check for updates. Try again when you’re online."
+            "value": "Couldn’t check for updates."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Updates konnten nicht geprüft werden. Versuche es erneut, wenn du online bist."
+            "value": "Updates konnten nicht geprüft werden."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Impossible de vérifier les mises à jour. Réessayez une fois en ligne."
+            "value": "Impossible de vérifier les mises à jour."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "No se han podido comprobar las actualizaciones. Inténtalo de nuevo cuando tengas conexión."
+            "value": "No se pudieron buscar actualizaciones."
           }
         },
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "No se pudieron comprobar las actualizaciones. Inténtalo de nuevo cuando tengas conexión."
+            "value": "No se pudieron buscar actualizaciones."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "アップデートを確認できませんでした。オンラインになってからもう一度お試しください。"
+            "value": "アップデートを確認できませんでした。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "업데이트를 확인할 수 없습니다. 온라인 상태에서 다시 시도하세요."
+            "value": "업데이트를 확인하지 못했습니다."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Não foi possível verificar atualizações. Tente novamente quando estiver online."
+            "value": "Não foi possível verificar atualizações."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "无法检查更新。请联网后重试。"
+            "value": "无法检查更新。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "無法檢查更新。請連線後再試。"
+            "value": "無法檢查更新。"
           }
         }
       }

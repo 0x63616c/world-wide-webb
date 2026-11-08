@@ -59,7 +59,7 @@ import StoreKit
       }
     } catch {
       message = String(
-        localized: "error.tryAgain", defaultValue: "Something went wrong. Try again.")
+        localized: "error.tryAgain", defaultValue: "Something went wrong.")
     }
   }
 
@@ -79,7 +79,7 @@ import StoreKit
         await transaction.finish()
       case .success(.unverified):
         message = String(
-          localized: "error.tryAgain", defaultValue: "Something went wrong. Try again.")
+          localized: "error.tryAgain", defaultValue: "Something went wrong.")
       case .pending:
         message = String(localized: "tips.pending", defaultValue: "Awaiting approval")
       case .userCancelled:
@@ -89,7 +89,7 @@ import StoreKit
       }
     } catch {
       message = String(
-        localized: "error.tryAgain", defaultValue: "Something went wrong. Try again.")
+        localized: "error.tryAgain", defaultValue: "Something went wrong.")
     }
   }
 }

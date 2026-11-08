@@ -42,9 +42,6 @@ actor DailyLimitDelivery {
           let content = UNMutableNotificationContent()
           content.title = String(
             localized: "notifications.limitReached", defaultValue: "Daily limit reached")
-          content.body = String(
-            localized: "notifications.limitBody",
-            defaultValue: "You’ve reached your fold limit for today.")
           content.sound = .default
           try await center.add(
             UNNotificationRequest(identifier: identifier, content: content, trigger: nil))

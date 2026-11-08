@@ -849,7 +849,7 @@ private struct SettingsScreen: View {
           } catch {
             if model.preferences == next { model.preferences = previous }
             model.error = String(
-              localized: "error.tryAgain", defaultValue: "Something went wrong. Try again.")
+              localized: "error.tryAgain", defaultValue: "Something went wrong.")
           }
         }
       })
@@ -1071,12 +1071,12 @@ private struct SetupScreen: View {
                     String(
                       localized: "setup.lockedHelp",
                       defaultValue:
-                        "Check the shortcut’s privacy settings to allow running while locked."))
+                        "Allow the shortcut to run while locked."))
                   Text(
                     String(
                       localized: "setup.existingHelp",
                       defaultValue:
-                        "Already created it? Edit the existing shortcut to avoid duplicates."))
+                        "Edit existing automations to avoid duplicates."))
                   Link(
                     String(localized: "setup.appleGuide", defaultValue: "Shortcuts guide"),
                     destination: URL(
@@ -1207,8 +1207,6 @@ private struct SetupScreen: View {
         : nil
     case .awaitingOpening, .awaitingClosing:
       String(localized: "setup.waitingForShortcut", defaultValue: "Waiting for Shortcuts")
-    case .complete:
-      String(localized: "setup.completeDetail", defaultValue: "Your folds are ready to track.")
     default: nil
     }
   }
@@ -1295,11 +1293,6 @@ private struct LeaderboardScreen: View {
             Image(systemName: "trophy").font(.largeTitle).foregroundStyle(.secondary)
             Text(String(localized: "leaderboard.joinTitle", defaultValue: "Join Folding")).font(
               .title.bold())
-            Text(
-              String(
-                localized: "leaderboard.joinDetail",
-                defaultValue: "Compare folds. Keep tracking personal.")
-            ).foregroundStyle(.secondary)
             if model.competitionProfile != nil {
               Button(String(localized: "profile.continueSetup", defaultValue: "Continue setup")) {
                 model.beginJoin(suggestedNickname: model.joinNickname)
@@ -1370,7 +1363,7 @@ private struct LeaderboardScreen: View {
           ForEach(CompetitionPeriod.allCases) { Text($0.title).tag($0) }
         }.pickerStyle(.segmented).disabled(
           actions.loadLeaderboard == nil && actions.loadLeaderboardPage == nil)
-        NavigationLink(String(localized: "results.title", defaultValue: "Your Results")) {
+        NavigationLink(String(localized: "results.title", defaultValue: "Results")) {
           CompetitionResultsScreen(model: model, actions: actions)
         }
         HStack {
@@ -1769,7 +1762,7 @@ private struct ExportShareHost: View {
         ExportShareSheet(file: file) { error in
           if error != nil, !finished, model.sheet == .export(ticket) {
             model.error = String(
-              localized: "error.tryAgain", defaultValue: "Something went wrong. Try again.")
+              localized: "error.tryAgain", defaultValue: "Something went wrong.")
           }
           Task { await finish(dismiss: true) }
         }
@@ -1789,7 +1782,7 @@ private struct ExportShareHost: View {
       } catch {
         if !Task.isCancelled, !finished, model.sheet == .export(ticket) {
           model.error = String(
-            localized: "error.tryAgain", defaultValue: "Something went wrong. Try again.")
+            localized: "error.tryAgain", defaultValue: "Something went wrong.")
         }
         await finish(dismiss: true)
       }

@@ -244,3 +244,7 @@ GitHub #28, #32 and #40 checklists reflect these partial completions. CI and phy
 
 - [x] [#56 — Minimum supported app build](https://github.com/0x63616c/folding/issues/56): whole-app gate chosen by owner; local implementation verified (31 Rust, 11 Worker/D1 and eight focused simulator tests). Provider activation and updated TestFlight/device evidence remain separate. See [compatibility contract](technical/client-compatibility.md).
 - [ ] [#57 — Reliable offline cold startup](https://github.com/0x63616c/folding/issues/57): local implementation verified through 93 core and 51 app-hosted tests, including cold reopening with cloud lookups unavailable, continued recording/history, same-account availability notifications and account/installation fences. See [evidence](experiments/offline-cold-start-2026-11-08.md). Updated TestFlight, physical airplane-mode/Shortcuts and cloud reconnection acceptance remain open in #47/F13; do not mark them passed.
+
+### App copy cleanup — November 8, 2026
+
+- [x] [#25](https://github.com/0x63616c/folding/issues/25): review shipped app/view, widget, notification and Intent wording; remove repeated setup/join/tip explanations, duplicate profile labels and daily-limit body; shorten errors, results and removal copy across ten locales. Persist the product-copy rule. Local app compilation, 207-key catalog validation, ten localization regressions and compiled ten-locale/40-plural runtime checks pass. Final display/device acceptance remains open in #25/#47.

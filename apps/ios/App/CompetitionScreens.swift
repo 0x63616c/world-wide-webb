@@ -244,7 +244,7 @@ struct CompetitionProfileScreen: View {
       Text(
         String(
           localized: "profile.removalEffect",
-          defaultValue: "Removes public scores and results. Personal history stays."))
+          defaultValue: "Removes public scores and results."))
     }
   }
 
@@ -264,8 +264,6 @@ struct CompetitionProfileScreen: View {
               .foregroundStyle(.secondary)
           }
           VStack(alignment: .leading, spacing: 8) {
-            Text(String(localized: "profile.nickname", defaultValue: "Display name"))
-              .font(.caption).foregroundStyle(.secondary)
             TextField(
               String(localized: "profile.nickname", defaultValue: "Display name"), text: $nickname
             )
@@ -488,7 +486,7 @@ struct CompetitionResultsScreen: View {
         }.disabled(model.resultsLoading)
       }
     }
-    .navigationTitle(String(localized: "results.title", defaultValue: "Your Results"))
+    .navigationTitle(String(localized: "results.title", defaultValue: "Results"))
     .task(id: model.resultsPeriod) { await model.requestResults(using: actions) }
     .navigationDestination(item: $focusedResult) {
       CompetitionResultScreen(result: $0, actions: actions)
@@ -506,7 +504,7 @@ struct CompetitionResultsScreen: View {
         guard !Task.isCancelled, model.requestedResultID == id else { return }
         model.requestedResultID = nil
         model.error = String(
-          localized: "error.tryAgain", defaultValue: "Something went wrong. Try again.")
+          localized: "error.tryAgain", defaultValue: "Something went wrong.")
       }
     }
     .refreshable { await model.requestResults(using: actions) }
@@ -573,12 +571,12 @@ private struct CompetitionResultScreen: View {
           if shareLoading { ProgressView() }
           if shareFailed {
             Text(
-              String(localized: "error.tryAgain", defaultValue: "Something went wrong. Try again."))
+              String(localized: "error.tryAgain", defaultValue: "Something went wrong."))
           }
         }
       }
     }
-    .navigationTitle(String(localized: "results.title", defaultValue: "Your Results"))
+    .navigationTitle(String(localized: "results.title", defaultValue: "Results"))
     .navigationBarTitleDisplayMode(.inline)
   }
 }

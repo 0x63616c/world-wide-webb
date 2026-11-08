@@ -46,7 +46,7 @@ enum CompetitionTransportError: Error {
 
 extension CompetitionTransportError: CompetitionJoinFailure {
   var joinMessage: String {
-    let base = String(localized: "error.tryAgain", defaultValue: "Something went wrong. Try again.")
+    let base = String(localized: "error.tryAgain", defaultValue: "Something went wrong.")
     switch self {
     case .service(_, let code, _, _): return "\(base) (\(code))"
     case .server(let status): return "\(base) (HTTP \(status))"

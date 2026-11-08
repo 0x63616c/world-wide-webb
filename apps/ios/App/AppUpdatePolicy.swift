@@ -116,7 +116,7 @@ struct AppUpdateRequiredView: View {
           Text(
             String(
               localized: "update.offline",
-              defaultValue: "Couldn’t check for updates. Try again when you’re online.")
+              defaultValue: "Couldn’t check for updates.")
           )
           .font(.footnote).foregroundStyle(.secondary)
         }

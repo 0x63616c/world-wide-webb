@@ -114,7 +114,7 @@ import struct FoldingData.SetupProgress
         UIApplication.shared.open(url) { opened in
           if !opened {
             self.presentation.error = String(
-              localized: "error.tryAgain", defaultValue: "Something went wrong. Try again.")
+              localized: "error.tryAgain", defaultValue: "Something went wrong.")
           }
         }
       },
@@ -133,7 +133,7 @@ import struct FoldingData.SetupProgress
       exportFinished: { id in
         do { try await self.runtime.finishExport(id) } catch {
           self.presentation.error = String(
-            localized: "error.tryAgain", defaultValue: "Something went wrong. Try again.")
+            localized: "error.tryAgain", defaultValue: "Something went wrong.")
         }
       },
       joinCompetition: { nickname in

@@ -465,7 +465,7 @@ enum ExportChoice { case json, csv }
     defer { self.operation = nil }
     do { try await operation() } catch is CancellationError {} catch {
       self.error = String(
-        localized: "error.tryAgain", defaultValue: "Something went wrong. Try again.")
+        localized: "error.tryAgain", defaultValue: "Something went wrong.")
     }
   }
 
