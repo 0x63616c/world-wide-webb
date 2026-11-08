@@ -20,3 +20,5 @@ The owner explicitly resumed app implementation and TestFlight shipping on
 November 8, and confirmed Penpot is outside the current work. Issue
 [#52](https://github.com/0x63616c/folding/issues/52) tracks the release. Existing
 Penpot experiments remain preserved. Broader deferred shipping checks remain open.
+
+Shipped in TestFlight **0.1.8 (9)**; see [release evidence](testflight-refinements-2026-11-08.md).

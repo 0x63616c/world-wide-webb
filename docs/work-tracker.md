@@ -219,9 +219,9 @@ GitHub #28, #32 and #40 checklists reflect these partial completions. CI and phy
 
 - [x] [#51 — Card heights, chart alignment and profile prefilling](https://github.com/0x63616c/folding/issues/51): shipped TestFlight 0.1.7 (8), Apple VALID and confirmed in Folding Internal. Implementation `a8a6e85`; 74 core tests, 30 simulator tests, localization and rendered fixtures passed. Device authorization/Join/upload acceptance remains separate.
 
-## Preserved refinements — November 8
+## TestFlight refinements — November 8
 
-- [ ] [#52 — Live stats, History and presentation](https://github.com/0x63616c/folding/issues/52): implementation experiments remain in the separate `codex/live-history-refinements` worktree. The month-selection readout uses a full localized date; the screenshot target compiles. See [date-readout evidence](experiments/history-month-readout-2026-11-08.md). Interactive review remains pending.
-- [ ] [#53 — Incomplete-entry deletion](https://github.com/0x63616c/folding/issues/53): local app/domain/server experiments are preserved. Provider migration, deployment and TestFlight distribution have not occurred for this batch.
+- [x] [#52 — Live stats, History and presentation](https://github.com/0x63616c/folding/issues/52): implementation `480725e`, shipped as TestFlight **0.1.8 (9)**, Apple **VALID** and confirmed in **Folding Internal**. Includes full month-selection dates, ticking main duration, patterns, persisted card reordering, bounded History, retired travel UI and presentation/account/tip refinements.
+- [x] [#53 — Incomplete-entry deletion](https://github.com/0x63616c/folding/issues/53): local/private replay, offline ownership retries and current leaderboard suppression implemented and locally verified; migration 0018 and matching Workers verified on staging/production; same signed TestFlight build distributed. Published historical results retain versioned correction policy.
 
-The owner explicitly resumed app changes and TestFlight shipping on November 8, and confirmed Penpot is outside the current work. Release verification is in progress. Existing iOS and Penpot experiments in the original checkout remain untouched.
+[Release evidence](experiments/testflight-refinements-2026-11-08.md) distinguishes the 79 core / 34 simulator / 30 Rust host / eight workerd checks and rendered fixtures from unverified native drag/scrub interaction and real device/provider flows. Broader #25/#27/#33/#35/#37/#40/#47 acceptance stays open; no physical-device or App Store pass is claimed. The owner resumed app shipping and paused Penpot work. Existing unrelated experiments remain preserved in the original checkout.

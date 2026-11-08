@@ -1,5 +1,7 @@
 # Folding execution instructions
 
+- Owner resumed app UI implementation and internal TestFlight shipping on November 8, 2026. Penpot work is paused; preserve its workspace and existing iOS experiments. This supersedes the earlier design-review pause and does not mark deferred shipping checks passed.
+
 - Read `docs/review-spec.md`, the relevant `docs/technical/` contract, and the associated GitHub issue before implementing work.
 - Current scope: finish the active live iCloud and Cloudflare integration goal. Verify provider state against `docs/experiments/live-integration-2026-11-07.md` and `docs/deferred-shipping-work.md` before changing it. The primary agent implements; subagents are permitted only for independent review. Keep CI, storefront/visual review, App Store submission, and post-submission device checks deferred as recorded there.
 - Only the primary agent accesses credentials or performs deployments. All `op` and secret-dependent commands reuse its persistent shell; delegated agents must never independently call `op` or trigger authorization prompts. Independent reviewers remain read-only.
