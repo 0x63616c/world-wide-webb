@@ -1,9 +1,9 @@
 import os
-from pathlib import Path
 import subprocess
 import tempfile
 import textwrap
 import unittest
+from pathlib import Path
 
 from ci_changes import classify
 from ci_gate import verify
