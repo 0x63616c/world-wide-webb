@@ -234,6 +234,13 @@ GitHub #28, #32 and #40 checklists reflect these partial completions. CI and phy
 
 - [x] [#58 — Shortcuts partition-busy failures](https://github.com/0x63616c/folding/issues/58): reproduced the reported `FoldingData.PartitionError error 3` through concurrent account startup and brief route-lock contention. Same-account callers now share initialization; bounded recording retries retain observation identity/time and respect account/reset fences. All 89 core and 41 app-hosted simulator tests pass. TestFlight **0.1.10 (11)** is Apple **VALID** and verified in **Folding Internal**, from `da0ac00`. [Evidence](experiments/shortcuts-partition-busy-2026-11-08.md); physical overnight/Shortcuts acceptance remains deferred to #47/F13.
 
+
+## Review request timing — November 8
+
+- [x] Owner-approved local policy update in [#40](https://github.com/0x63616c/folding/issues/40): remove the seven-day wait, retain three separate recorded-use days and completed-summary safeguards, and allow another request attempt after 30 days. Existing persisted attempt timestamps are retained.
+- Verification: compiled and ran the actual `ReviewEligibility.swift` policy in a temporary native Swift harness; insufficient use, eligibility before day seven, future setup, immediate repeat, just-before/exact 30-day boundary, persisted cooldown and clock rollback checks passed. Focused Swift formatting passed; no simulator required.
+- Source/spec changes are committed on `codex/review-request-timing`; distribution remains pending. Apple controls prompt display; StoreKit/visual/device acceptance and the broader #40 remain open.
+
 ## Durable capture — November 8, 2026
 
 - [x] [#59 — Durable Shortcuts capture and persistent retries](https://github.com/0x63616c/folding/issues/59): verified local component delivered for PR review, with protected schema-v9 inbox, persisted FIFO leases/backoff and context-preserving replay. All 105 core and 43 app-hosted simulator tests pass, including actual kill/reopen recovery. [Evidence and rollback constraint](experiments/durable-capture-2026-11-08.md). Not merged or shipped; broader #27/#43 integration/release and #47/F13 physical acceptance remain open. Offline startup remains #57.

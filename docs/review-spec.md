@@ -164,7 +164,7 @@ Send at most one result notification per participant per period; Podium only fil
 
 Competition notifications follow finalization and are delivered at the next 09:00 in the user's home timezone. Recheck current opt-in preferences and account state before sending. Provide the results in-app regardless of push delivery. Daily threshold alerts happen when crossed and respect system Focus behavior.
 
-Use Apple's standard review request after at least seven days since setup and three separate days of recorded use, when the user next views a completed summary. Avoid setup, error, reset, and purchase flows. Do not ask a satisfaction question first. Let the system govern whether the prompt appears.
+Use Apple's standard review request after setup is complete and three separate days of recorded use, when the user next views a completed summary. No additional seven-day wait applies. Allow at least 30 days between request attempts, including attempts where the system does not display a prompt. Avoid setup, error, reset, and purchase flows. Do not ask a satisfaction question first. Let the system govern whether the prompt appears.
 
 ## 8. Reset, privacy, and account deletion
 
