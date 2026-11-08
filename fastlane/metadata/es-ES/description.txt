@@ -1,10 +1,10 @@
-Folding registra los pliegues de tu Duo. Configura las automatizaciones de apertura y cierre en Atajos, pruébalas en la app y descubre tus hábitos diarios.
+Registra los pliegues de tu iPhone Duo con Folding. Configura las automatizaciones de apertura y cierre en Atajos y descubre tus hábitos diarios.
 
-• Registra pliegues, tiempo abierto y recorrido estimado.
-• Consulta estadísticas diarias, semanales, mensuales y totales.
-• Sincroniza tu historial privado con iCloud.
-• Elige colores, estadísticas favoritas y widgets.
-• Participa de forma opcional en clasificaciones semanales, mensuales y totales.
-• Exporta tu historial en JSON o CSV, o restablécelo cuando quieras.
+• Registra pliegues y tiempo desplegado.
+• Explora tu historial y tus patrones de uso.
+• Sincroniza el historial con iCloud y consulta tus estadísticas en widgets.
+• Únete a las clasificaciones semanales, mensuales e históricas con «Iniciar sesión con Apple».
+• Consigue insignias de pliegues y días de uso, explora perfiles y destaca tu insignia favorita.
+• Exporta el historial como paquete CSV o restablécelo en la app.
 
-Todas las funciones son gratis. Las propinas opcionales no desbloquean funciones ni dan ventajas en la clasificación. El recorrido se estima a partir de eventos registrados; no mide el desgaste de la bisagra.
+Todas las funciones son gratis. Las propinas opcionales apoyan el desarrollo y no desbloquean funciones.

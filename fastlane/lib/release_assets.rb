@@ -56,49 +56,40 @@ module FoldingRelease
         FoldingRelease.run("xcrun", "simctl", "bootstatus", device, "-b")
         FoldingRelease.run("xcrun", "simctl", "ui", device, "appearance", PLAN.fetch("appearance"))
         FoldingRelease.run("xcrun", "simctl", "status_bar", device, "override", "--time", "9:41", "--batteryState", "charged", "--batteryLevel", "100")
-        PLAN.fetch("devices").each do |display|
-          next if review_only && !PLAN.fetch("review_scenarios").any? { |scene| scene["device_id"] == display["id"] }
-          PLAN.fetch("devices").each do |screen|
-            FoldingRelease.run("xcrun", "simctl", "io", device, "screenConfig", "--display=#{screen.fetch('screen')}", "power", screen == display ? "on" : "off")
+        LOCALES.each do |locale|
+          next if review_only && locale.fetch("storefront_locale") != "en-US"
+          export = File.join(output, "raw", locale.fetch("storefront_locale"))
+          result = File.join(output, "results", "#{locale.fetch('storefront_locale')}.xcresult")
+          tests = review_only ? [] : ["#{PLAN.fetch('test_target')}/StorefrontRenderTests/testRenderStorefront"]
+          if locale.fetch("storefront_locale") == "en-US"
+            tests << "#{PLAN.fetch('test_target')}/StorefrontRenderTests/testRenderTipReview"
           end
-          LOCALES.each do |locale|
-            review_scenes = PLAN.fetch("review_scenarios").select { |scene| scene["device_id"] == display["id"] && scene["storefront_locale"] == locale["storefront_locale"] }
-            next if review_only && review_scenes.empty?
-            if File.exist?(File.join(output, "tip-review-manifest.json"))
-              validate_tip_review!(record)
-              review_scenes = []
+          # Execute actual UIKit views in XCTest, without launching/navigating simulator UI.
+          context.run_tests(
+            project: File.join(ROOT, "apps/ios/Folding.xcodeproj"), scheme: PLAN.fetch("scheme"),
+            configuration: PLAN.fetch("configuration"), destination: "platform=iOS Simulator,id=#{device}",
+            only_testing: tests, derived_data_path: File.join(ROOT, "build/screenshot-release"),
+            result_bundle: true, result_bundle_path: result,
+            output_directory: File.join(output, "logs", locale.fetch("storefront_locale")),
+            xcargs: "-testLanguage #{locale.fetch('app_locale')} -testRegion #{locale.fetch('test_region')}",
+            parallel_testing: false, concurrent_workers: 1, skip_slack: true, xcodebuild_formatter: ""
+          )
+          FoldingRelease.run("xcrun", "xcresulttool", "export", "attachments", "--path", result, "--output-path", export)
+          attachments = FoldingRelease.read_json(File.join(export, "manifest.json")).flat_map { |test| test.fetch("attachments") }
+          find_capture = lambda do |display, scene|
+            prefix = "storefront-#{locale.fetch('app_locale')}-#{display.fetch('id')}-#{scene.fetch('id')}_"
+            matches = attachments.select { |item| item.fetch("suggestedHumanReadableName").start_with?(prefix) && item.fetch("exportedFileName").end_with?(".png") }
+            raise "Missing/duplicate direct capture: #{prefix}" unless matches.length == 1
+            path = File.join(export, matches.first.fetch("exportedFileName"))
+            raise "Wrong direct capture dimensions" unless png_size(path) == display.values_at("pixel_width", "pixel_height")
+            path
+          end
+          PLAN.fetch("devices").each do |display|
+            (review_only ? [] : PLAN.fetch("scenarios")).each do |scene|
+              entries << compose(record, find_capture.call(display, scene), display, locale, scene)
             end
-            storefront_scenes = review_only ? [] : PLAN.fetch("scenarios")
-            next if storefront_scenes.empty? && review_scenes.empty?
-            (storefront_scenes + review_scenes).group_by { |scene| scene.fetch("appearance", PLAN.fetch("appearance")) }.each do |appearance, scenes|
-              current_storefront = storefront_scenes & scenes
-              current_review = review_scenes & scenes
-              FoldingRelease.run("xcrun", "simctl", "ui", device, "appearance", appearance)
-              raw_dir = File.join(output, "raw", display.fetch("id"), locale.fetch("storefront_locale"), appearance)
-              context.capture_screenshots(
-                project: File.join(ROOT, "apps/ios/Folding.xcodeproj"), scheme: PLAN.fetch("scheme"),
-                app_identifier: "app.getfolding.Folding.Screenshots",
-                configuration: PLAN.fetch("configuration"), devices: [name],
-                languages: [locale.fetch("snapshot_locale")],
-                launch_arguments: ["--folding-screenshot-locale #{locale.fetch('app_locale')} --folding-screenshot-appearance #{appearance}"],
-                only_testing: scenes.map { |scenario| "#{PLAN.fetch('test_target')}/FoldingScreenshotTests/#{scenario.fetch('test')}" },
-                output_directory: raw_dir, derived_data_path: File.join(ROOT, "build/screenshot-release"),
-                clear_previous_screenshots: true, reinstall_app: true,
-                concurrent_simulators: false, number_of_retries: 0, skip_open_summary: true,
-                override_status_bar: false, xcodebuild_formatter: ""
-              )
-              current_storefront.each do |scenario|
-                matches = Dir.glob(File.join(raw_dir, "**/*#{scenario.fetch('id')}.png"))
-                raise "Missing/duplicate current capture" unless matches.length == 1
-                raw = matches.first
-                raise "Wrong Duo display captured" unless png_size(raw) == [display.fetch("pixel_width"), display.fetch("pixel_height")]
-                entries << compose(record, raw, display, locale, scenario)
-              end
-              current_review.each do |scenario|
-                matches = Dir.glob(File.join(raw_dir, "**/*#{scenario.fetch('id')}.png"))
-                raise "Missing/duplicate current tip review capture" unless matches.length == 1
-                package_tip_review(record, matches.first, display, locale, scenario)
-              end
+            PLAN.fetch("review_scenarios").select { |scene| scene["device_id"] == display["id"] && scene["storefront_locale"] == locale["storefront_locale"] }.each do |scene|
+              package_tip_review(record, find_capture.call(display, scene), display, locale, scene)
             end
           end
         end
@@ -186,7 +177,7 @@ module FoldingRelease
         "device_id" => display.fetch("id"), "device_model" => display.fetch("model"),
         "runtime" => PLAN.fetch("runtime"), "runtime_build" => PLAN.fetch("runtime_build"),
         "pixel_width" => display.fetch("pixel_width"), "pixel_height" => display.fetch("pixel_height"),
-        "raw_pixel_size" => png_size(raw), "appearance" => scenario.fetch("appearance"), "scenario_id" => scenario.fetch("id"),
+        "capture_method" => PLAN.fetch("capture_method"), "raw_pixel_size" => png_size(raw), "appearance" => scenario.fetch("appearance"), "scenario_id" => scenario.fetch("id"),
         "raw_path" => raw.delete_prefix(output + "/"), "composed_path" => composed.delete_prefix(output + "/"),
         "raw_sha256" => FoldingRelease.sha(raw), "composed_sha256" => FoldingRelease.sha(composed),
         "caption_key" => scenario.fetch("caption_key"), "caption_version" => PLAN.fetch("caption_version"),

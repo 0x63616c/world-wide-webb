@@ -1,10 +1,10 @@
-Folding erfasst die Faltungen deines Duo. Richte in Kurzbefehle Automationen zum Öffnen und Schließen ein, teste sie in der App und entdecke deine täglichen Gewohnheiten.
+Erfasse mit Folding die Faltungen deines iPhone Duo. Richte Automationen zum Öffnen und Schließen in Kurzbefehle ein und entdecke deine täglichen Gewohnheiten.
 
-• Erfasse Faltungen, geöffnete Zeit und geschätzte Bewegung.
-• Entdecke Statistiken für Tage, Wochen, Monate und die gesamte Zeit.
-• Synchronisiere deinen privaten Verlauf mit iCloud.
-• Wähle Farben, Lieblingsstatistiken und Widgets.
-• Nimm freiwillig an wöchentlichen, monatlichen und Gesamtranglisten teil.
-• Exportiere deinen Verlauf als JSON oder CSV oder setze ihn zurück.
+• Erfasse Faltungen und die aufgeklappte Zeit.
+• Entdecke deinen Verlauf und Nutzungsmuster.
+• Synchronisiere deinen Verlauf über iCloud und nutze Widgets.
+• Nimm mit „Mit Apple anmelden“ an Wochen-, Monats- und Gesamtranglisten teil.
+• Verdiene Abzeichen für Faltungen und Nutzungstage, entdecke Profile und zeige dein Lieblingsabzeichen.
+• Exportiere deinen Verlauf als CSV-Paket oder setze ihn in der App zurück.
 
-Alle Funktionen sind kostenlos. Freiwillige Trinkgelder schalten nichts frei und bringen keinen Ranglistenvorteil. Die Bewegung wird aus erfassten Ereignissen geschätzt; sie misst keinen Scharnierverschleiß.
+Alle Funktionen sind kostenlos. Freiwillige Trinkgelder unterstützen die Entwicklung und schalten nichts frei.

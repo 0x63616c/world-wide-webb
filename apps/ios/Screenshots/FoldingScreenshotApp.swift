@@ -1,6 +1,7 @@
 import FoldingDomain
 import Foundation
 import SwiftUI
+import UIKit
 
 import struct FoldingData.SetupProgress
 
@@ -48,10 +49,10 @@ import struct FoldingData.SetupProgress
 
 /// Compiled only into FoldingScreenshots. No live composition dependency is linked into this target.
 @MainActor struct ScreenshotFixture {
-  static let version = 1
+  static let version = 2
   static let fixedClock = "2026-11-02T10:09:00Z"
   let model: FoldingPresentation
-  let actions: FoldingActions
+  var actions: FoldingActions
   let locale: String
   let scenario: String
   let tipRows: [TipJarRow]
@@ -70,7 +71,8 @@ import struct FoldingData.SetupProgress
     guard
       [
         "today", "today-running", "today-live", "history", "history-month", "history-long",
-        "patterns", "notifications", "leaderboard", "settings", "setup", "join", "tipjar",
+        "patterns", "milestones", "notifications", "leaderboard", "settings", "setup", "join",
+        "tipjar",
       ]
       .contains(scenario),
       ["en", "de", "fr", "es", "es-419", "ja", "ko", "pt-BR", "zh-Hans", "zh-Hant"].contains(
@@ -181,7 +183,24 @@ import struct FoldingData.SetupProgress
       events: events, at: nowMS, period: displayedPeriod, offset: displayedOffset)
     model.historyPeriod = displayedPeriod
     model.historyOffset = displayedOffset
+    model.competitionJoined = true
     model.competition = .loaded(board)
+    let owner = OwnerMilestones(
+      generation: .initial, revision: 1,
+      progress: MilestoneProgress(
+        catalogVersion: 1, folds: 842, daysUsed: 28,
+        next: [
+          NextMilestone(track: .folds, badgeID: .folds1000, current: 842, target: 1000),
+          NextMilestone(track: .days, badgeID: .days30, current: 28, target: 30),
+        ],
+        earned: [.folds1, .folds100, .days7]),
+      grants: [MilestoneBadge.folds1, .folds100, .days7].enumerated().map {
+        EarnedMilestone(
+          badgeID: $0.element, earnedAtMS: nowMS - Int64(25 - $0.offset * 7) * 86_400_000,
+          acknowledged: true)
+      }, featuredBadgeID: .folds100)
+    try owner.validate()
+    model.ownerMilestones = owner
     model.competitionPeriod = .month
     model.competitionProfile = CompetitionProfile(
       id: "sample-mika", nickname: "Mika",
@@ -189,6 +208,7 @@ import struct FoldingData.SetupProgress
     switch scenario {
     case "history", "history-long", "history-month": model.selectedTab = .history
     case "patterns": model.sheet = .patterns
+    case "milestones": model.sheet = .competition(.milestones)
     case "notifications":
       model.notificationAuthorization = .allowed
       model.notificationPreferences.dailyLimit = true
@@ -226,6 +246,9 @@ import struct FoldingData.SetupProgress
       loadPatterns: {
         try FoldingActivityPatterns.snapshot(events: fixtureEvents, analytics: analytics)
       }, deleteIncompleteEntry: { _ in throw Failure.readOnly })
+    self.actions.loadOwnerMilestones = { MilestoneOwnerLoad(snapshot: owner, confirmed: true) }
+    self.actions.featureMilestone = { _, _, _ in throw Failure.readOnly }
+    self.actions.acknowledgeMilestones = { _, _ in throw Failure.readOnly }
   }
   private static func history(
     events: [TrackingEvent], at nowMS: Int64, period: HistoryPeriod, offset: Int
@@ -267,3 +290,6 @@ import struct FoldingData.SetupProgress
   }
 
 }
+
+// Validation-only model dependency. The simulator fixture target links no transport or live API client.
+enum CompetitionTransportError: Error { case invalidResponse }
