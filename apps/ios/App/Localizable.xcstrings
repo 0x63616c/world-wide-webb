@@ -2582,61 +2582,61 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Month"
+            "value": "This Month"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Monat"
+            "value": "Dieser Monat"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mois"
+            "value": "Ce mois-ci"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mes"
+            "value": "Este mes"
           }
         },
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mes"
+            "value": "Este mes"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "月"
+            "value": "今月"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "월"
+            "value": "이번 달"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mês"
+            "value": "Este mês"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "月"
+            "value": "本月"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "月"
+            "value": "本月"
           }
         }
       }
@@ -2959,138 +2959,6 @@
         }
       }
     },
-    "leaderboard.periodDetails": {
-      "comment": "Leaderboard UI: Period details. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Period details"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Zeitraumdetails"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Détails de la période"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Detalles del periodo"
-          }
-        },
-        "es-419": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Detalles del período"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "期間の詳細"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "기간 세부사항"
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Detalhes do período"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "时段详情"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "時段詳細資訊"
-          }
-        }
-      }
-    },
-    "leaderboard.periodTimezone": {
-      "comment": "Period title followed by invariant timezone abbreviation UTC. Non-English copy is an AI draft; see docs/localization.md for QA status.",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ · UTC"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ · UTC"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ · UTC"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ · UTC"
-          }
-        },
-        "es-419": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ · UTC"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ · UTC"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ · UTC"
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ · UTC"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ · UTC"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ · UTC"
-          }
-        }
-      }
-    },
     "leaderboard.restricted": {
       "comment": "Leaderboard UI: Competition restricted. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
@@ -3362,61 +3230,61 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Week"
+            "value": "This Week"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Woche"
+            "value": "Diese Woche"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Semaine"
+            "value": "Cette semaine"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Semana"
+            "value": "Esta semana"
           }
         },
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "Semana"
+            "value": "Esta semana"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "週"
+            "value": "今週"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "주"
+            "value": "이번 주"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Semana"
+            "value": "Esta semana"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "周"
+            "value": "本周"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "週"
+            "value": "本週"
           }
         }
       }
@@ -6457,72 +6325,6 @@
         }
       }
     },
-    "profile.leave": {
-      "comment": "Competition UI or local notification. AI translations; native-speaker review pending.",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Leave competition"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Wettbewerb verlassen"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Quitter la compétition"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Salir de la competición"
-          }
-        },
-        "es-419": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Salir de la competencia"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ランキングから退出"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "경쟁 나가기"
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sair da competição"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "退出竞赛"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "退出競賽"
-          }
-        }
-      }
-    },
     "profile.nickname": {
       "comment": "App UI. Keep concise. Non-English copy is an AI draft; native-speaker review remains pending.",
       "extractionState": "manual",
@@ -6585,72 +6387,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "顯示名稱"
-          }
-        }
-      }
-    },
-    "profile.pending": {
-      "comment": "Competition UI or local notification. AI translations; native-speaker review pending.",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Awaiting review"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Warten auf Prüfung"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "En attente de vérification"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Pendiente de revisión"
-          }
-        },
-        "es-419": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Pendiente de revisión"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "審査待ち"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "검토 대기 중"
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Aguardando análise"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "等待审核"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "等待審核"
           }
         }
       }
@@ -9687,72 +9423,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "正在儲存"
-          }
-        }
-      }
-    },
-    "settings.setup": {
-      "comment": "Settings UI: Setup. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Setup"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Einrichtung"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Configuration"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Configuración"
-          }
-        },
-        "es-419": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Configuración"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "設定"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "설정"
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Configuração"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "设置"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "設定"
           }
         }
       }
@@ -13779,6 +13449,71 @@
           "stringUnit": {
             "state": "translated",
             "value": "Folding"
+          }
+        }
+      }
+    },
+    "results.rank": {
+      "comment": "Current live competition rank. Non-English copy needs native QA.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rank"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rang"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Classement"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Puesto"
+          }
+        },
+        "es-419": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Puesto"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "順位"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "순위"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Posição"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "排名"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "排名"
           }
         }
       }

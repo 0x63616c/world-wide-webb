@@ -460,4 +460,14 @@ test("admin root stays host-scoped and every admin view retains shared dark navi
     const html=await response.text();assert.ok(html.includes('<nav aria-label="Admin">'),path);assert.ok(html.includes('href="/admin/jobs"'),path);assert.ok(html.includes('background:#000'),path);assert.ok(html.includes('color-scheme:dark'),path);
     if(process.env.FOLDING_ADMIN_PREVIEW_DIR){await mkdir(process.env.FOLDING_ADMIN_PREVIEW_DIR,{recursive:true});await writeFile(`${process.env.FOLDING_ADMIN_PREVIEW_DIR}/${path.includes("jobs")?"jobs":path==="/admin"?"people":encodeURIComponent(path)}.html`,html);}
   }
+  const db=await authenticatedRuntime.getD1Database("DB");
+  const participant="00000000-0000-4000-8000-000000000046";
+  const namePage=await authenticatedRuntime.dispatchFetch("https://admin.example/admin/queue",{headers:{"Cf-Access-Jwt-Assertion":jwt}});
+  const html=await namePage.text();const csrf=html.match(/name="csrf_token" value="([^"]+)"/)[1];
+  const revision=await db.prepare("SELECT revision FROM participant_revisions WHERE participant_id=?").bind(participant).first("revision");
+  const removedApproval=await authenticatedRuntime.dispatchFetch(`https://admin.example/admin/names/${participant}/decision`,{method:"POST",headers:{"Cf-Access-Jwt-Assertion":jwt,"Content-Type":"application/x-www-form-urlencoded",Origin:"https://admin.example"},body:new URLSearchParams({operation_id:"00000000-0000-4000-8000-000000000061",csrf_token:csrf,participant_id:participant,expected_revision:String(revision),action:"approve",reason:"Approval is retired",confirmation:"yes"}).toString()});
+  assert.equal(removedApproval.status,422);
+  const retiredLeave=await authenticatedRuntime.dispatchFetch("https://api.example/v1/enrollment/leave",{method:"POST",headers:{Authorization:"Bearer "+Buffer.alloc(32,46).toString("base64url"),"Content-Type":"application/json"},body:JSON.stringify({operation_id:"00000000-0000-4000-8000-000000000062"})});
+  assert.ok(retiredLeave.status>=400);assert.equal(await db.prepare("SELECT membership FROM participants WHERE participant_id=?").bind(participant).first("membership"),"joined");
+
 });

@@ -43,8 +43,8 @@ protocol CompetitionJoinFailure: Error {
 }
 
 struct CompetitionProfileScreen: View {
-  @Environment(\.colorScheme) private var colorScheme
   @Environment(\.scenePhase) private var scenePhase
+  @Environment(\.colorScheme) private var colorScheme
   @State private var profileRefreshFailed = false
   @Bindable var model: FoldingPresentation
   let actions: FoldingActions
@@ -58,13 +58,8 @@ struct CompetitionProfileScreen: View {
   @State private var zoom = 1.0
   @State private var photoFailure = false
   @State private var photoLoading = false
-  @State private var avatarState: AvatarReviewState?
-  @State private var removal: Removal?
+  @State private var avatarState: AvatarState?
   @State private var confirmRemoval = false
-  private enum Removal: String, Identifiable {
-    case leave, delete
-    var id: Self { self }
-  }
   var body: some View {
     Group {
       if creating {
@@ -95,15 +90,10 @@ struct CompetitionProfileScreen: View {
               )
               .foregroundStyle(.secondary)
             }
-            if avatarState == .pending || model.competitionProfile?.avatarState == .pending {
-              Label(
-                String(localized: "profile.pending", defaultValue: "Awaiting review"),
-                systemImage: "clock")
-            }
             if avatarState == .rejected || model.competitionProfile?.avatarState == .rejected {
               Text(String(localized: "profile.photoFailed", defaultValue: "Choose another photo"))
             }
-            if model.competitionProfile?.avatarState != AvatarReviewState.none,
+            if model.competitionProfile?.avatarState != AvatarState.none,
               let remove = actions.removeAvatar
             {
               Button(
@@ -115,13 +105,14 @@ struct CompetitionProfileScreen: View {
                   {
                     try await remove()
                     photo = nil
-                    avatarState = AvatarReviewState.none
+                    avatarState = AvatarState.none
                     try await actions.refresh()
                   }
                 }
               }
             }
-          }
+          }.listRowBackground(
+            colorScheme == .dark ? Color.black : Color(uiColor: .systemBackground))
           Section {
             TextField(
               String(localized: "profile.nickname", defaultValue: "Display name"), text: $nickname
@@ -140,11 +131,6 @@ struct CompetitionProfileScreen: View {
                 Task { await refreshProfile() }
               }
             }
-            if !creating, model.competitionProfile?.nicknamePending == true {
-              Label(
-                String(localized: "profile.pending", defaultValue: "Awaiting review"),
-                systemImage: "clock")
-            }
             Button(
               creating
                 ? String(localized: "profile.join", defaultValue: "Join")
@@ -157,28 +143,26 @@ struct CompetitionProfileScreen: View {
               nickname.trimmingCharacters(in: .whitespacesAndNewlines).count < 3
                 || nickname.count > 20
                 || (creating ? actions.joinCompetition == nil : actions.saveNickname == nil))
-          }
+          }.listRowBackground(
+            colorScheme == .dark ? Color.black : Color(uiColor: .systemBackground))
           if !creating {
             Section {
-              Button(
-                String(localized: "profile.leave", defaultValue: "Leave competition"),
-                role: .destructive
-              ) {
-                removal = .leave
-                confirmRemoval = true
-              }.disabled(actions.leaveCompetition == nil)
               Button(
                 String(localized: "profile.delete", defaultValue: "Delete competition account"),
                 role: .destructive
               ) {
-                removal = .delete
                 confirmRemoval = true
               }.disabled(actions.deleteCompetitionAccount == nil)
-            }
+            }.listRowBackground(
+              colorScheme == .dark ? Color.black : Color(uiColor: .systemBackground))
           }
         }
+        .listRowBackground(colorScheme == .dark ? Color.black : Color(uiColor: .systemBackground))
       }
     }
+    .scrollContentBackground(.hidden)
+    .background(colorScheme == .dark ? Color.black : Color(uiColor: .systemBackground))
+    .environment(\.defaultMinListRowHeight, 48)
     .disabled(model.operation != nil)
     .navigationTitle(
       joining
@@ -189,19 +173,9 @@ struct CompetitionProfileScreen: View {
     .task {
       nickname = joining ? model.joinNickname : (model.competitionProfile?.nickname ?? "")
     }
-    .task(
-      id:
-        "\(scenePhase)-\(model.competitionProfile?.avatarState.rawValue ?? "none")-\(model.competitionProfile?.nicknamePending == true)"
-    ) {
+    .task(id: scenePhase) {
       guard !creating, scenePhase == .active else { return }
-      repeat {
-        await refreshProfile()
-        guard !Task.isCancelled, !profileRefreshFailed,
-          model.competitionProfile?.avatarState == .pending
-            || model.competitionProfile?.nicknamePending == true
-        else { return }
-        do { try await Task.sleep(for: .seconds(15)) } catch { return }
-      } while !Task.isCancelled
+      await refreshProfile()
     }
     .onChange(of: model.competitionProfile?.avatarState) { _, state in
       avatarState = state
@@ -212,30 +186,20 @@ struct CompetitionProfileScreen: View {
     }
     .task(id: photoItem) { await loadPhoto() }
     .confirmationDialog(
-      removal == .delete
-        ? String(localized: "profile.delete", defaultValue: "Delete competition account")
-        : String(localized: "profile.leave", defaultValue: "Leave competition"),
-      isPresented: $confirmRemoval,
-      titleVisibility: .visible
+      String(localized: "profile.delete", defaultValue: "Delete competition account"),
+      isPresented: $confirmRemoval, titleVisibility: .visible
     ) {
-      Button(String(localized: "action.cancel", defaultValue: "Cancel"), role: .cancel) {
-        removal = nil
-      }
+      Button(String(localized: "action.cancel", defaultValue: "Cancel"), role: .cancel) {}
       Button(
-        removal == .delete
-          ? String(localized: "profile.delete", defaultValue: "Delete competition account")
-          : String(localized: "profile.leave", defaultValue: "Leave competition"),
+        String(localized: "profile.delete", defaultValue: "Delete competition account"),
         role: .destructive
       ) {
-        let action =
-          removal == .delete ? actions.deleteCompetitionAccount : actions.leaveCompetition
         Task {
           await model.command(
             String(localized: "profile.removing", defaultValue: "Removing competition data")
           ) {
-            guard let action else { return }
+            guard let action = actions.deleteCompetitionAccount else { return }
             try await action()
-            // The runtime refresh owns pending/completed removal, not optimistic local deletion.
             try await actions.refresh()
           }
         }
@@ -321,8 +285,6 @@ struct CompetitionProfileScreen: View {
               .padding(9)
               .background(.tint, in: Circle())
           }
-        Text(String(localized: "profile.choosePhoto", defaultValue: "Choose photo"))
-          .font(.subheadline)
       }
       .frame(maxWidth: .infinity)
       .contentShape(Rectangle())
@@ -455,37 +417,54 @@ struct CompetitionResultsScreen: View {
         String(localized: "leaderboard.period", defaultValue: "Period"),
         selection: $model.resultsPeriod
       ) {
-        Text(CompetitionPeriod.week.title).tag(CompetitionPeriod.week)
-        Text(CompetitionPeriod.month.title).tag(CompetitionPeriod.month)
+        ForEach(CompetitionPeriod.allCases) { Text($0.title).tag($0) }
       }.pickerStyle(.segmented)
-      if actions.loadResults == nil {
-        Text(String(localized: "results.unavailable", defaultValue: "Results unavailable"))
-      } else if model.results.isEmpty && !model.resultsLoading && !model.resultsFailed {
-        Text(String(localized: "results.empty", defaultValue: "No results yet"))
-      }
-      ForEach(model.results) { result in
-        NavigationLink {
-          CompetitionResultScreen(result: result, actions: actions)
-        } label: {
-          HStack {
-            VStack(alignment: .leading) {
-              Text(result.start, format: .dateTime.month(.abbreviated).day().year())
-              Text(result.folds, format: .number).foregroundStyle(.secondary)
-            }
-            Spacer()
-            if let medal = result.medal { medalIcon(medal) }
-            Text(result.rank, format: .number).monospacedDigit()
+      if model.resultsPeriod == .all {
+        if let entry = model.allTimeResult?.currentUser {
+          LabeledContent(
+            String(localized: "metric.folds", defaultValue: "Folds"), value: entry.folds.formatted()
+          )
+          LabeledContent(
+            String(localized: "results.rank", defaultValue: "Rank"), value: entry.rank.formatted())
+        } else if !model.resultsLoading {
+          Text(String(localized: "results.empty", defaultValue: "No results yet"))
+        }
+        if model.resultsLoading { ProgressView() }
+        if model.resultsFailed {
+          Button(String(localized: "action.retry", defaultValue: "Retry")) {
+            Task { await model.requestResults(using: actions) }
           }
         }
-      }
-      if model.resultsLoading { ProgressView() }
-      if model.resultsFailed {
-        Text(String(localized: "results.unavailable", defaultValue: "Results unavailable"))
-          .foregroundStyle(.secondary)
-      } else if model.resultsCursor != nil {
-        Button(String(localized: "results.more", defaultValue: "More results")) {
-          Task { await model.requestResults(using: actions, nextPage: true) }
-        }.disabled(model.resultsLoading)
+      } else {
+        if actions.loadResults == nil {
+          Text(String(localized: "results.unavailable", defaultValue: "Results unavailable"))
+        } else if model.results.isEmpty && !model.resultsLoading && !model.resultsFailed {
+          Text(String(localized: "results.empty", defaultValue: "No results yet"))
+        }
+        ForEach(model.results) { result in
+          NavigationLink {
+            CompetitionResultScreen(result: result, actions: actions)
+          } label: {
+            HStack {
+              VStack(alignment: .leading) {
+                Text(result.start, format: .dateTime.month(.abbreviated).day().year())
+                Text(result.folds, format: .number).foregroundStyle(.secondary)
+              }
+              Spacer()
+              if let medal = result.medal { medalIcon(medal) }
+              Text(result.rank, format: .number).monospacedDigit()
+            }
+          }
+        }
+        if model.resultsLoading { ProgressView() }
+        if model.resultsFailed {
+          Text(String(localized: "results.unavailable", defaultValue: "Results unavailable"))
+            .foregroundStyle(.secondary)
+        } else if model.resultsCursor != nil {
+          Button(String(localized: "results.more", defaultValue: "More results")) {
+            Task { await model.requestResults(using: actions, nextPage: true) }
+          }.disabled(model.resultsLoading)
+        }
       }
     }
     .navigationTitle(String(localized: "results.title", defaultValue: "Your Results"))

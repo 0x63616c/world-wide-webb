@@ -490,6 +490,12 @@ actor CompetitionTransport {
   }
   func pendingRemoval() throws -> CompetitionRemovalOperation? {
     guard let data = try credentials.read("removal") else { return nil }
+    if let value = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+      value["kind"] as? String == "leave"
+    {
+      try credentials.remove("removal")
+      return nil
+    }
     return try JSONDecoder().decode(CompetitionRemovalOperation.self, from: data)
   }
   func finishRemoval() throws { try credentials.remove("removal") }

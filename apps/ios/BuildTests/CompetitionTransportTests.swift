@@ -73,6 +73,28 @@ private final class EnrollmentProtocol: URLProtocol, @unchecked Sendable {
 }
 
 final class CompetitionTransportTests: XCTestCase {
+  func testRetiredLeaveCannotBecomeAccountDeletionAndDeletionSurvivesRestart() async throws {
+    let bundle = "app.getfolding.tests.\(UUID())"
+    let credentials = CompetitionCredentialStore(service: "\(bundle).competition.production")
+    let transport = try CompetitionTransport(
+      origin: URL(string: "https://api.getfolding.app")!, deployment: "production",
+      deviceID: UUID(), bundleID: bundle, attestation: AttestationProbe())
+    defer { try? credentials.remove("removal") }
+    let legacy: [String: Any] = [
+      "kind": "leave", "operationID": UUID().uuidString.lowercased(), "accepted": false,
+    ]
+    try credentials.write(JSONSerialization.data(withJSONObject: legacy), account: "removal")
+    let retired = try await transport.pendingRemoval()
+    XCTAssertNil(retired)
+    XCTAssertNil(try credentials.read("removal"))
+    let deletion = CompetitionRemovalOperation(
+      kind: .delete, operationID: UUID().uuidString.lowercased(), accepted: false,
+      deletionReceipt: nil)
+    try await transport.saveRemoval(deletion)
+    let restored = try await transport.pendingRemoval()
+    XCTAssertEqual(restored?.operationID, deletion.operationID)
+  }
+
   func testEnrollmentResponseLossReplaysPersistedProofAcrossTransportRestart() async throws {
     EnrollmentProtocol.lock.withLock {
       EnrollmentProtocol.enrollmentBodies = []

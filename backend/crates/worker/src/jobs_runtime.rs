@@ -16,7 +16,6 @@ struct Job {
 }
 const KINDS: &[&str] = &[
     "avatar_cleanup",
-    "avatar_alerts",
     "finalization",
     "corrections",
     "awards",
@@ -76,7 +75,7 @@ async fn run(env: &Env, db: &D1Database, id: &Id) -> std::result::Result<(), Fai
     } else {
         match job.kind.as_str() {
             "avatar_cleanup" => crate::avatar_runtime::cleanup_objects(env, db).await,
-            "avatar_alerts" => crate::avatar_alerts::dispatch(env, db).await,
+            "avatar_alerts" => Ok(()), // Finish any already-queued retired notification without sending it.
             "finalization" => crate::finalization_runtime::dispatch(db).await,
             "corrections" => crate::correction_runtime::dispatch(db).await,
             "awards" => crate::apns_runtime::dispatch(env, db).await,

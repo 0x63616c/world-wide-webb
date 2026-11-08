@@ -26,7 +26,6 @@ pub mod avatar;
 #[cfg(target_arch = "wasm32")]
 mod avatar_admin;
 #[cfg(target_arch = "wasm32")]
-mod avatar_alerts;
 #[cfg(target_arch = "wasm32")]
 mod avatar_runtime;
 #[cfg(target_arch = "wasm32")]

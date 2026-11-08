@@ -53,11 +53,15 @@ struct FoldingRootView: View {
                 .navigationTitle(String(localized: "tab.leaderboard", defaultValue: "Leaderboard"))
                 .toolbar {
                   if model.competitionJoined {
-                    ToolbarItem(placement: .topBarLeading) {
+                    ToolbarItem(placement: .topBarTrailing) {
                       Button {
                         model.present(.competition(.profile))
                       } label: {
-                        Image(systemName: "person.crop.circle")
+                        ApprovedAvatarImage(
+                          data: model.competitionProfile?.approvedAvatarData,
+                          url: model.competitionProfile?.approvedAvatarURL
+                        )
+                        .frame(width: 32, height: 32).clipShape(Circle())
                       }
                       .accessibilityLabel(
                         String(localized: "profile.title", defaultValue: "Profile"))
@@ -121,13 +125,6 @@ struct FoldingRootView: View {
       }
     case .editSummary: SummaryEditor(model: model, actions: actions)
     case .patterns: PatternsScreen(model: model, actions: actions)
-    case .leaderboardInfo:
-      let periodTitle = model.competition.previous?.periodTitle ?? ""
-      InformationSheet(
-        title: String(localized: "leaderboard.period", defaultValue: "Period"),
-        text: String(
-          localized: "leaderboard.periodTimezone",
-          defaultValue: "\(periodTitle) · UTC"))
     case .tiedRank(let rank):
       NavigationStack {
         List(
@@ -730,15 +727,13 @@ private struct SettingsScreen: View {
 
         }
         Section(String(localized: "settings.tracking", defaultValue: "Tracking")) {
-          LabeledContent(String(localized: "settings.setup", defaultValue: "Setup")) {
-            HStack(spacing: 6) {
-              if !model.needsSetup {
-                Image(systemName: "checkmark").font(.caption.weight(.bold)).foregroundStyle(.green)
-              }
-              Text(
-                model.needsSetup
-                  ? String(localized: "settings.setupRequired", defaultValue: "Not complete")
-                  : String(localized: "settings.setupComplete", defaultValue: "Tested"))
+          LabeledContent("Shortcuts") {
+            if model.needsSetup {
+              Text(String(localized: "settings.setupRequired", defaultValue: "Not complete"))
+            } else {
+              Image(systemName: "checkmark").foregroundStyle(.green)
+                .accessibilityLabel(
+                  String(localized: "settings.setupComplete", defaultValue: "Tested"))
             }
           }
           if let last = model.lastEventAt {
@@ -1303,6 +1298,8 @@ private struct LeaderboardScreen: View {
     Group {
       if model.competitionRemoval != nil {
         CompetitionRemovalScreen(model: model, actions: actions)
+      } else if let visible = model.competition.previous {
+        rankedList(visible)
       } else {
         switch model.competition {
         case .unavailable:
@@ -1392,27 +1389,16 @@ private struct LeaderboardScreen: View {
         NavigationLink(String(localized: "results.title", defaultValue: "Your Results")) {
           CompetitionResultsScreen(model: model, actions: actions)
         }
-        HStack {
-          Text(value.periodTitle).font(.subheadline).foregroundStyle(.secondary)
-          Spacer()
-          Button {
-            model.present(.leaderboardInfo)
-          } label: {
-            Image(systemName: "info.circle")
-          }.frame(minWidth: 44, minHeight: 44)
-            .accessibilityLabel(
-              String(localized: "leaderboard.periodDetails", defaultValue: "Period details"))
-        }
         let podium = Dictionary(
           grouping: value.entries.filter {
             (1...3).contains($0.rank) && !model.hiddenParticipantIDs.contains($0.id)
           }, by: \.rank)
         if !podium.isEmpty {
-          HStack(alignment: .top, spacing: 16) {
-            ForEach(podium.keys.sorted(), id: \.self) { rank in
+          HStack(alignment: .bottom, spacing: 16) {
+            ForEach([2, 1, 3], id: \.self) { rank in
               if let entries = podium[rank], let first = entries.first {
                 VStack(spacing: 8) {
-                  CrownedAvatar(entry: first, size: 48)
+                  CrownedAvatar(entry: first, size: rank == 1 ? 64 : 48)
                   Text(first.displayName).font(.caption).lineLimit(2)
                   if entries.count > 1 {
                     Button("+\((entries.count - 1).formatted())") { model.present(.tiedRank(rank)) }
@@ -1421,6 +1407,8 @@ private struct LeaderboardScreen: View {
                         String(localized: "leaderboard.viewTies", defaultValue: "View tied places"))
                   }
                 }.frame(maxWidth: .infinity)
+              } else {
+                Color.clear.frame(maxWidth: .infinity).frame(height: 1).accessibilityHidden(true)
               }
             }
           }.padding(.top, 16).listRowSeparator(.hidden)
@@ -1534,7 +1522,7 @@ private struct CrownedAvatar: View {
       .overlay(alignment: .topTrailing) {
         if let medal {
           Image(systemName: "crown.fill").font(.caption).foregroundStyle(medal.1)
-            .padding(2).background(.background, in: Circle()).offset(x: 4, y: -7)
+            .offset(x: 4, y: -7)
         }
       }
       .accessibilityLabel(medal?.0 ?? String(localized: "profile.avatar", defaultValue: "Avatar"))

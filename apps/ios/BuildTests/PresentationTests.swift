@@ -115,6 +115,38 @@ import XCTest
     XCTAssertEqual(model.history?.title, "New period")
   }
 
+  func testLeaderboardKeepsCurrentContentWhenChangingPeriod() async throws {
+    let model = FoldingPresentation()
+    model.competition = .loaded(leaderboard("Visible week"))
+    model.competitionPeriod = .month
+    var pending: CheckedContinuation<LeaderboardPresentation, Error>?
+    var actions = actions()
+    actions.loadLeaderboard = { _ in try await withCheckedThrowingContinuation { pending = $0 } }
+    let task = Task { await model.requestLeaderboard(using: actions) }
+    try await waitFor { pending != nil }
+    XCTAssertEqual(model.competition.previous?.periodTitle, "Visible week")
+    pending!.resume(returning: leaderboard("New month"))
+    await task.value
+    XCTAssertEqual(model.competition.previous?.periodTitle, "New month")
+  }
+
+  func testAllTimeResultsUseLiveAllTimeLeaderboard() async {
+    let model = FoldingPresentation()
+    model.resultsPeriod = .all
+    var actions = actions()
+    var requested: CompetitionPeriod?
+    actions.loadLeaderboard = { period in
+      requested = period
+      return self.leaderboard("All Time")
+    }
+    await model.requestResults(using: actions)
+    XCTAssertEqual(requested, .all)
+    XCTAssertEqual(model.allTimeResult?.periodTitle, "All Time")
+    XCTAssertFalse(model.resultsFailed)
+    model.invalidateCompetitionPresentation()
+    XCTAssertNil(model.allTimeResult)
+  }
+
   func testOlderLeaderboardSuccessDoesNotReplaceNewPeriod() async throws {
     let model = FoldingPresentation()
     var pending: [CompetitionPeriod: CheckedContinuation<LeaderboardPresentation, Error>] = [:]

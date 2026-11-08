@@ -101,11 +101,6 @@ actor CompetitionAPI {
       ]))
     return result.profile
   }
-  func leave(operationID: String) async throws -> CompetitionOperation {
-    try await transport.send(
-      "POST", path: "/v1/enrollment/leave",
-      body: CompetitionTransport.encode(["operation_id": operationID]))
-  }
   func blocks(cursor: String?) async throws -> HiddenParticipantsPage {
     struct Item: Decodable, Sendable {
       let participantID: String

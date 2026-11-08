@@ -9,7 +9,7 @@ struct CompetitionAvatarUpload: Codable, Sendable {
 }
 
 extension CompetitionAPI {
-  func uploadAvatar(_ bytes: Data) async throws -> AvatarReviewState {
+  func uploadAvatar(_ bytes: Data) async throws -> AvatarState {
     guard !bytes.isEmpty, bytes.count <= 2 * 1024 * 1024 else {
       throw CompetitionTransportError.invalidResponse
     }
@@ -35,37 +35,29 @@ extension CompetitionAPI {
     }
     struct Response: Decodable, Sendable {
       let avatarID: String
-      let state: AvatarReviewState
+      let publicationState: AvatarState?
       enum CodingKeys: String, CodingKey {
         case avatarID = "avatar_id"
-        case state
+        case publicationState = "publication_state"
       }
     }
     let result: Response = try await transport.protected(
       "PUT", path: "/v1/avatars/\(upload.operationID)", purpose: "avatar_upload", body: bytes,
       contentType: contentType)
-    guard UUID(uuidString: result.avatarID) != nil, [.pending, .approved].contains(result.state)
+    guard UUID(uuidString: result.avatarID) != nil, result.publicationState == .approved
     else {
       throw CompetitionTransportError.invalidResponse
     }
     upload.avatarID = result.avatarID
     try await transport.saveAvatarUpload(upload, context: context)
-    return result.state
-  }
-
-  func avatarStatus(_ id: String) async throws -> AvatarReviewState {
-    guard UUID(uuidString: id) != nil else { throw CompetitionTransportError.invalidResponse }
-    struct Response: Decodable, Sendable { let state: AvatarReviewState }
-    let response: Response = try await transport.send("GET", path: "/v1/avatars/\(id)/status")
-    guard response.state != .none else { throw CompetitionTransportError.invalidResponse }
-    return response.state
+    return .approved
   }
 
   func removeProfileAvatars() async throws -> CompetitionWireProfile {
     let context = await transport.avatarContext()
     let profile = try await me().profile
     let saved = try await transport.avatarUpload()
-    var ids = Set([profile.avatar_id, profile.pending_avatar_id].compactMap { $0 })
+    var ids = Set([profile.avatar_id].compactMap { $0 })
     if let saved, saved.participantID == profile.participant_id, let id = saved.avatarID {
       ids.insert(id)
     }
@@ -83,16 +75,5 @@ extension CompetitionAPI {
     return try await me().profile
   }
 
-  func refreshedProfile() async throws -> CompetitionWireProfile {
-    var profile = try await me().profile
-    if let pending = profile.pending_avatar_id {
-      let status = try await avatarStatus(pending)
-      if status != .pending {
-        profile = try await me().profile
-      } else {
-        profile.avatar_status = status.rawValue
-      }
-    }
-    return profile
-  }
+  func refreshedProfile() async throws -> CompetitionWireProfile { try await me().profile }
 }
