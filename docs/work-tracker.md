@@ -20,7 +20,7 @@ The coding checklist below is complete. The active goal is live iCloud and Cloud
 
 
 Local evidence: [coding completion](experiments/coding-completion.md). Broader shipping acceptance remains open.
-The owner is testing [TestFlight 0.1.5 (build 6)](experiments/testflight-preview-2026-11-07.md). Signed app/Shortcuts metadata, local compilation, localization, core checks, backend health and internal distribution passed. Startup/setup behavior and protected Join on the physical Duo remain unverified or failing; the live issue checklists keep those open.
+The latest internal preview is [TestFlight 0.1.7 (build 8)](experiments/testflight-preview-2026-11-07.md). Signed app/Shortcuts metadata, local compilation, localization, core checks, backend health and internal distribution passed. Startup/setup behavior and protected Join on the physical Duo remain unverified or failing; the live issue checklists keep those open.
 The chronological shipping checkpoints below remain evidence. Live integration has resumed under the active goal; CI, storefront/visual review, submission, and post-submission device checks remain deferred.
 
 [Folding — Ship v1](https://github.com/users/0x63616c/projects/9) is the live delivery board, with 33 linked deliverables under the original work orders. GitHub Issues hold acceptance criteria and evidence. Current execution is primary-agent implementation; subagents are limited to independent review. Physical-device evidence is deferred to F13 after submission by owner instruction.
@@ -217,4 +217,4 @@ GitHub #28, #32 and #40 checklists reflect these partial completions. CI and phy
 
 ## Today and Join follow-up
 
-- [ ] [#51 — Card heights, chart alignment and profile prefilling](https://github.com/0x63616c/folding/issues/51): implementation and local checks underway; internal TestFlight distribution pending. Physical-device authorization/Join/upload checks remain separate.
+- [x] [#51 — Card heights, chart alignment and profile prefilling](https://github.com/0x63616c/folding/issues/51): shipped TestFlight 0.1.7 (8), Apple VALID and confirmed in Folding Internal. Implementation `a8a6e85`; 74 core tests, 30 simulator tests, localization and rendered fixtures passed. Device authorization/Join/upload acceptance remains separate.
