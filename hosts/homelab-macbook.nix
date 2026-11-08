@@ -17,8 +17,7 @@
   homelab.updates.stateful.enable = true;
   homelab.runners = {
     enable = true;
-    # Keep CI idle while the MacBook hosts the migration rehearsal/services.
-    admissionEnabled = false;
+    admissionEnabled = true;
     githubAppId = "5662381";
     repositories."0x63616c/world-wide-webb" = {
       repositoryId = 1260632595;
