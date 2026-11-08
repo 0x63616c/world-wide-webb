@@ -8,6 +8,7 @@ struct PanelTimerPage: View {
     @State private var hours = 0
     @State private var minutes = 15
     @State private var seconds = 0
+    @State private var zeroResetTask: Task<Void, Never>?
 
     var body: some View {
         ZStack {
@@ -139,7 +140,8 @@ struct PanelTimerPage: View {
                 Button("Cancel") { editing = false }.buttonStyle(.glass)
                     .accessibilityIdentifier("timer-edit-cancel")
                 Button {
-                    timer.setDuration(Double(hours * 3600 + minutes * 60 + seconds))
+                    let duration = hours * 3600 + minutes * 60 + seconds
+                    timer.setDuration(Double(duration == 0 ? 60 : duration))
                     editing = false
                 } label: {
                     Text("Done").foregroundStyle(.black)
@@ -148,15 +150,31 @@ struct PanelTimerPage: View {
                 .accessibilityIdentifier("timer-edit-save")
             }.font(.title3.weight(.semibold)).controlSize(.extraLarge)
         }.frame(maxWidth: .infinity, maxHeight: .infinity)
-            .onChange(of: hours + minutes + seconds) { _, total in
-                guard total == 0 else { return }
-                withAnimation(reduceMotion ? nil : .snappy) { minutes = 1 }
-            }
+            .onDisappear { zeroResetTask?.cancel() }
     }
+    private func normalizeEmptySelection() {
+        zeroResetTask?.cancel()
+        guard hours + minutes + seconds == 0 else { return }
+        // Debounce the native wheel's final callbacks before selecting one minute.
+        zeroResetTask = Task {
+            do { try await Task.sleep(for: .milliseconds(350)) } catch { return }
+            guard hours + minutes + seconds == 0 else { return }
+            withAnimation(reduceMotion ? nil : .snappy) { minutes = 1 }
+        }
+    }
+
     private func durationWheel(_ title: String, selection: Binding<Int>, range: Range<Int>) -> some View {
         VStack(spacing: 12) {
             Text(title).font(.title3).foregroundStyle(.secondary)
-            Picker(title, selection: selection) {
+            Picker(
+                title,
+                selection: Binding(
+                    get: { selection.wrappedValue },
+                    set: { value in
+                        selection.wrappedValue = value
+                        normalizeEmptySelection()
+                    })
+            ) {
                 ForEach(range, id: \.self) { Text("\($0)").tag($0) }
             }
             .pickerStyle(.wheel)
