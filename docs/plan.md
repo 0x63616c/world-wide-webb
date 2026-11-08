@@ -23,6 +23,28 @@ time archiving those. Preserve service data, credentials, identities and network
 recovery configuration. Restore the retained services directly
 onto the newly enrolled Mini afterward. Penpot recovery remains optional.
 
+### Pre-wipe gates completed
+
+The direct-rebuild handoff is ready. Full set `20261108T150608Z` has18 NAS
+payloads independently downloaded and hash-verified. The authoritative final
+Docker checkpoint is `prewipe-docker-20261108T152439Z` on the NAS, with16
+archives (2,676,599,296 uncompressed bytes), encrypted recovery also retained on
+the operator Mac. Its encryption/decryption, every archive checksum and NAS
+read-back passed; final Control Center, HA and Bambuddy SQLite checks passed.
+The exact final Hindsight physical data recovered offline into fresh storage:
+31 banks,6,495 memories and1,587 documents, followed by clean PG shutdown.
+This latest checkpoint contains newer records than the normal backup: use it
+as the authoritative app-data recovery source after enrollment.
+
+All16 source containers are stopped with restart disabled;13 automatic owners
+are unloaded and both Docker engines are offline. The rebuilt-Mini recipe and
+[owner checklist](direct-rebuild-handoff.md) are on main. Native enrollment
+fixture build passed after operator-key/host-secret provisioning, matching the
+CLI's normal sequence. No machine has been erased and no live services moved
+to the MacBook. Calum now owns wipe/admin/Remote Login/CLI setup; restore and
+functional checks on the new Mini follow afterward. Private recovery receipt:
+`~/.local/state/homelab-migration/20261108/PREWIPE-HANDOFF.json`.
+
 ### Agreed end state and responsibilities
 
 - **Mac mini:** runs all retained home services under this repository's managed
@@ -53,7 +75,8 @@ onto the newly enrolled Mini afterward. Penpot recovery remains optional.
 ### Execution evidence so far
 
 Work is active in the isolated `codex/mini-migration` worktree. Production remains
-on the mini; it is not ready to wipe. No migration configuration has been activated.
+in the stopped Mini installation; the verified direct-rebuild handoff above
+supersedes this earlier chronological evidence.
 
 - Correct separate administrator items verified on both Macs; the manually
   created mini item requires explicit handling during fresh CLI enrollment.
