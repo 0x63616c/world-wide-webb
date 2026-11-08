@@ -8,8 +8,8 @@ import XCTest
 @testable import Folding
 
 /// Direct rendering of production views with isolated fictional data; no UI automation or live account.
-@MainActor final class CrownPreviewSnapshotTests: XCTestCase {
-  func testRenderLeaderboardCrownPreview() async throws {
+@MainActor final class LeaderboardPreviewSnapshotTests: XCTestCase {
+  func testRenderLeaderboardPreview() async throws {
     let fixture = try XCTUnwrap(
       Bundle(for: Self.self).url(forResource: "ProfilePortraits", withExtension: "png"))
     let atlas = try XCTUnwrap(UIImage(contentsOfFile: fixture.path)?.cgImage)
@@ -55,7 +55,7 @@ import XCTest
       window.isHidden = true
       oldWindow?.makeKeyAndVisible()
     }
-    print("CROWN_PREVIEW_SCENE=\(scene.coordinateSpace.bounds) WINDOW=\(window.bounds)")
+    print("LEADERBOARD_PREVIEW_SCENE=\(scene.coordinateSpace.bounds) WINDOW=\(window.bounds)")
     for (name, size) in [("preview", scene.coordinateSpace.bounds.size)] {
       window.frame = CGRect(origin: .zero, size: size)
       host.view.frame = window.bounds
@@ -70,15 +70,15 @@ import XCTest
         host.view.drawHierarchy(in: host.view.bounds, afterScreenUpdates: true)
       }
       let output = FileManager.default.temporaryDirectory.appendingPathComponent(
-        "folding-crowns-\(name).png")
+        "folding-leaderboard-\(name).png")
       try XCTUnwrap(image.pngData()).write(to: output)
       let attachment = XCTAttachment(image: image)
-      attachment.name = "Leaderboard crowns \(name)"
+      attachment.name = "Leaderboard \(name)"
       attachment.lifetime = .keepAlways
       add(attachment)
-      print("CROWN_PREVIEW_IMAGE=\(output.path)")
+      print("LEADERBOARD_PREVIEW_IMAGE=\(output.path)")
       let animationURL = FileManager.default.temporaryDirectory.appendingPathComponent(
-        "folding-crowns-animated.gif")
+        "folding-leaderboard-animated.gif")
       let destination = try XCTUnwrap(
         CGImageDestinationCreateWithURL(
           animationURL as CFURL, UTType.gif.identifier as CFString, 48, nil))
@@ -100,7 +100,7 @@ import XCTest
           [kCGImagePropertyGIFDictionary: [kCGImagePropertyGIFDelayTime: 0.083]] as CFDictionary)
       }
       XCTAssertTrue(CGImageDestinationFinalize(destination))
-      print("CROWN_PREVIEW_ANIMATION=\(animationURL.path)")
+      print("LEADERBOARD_PREVIEW_ANIMATION=\(animationURL.path)")
 
     }
   }

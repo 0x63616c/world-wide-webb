@@ -317,3 +317,5 @@ Owner decision, November 8: leaving competition is not a separate action. Users 
 ## Owner compatibility decision — November 8, 2026
 
 The owner explicitly selected a whole-app required-update screen once a confirmed remotely configured minimum build exceeds the installed build. This supersedes earlier guidance that a release handshake never disables private UI. Unknown/unreachable policy alone must not block offline use; a known requirement remains cached. Saved history/background observations must not be erased or terminally rejected. Policy rollback and a supported new installation can recover access. See [client compatibility](technical/client-compatibility.md), #56 and the separate offline cold-start caveat #57. This is not provider/device acceptance.
+
+Owner decision, November 8: remove all crown artwork from leaderboard avatars, result views and share cards. Keep the larger centered winner, static silver/bronze podium rings, and gold-only shimmer/particles with a Reduce Motion fallback.

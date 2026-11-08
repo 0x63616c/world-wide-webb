@@ -220,3 +220,5 @@ keeps static thanks.
 For a confirmed unsupported build, replace the complete root UI with the required-update screen; do not use a dismissible sheet over setup/navigation. Use one concise heading ("A newer version is required"), an Update button and external support; omit repeated instructions, data reassurance and manual recheck. Unknown policy during a connection failure does not block UI; a cached confirmed requirement survives restart/offline. Preserve local history and background observation queues. This owner-selected behavior supersedes earlier non-blocking-handshake guidance; see [client compatibility](client-compatibility.md).
 
 Admin Operations is the sole owner of required-update policy: one Minimum build number field (0 = off), existing audited Save, and a one-minute propagation hint. No deployment-variable override.
+
+Owner refinement, November 8: avatars and share cards display no crowns. The podium retains the larger centered winner and metal-colored rings, with gold-only shimmer/particles and a static Reduce Motion fallback. Silver/bronze rings stay still.
