@@ -48,6 +48,8 @@ in {
       environment = { HOME = "/var/lib/_containers"; };
       script = ''
         set -eu
+        # Colima probes macOS with native tools before exposing VZ/Rosetta flags.
+        export PATH="$PATH:/usr/bin:/bin:/usr/sbin:/sbin"
         exec colima start --profile services --foreground --vm-type vz \
           --vz-rosetta --cpu 4 --memory ${toString cfg.memoryGiB} \
           --mount /var/lib/_containers:w \
