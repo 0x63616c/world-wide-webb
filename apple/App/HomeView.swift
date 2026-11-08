@@ -190,20 +190,21 @@ struct HomeView: View {
         withAnimation(.spring(duration: 0.3, bounce: 0)) { shell.showClock() }
     }
     var body: some View {
-        GeometryReader { proxy in
+        PanelCanvas { canvas in
             ZStack {
                 Color.black.ignoresSafeArea()
                 ZStack {
-                    clockSurface(width: proxy.size.width)
+                    clockSurface(width: canvas.size.width)
+                        .frame(width: canvas.size.width, height: canvas.size.height)
                     if showingClock {
                         // A tap recognizer cancels on movement; a full-screen Button
                         // can activate after a drag that ends inside its large bounds.
                         Color.clear.contentShape(.rect)
                             .onTapGesture(perform: home)
-                            .gesture(faceDragGesture(width: proxy.size.width))
+                            .gesture(faceDragGesture(width: canvas.size.width))
                             .accessibilityAdjustableAction { direction in
-                                if direction == .increment { settleFace(by: 1, width: proxy.size.width) }
-                                if direction == .decrement { settleFace(by: -1, width: proxy.size.width) }
+                                if direction == .increment { settleFace(by: 1, width: canvas.size.width) }
+                                if direction == .decrement { settleFace(by: -1, width: canvas.size.width) }
                             }
                             .accessibilityElement()
                             .accessibilityLabel("Open apps")
@@ -221,22 +222,24 @@ struct HomeView: View {
                         LauncherGlassSurface()
                     }
                     .clipShape(.rect(cornerRadius: PanelSurface.cornerRadius))
-                    .offset(y: showingClock ? proxy.size.height : 0)
+                    .frame(width: canvas.size.width, height: canvas.size.height)
+                    .offset(y: showingClock ? canvas.size.height : 0)
                     .allowsHitTesting(!showingClock && selected == nil)
                     .accessibilityHidden(showingClock || selected != nil)
                 }
                 .modifier(
                     LauncherSurfaceMotion(
                         motion: launcherMotion,
-                        progress: selected == nil ? 0 : 1, width: proxy.size.width,
+                        progress: selected == nil ? 0 : 1, width: canvas.size.width,
                         incoming: false))
                 if let selected {
                     appScreen(selected)
+                        .frame(width: canvas.size.width, height: canvas.size.height)
                         .clipShape(.rect(cornerRadius: PanelSurface.cornerRadius))
-                        .transition(launcherMotion.incomingTransition(width: proxy.size.width))
+                        .transition(launcherMotion.incomingTransition(width: canvas.size.width))
                         .zIndex(2)
                 }
-            }.frame(width: proxy.size.width, height: proxy.size.height).clipped()
+            }.frame(width: canvas.size.width, height: canvas.size.height).clipped()
                 .environment(\.colorScheme, .dark).foregroundStyle(.white).tint(.white)
                 .onOpenURL { url in if url.host == "dogwalk", let app = catalog.app(id: "walks") { open(app) } }
                 .onChange(of: store.walks.activeWalk, initial: true) { _, walk in
@@ -275,7 +278,6 @@ struct HomeView: View {
             PanelIdleDimming(
                 onIdle: clock, timeout: display.returnToClockSeconds, inhibited: keepsAwake, onWake: onWake)
         )
-        .ignoresSafeArea(.container)
         #if targetEnvironment(simulator)
             .background {
                 Button("Open apps") { if showingClock || selected != nil { home() } else { clock() } }
@@ -294,6 +296,12 @@ struct HomeView: View {
         }
     }
     private func appScreen(_ app: PanelAppDefinition) -> some View {
+        AppCanvasPage {
+            appContent(app)
+        }
+    }
+
+    private func appContent(_ app: PanelAppDefinition) -> some View {
         VStack(spacing: 0) {
             Group {
                 switch app.route {

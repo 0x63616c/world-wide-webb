@@ -21,14 +21,30 @@ final class PanelPlatformPolicyTests: XCTestCase {
         XCTAssertEqual(Bundle.main.object(forInfoDictionaryKey: "LSRequiresIPhoneOS") as? Bool, true)
     }
 
-    func testLauncherFitsCompactAndRegularWindows() {
-        for width in [320.0, 360, 390, 600, 700, 900, 1366] {
-            let layout = LauncherLayout(width: width, compact: width < 600)
+    func testLauncherFitsEverySupportedCanvas() {
+        for profile in PanelCanvasProfile.allCases {
+            let layout = LauncherLayout(profile: profile)
             let occupied =
                 Double(layout.columns) * layout.iconFrameSide
                 + Double(max(0, layout.columns - 1)) * 28 + layout.horizontalInset * 2
-            XCTAssertLessThanOrEqual(occupied, width, "Launcher overflow at \(width)")
+            XCTAssertLessThanOrEqual(occupied, profile.size.width, "Launcher overflow on \(profile)")
             XCTAssertGreaterThanOrEqual(layout.iconFrameSide, 44)
         }
+    }
+
+    func testCanvasSizesMatchThePanelAndDuoDisplays() {
+        XCTAssertEqual(PanelCanvasProfile.iPad.size, CGSize(width: 1366, height: 1024))
+        XCTAssertEqual(PanelCanvasProfile.duoClosed.size, CGSize(width: 1398 / 3, height: 2034 / 3))
+        XCTAssertEqual(PanelCanvasProfile.duoOpen.size, CGSize(width: 2853 / 3, height: 2007 / 3))
+        for profile in PanelCanvasProfile.allCases {
+            XCTAssertEqual(PanelCanvasProfile.resolve(size: profile.size), profile)
+            XCTAssertEqual(
+                PanelCanvasProfile.resolve(size: CGSize(width: profile.size.height, height: profile.size.width)),
+                profile)
+        }
+        // An intermediate fold proposal selects a composition, never an
+        // intermediate font size or canvas.
+        XCTAssertEqual(PanelCanvasProfile.resolve(size: CGSize(width: 750, height: 669)), .duoOpen)
+        XCTAssertEqual(PanelCanvasProfile.resolve(size: CGSize(width: 500, height: 678)), .duoClosed)
     }
 }

@@ -33,7 +33,7 @@ struct PresenceClockFace: View {
                     TideClockDial(date: now, night: night)
                 }
             }.accessibilityIdentifier("clock-face")
-        }.ignoresSafeArea()
+        }
     }
     private var previewNight: Bool {
         #if DEBUG
