@@ -272,3 +272,7 @@ GitHub #28, #32 and #40 checklists reflect these partial completions. CI and phy
 ### Combined rollout — November 8, 2026
 
 - [x] [PR #61](https://github.com/0x63616c/folding/pull/61) merged as `4f8180d`. Combined checks: 109 core, 53 app-hosted, 34 Rust and 15 Worker/D1 tests. Both API environments preserve current bindings/flags and expose minimum 0; Apple confirms VALID build 12 in Folding Internal. [Release evidence](experiments/api-offline-release-2026-11-08.md). No forced-update activation, physical acceptance, CI, storefront review or App Store submission is claimed.
+
+### Admin-managed required updates — November 8, 2026
+
+- [ ] [#65](https://github.com/0x63616c/folding/issues/65): Operations owns the persisted minimum build, with existing Access/CSRF/revision/audit safeguards, default 0, bounded policy caching and no deployment-variable override. Local Rust/Wasm checks and 16 Worker/D1 tests verify activation, rollback, authorization, bounds and replay/stale edits; staging/production rollout remains pending.
