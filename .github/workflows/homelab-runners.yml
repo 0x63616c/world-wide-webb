@@ -2,6 +2,7 @@ name: Homelab runner validation
 on:
   push:
     branches: [codex/linux-runner-canary]
+    paths: [.github/workflows/homelab-runners.yml, tools/measure_runner_job.py]
   workflow_dispatch:
 permissions:
   contents: read
