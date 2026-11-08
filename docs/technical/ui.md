@@ -38,6 +38,8 @@ Start with a spacing scale of 4, 8, 12, 16, 24, and 32 points. Use 16-point comp
 
 Use native navigation bars, tab bars, sheets, menus, pickers, buttons, and chart controls. Let standard system controls adopt Liquid Glass. Do not put custom glass behind every statistic, add decorative blurred cards, or draw imitation system buttons. Any custom material requires a demonstrated readability benefit in the rendered review. Apple's material guidance treats glass as a controls/navigation surface; the precise rendering follows the OS and accessibility settings. [Apple materials guidance](https://developer.apple.com/design/human-interface-guidelines/materials)
 
+Today value cards share a 108-point minimum height; active duration stays inside its card and large accessibility text may expand the layout. Chart bars and labels use identical ordinal bin positions, with aligned axis marks and no label-induced mark offsets.
+
 No decorative gradient is required. No mascot, gamified streak counter, achievement feed, or custom chart engine is part of v1.
 
 ## 4. Guided setup: durable state machine
@@ -93,7 +95,7 @@ Session detail shows start, end or running state, time unfolded, and completenes
 
 ## 7. Leaderboard, profile, and results
 
-Before opt-in, show a short competition description and the system Sign in with Apple control. Do not request it during tracking setup. After sign-in, present suggested nickname, optional avatar, and Join confirmation; cancellation leaves private tracking unaffected. Disable duplicate Join submissions while one command is pending.
+Before opt-in, show a short competition description and the system Sign in with Apple control. Do not request it during tracking setup. Cache Apple's one-time name response in device-only storage before the server exchange, keyed to the Apple identity; do not reuse it across identities, and clear it after confirmed account deletion. After sign-in, present suggested nickname, an explicitly labeled optional photo picker (Apple provides no profile photo), and Join confirmation; cancellation leaves private tracking unaffected. Disable duplicate Join submissions while one command is pending.
 
 Use a native segmented picker: Week / Month / All Time. The header shows period/date range and an info button; UTC belongs only in details or a compact label where necessary. Never print backend rules above the list. Show a compact podium of the first three distinct medal ranks that exist, then the ranked list. Tie groups may contain more people than available podium space: show a representative avatar plus a “+N” affordance that opens the tied group. Every tied entrant receives the correct rank/crown in the list; never silently break ties to fill three slots.
 

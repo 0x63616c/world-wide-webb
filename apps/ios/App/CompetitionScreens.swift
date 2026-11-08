@@ -148,6 +148,7 @@ struct CompetitionProfileScreen: View {
                 : String(localized: "profile.save", defaultValue: "Save")
             ) { saveName() }
             .buttonStyle(.borderedProminent)
+            .foregroundStyle(FoldingTint.onTint)
             .frame(maxWidth: .infinity)
             .disabled(
               nickname.trimmingCharacters(in: .whitespacesAndNewlines).count < 3
@@ -258,7 +259,7 @@ struct CompetitionProfileScreen: View {
           TextField(
             String(localized: "profile.nickname", defaultValue: "Nickname"), text: $nickname
           )
-          .textContentType(.nickname)
+          .textContentType(.name)
           .textInputAutocapitalization(.words)
           .padding(16)
           .background(
@@ -277,6 +278,7 @@ struct CompetitionProfileScreen: View {
               .frame(maxWidth: .infinity)
           }
           .buttonStyle(.borderedProminent)
+          .foregroundStyle(FoldingTint.onTint)
           .controlSize(.large)
           .frame(maxWidth: .infinity)
           .disabled(
@@ -294,18 +296,22 @@ struct CompetitionProfileScreen: View {
 
   private var avatarPicker: some View {
     PhotosPicker(selection: $photoItem, matching: .images) {
-      avatarPreview
-        .frame(width: creating ? 104 : 128, height: creating ? 104 : 128)
-        .clipShape(Circle())
-        .overlay(alignment: .bottomTrailing) {
-          Image(systemName: "camera.fill")
-            .font(.caption.weight(.bold))
-            .foregroundStyle(.white)
-            .padding(9)
-            .background(.tint, in: Circle())
-        }
-        .frame(maxWidth: .infinity)
-        .contentShape(Rectangle())
+      VStack(spacing: 8) {
+        avatarPreview
+          .frame(width: creating ? 104 : 128, height: creating ? 104 : 128)
+          .clipShape(Circle())
+          .overlay(alignment: .bottomTrailing) {
+            Image(systemName: "camera.fill")
+              .font(.caption.weight(.bold))
+              .foregroundStyle(FoldingTint.onTint)
+              .padding(9)
+              .background(.tint, in: Circle())
+          }
+        Text(String(localized: "profile.choosePhoto", defaultValue: "Choose photo"))
+          .font(.subheadline)
+      }
+      .frame(maxWidth: .infinity)
+      .contentShape(Rectangle())
     }
     .buttonStyle(.plain)
     .disabled(actions.uploadAvatar == nil || photoLoading)
@@ -325,7 +331,9 @@ struct CompetitionProfileScreen: View {
   @ViewBuilder private var avatarPreview: some View {
     if let photo {
       Image(uiImage: photo).resizable().scaledToFill().scaleEffect(zoom)
-    } else if creating {
+    } else if creating, model.competitionProfile?.approvedAvatarData == nil,
+      model.competitionProfile?.approvedAvatarURL == nil
+    {
       Group {
         if let first = nickname.first {
           Text(String(first).uppercased())

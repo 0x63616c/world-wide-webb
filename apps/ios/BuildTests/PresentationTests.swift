@@ -1,9 +1,22 @@
 import FoldingDomain
+import Foundation
 import XCTest
 
 @testable import Folding
 
 @MainActor final class PresentationTests: XCTestCase {
+  func testAppleNameSurvivesRepeatAuthorizationAndDoesNotCrossAccounts() throws {
+    let store = CompetitionCredentialStore(service: "folding.name.test.\(UUID())")
+    defer { try? store.remove("apple-name") }
+    var name = PersonNameComponents()
+    name.givenName = "Ari"
+    name.familyName = "Webb"
+    XCTAssertEqual(try AppleNameSuggestion.resolve(name, userID: "first", store: store), "Ari Webb")
+    XCTAssertEqual(try AppleNameSuggestion.resolve(nil, userID: "first", store: store), "Ari Webb")
+    XCTAssertNil(try AppleNameSuggestion.resolve(nil, userID: "second", store: store))
+    XCTAssertNil(try AppleNameSuggestion.resolve(nil, userID: "first", store: store))
+  }
+
   func testLegacyAccentIsIgnoredWithoutLosingPreferences() throws {
     var preferences = FoldingPreferences()
     preferences.appearance = .dark

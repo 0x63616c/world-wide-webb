@@ -35,6 +35,41 @@ struct CompetitionSignInResult {
   let suggestedName: String?
 }
 
+/// Apple supplies a name only on the initial grant. Retain it before the server exchange
+/// so an exchange failure or a later authorization cannot discard that one-time response.
+enum AppleNameSuggestion {
+  static let store = CompetitionCredentialStore(
+    service: (Bundle.main.bundleIdentifier ?? "Folding") + ".apple-name-suggestion")
+  private struct Saved: Codable {
+    let userHash: String
+    let name: String
+  }
+  static func resolve(
+    _ components: PersonNameComponents?, userID: String,
+    store: CompetitionCredentialStore
+  ) throws -> String? {
+    let userHash = SHA256.hash(data: Data(userID.utf8)).map { String(format: "%02x", $0) }.joined()
+    if let components {
+      let full = PersonNameComponentsFormatter().string(from: components)
+        .trimmingCharacters(in: .whitespacesAndNewlines)
+      if !full.isEmpty {
+        let given = components.givenName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let name = full.count <= 20 || given.isEmpty ? full : given
+        try store.write(
+          JSONEncoder().encode(Saved(userHash: userHash, name: name)), account: "apple-name")
+        return name
+      }
+    }
+    if let data = try store.read("apple-name"),
+      let saved = try? JSONDecoder().decode(Saved.self, from: data), saved.userHash == userHash
+    {
+      return saved.name
+    }
+    try store.remove("apple-name")
+    return nil
+  }
+}
+
 @MainActor
 final class CompetitionSignIn: NSObject, ASAuthorizationControllerDelegate,
   ASAuthorizationControllerPresentationContextProviding
@@ -125,6 +160,11 @@ final class CompetitionSignIn: NSObject, ASAuthorizationControllerDelegate,
       let identity = String(data: identityData, encoding: .utf8),
       let code = String(data: codeData, encoding: .utf8)
     else { throw CompetitionTransportError.unauthorized }
+    let suggestedName =
+      purpose == "sign_in"
+      ? try AppleNameSuggestion.resolve(
+        credential.fullName, userID: credential.user,
+        store: AppleNameSuggestion.store) : nil
     struct Exchange: Encodable {
       // swift-format-ignore: AlwaysUseLowerCamelCase
       let operation_id: String
@@ -167,13 +207,6 @@ final class CompetitionSignIn: NSObject, ASAuthorizationControllerDelegate,
           challenge_id: challenge.challenge_id, identity_token: identity, authorization_code: code,
           device_id: deviceID.uuidString.lowercased(), deletionOperationID: deletionOperationID)),
       authenticated: purpose == "reauthenticate")
-    let suggestedName = credential.fullName.flatMap { components -> String? in
-      let full = PersonNameComponentsFormatter().string(from: components)
-        .trimmingCharacters(in: .whitespacesAndNewlines)
-      if (3...20).contains(full.count) { return full }
-      let given = components.givenName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-      return (3...20).contains(given.count) ? given : nil
-    }
     return (response, suggestedName)
   }
 

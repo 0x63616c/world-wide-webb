@@ -61,7 +61,8 @@ import struct FoldingData.SetupProgress
     locale = value("--folding-screenshot-locale", default: "en")
     let appearance = value("--folding-screenshot-appearance", default: "light")
     guard
-      ["today", "history", "leaderboard", "settings", "setup", "join", "tipjar"].contains(scenario),
+      ["today", "today-running", "history", "leaderboard", "settings", "setup", "join", "tipjar"]
+        .contains(scenario),
       ["en", "de", "fr", "es", "es-419", "ja", "ko", "pt-BR", "zh-Hans", "zh-Hant"].contains(
         locale) || (scenario == "tipjar" && locale == "en-US"),
       ["light", "dark"].contains(appearance)
@@ -96,6 +97,15 @@ import struct FoldingData.SetupProgress
               timezoneID: "GMT", transition: transition, isTest: false, competitionEpochID: nil))
         }
       }
+    }
+    if scenario == "today-running" {
+      sequence += 1
+      events.append(
+        TrackingEvent(
+          schemaVersion: 1, eventID: UUID(uuidString: "77777777-7777-7777-7777-777777777777")!,
+          deviceID: device,
+          sequence: sequence, generation: .initial, observedAtMS: nowMS - 30 * 60_000,
+          timezoneID: "GMT", transition: .open, isTest: false, competitionEpochID: nil))
     }
     let range = try PersonalDateRange.trailingDays(7, throughMS: nowMS, homeTimezone: "GMT")
     let analytics = try PersonalAnalytics.snapshot(

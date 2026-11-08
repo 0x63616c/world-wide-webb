@@ -297,7 +297,10 @@ import struct FoldingData.SetupProgress
         joinedParticipantID = nil
         presentation.publicTrackingPhone = nil
         pushDelegate?.discardPendingRoute()
-        if operation.kind == .delete { try await api.transport.clearSession() }
+        if operation.kind == .delete {
+          try AppleNameSuggestion.store.remove("apple-name")
+          try await api.transport.clearSession()
+        }
         try await api.transport.finishRemoval()
         presentation.invalidateCompetitionPresentation()
         presentation.competitionRemoval = nil

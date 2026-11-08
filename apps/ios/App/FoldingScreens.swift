@@ -232,6 +232,7 @@ private struct TodayScreen: View {
           }
           .frame(maxWidth: .infinity, alignment: .leading)
           .padding(20)
+          .frame(minHeight: 108, alignment: .leading)
           .background(
             Color(uiColor: .secondarySystemGroupedBackground),
             in: RoundedRectangle(cornerRadius: 20)
@@ -243,6 +244,7 @@ private struct TodayScreen: View {
                 metricView(metric, today: today)
                   .frame(maxWidth: .infinity, alignment: .leading)
                   .padding(20)
+                  .frame(minHeight: 108, alignment: .leading)
                   .background(
                     Color(uiColor: .secondarySystemGroupedBackground),
                     in: RoundedRectangle(cornerRadius: 20))
@@ -331,19 +333,22 @@ private struct TodayScreen: View {
       }
 
     case .timeUnfolded:
-      MetricRow(title: metric.title, value: foldingDuration(today.completeDurationMS))
-      if let snapshot = model.analytics {
-        let running = RunningDurationPresentation(snapshot: snapshot, day: today)
-        if running.isRunning {
-          TimelineView(.periodic(from: .now, by: 1)) { context in
-            let durationMS = running.durationMS(at: context.date)
-            Label(foldingDuration(durationMS), systemImage: "timer")
-              .font(.subheadline).foregroundStyle(.secondary)
-              .monospacedDigit()
-              .accessibilityLabel(
-                String(
-                  localized: "session.runningDuration",
-                  defaultValue: "Running, \(foldingDuration(durationMS))"))
+      HStack(alignment: .lastTextBaseline, spacing: 12) {
+        MetricRow(title: metric.title, value: foldingDuration(today.completeDurationMS))
+        Spacer(minLength: 0)
+        if let snapshot = model.analytics {
+          let running = RunningDurationPresentation(snapshot: snapshot, day: today)
+          if running.isRunning {
+            TimelineView(.periodic(from: .now, by: 1)) { context in
+              let durationMS = running.durationMS(at: context.date)
+              Label(foldingDuration(durationMS), systemImage: "timer")
+                .font(.subheadline).foregroundStyle(.secondary)
+                .monospacedDigit()
+                .accessibilityLabel(
+                  String(
+                    localized: "session.runningDuration",
+                    defaultValue: "Running, \(foldingDuration(durationMS))"))
+            }
           }
         }
       }
@@ -351,11 +356,12 @@ private struct TodayScreen: View {
       VStack(alignment: .leading, spacing: 12) {
         Text(metric.title).font(.headline)
         if let snapshot = model.analytics {
-          Chart(snapshot.days, id: \.startMS) { day in
+          Chart(0..<snapshot.days.count, id: \.self) { index in
+            let day = snapshot.days[index]
             BarMark(
               x: .value(
                 String(localized: "chart.date", defaultValue: "Date"),
-                Date(timeIntervalSince1970: Double(day.startMS) / 1000)),
+                index),
               y: .value(String(localized: "metric.folds", defaultValue: "Folds"), day.folds),
               width: .fixed(20)
             )
@@ -368,12 +374,18 @@ private struct TodayScreen: View {
             .accessibilityValue(day.folds.formatted())
           }
           .chartXAxis {
-            AxisMarks(values: .stride(by: .day)) { _ in
-              AxisValueLabel(format: Date.FormatStyle().weekday(.abbreviated))
+            AxisMarks(preset: .aligned, values: Array(snapshot.days.indices)) { value in
+              AxisValueLabel(centered: false, anchor: .top, offsetsMarks: false) {
+                if let index = value.as(Int.self), snapshot.days.indices.contains(index) {
+                  Text(
+                    Date(timeIntervalSince1970: Double(snapshot.days[index].startMS) / 1000),
+                    format: .dateTime.weekday(.abbreviated))
+                }
+              }
             }
           }
           .chartYAxis(.hidden)
-          .chartXScale(range: .plotDimension(padding: 16))
+          .chartXScale(domain: -0.5...(Double(snapshot.days.count) - 0.5))
           .frame(height: 132)
           .accessibilityLabel(metric.title)
         }
@@ -420,7 +432,7 @@ private struct MetricRow: View {
 private struct HistoryScreen: View {
   @Bindable var model: FoldingPresentation
   let actions: FoldingActions
-  @State private var selectedDate: Date?
+  @State private var selectedBinIndex: Int?
 
   var body: some View {
     GeometryReader { geometry in
@@ -508,45 +520,43 @@ private struct HistoryScreen: View {
           .font(.subheadline).foregroundStyle(.secondary)
       }.listRowSeparator(.hidden)
       if !history.bins.isEmpty {
-        Chart(history.bins) { bin in
+        Chart(0..<history.bins.count, id: \.self) { index in
+          let bin = history.bins[index]
           BarMark(
-            x: .value(String(localized: "chart.date", defaultValue: "Date"), bin.start),
+            x: .value(String(localized: "chart.date", defaultValue: "Date"), index),
             y: .value(String(localized: "metric.folds", defaultValue: "Folds"), bin.folds),
             width: .fixed(history.bins.count > 14 ? 10 : 24)
           )
           .foregroundStyle(
-            selectedDate.map({ bin.start <= $0 && $0 < bin.end }) == false
+            selectedBinIndex.map({ $0 == index }) == false
               ? FoldingTint.color.opacity(0.4) : FoldingTint.color
           )
           .cornerRadius(4)
           .accessibilityLabel(bin.label).accessibilityValue(bin.folds.formatted())
         }
-        .chartXScale(range: .plotDimension(padding: 16))
+        .chartXScale(domain: -0.5...(Double(history.bins.count) - 0.5))
         .chartYAxis(.hidden)
         .chartXAxis {
           AxisMarks(
-            values: history.bins.enumerated().compactMap { index, bin in
-              index.isMultiple(of: max(1, history.bins.count / 7)) ? bin.start : nil
-            }
+            preset: .aligned,
+            values: Array(
+              stride(
+                from: 0, to: history.bins.count,
+                by: max(1, Int(ceil(Double(history.bins.count) / 7)))))
           ) { value in
-            AxisValueLabel {
-              if let date = value.as(Date.self),
-                let bin = history.bins.first(where: { $0.start == date })
-              {
-                Text(bin.label)
+            AxisValueLabel(centered: false, anchor: .top, offsetsMarks: false) {
+              if let index = value.as(Int.self), history.bins.indices.contains(index) {
+                Text(history.bins[index].label)
               }
             }
           }
         }
-        .chartXSelection(value: $selectedDate)
+        .chartXSelection(value: $selectedBinIndex)
+        .onChange(of: history.bins.map(\.start)) { _, _ in selectedBinIndex = nil }
         .frame(height: 180)
         .listRowSeparator(.hidden)
-        if let selectedDate,
-          let bin = history.bins.first(where: {
-            $0.start <= selectedDate && selectedDate < $0.end
-          })
-        {
-          LabeledContent(bin.label, value: bin.folds.formatted())
+        if let index = selectedBinIndex, history.bins.indices.contains(index) {
+          LabeledContent(history.bins[index].label, value: history.bins[index].folds.formatted())
         }
       }
       if model.historyFailed {
