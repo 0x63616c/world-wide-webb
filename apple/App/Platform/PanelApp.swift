@@ -154,6 +154,23 @@ struct PanelRoot: View {
             .allowsHitTesting(nativeVisible)
             .accessibilityHidden(!nativeVisible)
         }
+        .onChange(of: navigation.showingHome) { _, showingHome in
+            if !showingHome {
+                notifications.setVisibleSources(
+                    PanelNotifications.sources(
+                        for: PanelNotifications.source(navigation.selection.rawValue).app?.id
+                            ?? navigation.selection.rawValue))
+            } else {
+                notifications.setVisibleSources([])
+            }
+        }
+        .onChange(of: navigation.selection) { _, selection in
+            if !navigation.showingHome {
+                notifications.setVisibleSources(
+                    PanelNotifications.sources(
+                        for: PanelNotifications.source(selection.rawValue).app?.id ?? selection.rawValue))
+            }
+        }
         .background(Color.black)
         .background { PanelDiagnosticsAccess(store: store).allowsHitTesting(false) }
         .onReceive(

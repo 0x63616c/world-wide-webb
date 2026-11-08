@@ -31,7 +31,12 @@
                 sourceModule: "updates", title: "Update ready",
                 body: "A new version is available. Open TestFlight to update your panel.",
                 deepLink: PanelNotifications.updateDeepLink)
-            if mode == "history" { center.historyPresented = true }
+            if mode == "history" {
+                center.post(
+                    sourceModule: "walk", title: "Time for a walk",
+                    body: "The afternoon dog walk is ready to start.", deepLink: "module/walk")
+                center.historyPresented = true
+            }
             _center = State(initialValue: center)
         }
 
