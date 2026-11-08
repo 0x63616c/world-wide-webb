@@ -14,9 +14,10 @@ jobs:
     outputs:
       apps: ${{ steps.detect.outputs.apps }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           fetch-depth: 0
+          filter: blob:none
       - id: detect
         uses: ./.github/actions/affected
         with:
@@ -31,7 +32,7 @@ jobs:
     env:
       DEVELOPER_DIR: /Applications/Xcode.app/Contents/Developer
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - name: Regenerate icon assets
         run: swift apps/tendr/scripts/render-icon.swift
       - name: App icons are opaque 1024 PNGs
@@ -66,7 +67,7 @@ jobs:
     env:
       DEVELOPER_DIR: /Applications/Xcode.app/Contents/Developer
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - name: Build for the simulator
         run: |
           xcodebuild build -project apps/tendr/Still.xcodeproj -scheme Still -destination 'generic/platform=iOS Simulator' -sdk iphonesimulator -configuration Debug \

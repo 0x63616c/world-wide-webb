@@ -27,10 +27,11 @@ jobs:
       image: ${{ steps.select.outputs.image }}
       infra: ${{ steps.select.outputs.infra }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           fetch-depth: 0
-          persist-credentials: false
+          filter: blob:none
+          persist-credentials: true
       - id: select
         env:
           BASE: ${{ github.event.pull_request.base.sha || github.event.before || github.sha }}
@@ -51,7 +52,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - run: bash tools/install_ci_linters.sh
       - run: bash tools/check lint
       - name: Install pinned Rust
@@ -72,7 +73,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - run: rustup show active-toolchain
       - uses: actions/cache@v4
         with:
@@ -91,7 +92,7 @@ jobs:
     runs-on: [self-hosted, macOS, ARM64, homelab-tart]
     timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - name: Install pinned Rust
         uses: actions-rust-lang/setup-rust-toolchain@a188e68d0fd2bd36ad51dccb2b07ba6e75105f30 # v2
         with:
@@ -147,7 +148,7 @@ jobs:
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - uses: docker/setup-buildx-action@v4
       - uses: docker/build-push-action@v7
         with:
@@ -188,7 +189,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - uses: opentofu/setup-opentofu@v1
         with:
           tofu_version_file: .opentofu-version
@@ -204,7 +205,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - env:
           CI_NEEDS: ${{ toJSON(needs) }}
         run: python3 tools/ci_gate.py

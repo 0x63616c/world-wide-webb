@@ -286,3 +286,31 @@ The app/project embeds that source field; four distribution tests pass, includin
 mismatch cases and real Git mode/symlink/byte preservation. This does not yet prove a freshly
 signed candidate, private GitHub authentication or installation/upgrade. Automatic Callkeep
 reservation, signing/notarization, immutable artifact-tag publication and tap update remain next.
+
+## Private artifact promotion preparation — approximately 35% overall
+
+Callkeep's updated native project builds successfully and embeds the declared source field while
+preserving its bundle identity. The shared private-artifact publisher validates the committed
+orphan payload, signed product identity and byte receipt, pushes only the immutable namespaced
+distribution tag, and confirms remote identity after an ambiguous response. Seven distribution
+checks pass with real local Git transports, including repeated publication, conflicting bytes,
+source-parent rejection and unavailable-remote failure. No private GitHub publication occurred.
+
+Callkeep's cask renderer now emits the built-in Git strategy with an immutable commit/tag in
+private WWW and removes Sparkle/public-release URL authority. Existing installation data paths
+remain the same. Root full-history CI checkouts use `filter: blob:none` to avoid fetching old
+artifact payload blobs, retaining the temporary repository token for authenticated lazy reads of
+historical source inputs until checkout's post-job cleanup. Product production secrets remain
+scoped to their actual publication steps. See the primary checkout action documentation:
+https://github.com/actions/checkout#usage . Actual private fetch/install/upgrade remains a cutover
+canary; automatic Callkeep counter/signing/sealed artifact/tap handover is still being wired.
+
+Full-history filtered checkouts use the pinned v6 action, whose temporary credential file stays
+under runner temporary storage rather than `.git/config`. The old action versions are not used
+for these credential-preserving filtered history reads. Callkeep's private cask parses as valid Ruby;
+source binding also passed an actual unsigned native app build (not a signed release canary).
+
+Eight distribution tests now pass. A real Git server fixture advertises filtering, serves a source
+branch plus a separate 3 MB synthetic orphan binary tag, and proves full source/tag history can
+be fetched/checked out while the binary blob remains missing and total received pack data stays
+below 1 MB. This is local Git/filter proof, not a GitHub authorization or install proof.

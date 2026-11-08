@@ -29,9 +29,10 @@ jobs:
     outputs:
       apps: ${{ steps.apps.outputs.apps }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           fetch-depth: 0
+          filter: blob:none
       - id: affected
         if: github.event_name != 'workflow_dispatch'
         uses: ./.github/actions/affected
@@ -65,9 +66,10 @@ jobs:
       PR: ${{ github.event.pull_request.number || inputs.pr }}
       SCREENSHOT_TEST_KEY: pr_screenshot_test
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           fetch-depth: 0
+          filter: blob:none
       - name: Free simulator resources
         if: needs.changes.outputs.apps != ''
         # Free any prebooted simulator resources before capture on this isolated hosted runner.

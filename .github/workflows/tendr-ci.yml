@@ -26,9 +26,10 @@ jobs:
       rdesign: ${{ steps.detect.outputs.rdesign }}
       template: ${{ steps.detect.outputs.template }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           fetch-depth: 0
+          filter: blob:none
       - id: detect
         uses: ./.github/actions/affected
         with:
@@ -40,7 +41,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - name: Validate app configuration
         run: ruby scripts/app-config.rb --list
       - name: Release lane checks (no Apple access)
@@ -89,7 +90,7 @@ jobs:
     env:
       DEVELOPER_DIR: /Applications/Xcode.app/Contents/Developer
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - name: RDesign tests (macOS)
         run: swift test --package-path apps/tendr/Packages/RDesign
       - name: rframe builds
@@ -108,7 +109,7 @@ jobs:
       DEVELOPER_DIR: /Applications/Xcode.app/Contents/Developer
       APP: ${{ matrix.app }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - name: Select app toolchain
         run: |
           if dir=$(ruby scripts/app-config.rb "$APP" developer_dir 2>/dev/null); then
@@ -143,7 +144,7 @@ jobs:
     env:
       DEVELOPER_DIR: /Applications/Xcode.app/Contents/Developer
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - name: Scaffold a throwaway app from templates/new-app
         run: |
           brew list xcodegen >/dev/null 2>&1 || brew install xcodegen

@@ -68,7 +68,8 @@ jobs:
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
           fetch-depth: 0
-          persist-credentials: false
+          filter: blob:none
+          persist-credentials: true
       - uses: ./.github/actions/folding-tools
         with:
           target: deploy

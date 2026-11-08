@@ -30,9 +30,10 @@ jobs:
     outputs:
       apps: ${{ steps.detect.outputs.apps }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           fetch-depth: 0
+          filter: blob:none
       - id: affected
         if: github.event_name != 'workflow_dispatch'
         uses: ./.github/actions/affected
@@ -67,7 +68,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 85
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - name: Require CI for this exact main revision
         if: github.ref == 'refs/heads/main'
         env:
@@ -98,7 +99,7 @@ jobs:
       DUO_HOST_CONTROL: '1'
       RELEASE_MANIFEST: ${{ github.workspace }}/build/release-manifest.json
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - name: Check release secrets
         env:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
