@@ -21,6 +21,7 @@ struct Row {
     nickname: String,
     avatar_id: Option<Id>,
     folds: u64,
+    featured_badge_id: Option<folding_domain::milestones::BadgeId>,
 }
 #[derive(Deserialize)]
 struct Block {
@@ -118,7 +119,7 @@ pub(crate) async fn board(
         return crate::results_runtime::board(request, db, config, request_id, &query, kind, limit)
             .await;
     }
-    let rows=statement(db,"SELECT p.participant_id,f.nickname,f.avatar_id,s.folds FROM live_scores s JOIN participants p ON p.participant_id=s.participant_id JOIN profiles f ON f.participant_id=p.participant_id WHERE s.period_id=?1 AND s.generation_revision=p.generation_revision AND s.generation_id=p.generation_id AND p.membership='joined' AND p.restriction='none' AND p.account_state='active' AND s.folds>0 ORDER BY p.participant_id",&[text(period)])?.all().await.map_err(|_|Failure::unavailable())?.results::<Row>().map_err(|_|Failure::unavailable())?;
+    let rows=statement(db,"SELECT p.participant_id,f.nickname,f.avatar_id,s.folds,(SELECT b.badge_id FROM milestone_featured b JOIN milestone_state m ON m.participant_id=b.participant_id WHERE b.participant_id=p.participant_id AND m.state='ready' AND m.generation_revision=p.generation_revision AND m.generation_id=p.generation_id) AS featured_badge_id FROM live_scores s JOIN participants p ON p.participant_id=s.participant_id JOIN profiles f ON f.participant_id=p.participant_id WHERE s.period_id=?1 AND s.generation_revision=p.generation_revision AND s.generation_id=p.generation_id AND p.membership='joined' AND p.restriction='none' AND p.account_state='active' AND s.folds>0 ORDER BY p.participant_id",&[text(period)])?.all().await.map_err(|_|Failure::unavailable())?.results::<Row>().map_err(|_|Failure::unavailable())?;
     let blocks = statement(
         db,
         "SELECT subject_participant_id FROM blocks WHERE participant_id=?1",
@@ -139,7 +140,7 @@ pub(crate) async fn board(
     let ranks = rank_scores(&scores).map_err(|_| Failure::unavailable())?;
     let population = ranks.len();
     let profiles: BTreeMap<_, _> = rows.iter().map(|r| (&r.participant_id, r)).collect();
-    let entries:Vec<_>=ranks.iter().filter(|r|!blocks.contains(&r.participant_id)).map(|r|{let profile=profiles[&r.participant_id];serde_json::json!({"participant_id":r.participant_id,"nickname":profile.nickname,"avatar_id":profile.avatar_id,"folds":r.folds,"rank":r.rank,"percentile":r.percentile,"medal":r.medal})}).collect();
+    let entries:Vec<_>=ranks.iter().filter(|r|!blocks.contains(&r.participant_id)).map(|r|{let profile=profiles[&r.participant_id];serde_json::json!({"participant_id":r.participant_id,"nickname":profile.nickname,"avatar_id":profile.avatar_id,"folds":r.folds,"rank":r.rank,"percentile":r.percentile,"medal":r.medal,"featured_badge_id":profile.featured_badge_id})}).collect();
     let snapshot = crate::assertion::hex(&Sha256::digest(
         serde_json::to_vec(
             &serde_json::json!({"period":period,"population":population,"entries":entries}),

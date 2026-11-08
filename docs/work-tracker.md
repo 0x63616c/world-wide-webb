@@ -289,3 +289,11 @@ November 8 follow-up: omit the misleading “Building a comparison” fallback f
 - [ ] Implement guarded service routes, bounded backfill and scoring/lifecycle projection integration, typed client models, full profile/milestone UI, artwork/localization, privacy/accessibility and integrated release evidence. The HTTP amendment defines intended operations; no new route or migration is deployed.
 
 This is an internal implementation checkpoint, not a feature release or broad acceptance. No simulator, credential lookup or deployment was used. Existing CI/storefront/visual/submission/device deferrals remain.
+
+### Profile service and client model checkpoint
+
+- [x] Implement locally verified owner/member profile and milestone routes, featured-badge/acknowledgment commands, generation/revision/visibility guards, bounded resumable backfill and scoring/deletion/moderation/reset integration. Shared Rust/Swift fixture, typed client models/API, optional leaderboard badge field and migration 0021 are present.
+- [x] Pass 46 Rust host tests, optimized Wasm build and 21 compiled Worker/D1 tests. Unsigned device build and generic-simulator build-for-testing pass; actual Swift model validation/encoding passes a native harness. No simulator boot or app-hosted execution is claimed.
+- [ ] Complete UI navigation/progress/collection/featuring/celebrations, account-scoped caches, badge artwork, localization/privacy/accessibility, broader lifecycle/load checks and staged integrated release verification.
+
+[Detailed evidence and remaining requirements](experiments/profile-milestones-implementation-2026-11-08.md). #71 remains **In progress** and all product parts remain one release; nothing was deployed or distributed by this checkpoint.

@@ -80,6 +80,13 @@ pub(crate) async fn reset(
                 &[text(&session.participant_id)],
             )?);
         }
+        writes.push(crate::milestone_runtime::initialize(
+            db,
+            &session.participant_id,
+            winner,
+            session.revision + 1,
+            true,
+        )?);
     }
     let value = serde_json::json!({"operation_id":input.operation_id,"generation":winner,"state":if input.generation>=old{"acknowledged"}else{"superseded"},"request_id":request_id});
     writes.push(statement(
@@ -111,7 +118,7 @@ pub(crate) fn erase_results(
     db: &D1Database,
     participant: &str,
 ) -> std::result::Result<Vec<D1PreparedStatement>, Failure> {
-    Ok(vec![
+    let mut writes = vec![
         statement(
             db,
             "DELETE FROM deleted_observations WHERE participant_id=?1",
@@ -132,5 +139,7 @@ pub(crate) fn erase_results(
             "UPDATE award_jobs SET state='suppressed' WHERE participant_id=?1 AND state<>'sent'",
             &[text(participant)],
         )?,
-    ])
+    ];
+    writes.extend(crate::milestone_runtime::purge(db, participant, true)?);
+    Ok(writes)
 }

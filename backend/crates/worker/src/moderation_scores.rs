@@ -167,6 +167,18 @@ pub(crate) async fn change(
             revision + 1,
         )?);
     }
+    let counted: Vec<_> = summary
+        .counted_events
+        .iter()
+        .map(|id| (id.clone(), times[id]))
+        .collect();
+    writes.extend(crate::milestone_runtime::replay(
+        db,
+        participant,
+        &generation,
+        revision + 1,
+        &counted,
+    )?);
     Ok((writes, submission))
 }
 pub(crate) fn score(

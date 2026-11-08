@@ -190,6 +190,32 @@ pub async fn dispatch(
                 .await?,
         ));
     }
+    if request.method() == Method::Get
+        && (request.path() == "/v1/milestones" || request.path().starts_with("/v1/participants/"))
+    {
+        let config = Configuration::load(env)?;
+        let db = env.d1("DB").map_err(|_| Failure::unavailable())?;
+        return Ok(Some(
+            crate::milestone_profiles::read(request, env, &db, &config, request_id).await?,
+        ));
+    }
+    if (request.method() == Method::Patch && request.path() == "/v1/profile/badge")
+        || (request.method() == Method::Post && request.path() == "/v1/milestones/acknowledgments")
+    {
+        let content = request
+            .headers()
+            .get("Content-Type")
+            .map_err(|_| Failure::malformed())?
+            .unwrap_or_default();
+        if content.split(';').next().map(str::trim) != Some("application/json") {
+            return Err(Failure::malformed());
+        }
+        let config = Configuration::load(env)?;
+        let db = env.d1("DB").map_err(|_| Failure::unavailable())?;
+        return Ok(Some(
+            crate::milestone_profiles::mutate(request, env, &db, &config, body, request_id).await?,
+        ));
+    }
     if request.method() == Method::Get && request.path() == "/v1/blocks" {
         let config = Configuration::load(env)?;
         let db = env.d1("DB").map_err(|_| Failure::unavailable())?;

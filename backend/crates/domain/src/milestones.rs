@@ -234,4 +234,19 @@ mod tests {
         }
         assert!(serde_json::from_str::<BadgeId>("\"folds_999\"").is_err());
     }
+
+    #[test]
+    fn shared_client_fixture_matches_authoritative_next_target_rules() {
+        let fixture: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../../contracts/fixtures/milestones.json"
+        ))
+        .unwrap();
+        let owner: Progress = serde_json::from_value(fixture["owner"]["progress"].clone()).unwrap();
+        assert_eq!(owner, progress(640, 6).unwrap());
+        let public = &fixture["public_profile"]["profile"];
+        assert_eq!(public["folds"], 640);
+        assert!(public.get("next").is_none());
+        assert!(public.get("earned_at_ms").is_none());
+        assert!(public.get("days_used").is_none());
+    }
 }

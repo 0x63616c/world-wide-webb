@@ -1,5 +1,5 @@
 -- Derived competition projection. Backfill publishes only a complete, revision-fenced
--- participant generation; new/invalidated projections are not public awards.
+-- participant generation, new/invalidated projections are not public awards.
 CREATE TABLE milestone_state (
  participant_id TEXT PRIMARY KEY REFERENCES participants(participant_id) ON DELETE CASCADE,
  generation_revision INTEGER NOT NULL CHECK(generation_revision>=0),
@@ -44,3 +44,6 @@ CREATE TABLE milestone_acknowledgments (
  badge_id TEXT NOT NULL CHECK(badge_id IN ('folds_1','folds_100','folds_1000','folds_10000','days_7','days_30')),
  PRIMARY KEY(participant_id,badge_id)
 );
+CREATE INDEX milestone_building ON milestone_state(state,participant_id);
+CREATE INDEX milestone_backfill_source ON observations(participant_id,device_id,sequence)
+WHERE disposition='accepted' AND json_extract(event_json,'$.is_test')=0;

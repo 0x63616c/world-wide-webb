@@ -154,6 +154,8 @@ targets:
     sources:
       - path: BuildTests
         includes: ['*.swift']
+      - path: ../../contracts/fixtures/milestones.json
+        buildPhase: resources
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: app.getfolding.Folding.BuildTests

@@ -64,6 +64,29 @@ actor CompetitionAPI {
     self.deviceID = deviceID
   }
   func me() async throws -> CompetitionMe { try await transport.send("GET", path: "/v1/me") }
+  func milestones() async throws -> OwnerMilestones {
+    let value: OwnerMilestones = try await transport.send("GET", path: "/v1/milestones")
+    try value.validate()
+    return value
+  }
+  func participantProfile(_ id: String) async throws -> ParticipantProfileResponse {
+    guard UUID(uuidString: id) != nil else { throw CompetitionTransportError.invalidResponse }
+    let value: ParticipantProfileResponse = try await transport.send(
+      "GET", path: "/v1/participants/\(id)")
+    try value.profile.validate()
+    guard value.profile.participantID == id, value.revision >= 0 else {
+      throw CompetitionTransportError.invalidResponse
+    }
+    return value
+  }
+  func featureBadge(_ request: FeaturedBadgeRequest) async throws -> FeaturedBadgeResponse {
+    try await transport.send(
+      "PATCH", path: "/v1/profile/badge", body: CompetitionTransport.encode(request))
+  }
+  func acknowledgeMilestones(_ request: MilestoneAcknowledgmentRequest) async throws {
+    let _: CompetitionOperation = try await transport.send(
+      "POST", path: "/v1/milestones/acknowledgments", body: CompetitionTransport.encode(request))
+  }
   func join(nickname: String, generation: ResetGeneration) async throws -> CompetitionJoinResponse {
     struct Request: Encodable {
       // swift-format-ignore: AlwaysUseLowerCamelCase

@@ -110,7 +110,7 @@ mod tests {
     #[test]
     fn schema_rejects_unearned_features_and_preserves_acknowledgment_on_revocation() {
         let db = rusqlite::Connection::open_in_memory().unwrap();
-        db.execute_batch("PRAGMA foreign_keys=ON; CREATE TABLE participants(participant_id TEXT PRIMARY KEY); INSERT INTO participants VALUES ('p');").unwrap();
+        db.execute_batch("PRAGMA foreign_keys=ON; CREATE TABLE observations(participant_id TEXT, device_id TEXT, sequence INTEGER, disposition TEXT, event_json TEXT); CREATE TABLE participants(participant_id TEXT PRIMARY KEY); INSERT INTO participants VALUES ('p');").unwrap();
         db.execute_batch(include_str!(
             "../../../migrations/0021_profile_milestones.sql"
         ))
