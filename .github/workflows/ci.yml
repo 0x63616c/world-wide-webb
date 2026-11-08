@@ -41,10 +41,12 @@ jobs:
           path: ci-selection.json
           retention-days: 7
   typecheck:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, ARM64, homelab-linux]
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
       - run: bash tools/install_ci_linters.sh
       - run: bash tools/check lint
       - name: Install pinned Rust
@@ -55,15 +57,17 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: rust-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock') }}-check
+          key: rust-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock') }}-check
       - run: cargo check --locked --workspace --all-targets
       - run: cargo fmt --all -- --check
       - run: cargo clippy --locked --workspace --all-targets -- -D warnings
   test-unit:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, ARM64, homelab-linux]
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
       - run: rustup show active-toolchain
       - uses: actions/cache@v4
         with:
@@ -71,7 +75,7 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: rust-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock') }}-test
+          key: rust-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock') }}-test
       - run: cargo test --locked --workspace
       - run: bash tools/check dependencies
       - run: bash tools/check ops
