@@ -1346,61 +1346,6 @@ struct GridOverlay: View {
     }
 }
 
-struct GridSheetPage: View {
-    let card: GridCard
-    let store: any HomeDataSource
-    var letters: [String]? = nil
-    private var variants: [GridVariant] { card.variants.filter { letters?.contains($0.letter) ?? true } }
-    var body: some View {
-        let rows = packed()
-        ZStack {
-            Wallpaper()
-            VStack(alignment: .leading, spacing: 0) {
-                HStack(alignment: .firstTextBaseline, spacing: 16) {
-                    Text(card.title).font(.system(size: 36, weight: .bold))
-                    Text("\(variants.count) variations · 6×4 grid · 192 pt cell · 24 pt gutter and inset").font(
-                        .system(size: 18, weight: .medium)
-                    ).opacity(0.75)
-                }
-                Spacer(minLength: 0)
-                VStack(alignment: .leading, spacing: 36) {
-                    ForEach(rows.indices, id: \.self) { r in
-                        HStack(alignment: .top, spacing: 32) {
-                            ForEach(rows[r], id: \.letter) { variant in
-                                VStack(alignment: .leading, spacing: 14) {
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text("\(card.title) \(variant.letter) · \(variant.w)×\(variant.h)").font(
-                                            .system(size: 18, weight: .bold))
-                                        Text(variant.name).font(.system(size: 14, weight: .medium)).opacity(0.8)
-                                            .lineLimit(1).minimumScaleFactor(0.7)
-                                    }.frame(width: HomeGrid.span(variant.w, variant.h).width, alignment: .leading)
-                                    GridCardView(
-                                        card: card, variant: variant, accessory: variant.accessory, store: store)
-                                }
-                            }
-                        }
-                    }
-                }.frame(maxWidth: .infinity)
-                Spacer(minLength: 0)
-            }.padding(.horizontal, 40).padding(.top, 32).padding(.bottom, 40)
-        }.foregroundStyle(.white).environment(\.colorScheme, .dark)
-    }
-    private func packed() -> [[GridVariant]] {
-        var rows: [[GridVariant]] = [[]]
-        var width: CGFloat = 0
-        for variant in variants {
-            let w = HomeGrid.span(variant.w, variant.h).width
-            if !rows[rows.count - 1].isEmpty && width + 32 + w > 1296 {
-                rows.append([])
-                width = 0
-            }
-            width += (rows[rows.count - 1].isEmpty ? 0 : 32) + w
-            rows[rows.count - 1].append(variant)
-        }
-        return rows
-    }
-}
-
 // MARK: - Wallpaper setting
 
 enum WallpaperChoice: String, CaseIterable, Identifiable {

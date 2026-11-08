@@ -35,6 +35,7 @@ observed=$(docker run --rm --read-only --network none --entrypoint www-server "$
 validator=$(docker --context orbstack inspect --format '{{.Config.Image}}' www-control-center-www-1)
 compose config --format json | python3 "$code/sqlite_preflight.py" "$validator"
 cp "$root/current.env" "$root/recovery-from.env"
+python3 "$code/sqlite_snapshot.py" --prune "$root/backups"
 compose stop www
 # Capture a consistent recovery point with application writers stopped.
 if ! python3 "$code/sqlite_snapshot.py" --container www-control-center-www-1 \
@@ -50,4 +51,8 @@ cp "$release" "$root/current.env.tmp"
 mv "$root/current.env.tmp" "$root/current.env"
 # Keep the highest accepted CI generation so delayed old jobs stay rejected.
 python3 "$code/sqlite_snapshot.py" --prune "$root/backups"
+# Fire-and-forget: NAS replication belongs to the bounded background backup job.
+if ! "${WWW_LAUNCHCTL_BIN:-/bin/launchctl}" kickstart "gui/$(id -u)/com.calum.control-center-hourly-backup"; then
+  echo 'NAS replication will retry on the next hourly backup run.' >&2
+fi
 echo "Verified recovery to $revision; CI generation unchanged."

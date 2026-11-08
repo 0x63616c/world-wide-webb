@@ -30,26 +30,6 @@ struct LampGlow: View {
     }
 }
 
-struct ChargingPulse: View {
-    let active: Bool
-    @Environment(\.motionPhase) private var phase
-    struct Values { var opacity = 0.65 }
-    var body: some View {
-        if active && phase == nil {
-            KeyframeAnimator(initialValue: Values(), repeating: true) { values in
-                Image(systemName: "bolt.fill").foregroundStyle(.green).opacity(values.opacity)
-            } keyframes: { _ in
-                KeyframeTrack(\.opacity) {
-                    CubicKeyframe(1, duration: 1.4)
-                    CubicKeyframe(0.65, duration: 1.4)
-                }
-            }
-        } else {
-            Image(systemName: active ? "bolt.fill" : "battery.75percent").foregroundStyle(active ? .green : .secondary)
-        }
-    }
-}
-
 struct FanSymbol: View {
     let on: Bool
     @Environment(\.motionPhase) private var phase

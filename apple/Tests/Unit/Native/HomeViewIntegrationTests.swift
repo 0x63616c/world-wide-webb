@@ -111,51 +111,6 @@ import XCTest
             ).uiImage)
         XCTAssertTrue(probe.unavailableTiles.contains(.fan))
         XCTAssertFalse(probe.gridTiles.contains(.fan), "Unavailable wins over custom live content")
-        // The legacy integration uses the default nil grid hook, reproducing the
-        // pre-fix path with exactly the same providers, clock and unavailable tiles.
-        try await captureGrid(store: store, host: LegacyGridIntegration(host: host), size: size, prefix: "before")
-        try await captureGrid(store: store, host: host, size: size, prefix: "after")
-    }
-
-    private func captureGrid(store: LiveHomeDataSource, host: any HomeIntegration, size: CGSize, prefix: String)
-        async throws
-    {
-        let output = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("GridSnapshots")
-        try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
-        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.first as? UIWindowScene)
-        let window = UIWindow(windowScene: scene)
-        window.frame = CGRect(origin: .zero, size: size)
-        window.windowLevel = .alert + 1
-        defer {
-            window.isHidden = true
-            window.rootViewController = nil
-        }
-        for page in [0, 1] {
-            let content = ZStack {
-                Color.black
-                GridHomeFace(store: store, size: size, page: page, open: { _ in })
-            }.environment(\.homeIntegration, host).environment(\.motionPhase, 0)
-                .environment(\.horizontalSizeClass, .regular).environment(\.colorScheme, .dark)
-                .foregroundStyle(.white).frame(width: size.width, height: size.height).ignoresSafeArea()
-            let controller = UIHostingController(rootView: content)
-            controller.safeAreaRegions = []
-            window.rootViewController = controller
-            window.makeKeyAndVisible()
-            controller.view.frame = window.bounds
-            controller.view.layoutIfNeeded()
-            try await Task.sleep(for: .seconds(3))
-            controller.view.layoutIfNeeded()
-            // A bounded capture window lets simctl record the real compositor;
-            // drawHierarchy can omit text while native glass is being flattened.
-            try Data().write(to: output.appendingPathComponent("ready-\(prefix)-page\(page + 1)"))
-            try await Task.sleep(for: .seconds(5))
-            let image = UIGraphicsImageRenderer(size: size).image { _ in
-                XCTAssertTrue(controller.view.drawHierarchy(in: window.bounds, afterScreenUpdates: true))
-            }
-            try XCTUnwrap(image.pngData()).write(
-                to: output.appendingPathComponent("panel-\(prefix)-page\(page + 1).png"))
-        }
     }
 
     func testHomeWallpaperAndSkyAreInPanelBundle() {
@@ -184,15 +139,4 @@ import XCTest
     }
     func musicFace(close: @escaping () -> Void) -> AnyView { AnyView(EmptyView()) }
     func destination(_ tile: HomeTile, close: @escaping () -> Void) -> AnyView { AnyView(EmptyView()) }
-}
-
-@MainActor private final class LegacyGridIntegration: HomeIntegration {
-    let host: PanelHomePresentation
-    init(host: PanelHomePresentation) { self.host = host }
-    var caption: String { host.caption }
-    func prepareToOpen(_ tile: HomeTile) -> Bool { host.prepareToOpen(tile) }
-    func available(_ tile: HomeTile) -> Bool { host.available(tile) }
-    func tile(_ tile: HomeTile, open: @escaping () -> Void) -> AnyView? { host.tile(tile, open: open) }
-    func musicFace(close: @escaping () -> Void) -> AnyView { host.musicFace(close: close) }
-    func destination(_ tile: HomeTile, close: @escaping () -> Void) -> AnyView { host.destination(tile, close: close) }
 }

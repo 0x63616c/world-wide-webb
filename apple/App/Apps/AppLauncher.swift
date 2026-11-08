@@ -95,30 +95,6 @@ struct LauncherGlassSurface: View {
     }
 }
 
-/// Shared edge gesture: only the bottom centre 88 pt are reserved, leaving app scroll
-/// views and controls alone. No visible navigation bar or page dots.
-struct SwipeHomeRegion: View {
-    let action: () -> Void
-    var dragChanged: (CGFloat) -> Void = { _ in }
-    var cancelled: () -> Void = {}
-    var body: some View {
-        Color.clear.frame(width: 220, height: 88).contentShape(.rect)
-            .gesture(
-                DragGesture(minimumDistance: 12)
-                    .onChanged { dragChanged($0.translation.height) }
-                    .onEnded { value in
-                        if value.translation.height < -60 || value.predictedEndTranslation.height < -150 {
-                            action()
-                        } else {
-                            cancelled()
-                        }
-                    }
-            )
-            .accessibilityElement().accessibilityLabel("Home")
-            .accessibilityAddTraits(.isButton).accessibilityAction { action() }
-    }
-}
-
 struct PanelSettingsPage: View {
     let back: () -> Void
     @Environment(\.homeIntegration) private var integration

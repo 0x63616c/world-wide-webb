@@ -40,6 +40,10 @@ Never seed an empty volume automatically or open the live volume from macOS.
 Hourly database-and-photo history has separate 24-hour/7-day/indefinite-weekly retention; see
 [Control Center history](control-center-history.md).
 
+Deployment and recovery database copies also replicate asynchronously to
+`/Homelab/backups/mac-mini/deployment-history/`, retaining seven days by capture
+time. Pending copies are protected locally; see [deployment copy retention](control-center-history.md#deployment-and-recovery-copies-on-the-nas).
+
 ## Contents
 
 - Control Center: consistent SQLite backup (PostgreSQL only for explicit legacy archive mode), complete media directory, secrets,

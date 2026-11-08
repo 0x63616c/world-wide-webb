@@ -4,32 +4,6 @@ import SwiftUI
 /// The native bars reserve their own space and register scroll-edge effects.
 /// Keeping them on the scrolling screen prevents chart content crossing the
 /// fixture footer on compact displays.
-struct DogWalkScreen: View {
-    let store: any HomeDataSource
-    let close: () -> Void
-    @Environment(\.horizontalSizeClass) private var sizeClass
-    var body: some View {
-        DogWalkPage(store: store)
-            .safeAreaBar(edge: .top, spacing: 0) {
-                ZStack {
-                    Text("Dog Walker").font(.system(size: sizeClass == .compact ? 20 : 25, weight: .semibold))
-                    HStack {
-                        CircleButton(
-                            symbol: "xmark", label: "Close Dog Walker", size: sizeClass == .compact ? 40 : 56,
-                            action: close)
-                        Spacer()
-                    }
-                }.frame(height: sizeClass == .compact ? 64 : 80)
-                    .padding(.horizontal, sizeClass == .compact ? 24 : 38)
-                    .padding(.top, sizeClass == .compact ? 8 : 30)
-            }
-            .safeAreaBar(edge: .bottom, spacing: 0) {
-                Text("Fixture data").font(.system(size: 12)).foregroundStyle(.secondary)
-                    .padding(.vertical, 12).frame(maxWidth: .infinity)
-            }
-            .background { Color.black.ignoresSafeArea() }
-    }
-}
 
 struct DogWalkTile: View {
     let store: any HomeDataSource
@@ -400,40 +374,3 @@ private struct WalkHistoryEditor: View {
 
 /// Fallback evidence uses the extension's exact content view, never a claim of
 /// having captured SpringBoard. The label remains in the simulator screenshot.
-struct WalkActivityPreviewPage: View {
-    var body: some View {
-        ZStack {
-            Wallpaper()
-            VStack(alignment: .leading, spacing: 28) {
-                Text("Live Activity preview").font(.largeTitle.bold())
-                Text("Walking Zero · Fixture data").font(.subheadline).foregroundStyle(.secondary)
-                Text("Lock Screen").font(.headline)
-                WalkActivityContent(name: "Zero", startedAt: FixtureClock.now, previewElapsed: "12:34")
-                    .glassEffect(.regular, in: .rect(cornerRadius: 28))
-                Text("Dynamic Island · Expanded").font(.headline)
-                VStack(spacing: 18) {
-                    HStack {
-                        Label("Walking Zero", systemImage: "pawprint.fill")
-                        Spacer()
-                        Text("12:34").monospacedDigit()
-                    }.font(.headline).foregroundStyle(.green)
-                    Text("Walk in progress").font(.subheadline).foregroundStyle(.secondary)
-                }.padding(24).background(.black, in: .rect(cornerRadius: 44))
-                Text("Compact / Minimal").font(.headline)
-                HStack(spacing: 24) {
-                    HStack {
-                        Image(systemName: "pawprint.fill")
-                        Spacer()
-                        Text("12:34").monospacedDigit()
-                    }
-                    .foregroundStyle(.green).padding(.horizontal, 14).frame(width: 230, height: 37).background(
-                        .black, in: .capsule)
-                    Image(systemName: "pawprint.fill").foregroundStyle(.green).frame(width: 37, height: 37).background(
-                        .black, in: .circle)
-                }
-                Spacer()
-                Text("Shared WidgetKit content · Simulator preview").font(.footnote).foregroundStyle(.secondary)
-            }.padding(24).padding(.top, 24)
-        }.preferredColorScheme(.dark)
-    }
-}

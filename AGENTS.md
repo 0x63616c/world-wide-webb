@@ -3,19 +3,18 @@
 Read `CODEBASE_OVERVIEW.md` for the map. Production-cutover status and evidence are in
 `docs/plans/native-rust-progress.md`; execute `docs/runbooks/native-rust-cutover.md` when cutting over.
 
-## Current migration agreement
+## Product and preservation
 
-Calum approved the native Swift + Rust/SQLite + OpenTofu reset in `docs/plans/native-rust-reset.md`.
-The primary agent implements everything. Subagents are allowed only for one independent final review.
-Keep implementation, verification, review fixes and commits local until the complete candidate is reviewed.
-The main replacement landed in PR #943. Keep follow-up fixes local through verification and final review,
-then publish, pass required checks, merge and verify delivery.
-Calum chose a Tailscale-only API: all devices on the Tailnet are trusted, with no app login or credential entry.
-Production uses the fresh frozen-writer SQLite import; original PostgreSQL and media archives are retained.
-Consult issue #941 and the progress tracker for current deployment and Apple-delivery evidence.
-Documentation follows working code. Prioritize iPad fidelity, database/Photo Booth preservation and Rust;
-exercise iPhone/Duo last. Calum removed Mac app support: ship only iPad and iPhone/Duo.
-Keep Mac mini hosting and macOS development/test tooling; retain historical data decoding. Legacy wake images are not a blocker.
+The native Swift + Rust/SQLite + OpenTofu migration is complete. Its accepted delivery, data/media
+reconciliation, restore evidence and measurement limits are recorded in `docs/plans/native-rust-progress.md`.
+The primary agent implements changes; subagents are allowed only for independent final review.
+Keep implementation, verification, review fixes and commits local until the complete candidate is reviewed,
+then publish, pass required checks, merge and verify delivery. Documentation follows working code.
+
+Ship the shared faithful iPad/iPhone/Duo app, preserving its clock and slide-up launcher. Mac app support
+is removed; Mac mini hosting and macOS developer/test tooling remain. The Tailscale-only API trusts Tailnet
+devices without app login or credential entry. Original PostgreSQL/media archives and all Photo Booth files
+remain protected. Historical Mac/device data remains decodable; missing legacy wake images are not blockers.
 
 ## Structure and invariants
 
@@ -65,7 +64,7 @@ vault content; pass required fields directly to the authorized operation. Privat
 ## Publishing and completion
 
 Interactive requests normally include PR, green required checks, merge and deployment verification; the
-migration's local-until-reviewed agreement takes precedence until its final publication gate. Pipeline executors
+local-until-reviewed agreement takes precedence until its final publication gate. Pipeline executors
 commit only; their wrapper publishes. Never bypass required checks or merge a red PR.
 
 PRs need Conventional Commit titles and accurate validation. Visual evidence is optional; keep screenshots

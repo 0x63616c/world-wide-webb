@@ -201,19 +201,3 @@ struct FixtureArtwork: View {
         }.accessibilityLabel("Procedural fixture artwork")
     }
 }
-
-struct MusicBackdrop: View {
-    let tint: String
-    var body: some View {
-        LinearGradient(
-            colors: [Color(hex: tint), Color(hex: tint).mix(with: .black, by: 0.62)], startPoint: .top,
-            endPoint: .bottom
-        )
-        .overlay {
-            RadialGradient(
-                colors: [.white.opacity(0.10), .clear], center: UnitPoint(x: 0.5, y: 0.28), startRadius: 0,
-                endRadius: 700)
-        }
-        .ignoresSafeArea()
-    }
-}

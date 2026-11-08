@@ -105,6 +105,6 @@ snooze and stop work. This closes the physical-device acceptance gap in #940; it
 separate from automated foreground/simulator tests.
 
 Calum explicitly accepted the recorded production CPU/memory/storage observations with their documented
-limits instead of an isolated matched old-versus-new benchmark. Section 10's matched-workload requirement
+limits instead of an isolated matched old-versus-new benchmark. The original matched-workload requirement
 is superseded by that acceptance. The observations above remain uncontrolled production samples; no
 matched benchmark or whole-host resource improvement is claimed. No required migration acceptance remains.

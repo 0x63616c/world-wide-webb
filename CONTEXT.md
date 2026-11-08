@@ -1,7 +1,7 @@
 # Domain language
 
 **Panel**: the physical iPad home-control installation. **App**: the shared native SwiftUI experience,
-including iPhone/Duo and Mac. **Clock**: the first surface on every platform. **Launcher**: the slide-up
+including iPhone/Duo. **Clock**: the first surface on every platform. **Launcher**: the slide-up
 entry to retained features. **Feature provider**: client state and actions shared by feature views.
 
 **Desired state** is a requested device setting; **reported state** is the actual Home Assistant observation.
