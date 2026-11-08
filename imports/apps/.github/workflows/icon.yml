@@ -1,0 +1,98 @@
+name: Icon and launch screen
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      apps: ${{ steps.detect.outputs.apps }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: detect
+        uses: ./.github/actions/affected
+        with:
+          base: ${{ github.event.pull_request.base.sha }}
+          intent: verify
+
+  icon:
+    needs: changes
+    if: github.event_name == 'workflow_dispatch' || contains(fromJSON(needs.changes.outputs.apps), 'tendr')
+    runs-on: xcode-27
+    timeout-minutes: 60
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_27.1.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@v4
+      - name: Regenerate icon assets
+        run: swift apps/tendr/scripts/render-icon.swift
+      - name: App icons are opaque 1024 PNGs
+        run: |
+          python3 - <<'PY'
+          import pathlib, struct, sys
+          for png in sorted(pathlib.Path("apps/tendr/Still/Assets.xcassets/AppIcon.appiconset").glob("*.png")):
+              data = png.read_bytes()
+              width, height = struct.unpack(">II", data[16:24])
+              print(f"{png.name}: {width}x{height}, colour type {data[25]}")
+              if (width, height) != (1024, 1024) or data[25] != 2:
+                  sys.exit(f"{png.name} must be an opaque 1024x1024 RGB PNG")
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: icon-assets
+          path: |
+            apps/tendr/design/icon
+            apps/tendr/Still/Assets.xcassets
+            site/tendr/assets/*.png
+      - name: Committed assets match scripts/render-icon.swift
+        run: |
+          git status --porcelain
+          test -z "$(git status --porcelain)" || { echo "::error::Run 'swift apps/tendr/scripts/render-icon.swift' and commit the result"; exit 1; }
+
+  launch-screen:
+    needs: changes
+    if: github.event_name == 'workflow_dispatch' || contains(fromJSON(needs.changes.outputs.apps), 'tendr')
+    runs-on: xcode-27
+    timeout-minutes: 60
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_27.1.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build for the simulator
+        run: |
+          xcodebuild build -project apps/tendr/Still.xcodeproj -scheme Still -destination 'generic/platform=iOS Simulator' -sdk iphonesimulator -configuration Debug \
+            -derivedDataPath build/DerivedData CODE_SIGNING_ALLOWED=NO -quiet
+          app=build/DerivedData/Build/Products/Debug-iphonesimulator/Tendr.app
+          [[ -d "$app" ]] || app=$(find build/DerivedData/Build/Products/Debug-iphonesimulator -maxdepth 1 -name '*.app' | head -1)
+          echo "APP=$app" >> "$GITHUB_ENV"
+          plutil -extract UILaunchScreen json -o - "$app/Info.plist"
+          plutil -extract CFBundleIcons json -o - "$app/Info.plist"
+      - name: Photograph the launch screen
+        run: |
+          runtime=com.apple.CoreSimulator.SimRuntime.iOS-27-0
+          udid=$(xcrun simctl create "Launch" com.apple.CoreSimulator.SimDeviceType.iPhone-17 "$runtime")
+          scripts/boot-simulator.sh "$udid" 300
+          xcrun simctl status_bar "$udid" override --time "9:41" --dataNetwork wifi --wifiMode active --wifiBars 3 \
+            --cellularMode active --cellularBars 4 --operatorName "" --batteryState discharging --batteryLevel 100
+          xcrun simctl install "$udid" "$APP"
+          mkdir -p build/launch
+          # Suspended before main, so the system keeps showing the launch screen.
+          xcrun simctl launch --wait-for-debugger "$udid" com.calumwebb.still
+          sleep 4
+          xcrun simctl io "$udid" screenshot build/launch/launch-screen.png
+          xcrun simctl terminate "$udid" com.calumwebb.still || true
+          xcrun simctl io "$udid" screenshot build/launch/home-screen-icon.png
+      - uses: actions/upload-artifact@v4
+        with:
+          name: launch-screen
+          path: build/launch/*.png
+          if-no-files-found: error

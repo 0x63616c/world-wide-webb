@@ -1,0 +1,46 @@
+name: Resolve affected apps
+description: Install resolver dependencies and expose the shared impact result
+inputs:
+  base:
+    description: Base commit (empty uses merge-base with origin/main)
+    default: ''
+  intent:
+    description: verify or ship
+    default: verify
+  only:
+    description: Optional app.yml capability
+    default: ''
+outputs:
+  apps:
+    description: JSON app array
+    value: ${{ steps.detect.outputs.apps }}
+  rdesign:
+    description: Whether to verify RDesign
+    value: ${{ steps.detect.outputs.rdesign }}
+  template:
+    description: Whether to verify the template
+    value: ${{ steps.detect.outputs.template }}
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+    - shell: bash
+      run: python3 -m pip install -r scripts/requirements.txt
+    - id: detect
+      shell: bash
+      env:
+        BASE: ${{ inputs.base }}
+        INTENT: ${{ inputs.intent }}
+        ONLY: ${{ inputs.only }}
+      run: |
+        options=()
+        if [[ -n "$ONLY" ]]; then options+=(--only "$ONLY"); fi
+        result=$(scripts/affected "$BASE" --intent "$INTENT" "${options[@]}")
+        echo "$result"
+        python3 - "$result" <<'PYTHON' >> "$GITHUB_OUTPUT"
+        import json, sys
+        for key, value in json.loads(sys.argv[1]).items():
+            print(key + "=" + json.dumps(value, separators=(",", ":")))
+        PYTHON

@@ -1,0 +1,9 @@
+Tendr is a personal dose and weight journal. There is no account, sign-in or server, so no demo login is needed. The app opens straight to an empty journal after a one-time notice explaining that it is a journal, not medical advice.
+
+Data: everything the user enters is stored locally on the device. Nothing is sent off the device, and the app contains no analytics, advertising or third-party SDKs.
+
+HealthKit: Tendr requests read-only access to body weight (Body Mass) so weights from Apple Health appear alongside the user's own entries. It never writes to HealthKit. To try it, open Settings and tap Connect Apple Health.
+
+Not medical advice: Tendr records what the user has already been prescribed and taken. It does not recommend, calculate or adjust doses, and it does not diagnose or treat anything. Doses are entered in mg. The "Estimated level" chart is a simplified illustration of logged doses, labelled in the app as an estimate that is not a measured level or medical advice.
+
+To try the app: on Home, tap Log dose and save an amount such as 0.5 mg. Then on Progress, tap + to add a weight. Reminders are local notifications for the dose days chosen under Treatment > Your schedule.

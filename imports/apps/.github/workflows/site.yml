@@ -1,0 +1,43 @@
+name: Site
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'site/**'
+      - 'scripts/build-site.sh'
+      - 'scripts/publish-site.sh'
+      - '.github/workflows/site.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+
+concurrency:
+  group: site
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Configure commit identity
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898589+github-actions[bot]@users.noreply.github.com'
+      - name: Publish site
+        run: scripts/publish-site.sh
+      - name: Request Pages build
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api -X POST repos/${{ github.repository }}/pages/builds || echo '::warning::Pages build request failed; check Pages deployment status.'
+      - name: Live URLs
+        run: |
+          echo 'https://0x63616c.github.io/apps/'
+          echo 'https://0x63616c.github.io/apps/tendr/privacy/'
+          echo 'https://0x63616c.github.io/apps/tendr/support/'

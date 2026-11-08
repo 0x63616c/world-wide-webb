@@ -1,0 +1,46 @@
+uses: [RDesign]
+paths: []
+# Per-app configuration read by fastlane/Fastfile, scripts/app-config.rb and the CI workflows.
+name: Tendr
+# Xcode project, generated from project.yml by XcodeGen (paths relative to this folder).
+project: Still.xcodeproj
+scheme: Still
+bundle_id: com.calumwebb.still
+# App Store Connect app ID (the number in the app's App Store Connect URL).
+apple_id: "6809098849"
+version: 1.1.0
+testflight: true
+app_store_automatic: true
+testflight_group: Owner Preview
+beta_description: Tendr is a private, local-first companion for tracking doses, medication levels, vials, weight, schedules, and progress.
+# CI signs with this App Store profile, created by sigh for the shared Apple Distribution certificate.
+profile_name: Tendr CI App Store
+# swift test runs here when present (fast core tests).
+swift_package: true
+screenshot_test: StillUITests/ScreenshotTests
+duo_screenshot_test: StillUITests/DuoScreenshotTests
+# PR preview screens from the synthetic fixture, posted on UI PRs by pr-screenshots.yml.
+pr_screenshot_test: StillUITests/PRScreenshotTests
+# Component galleries rendered with ImageRenderer (scripts/capture-snapshots.sh).
+snapshot_test: StillSnapshots
+site: tendr
+age_rating:
+  medicalOrTreatmentInformation: INFREQUENT_OR_MILD
+tip_review_note: An optional tip from Settings > Support Tendr. It unlocks nothing; the app is fully free.
+# Consumable tips; must match Still/Features/Journal/Tips.swift and Tendr.storekit.
+tips:
+  - product_id: com.calumwebb.still.tip.small
+    reference: "Tip: Coffee"
+    name: Coffee
+    description: A small tip to support Tendr.
+    price: "0.99"
+  - product_id: com.calumwebb.still.tip.medium
+    reference: "Tip: Croissant"
+    name: Croissant
+    description: A medium tip to support Tendr.
+    price: "2.99"
+  - product_id: com.calumwebb.still.tip.large
+    reference: "Tip: Gift"
+    name: Gift
+    description: A generous tip to support Tendr.
+    price: "4.99"

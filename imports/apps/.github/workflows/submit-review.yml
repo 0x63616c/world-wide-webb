@@ -1,0 +1,56 @@
+name: Submit for review
+
+# Submits the app and its ready purchase versions together through fastlane deliver.
+# Run it after the TestFlight workflow has uploaded and processed the build for the version.
+on:
+  workflow_dispatch:
+    inputs:
+      app:
+        description: 'App folder under apps/ (for example tendr)'
+        type: string
+        default: tendr
+      version:
+        description: 'Version to submit (default: app.yml version)'
+        type: string
+        default: ''
+      build:
+        description: 'Exact processed TestFlight build number prepared for this release'
+        type: string
+        required: true
+      dry_run:
+        description: 'Report what would change without changing anything'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: app-store-${{ inputs.app }}
+  cancel-in-progress: false
+
+jobs:
+  submit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      FASTLANE_SKIP_UPDATE_CHECK: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.4'
+          bundler-cache: true
+      - name: Submit for App Review
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
+          APP: ${{ inputs.app }}
+          VERSION: ${{ inputs.version }}
+          BUILD_NUMBER: ${{ inputs.build }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          args=(ios submit_with_iap "app:$APP" "build:$BUILD_NUMBER" "dry_run:$DRY_RUN")
+          if [[ -n "$VERSION" ]]; then args+=("version:$VERSION"); fi
+          bundle exec fastlane "${args[@]}"
