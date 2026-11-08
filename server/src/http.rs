@@ -39,7 +39,14 @@ impl ApiError {
 impl From<sqlx::Error> for ApiError {
     fn from(error: sqlx::Error) -> Self {
         // Do not log bind values, SQL or row contents.
-        tracing::error!(kind = "database", "database operation failed");
+        // SQLite's numeric extended error code distinguishes corruption, I/O and locking
+        // failures without exposing SQL, bound values, paths or database contents.
+        let code = error.as_database_error().and_then(|e| e.code());
+        tracing::error!(
+            kind = "database",
+            sqlite_code = code.as_deref(),
+            "database operation failed"
+        );
         if error
             .as_database_error()
             .is_some_and(|e| e.is_unique_violation())

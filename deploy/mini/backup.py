@@ -20,7 +20,7 @@ import sys
 import time
 from pathlib import Path
 
-from sqlite_snapshot import sqlite_snapshot
+from sqlite_snapshot import snapshot_container
 
 HOME = Path("/Users/calum")
 ROOT = HOME / "homelab-backups"
@@ -116,7 +116,7 @@ def snapshot(destination, database_engine="sqlite"):
                         stdout=output,
                     )
             elif database_engine == "sqlite":
-                sqlite_snapshot(app / "data/sqlite/control-center.sqlite", destination / "control-center.sqlite")
+                snapshot_container("www-control-center-www-1", destination / "control-center.sqlite")
             else:
                 raise ValueError("Unsupported database engine")
             archive(
@@ -131,6 +131,7 @@ def snapshot(destination, database_engine="sqlite"):
                 "recover.sh",
                 "sqlite_preflight.py",
                 "sqlite_snapshot.py",
+                "sqlite_volume.py",
                 "tailscale_serve.py",
                 "publish-apple-release.py",
             )
@@ -212,10 +213,11 @@ def verify_restarted_services():
             time.sleep(2)
 
 
-def main():
+def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--database-engine", choices=["postgres", "sqlite"], default="sqlite")
-    args = parser.parse_args()
+    parser.add_argument("--local-only", action="store_true", help="Verify local snapshots without contacting the NAS")
+    args = parser.parse_args(argv)
     os.umask(0o077)
     ROOT.mkdir(mode=0o700, exist_ok=True)
     if shutil.disk_usage(ROOT).free < 5 * 1024**3:
@@ -228,6 +230,10 @@ def main():
         destination.mkdir()
         snapshot(destination, args.database_engine)
         verify_restarted_services()
+        (destination / "LOCAL_VERIFIED").touch()
+        print(f"Local snapshots verified; services healthy: {stamp}", flush=True)
+        if args.local_only:
+            return
         uploader = Path(__file__).with_name("nas-upload.py")
         payloads = sorted(destination.iterdir())
         manifest = destination / "verified-files.jsonl"

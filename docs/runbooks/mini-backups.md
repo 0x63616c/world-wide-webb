@@ -10,8 +10,32 @@ and restarted in `finally` handlers even if copying fails. Hindsight uses its
 existing online PostgreSQL backup script without stopping its application.
 The app backup holds the same lock as deployments and rollback. An occupied
 lock makes the backup fail without interrupting the release. Stopped services
-are checked before upload. A power loss or killed backup process can leave a
+are checked before upload. `LOCAL_VERIFIED` records that local snapshots completed and
+services recovered, independently of NAS availability. `--local-only` performs that
+work without contacting the NAS. A failed NAS upload retains the local set and
+returns failure without stopping or changing the recovered app. A power loss or killed backup process can leave a
 lock behind: inspect processes and service state before removing a stale lock.
+
+## SQLite storage boundary
+
+The live database and its WAL/SHM files live only in the external Docker volume
+`www-control-center-sqlite` on the mini's Linux VM disk. It must use the local driver
+with no driver options; a bind, NFS or SMB volume is rejected. Media remains on the
+mini's SSD. Neither live SQLite nor media depends on the NAS.
+
+Do not open a live SQLite file from macOS through OrbStack's Finder/NFS volume view.
+SQLite shared memory and locks must stay on one OS. Preflight runs `www-server
+database-check` inside Linux. After stopping the writer under `deploy.lock`,
+`sqlite_snapshot.py --container` copies the complete database directory with `docker cp` into a
+private temporary directory. Only that stopped copy is opened by macOS SQLite to
+produce an integrity/foreign-key-checked backup. The running-writer guard rejects
+accidental live copies. Production refuses to create an empty missing database.
+
+To restore, stop the writer and preserve its entire volume first. Validate the
+backup separately, copy the accepted database into the existing volume using a
+Linux container, restore UID/GID 501:20 and owner-only permissions, and verify
+integrity, foreign keys, media references and health before returning to service.
+Never seed an empty volume automatically or open the live volume from macOS.
 
 ## Contents
 
@@ -55,7 +79,7 @@ as backup volume grows.
 
 ## Install and operate
 
-Copy backup.py and nas-upload.py to `/Users/calum/homelab-backups/`. Provision
+Copy backup.py, nas-upload.py, sqlite_snapshot.py to `/Users/calum/homelab-backups/`. Provision
 the private credential file and run `/usr/bin/python3
 /Users/calum/homelab-backups/backup.py` once before loading the LaunchAgent.
 Copy `com.calum.homelab-backup.plist` to `~/Library/LaunchAgents/` and load it

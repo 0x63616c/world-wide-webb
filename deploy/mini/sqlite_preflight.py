@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Resolve and validate the production SQLite mount without printing Compose secrets."""
+"""Validate production volume in Linux, without printing Compose secrets."""
 
 import json
+import subprocess
 import sys
-from pathlib import Path
 
-from sqlite_snapshot import read_database
+from sqlite_snapshot import VOLUME, docker, inspect_volume
 
 
 def main():
@@ -20,23 +20,44 @@ def main():
         or str(ports[0].get("published")) != "4202"
     ):
         raise RuntimeError("The native API must be published on loopback only; Tailscale Serve owns external access")
-    mounts = service["volumes"]
-    sources = [v["source"] for v in mounts if v.get("target") == "/app/data" and v.get("type") == "bind"]
-    if len(sources) != 1:
-        raise RuntimeError("exactly one SQLite data directory must be mounted")
-    directory = Path(sources[0]).resolve()
-    database = directory / "control-center.sqlite"
-    if not database.is_file():
-        raise RuntimeError("restore the production SQLite database before deploying")
-    with read_database(database) as connection:
-        if connection.execute("PRAGMA quick_check").fetchall() != [("ok",)]:
-            raise RuntimeError("SQLite integrity check failed")
-        # Reject a freshly created/incorrect database, even when SQLite itself is valid.
-        required = {"settings", "booth_photo", "walk", "_sqlx_migrations"}
-        tables = {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")}
-        if not required.issubset(tables):
-            raise RuntimeError("production SQLite schema is missing")
-    print(directory)
+    mounts = [v for v in service["volumes"] if v.get("target") == "/app/data"]
+    if len(mounts) != 1 or mounts[0].get("type") != "volume":
+        raise RuntimeError("SQLite requires Linux-local volume storage, never a macOS or NAS bind mount")
+    volume = config["volumes"][mounts[0]["source"]]
+    if not volume.get("external") or volume["name"] != VOLUME:
+        raise RuntimeError("Production SQLite must use the existing external volume")
+    inspect_volume(VOLUME)
+    # Rollback targets can predate database-check. Probe a known validator with
+    # no data/secrets mounts and a read-only root before giving it live storage.
+    image = sys.argv[1] if len(sys.argv) == 2 else service["image"]
+    capabilities = subprocess.check_output(
+        docker("run", "--rm", "--network", "none", "--read-only", "--entrypoint", "www-server", image, "capabilities"),
+        text=True,
+        timeout=20,
+    )
+    if json.loads(capabilities) != {"databaseCheck": True}:
+        raise RuntimeError("Validator image does not support safe database checks")
+    # SQLite locks and shared memory stay in Linux even while the writer runs.
+    subprocess.run(
+        docker(
+            "run",
+            "--rm",
+            "--network",
+            "none",
+            "--user",
+            service["user"],
+            "--mount",
+            f"type=volume,source={VOLUME},target=/app/data,volume-nocopy",
+            "-e",
+            "WWW_DATABASE_PATH=/app/data/control-center.sqlite",
+            "--entrypoint",
+            "www-server",
+            image,
+            "database-check",
+        ),
+        check=True,
+        timeout=30,
+    )
 
 
 if __name__ == "__main__":

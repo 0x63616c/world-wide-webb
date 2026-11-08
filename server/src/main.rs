@@ -7,6 +7,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("{}", option_env!("BUILD_HASH").unwrap_or("local"));
         return Ok(());
     }
+    if env::args().nth(1).as_deref() == Some("capabilities") {
+        println!("{{\"databaseCheck\":true}}");
+        return Ok(());
+    }
     if env::args().nth(1).as_deref() == Some("healthcheck") {
         healthcheck().await?;
         return Ok(());
@@ -26,6 +30,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let database = env::var("WWW_DATABASE_PATH")
         .map(PathBuf::from)
         .unwrap_or_else(|_| data.join("control-center.sqlite"));
+    if env::args().nth(1).as_deref() == Some("database-check") {
+        storage::validate(&database).await?;
+        println!("Existing database integrity and schema verified");
+        return Ok(());
+    }
+    if env::var("WWW_REQUIRE_DATABASE").as_deref() == Ok("on") && !database.is_file() {
+        return Err(std::io::Error::other(
+            "Restore the existing production database before starting",
+        )
+        .into());
+    }
     let db = storage::open(&database).await?;
     if env::args().nth(1).as_deref() == Some("migrate") {
         db.close().await;

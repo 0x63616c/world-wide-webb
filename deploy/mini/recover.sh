@@ -30,12 +30,19 @@ compose config --quiet
 compose pull www
 observed=$(docker run --rm --read-only --network none --entrypoint www-server "${line#WWW_IMAGE=}" version)
 [[ "$observed" == "$revision" ]] || { echo 'Image revision does not match the requested release.' >&2; exit 1; }
-data_dir=$(compose config --format json | python3 "$code/sqlite_preflight.py")
+# The rollback target may predate database-check. Keep validation on the
+# currently accepted image, whose capability is checked before mounting data.
+validator=$(docker --context orbstack inspect --format '{{.Config.Image}}' www-control-center-www-1)
+compose config --format json | python3 "$code/sqlite_preflight.py" "$validator"
 cp "$root/current.env" "$root/recovery-from.env"
 compose stop www
 # Capture a consistent recovery point with application writers stopped.
-python3 "$code/sqlite_snapshot.py" "$data_dir/control-center.sqlite" \
-  "$root/backups/before-recovery-$stamp.sqlite"
+if ! python3 "$code/sqlite_snapshot.py" --container www-control-center-www-1 \
+  "$root/backups/before-recovery-$stamp.sqlite"; then
+  # A failed backup must not leave the previously running app stopped.
+  docker --context orbstack start www-control-center-www-1 >/dev/null
+  exit 1
+fi
 compose up -d --no-deps --wait --wait-timeout 180 www
 compose exec -T -e EXPECTED_REVISION="$revision" www www-server healthcheck
 python3 "$code/tailscale_serve.py"

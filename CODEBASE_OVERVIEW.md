@@ -31,7 +31,9 @@ Swift calls `/api/v1` over private Tailscale HTTPS at `https://homelab.tail8c014
 All Tailnet devices are trusted; the app has no login, credential entry or Cloudflare service-token headers.
 The existing typed Swift client is maintained directly; real cross-language tests verify it.
 Rust owns database writes and one set of interval workers; Home Assistant remains the physical-device adapter.
-SQLite and Photo Booth media persist outside the image. No running PostgreSQL dependency remains for this app
+SQLite persists in an external Linux-local Docker volume; Photo Booth media persists on the mini SSD outside the image.
+Live WAL files are never opened from macOS or stored on a NAS. Backups copy the stopped database to a private
+local snapshot before any NAS upload. No running PostgreSQL dependency remains for this app
 after cutover; unrelated Hindsight/Bambuddy/HA services and their backups are independent.
 
 The mini hosts OrbStack and the app on loopback port 4202, published privately by Tailscale Serve on HTTPS443. The shared Cloudflare tunnel serves only independent

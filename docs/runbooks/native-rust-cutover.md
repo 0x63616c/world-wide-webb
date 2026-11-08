@@ -25,7 +25,7 @@ image before release; a local host without Docker cannot certify that step.
    are trusted. Keep release publication's automation token server-side.
 2. Preserve existing runtime flags, especially the verified bedroom input configuration. Set the existing HA
    origin, explicit worker ownership, data/media directories and private secret directory in runtime.env.
-   Do not activate an unverified physical switch binding. Compose mounts the entire SQLite directory.
+   Do not activate an unverified physical switch binding. Compose mounts the external Linux-local SQLite volume; never mount a macOS directory for live WAL storage.
 3. Export Pulumi recovery state privately through supported tooling; disable its writer. Inventory existing
    resource IDs and retained HA, Hindsight, Bambuddy and DSM routes. Install pinned OpenTofu on the mini.
 4. Bootstrap `~/homelab-infra/cloudflare` with private production variables and `secrets/STATE_PASSPHRASE`
@@ -67,9 +67,9 @@ Inspect migrations before image rollback. To return to the old stack, first stop
 old database/media/runtime snapshot and verify the old image before re-enabling its single writer. Do not run
 old PostgreSQL writers against an earlier stale snapshot or discard new writes without reconciliation.
 
-Cold copied WAL databases may lack sidecars on macOS. The shared `read_database` helper opens an existing
-database with `mode=rw` for SQLite bookkeeping and enables `query_only` before any SQL, so preflight and
-backup can read it without allowing SQL writes. Never use `immutable=1` against a live WAL database.
+Only stopped private copies may be opened from macOS; see [SQLite storage boundaries](mini-backups.md#sqlite-storage-boundary). Cold copied WAL databases may lack sidecars on macOS. The shared `read_database` helper opens an existing
+database with `mode=rw` for SQLite bookkeeping and enables `query_only` before any SQL, so offline
+backup validation can read it without allowing SQL writes. Never use `immutable=1` against a live WAL database.
 
 `backup.py` defaults to SQLite; explicit PostgreSQL mode exists for retained recovery archives. It backs up
 independent services, app media/runtime and encrypted OpenTofu state, uploads to NAS and reads back SHA-256.
