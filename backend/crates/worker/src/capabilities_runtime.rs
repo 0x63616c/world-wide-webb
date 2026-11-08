@@ -23,6 +23,7 @@ const IMPLEMENTED: &[&str] = &[
     "avatars.moderation",
     "notifications.results",
     "profiles.edit",
+    "profiles.milestones",
     "moderation.reports",
     "moderation.blocks",
 ];

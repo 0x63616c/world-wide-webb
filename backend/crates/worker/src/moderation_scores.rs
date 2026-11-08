@@ -167,17 +167,12 @@ pub(crate) async fn change(
             revision + 1,
         )?);
     }
-    let counted: Vec<_> = summary
-        .counted_events
-        .iter()
-        .map(|id| (id.clone(), times[id]))
-        .collect();
-    writes.extend(crate::milestone_runtime::replay(
+    writes.extend(crate::milestone_runtime::rebuild(
         db,
         participant,
         &generation,
         revision + 1,
-        &counted,
+        true,
     )?);
     Ok((writes, submission))
 }

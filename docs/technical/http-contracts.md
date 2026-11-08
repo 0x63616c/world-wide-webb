@@ -6,6 +6,8 @@ This catalog fixes wire names and request/response ownership. JSON schemas under
 
 These additive contracts are implemented as one integrated release with [the feature plan](profiles-and-milestones.md); they do not establish provider acceptance. `BadgeID` is one of `folds_1`, `folds_100`, `folds_1000`, `folds_10000`, `days_7`, `days_30`. Catalog version is 1. All counts are server-owned eligible current-generation competition counts; daily milestones use distinct UTC days. No client-provided count, date or grant is accepted.
 
+The deployment advertises `profiles.milestones` only after acceptance evidence for the complete feature. Internal preview archive/distribution checks require that capability and the exact matching Worker source commit; broader App Store readiness remains separately gated.
+
 - `MilestoneProgress`: `{catalog_version:1, folds, days_used, next:[{track:folds|days,badge_id:BadgeID,current,target}], earned:BadgeID[]}`. At most one unmet target per track; completed tracks have no next entry. The full locked catalog is never returned as progress.
 - `MilestoneGrant`: `{badge_id:BadgeID, earned_at_ms:Instant|null, acknowledged:bool}`; owner-only.
 - `GET /v1/milestones`: authenticated eligible owner → `{generation:Generation, revision, progress:MilestoneProgress, grants:MilestoneGrant[], featured_badge_id:BadgeID|null, request_id}`. Partial/revision-invalid backfills return retryable 503, never partial awards. Confirmed cached owner data may remain visible offline, fenced by account/generation.

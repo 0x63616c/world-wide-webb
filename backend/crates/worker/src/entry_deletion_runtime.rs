@@ -212,17 +212,12 @@ pub(crate) async fn delete(
             session.revision + 1,
         )?);
     }
-    let counted: Vec<_> = summary
-        .counted_events
-        .iter()
-        .map(|id| (id.clone(), times[id]))
-        .collect();
-    writes.extend(crate::milestone_runtime::replay(
+    writes.extend(crate::milestone_runtime::rebuild(
         db,
         &session.participant_id,
         &generation,
         session.revision + 1,
-        &counted,
+        true,
     )?);
     // A deletion before publication invalidates any in-progress staged contribution.
     writes.push(statement(db, "DELETE FROM staged_results WHERE participant_id=?1 AND EXISTS(SELECT 1 FROM periods p WHERE p.period_id=staged_results.period_id AND p.state='finalizing' AND p.target_version=staged_results.version)", &[text(&session.participant_id)])?);

@@ -306,3 +306,10 @@ This is an internal implementation checkpoint, not a feature release or broad ac
 - [ ] Finish realistic large-history/lifecycle/race checks, release capability gating, integrated staging verification and the single combined internal release. No provider deployment or distribution at this checkpoint; formal visual/native-language/accessibility/CI/submission/device deferrals are not passes.
 
 See [UI evidence and exact limits](experiments/profile-milestones-implementation-2026-11-08.md#app-interface-and-cache-checkpoint). #71 stays **In progress** under F07.
+
+### Milestone corrections and lifecycle checkpoint
+
+- [x] Verify compound-keyset backfill with 100,000 folds, 391 pages, hidden partial awards and retained valid featured choice across bounded correction; earned dates reconcile to corrected history. Local resource measurements are not provider acceptance.
+- [x] Verify phone transfer/old-epoch rejection, reset during backfill, account deletion of ready/partial projections and protected admin quarantine/reinstatement with no repeated acknowledged unlock. 47 Rust checks, ten milestone and 17 general/admin runtime cases pass.
+- [x] Gate internal preview archive/distribution on accepted `profiles.milestones`, contract 1 and matching source; seven release regressions / 20 assertions pass.
+- [ ] Complete staging acceptance and one integrated TestFlight release; reconcile exact provider/Apple evidence. #71 remains In progress; all recorded broader shipping deferrals remain open.

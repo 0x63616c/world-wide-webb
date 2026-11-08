@@ -328,4 +328,21 @@ module FoldingRelease
     end
     backend.fetch("worker_version")
   end
+
+  # Internal previews can retain the recorded broader shipping deferrals, but
+  # this feature must ship against the exact compatible, accepted service.
+  def self.preview_prerequisites!(record)
+    origin = record.data.fetch("archive_configuration").fetch("api_origin")
+    backend = fetch_json("#{origin}/v1/capabilities")
+    raise "Backend contract mismatch" unless backend["contract_version"] == CONFIG.fetch("backend_contract_version")
+    missing = CONFIG.fetch("preview_backend_capabilities") - backend.fetch("capabilities")
+    raise "Preview feature capabilities missing: #{missing.join(',')}" unless missing.empty?
+    raise "Preview Worker differs from the app source" unless backend["worker_version"] == record.data.fetch("commit_sha")
+    record.save("preview_backend_verification" => {
+      "worker_version" => backend.fetch("worker_version"),
+      "capabilities" => CONFIG.fetch("preview_backend_capabilities"),
+      "verified_at" => Time.now.utc.iso8601
+    })
+    backend.fetch("worker_version")
+  end
 end

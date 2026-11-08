@@ -52,3 +52,16 @@ All 35 new semantic keys plus reset-copy updates have ten-locale catalog values;
 ### Still required
 
 Complete the remaining lifecycle/race and realistic large-history/resource checks, release capability/compatibility gating, integrated staging service/client verification, and one combined internal release with implementing commit/provider/Apple readback evidence. Final accessibility/native-language/storefront/full-app visual review, CI and App Store submission retain their recorded deferrals. #71 remains In progress; no provider mutation or distribution occurred during this UI checkpoint.
+
+## Correction, lifecycle and release-gate checkpoint
+
+The keyset source query now seeks both device and sequence; a host query-plan regression rejects a full observation scan. Deletion/moderation atomically hide the old projection and start a bounded rebuild. Still-valid grants and a featured choice are retained privately until final reconciliation; invalid grants clear their selection through the foreign key. Indexed event/day lookup also corrects earned dates when late history changes the crossing point. Acknowledgments survive correction and re-earning.
+
+Verification after these changes:
+
+- **47 Rust workspace checks pass** (seven domain units, seven contracts, 33 Worker host tests); optimized Worker build passes.
+- **Ten milestone workerd/D1 cases pass**, plus **17 general/runtime/admin cases**. New cases cover switching phones with old-epoch upload rejection, reset during partial backfill, immediate deletion of ready/partial projections, actual protected admin quarantine/reinstatement with retained acknowledgment, and default-disabled/explicitly accepted capability advertisement. An initial transfer fixture reused an event ID across devices; the fixture was corrected to a unique event ID, then the focused case and full milestone suite passed.
+- The real local Worker/D1 handles **100,000 accepted folds / 50 UTC days** in **391 bounded pages**. Latest full run completes successfully. The preceding measured run recorded 4,117 ms backfill, 4 ms owner-read p95 (20 reads) and 3,772 ms deletion plus bounded correction completion; source seeding took 66,626 ms. These are local measurements, not live provider CPU/cost acceptance. No profile read exposes partial grants; the still-earned featured badge survives the large correction.
+- Internal-preview archive/distribution now require `profiles.milestones`, contract 1 and exact matching Worker source. Seven release regressions / 20 assertions pass, covering missing capability, wrong contract/source and successful proof recording. The normal full-release capability gate also includes the new capability. Readiness-overlay regression, 15 schemas / 68 contract examples, all 237 localization keys and whitespace/format checks pass.
+
+Logs: `/tmp/folding-milestones-corrections-final.log`, `/tmp/folding-milestones-moderation-tests.log`, `/tmp/folding-milestones-correction-host.log`, `/tmp/folding-milestones-corrections-build.log`, `/tmp/folding-milestones-release-tests.log`. No deployment or distribution occurred in this checkpoint. Provider baseline readback has begun in the primary persistent credential session; subsequent staging acceptance and the combined release remain required.

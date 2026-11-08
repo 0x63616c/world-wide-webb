@@ -33,7 +33,7 @@ FROM observations o LEFT JOIN deleted_observations d
 ON d.participant_id=o.participant_id AND d.event_id=o.event_id
 WHERE o.participant_id=?1 AND o.disposition='accepted'
 AND json_extract(o.event_json,'$.is_test')=0
-AND (o.device_id>?2 OR (o.device_id=?2 AND o.sequence>?3))
+AND (o.device_id,o.sequence)>(?2,?3)
 AND json_extract(o.event_json,'$.generation.revision')=?4
 AND json_extract(o.event_json,'$.generation.reset_id')=?5
 ORDER BY o.device_id,o.sequence LIMIT 256
@@ -46,6 +46,29 @@ WHERE participant_id=?1 AND state='ready'
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn backfill_cursor_seeks_both_source_and_sequence() {
+        let db = rusqlite::Connection::open_in_memory().unwrap();
+        db.execute_batch("CREATE TABLE observations(participant_id TEXT,event_id TEXT,device_id TEXT,sequence INTEGER,event_json TEXT,disposition TEXT,PRIMARY KEY(participant_id,event_id)); CREATE TABLE deleted_observations(participant_id TEXT,event_id TEXT,PRIMARY KEY(participant_id,event_id)); CREATE INDEX milestone_backfill_source ON observations(participant_id,device_id,sequence) WHERE disposition='accepted' AND json_extract(event_json,'$.is_test')=0;").unwrap();
+        let mut query = db
+            .prepare(&format!("EXPLAIN QUERY PLAN {BACKFILL_ROWS}"))
+            .unwrap();
+        let details: Vec<String> = query
+            .query_map(("p", "d", 90000, 0, "g"), |row| row.get(3))
+            .unwrap()
+            .map(Result::unwrap)
+            .collect();
+        assert!(
+            details
+                .iter()
+                .any(|line| line.contains("(device_id,sequence)>(?,?)")),
+            "{details:?}"
+        );
+        assert!(
+            !details.iter().any(|line| line.contains("SCAN o")),
+            "{details:?}"
+        );
+    }
     #[test]
     fn bulk_day_deltas_preserve_unaffected_days_and_reject_underflow() {
         let db = rusqlite::Connection::open_in_memory().unwrap();

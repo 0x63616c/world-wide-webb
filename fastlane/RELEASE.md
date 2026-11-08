@@ -34,6 +34,8 @@ Evidence JSON contains `commit_sha`, `required_checks` entries (`name`, `run_url
 
 Only production can submit. Staging can archive/TestFlight using isolated registered identifiers and backend origin. **Both** TestFlight environments use Apple's distribution values: CloudKit `Production`, App Attest `production`, APNs `production`. The backend's staging environment is independent of Apple's distribution signing environment.
 
+A 0.x preview archive and distribution require the configured preview capabilities (currently `profiles.milestones`) and exact Worker/source commit readback. Preserve broader recorded shipping deferrals; this check does not claim full production acceptance.
+
 `beta` never submits to App Review. It uploads the stored IPA once, then resolves only its exact version/build; repeat the lane to observe processing and distribute to the explicit internal groups. It never rebuilds. If an upload might have succeeded but no build is visible, it stops for Apple reconciliation rather than uploading blindly.
 
 `submit` first associates metadata/screenshots with the exact processed build. Before the external submission attempt it persists an attempt marker. Resuming an ambiguous attempt only reads Apple. Success requires the selected build, `AFTER_APPROVAL`, a review-submission ID and `WAITING_FOR_REVIEW` or `IN_REVIEW`; only then does it publish the GitHub release record. Apple performs automatic public release after approval. Post-approval/live monitoring and physical-device acceptance remain F12/F13 work.
