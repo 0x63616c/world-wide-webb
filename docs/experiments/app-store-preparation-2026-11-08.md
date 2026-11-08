@@ -38,3 +38,9 @@ The draft remains version **1.0**, ID `461e7aec-0cf3-4a57-a899-99b38e36c252`, `P
 The existing internal build **0.1.13 (14)** is not a new signed 1.0 candidate containing these manifests. Full release preflight also requires all configured backend capabilities; current production source `091b09f359526cb81cf9b16de13fb750803eb579` advertises only the accepted `profiles.milestones` capability. Do not enable unverified capabilities to bypass that gate.
 
 Keep full rehearsal and broader provider/product acceptance under #43/#12, formal native-language/accessibility acceptance under #25/#71, CI under #46, actual submission, and owner-deferred physical checks under #47/F13 open. Screenshots and Apple draft setup do not mark these passed or establish the public Duo compatibility badge.
+
+## Durable handoff
+
+Implementation/evidence is pushed in [draft PR #79](https://github.com/0x63616c/folding/pull/79). The [private draft asset release](https://github.com/0x63616c/folding/releases/tag/untagged-76c6ed3990bf68e52774) preserves raw/composed captures, listing files/manifests, separate tip review image/map, independent review and Apple readback/proof. GitHub's uploaded asset digest and size match the local archive: SHA-256 `d95cb4efb46e5403d06b65e67c19e6bceeb02a98d66e6808c1d3a375015eaaa1`. This is a preparation backup, not the final signed release manifest.
+
+Repository pre-push checks passed: contracts, localization, icon reproducibility, Swift/OpenTofu formatting, 109 personal-core and 29 widget tests. No simulator was booted by these checks. Original shared checkout and pre-existing device sessions remain intact.
