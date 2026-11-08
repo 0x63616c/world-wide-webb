@@ -23,4 +23,25 @@ in {
     StartInterval = 300;
     ProcessType = "Background";
   };
+
+  # The app's installed URL is a stable service, independent of host enrollment.
+  # Define/approve svc:homelab in the tailnet before first activation.
+  launchd.daemons.homelab-control-center-access = lib.mkIf
+    (config.homelab.containers.enable
+      && builtins.elem "control-center" config.homelab.containers.services
+      && config.networking.hostName == "homelab-mac-mini") {
+    serviceConfig = {
+      ProgramArguments = [
+        "${pkgs.python3}/bin/python3"
+        "${../scripts/control-center-access.py}"
+        "${config.services.tailscale.package}/bin/tailscale"
+      ];
+      UserName = "root";
+      RunAtLoad = true;
+      StartInterval = 60;
+      ProcessType = "Background";
+      StandardOutPath = "/dev/null";
+      StandardErrorPath = "/dev/null";
+    };
+  };
 }
