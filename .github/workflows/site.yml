@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'site/**'
+      - 'sites/**'
       - 'scripts/build-site.sh'
       - 'scripts/publish-site.sh'
       - '.github/workflows/site.yml'

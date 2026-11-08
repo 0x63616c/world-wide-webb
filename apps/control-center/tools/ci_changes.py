@@ -97,7 +97,36 @@ def classify_repository(paths, force=False):
             "checks": any(unit.startswith("control-center.") for unit in selected),
         }
     )
-    # Publication remains product-input based; force/shared verification cannot upload.
+    # Build verification and deployment authority are separate decisions.
+    image_inputs = (
+        "server/src/",
+        "server/migrations/",
+        "deploy/mini/",
+    )
+    image_files = {
+        "Cargo.toml",
+        "Cargo.lock",
+        "rust-toolchain.toml",
+        "Dockerfile",
+        ".dockerignore",
+        "server/Cargo.toml",
+        "server/build.rs",
+    }
+    result["publish_image"] = any(
+        not policy.documentation(path)
+        and (path.startswith(image_inputs) or path in image_files)
+        and not path.startswith(("deploy/mini/test_", "deploy/mini/penpot_"))
+        for path in local
+    )
+    result["apply_infra"] = any(
+        (
+            path.startswith("infra/cloudflare/home/")
+            and not path.startswith("infra/cloudflare/home/tests/")
+            and (path.endswith(".tf") or path.endswith(".terraform.lock.hcl"))
+        )
+        or path == "apps/control-center/tools/infra_apply.py"
+        for path in paths
+    )
     return result
 
 

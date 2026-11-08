@@ -60,6 +60,8 @@ with tempfile.TemporaryDirectory(prefix="affected-") as directory:
     base = change("apps/tendr/code.swift")
     for fallback in [base, "", "0" * 40, "f" * 40]:
         expect(fallback, ["tendr"], ["tendr"])
+    base = change("apps/tendr/Packages/RDesign/Sources/Palette.swift")
+    expect(base, ["tendr"], ["tendr"], rdesign=True)
     base = change("apps/samplr/code.swift")
     expect(base, ["samplr"], ["samplr"])
     base = change("packages/RDesign/code.swift")

@@ -106,10 +106,11 @@ def main():
                 any(fnmatch.fnmatchcase(path, pattern) for path in files for pattern in patterns)):
             apps.append(app)
     verify = args.intent == "verify"
-    rdesign = any(path.startswith("packages/RDesign/") for path in files)
+    rdesign = any(path.startswith(("apps/tendr/Packages/RDesign/", "packages/RDesign/")) for path in files)
+    legacy_rdesign = any(path.startswith("packages/RDesign/") for path in files)
     template = any(path.startswith("templates/") for path in files)
     print(json.dumps({"apps": apps, "rdesign": verify and (rdesign or build_tooling),
-                      "template": verify and (template or rdesign or build_tooling)}, separators=(",", ":")))
+                      "template": verify and (template or legacy_rdesign or build_tooling)}, separators=(",", ":")))
 
 
 if __name__ == "__main__":

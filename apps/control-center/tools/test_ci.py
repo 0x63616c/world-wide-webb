@@ -162,8 +162,40 @@ class InfrastructureIsolationTests(unittest.TestCase):
     def test_home_hcl_verifies_infrastructure_without_building_products(self):
         self.assertEqual(
             classify_repository(["infra/cloudflare/home/main.tf"]),
-            dict(apple=False, image=False, infra=True, checks=False, publish_apple=False),
+            dict(
+                apple=False,
+                image=False,
+                infra=True,
+                checks=False,
+                publish_apple=False,
+                publish_image=False,
+                apply_infra=True,
+            ),
         )
 
     def test_folding_hcl_does_not_select_control_center(self):
         self.assertFalse(any(classify_repository(["infra/cloudflare/folding/production/main.tf"]).values()))
+
+
+class DeliveryAuthorityTests(unittest.TestCase):
+    def test_shared_and_unmapped_verification_never_publish_or_apply(self):
+        for path in ["fastlane/Fastfile", "Gemfile", ".github/workflows/ci.yml", "unmapped-config.json"]:
+            selected = classify_repository([path])
+            self.assertTrue(selected["image"])
+            self.assertTrue(selected["infra"])
+            self.assertFalse(selected["publish_image"], path)
+            self.assertFalse(selected["apply_infra"], path)
+
+    def test_application_image_and_infra_have_independent_publish_inputs(self):
+        server = classify_repository(["apps/control-center/server/src/main.rs"])
+        self.assertTrue(server["publish_image"])
+        self.assertFalse(server["apply_infra"])
+        helper = classify_repository(["apps/control-center/tools/infra_apply.py"])
+        self.assertTrue(helper["infra"])
+        self.assertTrue(helper["apply_infra"])
+        self.assertFalse(helper["checks"])
+        self.assertFalse(helper["publish_image"])
+
+    def test_native_and_test_changes_do_not_publish_the_server(self):
+        for path in ["apps/control-center/apple/App/Clock.swift", "apps/control-center/server/tests/http.rs"]:
+            self.assertFalse(classify_repository([path])["publish_image"])

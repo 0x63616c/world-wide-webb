@@ -50,7 +50,7 @@ jobs:
         run: |
           python3 - <<'PY'
           import json,os
-          value=json.load(open('ci-selection.json'))['image']
+          value=json.load(open('ci-selection.json'))['publish_image']
           assert isinstance(value,bool)
           with open(os.environ['GITHUB_OUTPUT'],'a') as out:out.write('image='+str(value).lower()+'\n')
           PY

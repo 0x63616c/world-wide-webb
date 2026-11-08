@@ -135,7 +135,7 @@ jobs:
         run: python3 -m pip install -r scripts/requirements.txt
       - name: Shared component tests
         if: matrix.app == 'tendr' && github.ref == 'refs/heads/main'
-        run: swift test --package-path packages/RDesign
+        run: swift test --package-path apps/tendr/Packages/RDesign
       - name: Plan automatic App Store version
         if: matrix.app == 'tendr' && github.ref == 'refs/heads/main'
         env:

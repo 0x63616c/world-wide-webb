@@ -48,7 +48,7 @@ jobs:
         run: |
           python3 - <<'PY'
           import json,os
-          value=json.load(open('ci-selection.json'))['infra']
+          value=json.load(open('ci-selection.json'))['apply_infra']
           assert isinstance(value,bool)
           with open(os.environ['GITHUB_OUTPUT'],'a') as out:out.write('infra='+str(value).lower()+'\n')
           PY

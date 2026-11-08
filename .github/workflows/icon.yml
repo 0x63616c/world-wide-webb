@@ -52,7 +52,7 @@ jobs:
           path: |
             apps/tendr/design/icon
             apps/tendr/Still/Assets.xcassets
-            site/tendr/assets/*.png
+            sites/tendr/assets/*.png
       - name: Committed assets match scripts/render-icon.swift
         run: |
           git status --porcelain

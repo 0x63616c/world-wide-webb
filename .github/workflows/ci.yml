@@ -21,6 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
+      publish_image: ${{ steps.select.outputs.publish_image }}
       checks: ${{ steps.select.outputs.checks }}
       apple: ${{ steps.select.outputs.apple }}
       image: ${{ steps.select.outputs.image }}
@@ -157,12 +158,12 @@ jobs:
           cache-from: type=gha,scope=www-mini
           cache-to: type=gha,mode=max,scope=www-mini
       - uses: ./.github/actions/ghcr-login
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.publish_image == 'true'
         env:
           SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
       - name: Publish the built image without rebuilding
         id: image
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.publish_image == 'true'
         env:
           IMAGE: ghcr.io/0x63616c/www-control-center-mini:${{ github.sha }}
         run: |
@@ -174,7 +175,7 @@ jobs:
           IMAGE: ${{ steps.image.outputs.image || 'www-server:check' }}
         run: python3 tools/test_container.py "$IMAGE" "$GITHUB_SHA"
       - uses: actions/upload-artifact@v4
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.publish_image == 'true'
         with:
           name: ci-image
           path: apps/control-center/ci-image.json

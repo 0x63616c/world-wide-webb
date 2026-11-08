@@ -3,7 +3,7 @@
 #   scripts/new-app.sh <Name> <bundle-suffix>
 #   scripts/new-app.sh Samplr samplr      → apps/samplr, bundle ID com.calumwebb.samplr, sites/samplr
 #
-# Creates the XcodeGen project (RDesign, launch screen, placeholder icon, Home and Settings with
+# Creates the XcodeGen project (native SwiftUI, launch screen, placeholder icon, Home and Settings with
 # privacy and support links, a screenshot UI test), apps/<app>/app.yml for fastlane and CI,
 # a metadata skeleton, screenshot frames and site pages. CI picks the app up automatically.
 # What still needs a person is printed at the end (and listed in docs/NEW-APP.md).
@@ -52,7 +52,7 @@ fi
 cat <<EOF
 Created $name ($bundle) in $dest and sites/$slug. $generated
 
-Done for you: RDesign, launch screen, placeholder icon, Settings with privacy and support links,
+Done for you: native SwiftUI, launch screen, placeholder icon, Settings with privacy and support links,
 screenshot UI test, app.yml (fastlane + CI), metadata skeleton, screenshots.json and site pages.
 
 Still needs a person:

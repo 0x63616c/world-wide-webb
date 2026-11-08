@@ -1,9 +1,8 @@
-import RDesign
 import SwiftUI
 
 @main struct __NAME__App: App {
     var body: some Scene {
-        WindowGroup { RootView().tint(RPalette.graphite) }
+        WindowGroup { RootView() }
     }
 }
 
@@ -19,21 +18,9 @@ struct RootView: View {
 struct HomeView: View {
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: RSpacing.m) {
-                    PageHeader("__NAME__").padding(.horizontal, RSpacing.xs)
-                    VStack(alignment: .leading, spacing: RSpacing.xs) {
-                        Text("Today").rEyebrow().foregroundStyle(.tint)
-                        Text("Nothing here yet").font(RFont.cardTitle)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .card()
-                    .accessibilityIdentifier("homeCard")
-                }
-                .padding(.horizontal, RSpacing.m)
-            }
-            .background(RPalette.background)
-            .toolbar(.hidden, for: .navigationBar)
+            ContentUnavailableView("Nothing here yet", systemImage: "square.grid.2x2")
+                .accessibilityIdentifier("homeCard")
+                .navigationTitle("__NAME__")
         }
     }
 }
@@ -41,22 +28,19 @@ struct HomeView: View {
 struct SettingsView: View {
     var body: some View {
         NavigationStack {
-            VStack(spacing: RSpacing.xs) {
-                PageHeader("Settings").padding(.horizontal, RSpacing.xl)
-                Form {
-                    Section {
-                        RHelpLinks(privacy: AppLinks.privacy, support: AppLinks.support)
-                    } footer: { RVersionFooter("__NAME__") }
+            Form {
+                Section {
+                    Link("Privacy", destination: AppLinks.privacy)
+                    Link("Support", destination: AppLinks.support)
+                } footer: {
+                    Text("__NAME__")
                 }
-                .scrollContentBackground(.hidden)
             }
-            .background(RPalette.background)
-            .toolbar(.hidden, for: .navigationBar)
+            .navigationTitle("Settings")
         }
     }
 }
 
-/// This app's public pages on the shared -r site (site/__SLUG__/).
 enum AppLinks {
     static let privacy = URL(string: "__PAGES__privacy/")!
     static let support = URL(string: "__PAGES__support/")!

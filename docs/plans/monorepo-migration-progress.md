@@ -97,3 +97,24 @@ Folding website source moved intact to `sites/folding`; both public asset builds
 Home OpenTofu formatting/validation, two mocked route tests and the isolated encrypted-state/
 exclusive-lock/wrong-key/backup-restore proof pass at the new path. All three Folding roots initialize with backends disabled and validate successfully using
 fixture encryption inputs. No live infrastructure apply has been performed by this migration.
+
+## Foundation review and private artifact preparation — approximately 24% overall
+
+Astra independently reviewed committed foundation `ca1b9d134`. All six findings and the
+additional source-path ownership gaps were addressed together: separate verified/image/apply
+authority, updated Tendr RDesign test paths, independent native scaffold, infrastructure-helper
+ownership, Folding formatter source path and accurate screenshot capture revision. Site/icon
+workflow paths and Folding toolchain dependency ownership were updated too.
+
+Validation: 15 Control Center CI/isolation tests, 9 shared selection tests, legacy real-Git
+affected fixtures with new app-local package coverage, release-lane/wait tests and actionlint pass.
+A freshly scaffolded independent sample app builds for iOS Simulator outside the repo.
+
+The private-artifact preparer creates deterministic zero-parent Git commits containing only
+prebuilt payloads and a source/byte/mode receipt. Three real-Git transport/validation tests pass.
+A separate canary using the existing notarized installed app passes strict Developer ID/team,
+Git round-trip and stapled-ticket verification. Its source identity is synthetic: this is transport
+proof, not a signed release of the current migration source or a private GitHub auth/install proof.
+
+Astra's foundation report is retained outside Git at `/tmp/monorepo-foundation-astra-review.md`.
+The complete migration still requires its final independent review before publication.
