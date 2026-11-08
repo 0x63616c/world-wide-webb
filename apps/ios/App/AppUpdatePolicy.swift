@@ -105,19 +105,12 @@ struct AppUpdateRequiredView: View {
     ScrollView {
       VStack(spacing: 24) {
         Image(systemName: "arrow.down.app").font(.largeTitle).accessibilityHidden(true)
-        Text(String(localized: "update.title", defaultValue: "Update Folding"))
+        Text(String(localized: "update.title", defaultValue: "A newer version is required"))
           .font(.largeTitle.bold()).accessibilityAddTraits(.isHeader)
-        Text(
-          String(
-            localized: "update.message",
-            defaultValue: "Update Folding to continue. Your saved history will not be deleted."))
-        Button(String(localized: "update.open", defaultValue: "Update app")) {
+        Button(String(localized: "update.open", defaultValue: "Update")) {
           openURL(policy.updateURL)
         }
         .buttonStyle(.borderedProminent)
-        Button(String(localized: "update.check", defaultValue: "Check again")) {
-          Task { await policy.refresh(force: true) }
-        }.disabled(policy.checking)
         if policy.checking { ProgressView() }
         if policy.checkFailed {
           Text(

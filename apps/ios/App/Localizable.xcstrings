@@ -13585,138 +13585,6 @@
         }
       }
     },
-    "update.check": {
-      "comment": "Required-update screen. Non-English copy is an AI draft; see docs/localization.md for QA status.",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Check again"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Erneut prüfen"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Vérifier à nouveau"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Volver a comprobar"
-          }
-        },
-        "es-419": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Volver a comprobar"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "もう一度確認"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "다시 확인"
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Verificar novamente"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "重新检查"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "重新檢查"
-          }
-        }
-      }
-    },
-    "update.message": {
-      "comment": "Required-update screen. Non-English copy is an AI draft; see docs/localization.md for QA status.",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Update Folding to continue. Your saved history will not be deleted."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Aktualisiere Folding, um fortzufahren. Dein gespeicherter Verlauf wird nicht gelöscht."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mettez Folding à jour pour continuer. Votre historique enregistré ne sera pas supprimé."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Actualiza Folding para continuar. Tu historial guardado no se eliminará."
-          }
-        },
-        "es-419": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Actualiza Folding para continuar. Tu historial guardado no se eliminará."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "続けるにはFoldingをアップデートしてください。保存済みの履歴は削除されません。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "계속하려면 Folding을 업데이트하세요. 저장된 기록은 삭제되지 않습니다."
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Atualize o Folding para continuar. Seu histórico salvo não será excluído."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "请更新 Folding 以继续使用。已保存的历史记录不会被删除。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "請更新 Folding 以繼續使用。已儲存的歷史記錄不會被刪除。"
-          }
-        }
-      }
-    },
     "update.offline": {
       "comment": "Required-update screen. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
@@ -13790,13 +13658,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Update app"
+            "value": "Update"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "App aktualisieren"
+            "value": "Aktualisieren"
           }
         },
         "fr": {
@@ -13808,43 +13676,43 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Actualizar app"
+            "value": "Actualizar"
           }
         },
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "Actualizar app"
+            "value": "Actualizar"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "アプリをアップデート"
+            "value": "アップデート"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "앱 업데이트"
+            "value": "업데이트"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Atualizar app"
+            "value": "Atualizar"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "更新 App"
+            "value": "更新"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "更新 App"
+            "value": "更新"
           }
         }
       }
@@ -13922,61 +13790,61 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Update Folding"
+            "value": "A newer version is required"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Folding aktualisieren"
+            "value": "Eine neuere Version ist erforderlich"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mettre Folding à jour"
+            "value": "Une version plus récente est requise"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Actualizar Folding"
+            "value": "Se requiere una versión más reciente"
           }
         },
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "Actualizar Folding"
+            "value": "Se requiere una versión más reciente"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "Foldingをアップデート"
+            "value": "新しいバージョンが必要です"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "Folding 업데이트"
+            "value": "새 버전이 필요합니다"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Atualizar o Folding"
+            "value": "Uma versão mais recente é necessária"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "更新 Folding"
+            "value": "需要更新版本"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "更新 Folding"
+            "value": "需要較新版本"
           }
         }
       }

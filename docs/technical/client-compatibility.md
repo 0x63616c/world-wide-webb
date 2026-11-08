@@ -12,11 +12,11 @@ Owner decision, November 8, 2026: once a confirmed minimum exceeds the installed
 
 ## Client behavior
 
-The composition root checks policy on launch and foreground, at most once per 15 minutes; “Check again” forces a retry. A 426 from a business request also updates the cached requirement. All checks use the configured environment's fixed HTTPS origin. The policy supplies neither arbitrary display text nor a remote destination URL.
+The composition root checks policy on launch and foreground, at most once per 15 minutes. A 426 from a business request also updates the cached requirement. All checks use the configured environment's fixed HTTPS origin. The policy supplies neither arbitrary display text nor a remote destination URL.
 
 A confirmed minimum is persisted per environment and survives cold/offline launch and sign-out. A failed or malformed check cannot clear it. Installing a build at or above the cached floor immediately removes the cached gate; a successful policy response can lower the floor for rollback. With no known requirement, network failure leaves the app UI available: an unseen server decision cannot be enforced offline.
 
-The update screen replaces the root rather than stacking a dismissible sheet, so navigation/deep links cannot dismiss it. It offers Update app, Check again and external support. App Store destination is the registered Folding app ID 6832059501; sandbox-receipt/TestFlight and staging installs use the public TestFlight landing page. Verify that the device opens the expected update destination before enabling a floor. The updated translations are drafts under existing localization QA rules.
+The update screen replaces the root rather than stacking a dismissible sheet, so navigation/deep links cannot dismiss it. It offers a single requirement heading, Update and external support, without a manual recheck or repeated explanatory copy. App Store destination is the registered Folding app ID 6832059501; sandbox-receipt/TestFlight and staging installs use the public TestFlight landing page. Verify that the device opens the expected update destination before enabling a floor. The updated translations are drafts under existing localization QA rules.
 
 Background upload errors with `app_update_required` retain their operation/event data and retry later; they do not permanently suspend competition. Local recording and iCloud replication are independent of this UI policy. Offline cold startup follows the separate account-witness contract in storage-and-tracking.md and #57; update-policy tests do not establish account/device acceptance.
 
