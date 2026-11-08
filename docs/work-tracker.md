@@ -297,3 +297,12 @@ This is an internal implementation checkpoint, not a feature release or broad ac
 - [ ] Complete UI navigation/progress/collection/featuring/celebrations, account-scoped caches, badge artwork, localization/privacy/accessibility, broader lifecycle/load checks and staged integrated release verification.
 
 [Detailed evidence and remaining requirements](experiments/profile-milestones-implementation-2026-11-08.md). #71 remains **In progress** and all product parts remain one release; nothing was deployed or distributed by this checkpoint.
+
+### Profile interface and account cache checkpoint
+
+- [x] Implement profile summaries/member browsing and Settings/podium/tie-group navigation; next-only progress, complete earned collection, badge detail/featuring and grouped safe unlocks. Add six reproducible template vector artworks, account/generation/revision-fenced caches, durable feature/ack retry identity, offline save behavior and pending reset/deletion guards.
+- [x] Pass 65 app-hosted tests and direct production-view renders; retain 46 Rust/21 Worker checks from the service checkpoint. Verify 237 keys × ten locales, ten localization regressions, Swift formatting and website build. Initial unsigned Keychain test configuration was corrected; final signed tests pass. Preserve existing simulators and verify shutdown/deletion of every task-created test device.
+- [x] Add six unchecked, explicitly owner-deferred physical feature checks to #47/F13. Update join/reset and privacy/deletion source copy, including badge retention and competition-data access.
+- [ ] Finish realistic large-history/lifecycle/race checks, release capability gating, integrated staging verification and the single combined internal release. No provider deployment or distribution at this checkpoint; formal visual/native-language/accessibility/CI/submission/device deferrals are not passes.
+
+See [UI evidence and exact limits](experiments/profile-milestones-implementation-2026-11-08.md#app-interface-and-cache-checkpoint). #71 stays **In progress** under F07.

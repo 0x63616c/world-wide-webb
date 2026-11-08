@@ -150,6 +150,7 @@ struct LeaderboardEntry: Identifiable, Sendable {
   let isCurrentUser: Bool
   var approvedAvatarData: Data? = nil
   var percentile: Int? = nil
+  var featuredBadge: MilestoneBadge? = nil
 }
 
 struct LeaderboardPresentation: Sendable {
@@ -187,10 +188,12 @@ enum PresentedSheet: Identifiable, Equatable {
   case tiedRank(Int)
   case export(UUID)
   case competition(CompetitionSheet)
+  case milestoneUnlock([MilestoneBadge])
   var id: String {
     switch self {
     case .settings: "settings"
     case .competition(let screen): "competition-\(screen.rawValue)"
+    case .milestoneUnlock(let badges): "unlock-" + badges.map(\.rawValue).joined(separator: "-")
     case .trackingPhone: "tracking-phone"
     case .setup: "setup"
     case .editSummary: "summary"
@@ -273,6 +276,11 @@ enum ExportChoice { case json, csv }
   var exportFinished: ((UUID) async -> Void)?
   var joinCompetition: ((String) async throws -> Void)?
   var refreshCompetitionProfile: (() async throws -> CompetitionProfile)?
+  var loadOwnerMilestones: (() async throws -> MilestoneOwnerLoad)?
+  var loadParticipantProfile: ((String) async throws -> ParticipantProfileLoad)?
+  var featureMilestone:
+    ((String, MilestoneBadge?, ResetGeneration) async throws -> OwnerMilestones)?
+  var acknowledgeMilestones: ((String, MilestoneAcknowledgmentRequest) async throws -> Void)?
   var saveNickname: ((String) async throws -> CompetitionProfile)?
   var uploadAvatar: ((Data) async throws -> AvatarState)?
   var removeAvatar: (() async throws -> Void)?
@@ -335,6 +343,17 @@ enum ExportChoice { case json, csv }
   var historyFailed = false
   var competitionRemoval: CompetitionRemovalState?
   var competitionProfile: CompetitionProfile?
+  var ownerMilestones: OwnerMilestones?
+  var milestonesContext = UUID()
+  var milestonesLoading = false
+  var milestonesFailed = false
+  var milestonesCached = false
+  var milestonesSaving = false
+  var milestonesFeatureFailed = false
+  var milestonesLastLoaded: Date?
+  var milestonesSeen: Set<MilestoneBadge> = []
+  var milestonesDisplayed: [MilestoneBadge] = []
+  var milestonesForeground = false
   var joinNickname = ""
   var hiddenRequestID = UUID()
   var hiddenLoading = false
@@ -393,6 +412,8 @@ enum ExportChoice { case json, csv }
   }
 
   func dismissCompetitionSheets() {
+    if case .milestoneUnlock = nextSheet { nextSheet = nil }
+    if case .milestoneUnlock = sheet { sheet = nil }
     if case .competition = nextSheet { nextSheet = nil }
     if case .competition = sheet { sheet = nil }
     // Profile/results can also be pushed inside Settings; discard that private navigation stack.

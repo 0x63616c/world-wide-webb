@@ -145,7 +145,7 @@ struct ParticipantProfileResponse: Decodable, Sendable {
   let revision: Int64
 }
 
-struct FeaturedBadgeRequest: Encodable, Sendable {
+struct FeaturedBadgeRequest: Codable, Sendable {
   let operationID: String
   let generation: ResetGeneration
   let badgeID: MilestoneBadge?
@@ -165,7 +165,7 @@ struct FeaturedBadgeResponse: Decodable, Sendable {
   let featuredBadgeID: MilestoneBadge?
   enum CodingKeys: String, CodingKey { case featuredBadgeID = "featured_badge_id" }
 }
-struct MilestoneAcknowledgmentRequest: Encodable, Sendable {
+struct MilestoneAcknowledgmentRequest: Codable, Sendable {
   let operationID: String
   let generation: ResetGeneration
   let badgeIDs: [MilestoneBadge]

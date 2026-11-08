@@ -31,6 +31,8 @@ struct CompetitionWireRank: Decodable, Sendable {
   let rank: Int
   let percentile: Int?
   let medal: String?
+  // swift-format-ignore: AlwaysUseLowerCamelCase
+  var featured_badge_id: MilestoneBadge? = nil
 }
 struct CompetitionWirePage<Item: Decodable & Sendable>: Decodable, Sendable {
   let items: [Item]

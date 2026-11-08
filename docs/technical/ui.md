@@ -20,9 +20,9 @@ Use a small generic presentation state only for independently loaded remote cont
 
 ## 2. App shell and navigation
 
-Use one native `TabView`: Today (`chart.bar`), History (`clock`), Leaderboard (`trophy`). Keep tab text visible. Each tab owns a `NavigationStack` and typed route enum; selecting another tab preserves its navigation stack. Do not build a floating custom tab bar.
+Use one native `TabView`: Today (`chart.bar`), History (`clock`), Leaderboard (`trophy`), Settings (`gearshape`). Keep tab text visible. Each tab owns a `NavigationStack`; selecting another tab preserves its navigation stack. Do not build a floating custom tab bar.
 
-Settings is a gear toolbar button on each tab's root. Present a sheet containing a `NavigationStack`, native `Form`, and Done toolbar action. Permit one modal at a time through a typed `PresentedSheet` enum; nested settings destinations push inside that sheet. Editing summary, account profile, export format, notification options, and share previews use their own sheets/destinations as specified below. Use native alert/confirmation dialog for simple destructive confirmation and an explicit operation-progress view when the command lasts beyond dismissal.
+Settings has its own tab with a `NavigationStack` and native `Form`. Nested settings destinations push there; account changes discard private profile navigation. Permit one modal at a time through `PresentedSheet`, including setup, profile/results/share sheets and grouped milestone unlocks. Summary editing and export retain their existing presentation paths. Use native alerts/confirmation dialogs for simple destructive confirmation and explicit operation progress for longer commands.
 
 First launch presents setup as a full-screen flow. A short “Not now” action returns to Today with one “Set up tracking” row. It does not falsely mark setup complete. Later widget/deep-link navigation opens the selected destination, then shows required setup/account state within it; never discard the link because setup was incomplete.
 
@@ -94,6 +94,8 @@ Use Swift Charts `Chart` with `BarMark`, native axis formatting, and selection s
 Session detail shows start, end or running state, time unfolded, and completeness. Equivalent travel appears only if enabled, labeled “Equivalent travel,” with the short optional info sheet from the spec. No health/wear score or angle precision beyond the documented estimate.
 
 ## 7. Leaderboard, profile, and results
+
+The [profiles and milestones plan](profiles-and-milestones.md) extends this section in one release (#71). The profile toolbar button, own row and Settings open Your Profile; participant rows/podium/tie-group selections open community profiles without resetting the board's selected period or scroll. Put the editing form below behind Edit Profile. Own progress reveals one next target per track, plus the complete earned collection, badge detail and one optional featured badge. Other profiles contain only public identity/All Time/earned/featured data. Group foreground unlocks behind existing presentations/setup/account/error states, acknowledge only displayed groups, and persist retries. Account/generation context and monotonically increasing revisions fence owner caches and late replies; public profile reads are refreshed and never persisted locally. See the plan and current implementation evidence before treating any broad acceptance as passed.
 
 Before opt-in, show a short competition description and the system Sign in with Apple control. Do not request it during tracking setup. Cache Apple's one-time name response in device-only storage before the server exchange, keyed to the Apple identity; do not reuse it across identities, and clear it after confirmed account deletion. After sign-in, present suggested nickname, an explicitly labeled optional photo picker (Apple provides no profile photo), and Join confirmation; cancellation leaves private tracking unaffected. Disable duplicate Join submissions while one command is pending.
 

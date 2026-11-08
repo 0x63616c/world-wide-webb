@@ -74,7 +74,7 @@ struct HiddenParticipantsPage: Sendable {
   let snapshotVersion: String
 }
 
-enum CompetitionSheet: String { case join, profile, results, liveShare }
+enum CompetitionSheet: String { case join, profile, results, liveShare, milestones }
 enum CompetitionRemovalState { case deleting, deleteFailed }
 
 extension FoldingPresentation {
@@ -85,6 +85,7 @@ extension FoldingPresentation {
 
   /// Invalidate all private result/profile presentation on reset, leave or account change.
   func invalidateCompetitionPresentation() {
+    invalidateMilestones()
     invalidateLeaderboardRequests()
     hiddenRequestID = UUID()
     hiddenLoading = false

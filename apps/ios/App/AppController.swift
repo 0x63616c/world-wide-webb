@@ -14,7 +14,11 @@ import struct FoldingData.SetupProgress
   private var competitionIdentityRevision = UUID()
   private var joinedParticipantID: String? {
     didSet {
-      if oldValue != joinedParticipantID { competitionIdentityRevision = UUID() }
+      if oldValue != joinedParticipantID {
+        competitionIdentityRevision = UUID()
+        presentation.invalidateMilestones()
+        if oldValue != nil { milestoneCache.clear() }
+      }
       presentation.competitionJoined = joinedParticipantID != nil
     }
   }
@@ -29,6 +33,7 @@ import struct FoldingData.SetupProgress
   private var flushingEntryDeletions = false
   private var deletionRetryAfter = Date.distantPast
   private let preferencesKey = "folding.preferences.v1"
+  private lazy var milestoneCache = MilestoneCache(defaults: preferencesStore)
 
   init(
     runtime: TrackingRuntime = .shared, preferencesStore: UserDefaults = .standard,
@@ -121,6 +126,8 @@ import struct FoldingData.SetupProgress
       reset: {
         self.presentation.dismissExports()
         try await self.runtime.reset()
+        self.milestoneCache.clear()
+        self.presentation.invalidateMilestones()
         try await self.refresh()
         await self.presentation.requestHistory(using: self.actions)
       },
@@ -157,6 +164,54 @@ import struct FoldingData.SetupProgress
         let value = await self.profilePresentation(profile)
         guard revision == self.competitionIdentityRevision else { throw CancellationError() }
         return value
+      },
+      loadOwnerMilestones: { try await self.loadOwnerMilestones() },
+      loadParticipantProfile: { id in
+        let identity = self.competitionIdentityRevision
+        let api = try await self.competitionClient()
+        let response = try await api.participantProfile(id)
+        let avatar =
+          if let id = response.profile.avatarID {
+            try? await api.transport.avatarImage(id)
+          } else { nil as Data? }
+        guard identity == self.competitionIdentityRevision, self.joinedParticipantID != nil else {
+          throw CancellationError()
+        }
+        return ParticipantProfileLoad(profile: response, avatarData: avatar)
+      },
+      featureMilestone: { participant, badge, generation in
+        guard participant == self.joinedParticipantID else { throw CancellationError() }
+        let identity = self.competitionIdentityRevision
+        let store = try await self.runtime.store()
+        let currentGeneration = try await store.currentGeneration()
+        guard identity == self.competitionIdentityRevision, participant == self.joinedParticipantID,
+          currentGeneration == generation
+        else { throw CancellationError() }
+        let request = self.milestoneCache.feature(
+          participant: participant, generation: generation, badge: badge)
+        try self.milestoneCache.queue(request, participant: participant)
+        let api = try await self.competitionClient()
+        _ = try await api.featureBadge(request)
+        guard identity == self.competitionIdentityRevision else { throw CancellationError() }
+        let confirmed = try await api.milestones()
+        let confirmedGeneration = try await store.currentGeneration()
+        guard identity == self.competitionIdentityRevision, participant == self.joinedParticipantID,
+          confirmed.generation == generation, confirmedGeneration == generation
+        else { throw CancellationError() }
+        try self.milestoneCache.save(confirmed, participant: participant)
+        try self.milestoneCache.featured(request, participant: participant)
+        await self.presentation.requestLeaderboard(using: self.actions)
+        return confirmed
+      },
+      acknowledgeMilestones: { participant, request in
+        let identity = self.competitionIdentityRevision
+        let currentGeneration = try await self.runtime.store().currentGeneration()
+        guard participant == self.joinedParticipantID, identity == self.competitionIdentityRevision,
+          currentGeneration == request.generation
+        else { throw CancellationError() }
+        try self.milestoneCache.queue(request, participant: participant)
+        try await self.flushMilestoneAcknowledgments(
+          participant: participant, generation: request.generation)
       },
       saveNickname: { value in
         let profile = try await self.competitionClient().nickname(value)
@@ -221,6 +276,8 @@ import struct FoldingData.SetupProgress
         _ = try await store.deleteIncompleteEntry(
           target,
           participantID: self.presentation.competitionProfile?.id, nowMS: TrackingRuntime.nowMS)
+        self.milestoneCache.clear()
+        self.presentation.invalidateMilestones()
         try await self.refresh()
         await self.presentation.requestHistory(using: self.actions)
         await self.runtime.publishWidgets()
@@ -330,6 +387,110 @@ import struct FoldingData.SetupProgress
     let api = CompetitionAPI(transport: transport, deviceID: store.deviceID)
     competitionAPI = api
     return api
+  }
+
+  private func flushMilestoneAcknowledgments(participant: String, generation: ResetGeneration)
+    async throws
+  {
+    let identity = competitionIdentityRevision
+    let api = try await competitionClient()
+    guard identity == competitionIdentityRevision, participant == joinedParticipantID else {
+      throw CancellationError()
+    }
+    for request in milestoneCache.acknowledgments(participant: participant, generation: generation)
+    {
+      let before = try await runtime.store().currentGeneration()
+      guard identity == competitionIdentityRevision, participant == joinedParticipantID,
+        before == generation
+      else { throw CancellationError() }
+      do { try await api.acknowledgeMilestones(request) } catch let failure
+        as CompetitionTransportError where failure.statusCode == 422
+      {
+        // A corrected/revoked grant no longer needs an unlock acknowledgment.
+      }
+      let after = try await runtime.store().currentGeneration()
+      guard identity == competitionIdentityRevision, participant == joinedParticipantID,
+        after == generation
+      else { throw CancellationError() }
+      try milestoneCache.acknowledged(request, participant: participant)
+    }
+  }
+
+  private func loadOwnerMilestones() async throws -> MilestoneOwnerLoad {
+    guard let participant = joinedParticipantID else {
+      throw CompetitionTransportError.unauthorized
+    }
+    let identity = competitionIdentityRevision
+    let store = try await runtime.store()
+    let generation = try await store.currentGeneration()
+    let deletionPending = try await store.hasPendingEntryDeletions()
+    let resetPending = try await runtime.syncStatus(refresh: false).resetPending
+    guard identity == competitionIdentityRevision, participant == joinedParticipantID else {
+      throw CancellationError()
+    }
+    guard !deletionPending, !resetPending else {
+      milestoneCache.clear()
+      throw CancellationError()
+    }
+    do {
+      try? await flushMilestoneAcknowledgments(participant: participant, generation: generation)
+      let value = try await competitionClient().milestones()
+      let confirmedGeneration = try await store.currentGeneration()
+      guard identity == competitionIdentityRevision, participant == joinedParticipantID,
+        confirmedGeneration == generation
+      else { throw CancellationError() }
+      guard value.generation == generation else {
+        milestoneCache.clear()
+        throw CancellationError()
+      }
+      try milestoneCache.save(value, participant: participant)
+      return MilestoneOwnerLoad(
+        snapshot: suppressPendingUnlocks(value, participant: participant), confirmed: true)
+    } catch {
+      let failedGeneration = try await store.currentGeneration()
+      guard identity == competitionIdentityRevision, participant == joinedParticipantID,
+        failedGeneration == generation
+      else { throw CancellationError() }
+      let permitsCache: Bool
+      if error is URLError {
+        permitsCache = true
+      } else if let transport = error as? CompetitionTransportError {
+        permitsCache =
+          transport.statusCode.map { $0 >= 500 || $0 == 429 }
+          ?? {
+            if case .unavailable = transport { return true }
+            return false
+          }()
+      } else {
+        permitsCache = false
+      }
+      if permitsCache,
+        let cached = milestoneCache.snapshot(participant: participant, generation: generation)
+      {
+        return MilestoneOwnerLoad(
+          snapshot: suppressPendingUnlocks(cached, participant: participant), confirmed: false)
+      }
+      if let failure = error as? CompetitionTransportError,
+        [401, 403, 404, 409].contains(failure.statusCode ?? 0)
+      {
+        milestoneCache.clear()
+        presentation.invalidateMilestones()
+      }
+      throw error
+    }
+  }
+
+  private func suppressPendingUnlocks(_ snapshot: OwnerMilestones, participant: String)
+    -> OwnerMilestones
+  {
+    let pending = Set(
+      milestoneCache.acknowledgments(participant: participant, generation: snapshot.generation)
+        .flatMap(\.badgeIDs))
+    var value = snapshot
+    for index in value.grants.indices where pending.contains(value.grants[index].badgeID) {
+      value.grants[index].acknowledged = true
+    }
+    return value
   }
 
   private func selectTrackingPhone() async throws {
@@ -542,7 +703,8 @@ import struct FoldingData.SetupProgress
         id: row.participant_id, rank: row.rank, displayName: row.nickname,
         folds: row.folds, approvedAvatarURL: nil,
         isCurrentUser: row.participant_id == board.you?.participant_id,
-        approvedAvatarData: row.avatar_id.flatMap { avatars[$0] }, percentile: row.percentile)
+        approvedAvatarData: row.avatar_id.flatMap { avatars[$0] }, percentile: row.percentile,
+        featuredBadge: row.featured_badge_id)
     }
     return LeaderboardPresentation(
       periodTitle: period.title, entries: board.page.items.map(entry),
@@ -740,7 +902,10 @@ import struct FoldingData.SetupProgress
 
   func maintainCapturedObservations() async { await runtime.maintainCapturedObservations() }
 
-  func maintainCompetitionUploads() async { await runtime.maintainCompetitionUploads() }
+  func maintainCompetitionUploads() async {
+    await runtime.maintainCompetitionUploads()
+    if presentation.milestonesForeground { await presentation.requestMilestones(using: actions) }
+  }
 
   func synchronizePrivateHistory() async {
     if accountChanging {
@@ -768,6 +933,7 @@ import struct FoldingData.SetupProgress
       if presentation.history != nil {
         await presentation.requestHistory(using: actions)
       }
+      if presentation.milestonesForeground { await presentation.requestMilestones(using: actions) }
     } catch is CancellationError {} catch {
       guard identity == accountChangeRevision, !accountChanging else { return }
       presentation.personalFailure = String(
@@ -792,9 +958,15 @@ import struct FoldingData.SetupProgress
     let deletionPending = try await store.hasPendingEntryDeletions()
     guard request == token, !Task.isCancelled else { return }
     if let previous = presentation.analytics, previous.generation != analytics.generation {
+      milestoneCache.clear()
+      presentation.invalidateMilestones()
       presentation.dismissExports()
       try await runtime.cancelExports()
       guard request == token, !Task.isCancelled else { return }
+    }
+    if deletionPending && !presentation.entryDeletionPending {
+      milestoneCache.clear()
+      presentation.invalidateMilestones()
     }
     presentation.privateHistoryHealth = health
     presentation.syncStatus = sync

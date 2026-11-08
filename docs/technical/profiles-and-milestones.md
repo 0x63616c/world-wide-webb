@@ -108,7 +108,7 @@ No step is a separate feature launch. No implementation or deployment is perform
 
 - [ ] Catalog/DTO/API/schema amendments cover every read/write and preserve older clients.
 - [ ] All six badge assets and localized names/requirements are bundled; artwork is readable at row and detail sizes, in both appearances and increased contrast.
-- [ ] Folds show only 1 → 100 → 1,000 → 10,000; days show only 7 → 30; exact boundaries, multi-award batches and completed tracks behave correctly.
+- [x] Folds show only 1 → 100 → 1,000 → 10,000; days show only 7 → 30; exact boundaries, multi-award batches and completed tracks behave correctly. Local domain, typed-client and direct production-view evidence is recorded in the implementation checkpoint; broader live/release acceptance remains open.
 - [ ] Progress uses eligible counted folds and distinct UTC days; duplicate, zero-count, setup, incomplete/ineligible, rejected/quarantined, transfer, midnight and late/replayed events are covered.
 - [ ] Existing participants backfill correctly; reads/updates remain bounded on realistic histories and cannot publish a stale reset/deletion generation.
 - [ ] Own profile, Settings shortcut, leaderboard/podium/tie-group entry, other profile, complete earned collection, badge detail and Edit Profile work together; navigation position is retained.
@@ -119,6 +119,6 @@ No step is a separate feature launch. No implementation or deployment is perform
 - [ ] Reset/delete/moderation/correction revoke the correct data and invalid selection; stale caches/jobs cannot resurrect them. Reset copy includes badges.
 - [ ] Dynamic Type, VoiceOver progress/selection labels, Reduce Motion, narrow/wide layouts and supported-language formatting are checked. Prefer direct XCTest rendering for static screens; coordinate/clean up any required runtime use.
 - [ ] Verify the integrated service/client feature with linked commit, local/staging evidence and one release manifest covering all parts. Keep deferred CI/storefront/visual/submission checks explicit; do not claim them passed.
-- [ ] Add feature-specific physical-device checks to #47/F13, retaining the owner-approved post-submission deferral. Broader shipping remains incomplete until those checks and resulting fixes are done.
+- [x] Add feature-specific physical-device checks to #47/F13, retaining the owner-approved post-submission deferral. Six unchecked hardware checks are tracked there; broader shipping remains incomplete until those checks and resulting fixes are done.
 
 References: [Product](../review-spec.md), [UI](ui.md), [HTTP](http-contracts.md), [Security](backend-and-security.md), [Tracking](storage-and-tracking.md), [deferred shipping](../deferred-shipping-work.md).
