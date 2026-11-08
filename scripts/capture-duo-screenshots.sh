@@ -5,6 +5,24 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+# A processed release may recover once from a native controller timeout. Use a
+# fresh child process so conditional retry handling cannot disable set -e in
+# the capture, and rerun the full suite on a newly created disposable device.
+if [[ -n "${RELEASE_MANIFEST:-}" && -z "${DUO_CAPTURE_ATTEMPT:-}" ]]; then
+  retry_directory=$(mktemp -d "${TMPDIR:-/tmp}/duo-capture-retry.XXXXXX")
+  trap 'rm -rf "$retry_directory"' EXIT
+  for attempt in 1 2; do
+    retry_report="$retry_directory/attempt-$attempt.json"
+    if DUO_CAPTURE_ATTEMPT="$attempt" DUO_CAPTURE_REPORT="$retry_report" bash scripts/capture-duo-screenshots.sh "$@"; then
+      exit 0
+    else
+      capture_status=$?
+    fi
+    if [[ "$attempt" == 2 || ! -f "$retry_report" ]]; then exit "$capture_status"; fi
+    echo "Native controller timed out. Retrying the complete Duo capture on a fresh device (2/2); failed evidence is retained." >&2
+  done
+fi
+
 app=${1:?usage: capture-duo-screenshots.sh <app> [output-dir] [appearance...]}
 for tool in ruby python3 xcrun xcodebuild; do
   command -v "$tool" >/dev/null || { echo "Missing $tool; run on macOS with Xcode and Ruby installed." >&2; exit 1; }
@@ -20,6 +38,11 @@ appearances=("$@")
 for appearance in "${appearances[@]}"; do
   [[ "$appearance" == light || "$appearance" == dark ]] || { echo "Unsupported appearance: $appearance" >&2; exit 1; }
 done
+screenshot_settings=$(python3 scripts/screenshot-build-settings.py "$app")
+screenshot_xcargs=("CODE_SIGNING_ALLOWED=NO")
+while IFS= read -r build_setting; do
+  if [[ -n "$build_setting" ]]; then screenshot_xcargs+=("$build_setting"); fi
+done <<< "$screenshot_settings"
 out=$(python3 -c 'import pathlib,sys; print(pathlib.Path(sys.argv[1]).resolve())' "$out")
 mkdir -p "$out" "build/duo-screenshots/$app"
 # A reused output directory must describe only this run, including after failure.
@@ -52,10 +75,18 @@ cleanup() {
     kill "$host_application_worker" 2>/dev/null || true
     wait "$host_application_worker" 2>/dev/null || true
   fi
+  local evidence="$out/diagnostics/${work##*/}"
+  if [[ -f "$work/host-control.log" ]]; then
+    if mkdir -p "$evidence"; then
+      cp "$work/host-control.log" "$evidence/" || true
+    fi
+  fi
+  if (( capture_status > 0 && capture_status < 128 )) && [[ -n "${DUO_CAPTURE_REPORT:-}" && -f "$work/native-control-timeout.json" ]]; then
+    cp "$work/native-control-timeout.json" "$DUO_CAPTURE_REPORT" || true
+  fi
   if (( capture_status != 0 )); then
     # The release job already retains raw/. Keep failed native evidence there
     # too, isolated by run and separate from the uploadable gallery.
-    local evidence="$out/diagnostics/${work##*/}"
     local item
     if mkdir -p "$evidence"; then
       for item in "$work"/*.log "$work"/*.txt "$work"/*.json "$work"/*.plist "$work"/*.xcresult "$work/light" "$work/dark"; do
@@ -171,7 +202,7 @@ fold=$(python3 -c 'import json,sys; print("1" if json.load(open(sys.argv[1]))["m
 host_orientation=$(python3 -c 'import json,sys; print("1" if json.load(open(sys.argv[1])).get("host_control") else "0")' "$work/plan.json")
 
 xcodebuild build-for-testing -project "$project" -scheme "$scheme" \
-  -destination "id=$udid" -derivedDataPath "$derived" CODE_SIGNING_ALLOWED=NO -quiet
+  -destination "id=$udid" -derivedDataPath "$derived" "${screenshot_xcargs[@]}" -quiet
 
 for appearance in "${appearances[@]}"; do
   xcrun simctl ui "$udid" appearance "$appearance"
@@ -189,7 +220,7 @@ for appearance in "${appearances[@]}"; do
     xcodebuild test-without-building -project "$project" -scheme "$scheme" \
     -destination "id=$udid" -derivedDataPath "$derived" -only-testing:"$test_id" \
     -parallel-testing-enabled NO \
-    -test-timeouts-enabled YES -default-test-execution-time-allowance 300 -maximum-test-execution-time-allowance 600 \
+    -test-timeouts-enabled YES -default-test-execution-time-allowance 300 -maximum-test-execution-time-allowance 900 \
     -resultBundlePath "$work/DuoScreenshotTests-$appearance.xcresult"
   kill "$worker" 2>/dev/null || true
   wait "$worker" 2>/dev/null || true

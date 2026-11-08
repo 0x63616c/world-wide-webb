@@ -58,6 +58,8 @@ jobs:
       DEVELOPER_DIR: /Applications/Xcode_27.1.app/Contents/Developer
       DUO_HOST_CONTROL: '1'
       APP: ${{ needs.resolve.outputs.app }}
+      RELEASE_VERSION: ${{ needs.resolve.outputs.version }}
+      RELEASE_BUILD: ${{ needs.resolve.outputs.build }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

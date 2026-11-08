@@ -193,8 +193,10 @@ final class DuoScreenshotTests: XCTestCase {
 
     @MainActor func testLiveFoldPreservesNavigationAndDraft() throws {
         continueAfterFailure = false
-        // Five real display handoffs and captures, each with bounded waits.
-        executionTimeAllowance = 600
+        // Five physical handoffs can each incur XCTest's 60-second animation
+        // idle wait, including activation and teardown. Budget the whole case;
+        // each native command and full-window assertion keeps its own bound.
+        executionTimeAllowance = 900
         try XCTSkipUnless(canFold, "simctl does not expose a supported live-fold control; see capture-notes.txt")
         try request("pose", name: "inner")
         try orient(.portrait)
@@ -314,15 +316,15 @@ final class DuoScreenshotTests: XCTestCase {
                 to: directory.appendingPathComponent("live-fold-\(foldCheckpoint)-\(pose)-before.txt"), options: .atomic)
         }
         let previousSize = app.windows.firstMatch.frame.size
+        let previousArea = previousSize.width * previousSize.height
         try request("pose", name: pose)
-        // Device Hub can switch the framebuffer before XCTest switches its
-        // application's active-screen coordinate context. Activate (never launch)
-        // to refresh that context without discarding the navigation stack/draft.
+        // Refresh the active-screen coordinate context without relaunching or
+        // discarding the current navigation stack and unsaved draft.
         app.activate()
         var observedSize: CGSize?
         var adapted = false
-        // Require the full native point area, not just any smaller/larger frame:
-        // XCTest can briefly report a doubly scaled outer window (155 x 226).
+        // Reject transient, doubly scaled frames and require the full native
+        // point area in either orientation (native pixels at the 3x scale).
         let targetArea: CGFloat = pose == "inner" ? 669 * 951 : 466 * 678
         let deadline = Date().addingTimeInterval(45)
         while Date() < deadline {
@@ -331,9 +333,9 @@ final class DuoScreenshotTests: XCTestCase {
                 print("Live fold \(pose): \(previousSize) → \(size)")
                 observedSize = size
             }
-            // This fixture occupies the full native display in either rotation.
             let area = size.width * size.height
-            adapted = abs(area - targetArea) < targetArea * 0.01
+            let resized = pose == "inner" ? area > previousArea : area < previousArea
+            adapted = abs(area - targetArea) < targetArea * 0.01 && resized
             if adapted { break }
             RunLoop.current.run(until: Date().addingTimeInterval(0.1))
         }
@@ -345,7 +347,7 @@ final class DuoScreenshotTests: XCTestCase {
             try Data(app.debugDescription.utf8).write(
                 to: directory.appendingPathComponent("live-fold-\(foldCheckpoint)-\(pose)-after.txt"), options: .atomic)
         }
-        XCTAssertTrue(adapted, "Folding to \(pose) must resize the active app window")
+        XCTAssertTrue(adapted, "Folding to \(pose) must resize into its full native app window")
     }
 
     @MainActor private func waitUntil(_ message: String, timeout: TimeInterval = 10, _ condition: () -> Bool) {
@@ -383,8 +385,9 @@ final class DuoScreenshotTests: XCTestCase {
         let id = UUID().uuidString
         let data = try JSONSerialization.data(withJSONObject: ["id": id, "action": action, "name": name])
         try data.write(to: directory.appendingPathComponent("request.json"), options: .atomic)
-        // Orientation restores the active pose using two native commands, each
-        // bounded to 120s by the host. Do not expire the enclosing request first.
+        // Orientation selects the active pose and then the native menu. Each
+        // command has a 120-second bound; let both finish before this outer
+        // request can expire and another request can replace its mailbox.
         let deadline = Date().addingTimeInterval(270)
         while Date() < deadline {
             if let responseData = try? Data(contentsOf: directory.appendingPathComponent("response.json")),

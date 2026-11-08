@@ -33,7 +33,6 @@ class HostControlProtocolTests(unittest.TestCase):
 
             def pause(seconds):
                 elapsed[0] += seconds
-                # Recorded native menu interaction takes longer than the old 60s budget.
                 if elapsed[0] >= 65:
                     request = json.loads((directory / "host-request.json").read_text())
                     (directory / "host-response.json").write_text(json.dumps({"id": request["id"], "ok": True}))
@@ -42,7 +41,6 @@ class HostControlProtocolTests(unittest.TestCase):
                  patch.object(duo.time, "sleep", side_effect=pause):
                 duo.host_command(directory, {"orientation": "portrait"})
             self.assertGreaterEqual(elapsed[0], 65)
-
 
     def test_timeout_identifies_the_control_and_retains_native_log_tail(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -55,6 +53,7 @@ class HostControlProtocolTests(unittest.TestCase):
                     duo.host_command(directory, {"orientation": "portrait"})
             self.assertIn("portrait", str(failure.exception))
             self.assertIn("Waiting for Device Hub to idle", str(failure.exception))
+            self.assertEqual(json.loads((directory / "native-control-timeout.json").read_text())["control"], {"orientation": "portrait"})
 
     def test_orientation_selects_pose_before_rotation_and_waits_for_both(self):
         for accepted in (True, False):
@@ -169,8 +168,18 @@ elif name == "xcrun":
         if mode == "integrated" and not any(arg.startswith("--display=") for arg in args):
             sys.exit("Cannot choose between 2 displays. Specify --display")
         pathlib.Path(args[-1]).write_bytes(base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII="))
+elif name == "xcodebuild" and args[0] == "build-for-testing":
+    pathlib.Path(os.environ["MOCK_XCODE_ARGS"]).write_text(json.dumps(args))
 elif name == "xcodebuild" and args[0] == "test-without-building":
     folder = pathlib.Path(os.environ["TEST_RUNNER_DUO_CONTROL_DIR"])
+    if mode in ("native-timeout-once", "native-timeout-always", "native-timeout-cancelled"):
+        count = pathlib.Path(os.environ["MOCK_TEST_COUNT"])
+        invocation = int(count.read_text()) + 1 if count.exists() else 1
+        count.write_text(str(invocation))
+        if mode != "native-timeout-once" or invocation == 1:
+            (folder / "native-control-timeout.json").write_text(json.dumps({"control": {"orientation": "portrait"}}))
+            (folder / "host-control.log").write_text("Native control timeout fixture\n")
+            sys.exit(143 if mode == "native-timeout-cancelled" else 65)
     if mode == "test-failure":
         (folder / "host-control.log").write_text("Native control request stalled at Portrait\n")
         (folder / "live-fold-1-outer-before.txt").write_text("Synthetic fixture window\n")
@@ -345,12 +354,12 @@ class DuoCapabilitiesTests(unittest.TestCase):
         commands = duo.fold_candidates("test", {"ui":"fold <state>: folded unfolded"})
         self.assertEqual(commands, [{"outer":["ui","test","fold","folded"],"inner":["ui","test","fold","unfolded"]}])
 
-    def capture(self, mode, override=None, devices=None):
+    def capture(self, mode, override=None, devices=None, release=None):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             scripts = root / "scripts"
             scripts.mkdir()
-            for name in ["capture-duo-screenshots.sh", "duo-simulator.py", "boot-simulator.sh"]:
+            for name in ["capture-duo-screenshots.sh", "duo-simulator.py", "boot-simulator.sh", "screenshot-build-settings.py"]:
                 shutil.copy2(ROOT / "scripts" / name, scripts / name)
             commands = root / "bin"
             commands.mkdir()
@@ -361,10 +370,18 @@ class DuoCapabilitiesTests(unittest.TestCase):
                 (commands / name).symlink_to(tool)
             env = dict(os.environ, PATH=f"{commands}:{os.environ['PATH']}", MOCK_DUO_MODE=mode,
                        MOCK_CREATED_DEVICE=str(root / "created-device"),
+                       MOCK_XCODE_ARGS=str(root / "build-arguments.json"),
+                       MOCK_TEST_COUNT=str(root / "test-invocations"),
                        MOCK_SIMCTL_LOG=str(root / "simctl.jsonl"),
                        MOCK_SIMULATORS=json.dumps({"devices": devices or {}}))
             env.pop("R_SIM_DEVICE_TYPE", None)
             env.pop("R_SIM_RUNTIME", None)
+            for key in ("RELEASE_MANIFEST", "RELEASE_VERSION", "RELEASE_BUILD", "DUO_CAPTURE_ATTEMPT", "DUO_CAPTURE_REPORT"):
+                env.pop(key, None)
+            if release:
+                manifest = root / "release-manifest.json"
+                manifest.write_text(json.dumps({"app": "tendr", "version": release[0], "build": release[1], "sha": "release-source"}))
+                env.update(RELEASE_MANIFEST=str(manifest), RELEASE_VERSION=release[0], GITHUB_SHA="release-source")
             if override:
                 env["R_SIM_DEVICE_TYPE"] = override
             output = root / "output with spaces"
@@ -382,6 +399,17 @@ class DuoCapabilitiesTests(unittest.TestCase):
             self.assertFalse(list(output.glob("*-obsolete.png")))
             self.assertEqual((output / "default-screen-unrelated.png").read_bytes(), b"user file")
             self.assertEqual((output / "keep.txt").read_text(), "unrelated user file")
+            creations = [json.loads(line) for line in (root / "simctl.jsonl").read_text().splitlines() if json.loads(line)[0] == "create"]
+            if mode == "native-timeout-cancelled":
+                self.assertEqual(result.returncode, 143, result.stdout + result.stderr)
+                self.assertEqual(len(creations), 1, "Cancellation must stop capture without retrying")
+                return
+            if mode == "native-timeout-always":
+                self.assertEqual(result.returncode, 65, result.stdout + result.stderr)
+                self.assertEqual(len(creations), 2, "Native recovery must be bounded to one fresh retry")
+                self.assertEqual(len(list((output / "diagnostics").glob("run.*"))), 2)
+                self.assertEqual([file.name for file in output.glob("*.png")], ["default-screen-unrelated.png"])
+                return
             if mode == "missing" and override is None:
                 self.assertNotEqual(result.returncode, 0)
                 self.assertIn("No iPhone Duo simulator device type found", result.stderr)
@@ -391,6 +419,7 @@ class DuoCapabilitiesTests(unittest.TestCase):
                 self.assertNotEqual(result.returncode, 0)
                 self.assertIn("Mock test failure", result.stderr)
                 self.assertEqual([file.name for file in output.glob("*.png")], ["default-screen-unrelated.png"])
+                self.assertEqual(len(creations), 1, "App/test failures must not trigger native recovery")
                 diagnostics = list((output / "diagnostics").glob("run.*"))
                 self.assertEqual(len(diagnostics), 1, "Release artifacts must retain native failure evidence")
                 evidence = diagnostics[0]
@@ -400,6 +429,14 @@ class DuoCapabilitiesTests(unittest.TestCase):
                 self.assertTrue((evidence / "DuoScreenshotTests-light.xcresult/Info.plist").is_file())
                 return
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            if mode == "native-timeout-once":
+                self.assertEqual(len(creations), 2, "Recovery must recreate the simulator and rerun both appearances")
+                self.assertEqual(len(list((output / "diagnostics").glob("run.*"))), 1)
+                self.assertIn("Retrying the complete Duo capture", result.stderr)
+            if release:
+                arguments = json.loads((root / "build-arguments.json").read_text())
+                self.assertIn(f"MARKETING_VERSION={release[0]}", arguments)
+                self.assertIn(f"CURRENT_PROJECT_VERSION={release[1]}", arguments)
             plan = json.loads((output / "plan.json").read_text())
             expected_mode = "unmapped" if mode == "integrated" else mode if mode in ("fold", "displays") else "default"
             self.assertEqual(plan["mode"], expected_mode)
@@ -450,6 +487,11 @@ class DuoCapabilitiesTests(unittest.TestCase):
     def test_missing_device_fails_clearly(self): self.capture("missing")
     def test_explicit_device_override(self): self.capture("missing", override="custom.duo")
     def test_failed_run_removes_stale_captures(self): self.capture("test-failure")
+    def test_release_capture_uses_processed_build_metadata(self): self.capture("default", release=("1.1.1", "1"))
+    def test_release_recovers_one_native_timeout_with_a_fresh_complete_capture(self): self.capture("native-timeout-once", release=("1.1.1", "1"))
+    def test_repeated_native_timeouts_stop_release_after_one_retry(self): self.capture("native-timeout-always", release=("1.1.1", "1"))
+    def test_release_does_not_retry_app_or_test_failures(self): self.capture("test-failure", release=("1.1.1", "1"))
+    def test_release_does_not_retry_cancelled_capture(self): self.capture("native-timeout-cancelled", release=("1.1.1", "1"))
 
 
 if __name__ == "__main__":

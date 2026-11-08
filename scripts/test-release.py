@@ -4,6 +4,7 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -16,6 +17,9 @@ ROOT = Path(__file__).resolve().parent.parent
 spec = importlib.util.spec_from_file_location("stage_duo", ROOT / "scripts/stage-duo-screenshots.py")
 duo = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(duo)
+settings_spec = importlib.util.spec_from_file_location("screenshot_settings", ROOT / "scripts/screenshot-build-settings.py")
+screenshot_settings = importlib.util.module_from_spec(settings_spec)
+settings_spec.loader.exec_module(screenshot_settings)
 
 FAKE_ASC = r'''
 require "json"
@@ -58,6 +62,62 @@ end
 
 
 class ReleaseTests(unittest.TestCase):
+    def test_screenshot_build_metadata_matches_processed_manifest(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            manifest = Path(temporary) / "release.json"
+            manifest.write_text(json.dumps({"app": "tendr", "version": "1.1.1", "build": "1", "sha": "release-source"}))
+            environment = {"RELEASE_MANIFEST": str(manifest), "GITHUB_SHA": "release-source", "RELEASE_VERSION": "1.1.1"}
+            self.assertEqual(screenshot_settings.build_settings("tendr", environment),
+                             ["MARKETING_VERSION=1.1.1", "CURRENT_PROJECT_VERSION=1"])
+            for override in ({"GITHUB_SHA": "other-source"}, {"GITHUB_SHA": ""}, {"RELEASE_VERSION": "1.1.0"}, {"RELEASE_BUILD": "29"}):
+                with self.subTest(override=override), self.assertRaises(ValueError):
+                    screenshot_settings.build_settings("tendr", {**environment, **override})
+            with self.assertRaises(ValueError):
+                screenshot_settings.build_settings("other-app", environment)
+            for field in ("version", "build"):
+                manifest.write_text(json.dumps({"app": "tendr", "version": "1.1.1", "build": "1", "sha": "release-source", field: ""}))
+                with self.subTest(field=field), self.assertRaises(ValueError):
+                    screenshot_settings.build_settings("tendr", {"RELEASE_MANIFEST": str(manifest), "GITHUB_SHA": "release-source"})
+        self.assertEqual(screenshot_settings.build_settings("tendr", {}), [])
+        self.assertEqual(screenshot_settings.build_settings("tendr", {"RELEASE_VERSION": "1.2", "RELEASE_BUILD": "18"}),
+                         ["MARKETING_VERSION=1.2", "CURRENT_PROJECT_VERSION=18"])
+        for override in ({"RELEASE_VERSION": "1.1.1\nOTHER=1"}, {"RELEASE_BUILD": "0"}, {"RELEASE_BUILD": "latest"}):
+            with self.subTest(override=override), self.assertRaises(ValueError):
+                screenshot_settings.build_settings("tendr", override)
+
+    def test_phone_capture_passes_release_metadata_to_xcode(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            scripts, binaries = root / "scripts", root / "bin"
+            scripts.mkdir()
+            binaries.mkdir()
+            for name in ("capture-screenshots.sh", "boot-simulator.sh", "screenshot-build-settings.py"):
+                shutil.copy2(ROOT / "scripts" / name, scripts / name)
+            tool = binaries / "tool"
+            tool.write_text('''#!/usr/bin/env python3
+import json, os, pathlib, sys
+name, args = pathlib.Path(sys.argv[0]).name, sys.argv[1:]
+if name == "ruby":
+    print({"project_path":"fixture project.xcodeproj", "scheme":"Fixture", "screenshot_test":"FixtureTests", "name":"Fixture"}[args[-1]])
+elif name == "xcrun" and args[:2] == ["simctl", "create"]:
+    print("fixture-simulator")
+elif name == "xcodebuild":
+    pathlib.Path(os.environ["SCREENSHOT_BUILD_RECORD"]).write_text(json.dumps(args))
+    sys.exit(42)
+''')
+            tool.chmod(0o755)
+            for name in ("ruby", "xcrun", "xcodebuild"):
+                (binaries / name).symlink_to(tool)
+            record = root / "build.json"
+            environment = {key: value for key, value in os.environ.items() if key not in ("RELEASE_MANIFEST", "RELEASE_VERSION", "RELEASE_BUILD")}
+            environment.update(PATH=f"{binaries}:{environment['PATH']}", RELEASE_VERSION="1.1.1", RELEASE_BUILD="1", SCREENSHOT_BUILD_RECORD=str(record))
+            result = subprocess.run(["bash", str(scripts / "capture-screenshots.sh"), "tendr"], env=environment, capture_output=True, text=True, timeout=15)
+            self.assertEqual(result.returncode, 42, result.stdout + result.stderr)
+            arguments = json.loads(record.read_text())
+            self.assertIn("MARKETING_VERSION=1.1.1", arguments)
+            self.assertIn("CURRENT_PROJECT_VERSION=1", arguments)
+            self.assertIn("fixture project.xcodeproj", arguments)
+
     def run_ruby(self, script, env, args=()):
         # No real Apple credentials are used, including when this runs on a release Mac.
         base = {key: value for key, value in os.environ.items() if key != "GITHUB_OUTPUT"}

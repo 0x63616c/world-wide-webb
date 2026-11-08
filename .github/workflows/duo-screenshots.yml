@@ -9,6 +9,7 @@ on:
       - scripts/duo-host-control/**
       - scripts/stage-duo-screenshots.py
       - scripts/select-duo-xcode.py
+      - scripts/screenshot-build-settings.py
       - apps/tendr/**
       - packages/RDesign/**
   workflow_dispatch:

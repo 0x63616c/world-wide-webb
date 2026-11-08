@@ -16,6 +16,11 @@ out=${2:-build/screenshots/$app/raw}
 shift $(( $# > 1 ? 2 : 1 ))
 appearances=("$@")
 [[ ${#appearances[@]} -gt 0 ]] || appearances=(light dark)
+screenshot_settings=$(python3 scripts/screenshot-build-settings.py "$app")
+screenshot_xcargs=("CODE_SIGNING_ALLOWED=NO")
+while IFS= read -r build_setting; do
+  if [[ -n "$build_setting" ]]; then screenshot_xcargs+=("$build_setting"); fi
+done <<< "$screenshot_settings"
 device_type=com.apple.CoreSimulator.SimDeviceType.iPhone-18-Pro-Max
 derived=build/screenshots/$app/DerivedData
 
@@ -28,7 +33,7 @@ trap 'xcrun simctl shutdown "$udid" >/dev/null 2>&1 || true; xcrun simctl delete
 scripts/boot-simulator.sh "$udid" 300
 
 xcodebuild build-for-testing -project "$project" -scheme "$scheme" \
-  -destination "id=$udid" -derivedDataPath "$derived" CODE_SIGNING_ALLOWED=NO -quiet
+  -destination "id=$udid" -derivedDataPath "$derived" "${screenshot_xcargs[@]}" -quiet
 
 rm -rf "$out" "build/screenshots/$app"/*.xcresult
 for appearance in "${appearances[@]}"; do

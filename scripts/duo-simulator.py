@@ -15,6 +15,10 @@ import subprocess
 import time
 
 
+class NativeControlTimeout(ValueError):
+    """The native controller did not acknowledge an issued control."""
+
+
 def simctl(*args, check=False):
     timeout = float(os.environ.get("DUO_SIMCTL_TIMEOUT", "180"))
     # Cold CoreSimulator startup can stall even help (including subcommand help).
@@ -158,9 +162,8 @@ def host_command(directory, command):
     temporary = directory / "host-request.tmp"
     temporary.write_text(json.dumps({"id": identifier, **command}))
     temporary.replace(directory / "host-request.json")
-    # Native menu selection includes several XCTest idle/snapshot waits. A
-    # legitimate command can exceed 60s on hosted Macs; keep the request intact
-    # until its matching acknowledgement arrives, with a bounded outer deadline.
+    # Native menu selection includes XCTest idle and snapshot waits. Keep a
+    # slow request intact until its matching acknowledgement, within this bound.
     deadline = time.monotonic() + 120
     while time.monotonic() < deadline:
         try:
@@ -176,11 +179,16 @@ def host_command(directory, command):
         native_tail = (directory / "host-control.log").read_text(errors="replace")[-4000:]
     except OSError:
         native_tail = "Native controller log unavailable"
-    raise ValueError(
+    failure = NativeControlTimeout(
         f"Device Hub did not acknowledge the requested control within 120s "
         f"(request {identifier}: {json.dumps(command, sort_keys=True)}).\n"
         f"Native controller log tail:\n{native_tail}"
     )
+    marker = directory / "native-control-timeout.json"
+    temporary = marker.with_suffix(".tmp")
+    temporary.write_text(json.dumps({"request": identifier, "control": command, "error": str(failure)}))
+    temporary.replace(marker)
+    raise failure
 
 
 def serve(udid, directory, output, appearance):
