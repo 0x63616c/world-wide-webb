@@ -1,0 +1,32 @@
+{
+  "owner": {
+    "generation": {"revision": 0, "reset_id": "00000000-0000-0000-0000-000000000000"},
+    "revision": 7,
+    "progress": {
+      "catalog_version": 1,
+      "folds": 640,
+      "days_used": 6,
+      "next": [
+        {"track": "folds", "badge_id": "folds_1000", "current": 640, "target": 1000},
+        {"track": "days", "badge_id": "days_7", "current": 6, "target": 7}
+      ],
+      "earned": ["folds_1", "folds_100"]
+    },
+    "grants": [
+      {"badge_id": "folds_100", "earned_at_ms": 1794000000000, "acknowledged": false},
+      {"badge_id": "folds_1", "earned_at_ms": 1793900000000, "acknowledged": true}
+    ],
+    "featured_badge_id": "folds_100"
+  },
+  "public_profile": {
+    "profile": {
+      "participant_id": "00000000-0000-4000-8000-000000000001",
+      "nickname": "Folder",
+      "avatar_id": null,
+      "folds": 640,
+      "earned_badges": ["folds_100", "folds_1"],
+      "featured_badge_id": "folds_100"
+    },
+    "revision": 7
+  }
+}

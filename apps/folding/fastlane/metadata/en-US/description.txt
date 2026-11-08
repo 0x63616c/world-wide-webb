@@ -1,0 +1,10 @@
+Track your iPhone Duo folds with Folding. Set up opening and closing automations in Shortcuts, then see your daily habits take shape.
+
+• Track folds and time unfolded.
+• Explore your history and activity patterns.
+• Sync personal history with iCloud and view your stats in widgets.
+• Join weekly, monthly and all-time leaderboards with Sign in with Apple.
+• Earn fold and days-used badges, explore profiles and feature a favourite badge.
+• Export your history as a CSV package or reset it in the app.
+
+All features are free. Optional tips support development and unlock nothing.

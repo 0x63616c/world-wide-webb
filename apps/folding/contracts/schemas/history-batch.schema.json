@@ -1,0 +1,6 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://getfolding.app/contracts/v1/history-batch.schema.json",
+  "$ref": "event-batch.schema.json",
+  "description": "Attested original pre-join event import. The envelope epoch authorizes the current phone; eligible events retain their original null competition epoch."
+}

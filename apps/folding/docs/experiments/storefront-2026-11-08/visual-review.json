@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "commit_sha": "6a768f3eb16049a10e9ef205796d5f98adb61efc",
+  "reviewer": "independent read-only screenshot reviewer",
+  "state": "approved_for_draft_listing",
+  "findings": [],
+  "reviewed": {
+    "storefront_images": 150,
+    "locales": 10,
+    "native_inner_landscape": true,
+    "native_outer_portrait": true,
+    "caption_clipping": "none observed",
+    "wrong_language_fallback": "none observed",
+    "tip_review_image": "accepted, English only; three prices match product source"
+  },
+  "not_verified": ["native-language stylistic polish", "full accessibility", "purchases", "physical device behavior", "broader final feature acceptance"]
+}

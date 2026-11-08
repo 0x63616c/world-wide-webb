@@ -1,0 +1,147 @@
+{
+  "commit_sha": "6a768f3eb16049a10e9ef205796d5f98adb61efc",
+  "configuration_hash": "d33ce8f9bc8a23fd737865b71e12b037c58b33f9473de6e189f60b25a9edb4a5",
+  "environment": "production",
+  "bundle_id": "app.getfolding.Folding",
+  "asc_app_id": "6832059501",
+  "storefront_readback": {
+    "verified_at": "2026-11-08T19:14:56Z",
+    "localizations": [
+      {
+        "locale": "en-US",
+        "galleries": [
+          {
+            "display_type": "APP_IPHONE_DUO",
+            "count": 10
+          },
+          {
+            "display_type": "APP_IPHONE_61",
+            "count": 5
+          }
+        ]
+      },
+      {
+        "locale": "de-DE",
+        "galleries": [
+          {
+            "display_type": "APP_IPHONE_DUO",
+            "count": 10
+          },
+          {
+            "display_type": "APP_IPHONE_61",
+            "count": 5
+          }
+        ]
+      },
+      {
+        "locale": "fr-FR",
+        "galleries": [
+          {
+            "display_type": "APP_IPHONE_DUO",
+            "count": 10
+          },
+          {
+            "display_type": "APP_IPHONE_61",
+            "count": 5
+          }
+        ]
+      },
+      {
+        "locale": "es-ES",
+        "galleries": [
+          {
+            "display_type": "APP_IPHONE_DUO",
+            "count": 10
+          },
+          {
+            "display_type": "APP_IPHONE_61",
+            "count": 5
+          }
+        ]
+      },
+      {
+        "locale": "es-MX",
+        "galleries": [
+          {
+            "display_type": "APP_IPHONE_DUO",
+            "count": 10
+          },
+          {
+            "display_type": "APP_IPHONE_61",
+            "count": 5
+          }
+        ]
+      },
+      {
+        "locale": "ja",
+        "galleries": [
+          {
+            "display_type": "APP_IPHONE_DUO",
+            "count": 10
+          },
+          {
+            "display_type": "APP_IPHONE_61",
+            "count": 5
+          }
+        ]
+      },
+      {
+        "locale": "ko",
+        "galleries": [
+          {
+            "display_type": "APP_IPHONE_DUO",
+            "count": 10
+          },
+          {
+            "display_type": "APP_IPHONE_61",
+            "count": 5
+          }
+        ]
+      },
+      {
+        "locale": "pt-BR",
+        "galleries": [
+          {
+            "display_type": "APP_IPHONE_DUO",
+            "count": 10
+          },
+          {
+            "display_type": "APP_IPHONE_61",
+            "count": 5
+          }
+        ]
+      },
+      {
+        "locale": "zh-Hans",
+        "galleries": [
+          {
+            "display_type": "APP_IPHONE_DUO",
+            "count": 10
+          },
+          {
+            "display_type": "APP_IPHONE_61",
+            "count": 5
+          }
+        ]
+      },
+      {
+        "locale": "zh-Hant",
+        "galleries": [
+          {
+            "display_type": "APP_IPHONE_DUO",
+            "count": 10
+          },
+          {
+            "display_type": "APP_IPHONE_61",
+            "count": 5
+          }
+        ]
+      }
+    ],
+    "release_notes": "not_applicable_first_version"
+  },
+  "state": "draft_listing_verified",
+  "app_store_version": "1.0",
+  "final_release_acceptance": "pending",
+  "submission_performed": false
+}

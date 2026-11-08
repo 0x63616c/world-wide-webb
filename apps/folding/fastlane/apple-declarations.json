@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "app_id": "6832059501",
+  "verified_date": "2026-11-08",
+  "privacy": {
+    "state": "published",
+    "policy_url": "https://getfolding.app/privacy/",
+    "purpose": "App Functionality",
+    "tracking": false,
+    "linked_to_identity": [
+      "Name",
+      "Photos or Videos",
+      "Other User Content",
+      "User ID",
+      "Device ID",
+      "Other Usage Data"
+    ],
+    "not_linked_to_identity": [
+      "Other Diagnostic Data"
+    ],
+    "accuracy_declaration": "owner approved publication"
+  },
+  "age_rating": {
+    "state": "saved",
+    "calculated_global": "13+",
+    "older_than_os_26_global": "12+ with regional exceptions",
+    "override": false,
+    "user_generated_content": true,
+    "contests": "FREQUENT",
+    "contests_reason": "Ongoing leaderboards and personal-goal milestones match Apple’s definition of competing for rankings, rewards, or personal goals.",
+    "absent_features": [
+      "parental controls",
+      "age assurance",
+      "unrestricted web access",
+      "social media",
+      "social media disabled under 13",
+      "messaging and chat",
+      "advertising",
+      "medical or treatment information",
+      "health or wellness topics",
+      "gambling",
+      "simulated gambling",
+      "loot boxes"
+    ],
+    "intentional_content_frequency": "NONE for mature themes, sexuality/nudity and violence",
+    "unavailable_regions_reported_by_questionnaire": [
+      "Afghanistan",
+      "Morocco"
+    ]
+  },
+  "content_rights": {
+    "state": "saved",
+    "contains_third_party_content": true,
+    "necessary_rights_confirmed_by_owner": true,
+    "scope": "Public user-provided profile names and avatars; not a claim of licensed external media catalogues."
+  },
+  "maintenance": "Reassess against actual app and service changes before each release. These are saved Apple declarations, not evidence of full shipping acceptance. App Privacy publication and legally binding declarations require owner approval."
+}

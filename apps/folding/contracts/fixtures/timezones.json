@@ -1,0 +1,130 @@
+{
+  "cases" : [
+    {
+      "foundation_identifier" : "GMT",
+      "timezone_id" : "UTC",
+      "valid" : true
+    },
+    {
+      "foundation_identifier" : "GMT",
+      "timezone_id" : "GMT",
+      "valid" : true
+    },
+    {
+      "foundation_identifier" : "Europe\/London",
+      "timezone_id" : "Europe\/London",
+      "valid" : true
+    },
+    {
+      "foundation_identifier" : "America\/Los_Angeles",
+      "timezone_id" : "America\/Los_Angeles",
+      "valid" : true
+    },
+    {
+      "foundation_identifier" : "GMT+0100",
+      "timezone_id" : "GMT+0100",
+      "valid" : true
+    },
+    {
+      "foundation_identifier" : "GMT-0500",
+      "timezone_id" : "GMT-0500",
+      "valid" : true
+    },
+    {
+      "foundation_identifier" : "GMT+0130",
+      "timezone_id" : "GMT+0130",
+      "valid" : true
+    },
+    {
+      "foundation_identifier" : "GMT+1800",
+      "timezone_id" : "GMT+1800",
+      "valid" : true
+    },
+    {
+      "foundation_identifier" : "GMT-1800",
+      "timezone_id" : "GMT-1800",
+      "valid" : true
+    },
+    {
+      "foundation_identifier" : null,
+      "timezone_id" : "GMT+1801",
+      "valid" : false
+    },
+    {
+      "foundation_identifier" : null,
+      "timezone_id" : "GMT-1801",
+      "valid" : false
+    },
+    {
+      "foundation_identifier" : null,
+      "timezone_id" : "GMT+2359",
+      "valid" : false
+    },
+    {
+      "foundation_identifier" : null,
+      "timezone_id" : "GMT+2400",
+      "valid" : false
+    },
+    {
+      "foundation_identifier" : null,
+      "timezone_id" : "GMT+0060",
+      "valid" : false
+    },
+    {
+      "foundation_identifier" : "GMT",
+      "timezone_id" : "GMT+0000",
+      "valid" : false
+    },
+    {
+      "foundation_identifier" : "GMT",
+      "timezone_id" : "GMT-0000",
+      "valid" : false
+    },
+    {
+      "foundation_identifier" : "GMT+0100",
+      "timezone_id" : "GMT+1",
+      "valid" : false
+    },
+    {
+      "foundation_identifier" : "GMT+0100",
+      "timezone_id" : "GMT+01:00",
+      "valid" : false
+    },
+    {
+      "foundation_identifier" : "GMT+0001",
+      "timezone_id" : "GMT+0001",
+      "valid" : true
+    },
+    {
+      "foundation_identifier" : "GMT-0001",
+      "timezone_id" : "GMT-0001",
+      "valid" : true
+    },
+    {
+      "foundation_identifier" : "GMT+1701",
+      "timezone_id" : "GMT+1701",
+      "valid" : true
+    },
+    {
+      "foundation_identifier" : null,
+      "timezone_id" : "Mars\/Olympus",
+      "valid" : false
+    },
+    {
+      "foundation_identifier" : null,
+      "timezone_id" : "",
+      "valid" : false
+    },
+    {
+      "foundation_identifier" : null,
+      "timezone_id" : "GMT+001",
+      "valid" : false
+    },
+    {
+      "foundation_identifier" : null,
+      "timezone_id" : "GMT+00100",
+      "valid" : false
+    }
+  ],
+  "provenance" : "Foundation TimeZone(identifier:) on macOS; canonical fixed-offset wire policy"
+}

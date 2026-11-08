@@ -1,0 +1,7 @@
+# Folded butterfly — concept 1
+
+Generated with the built-in image-generation tool in response to the owner's request for a better logo. Exploration only: the existing app/site assets have not been replaced. Production adaptation needs silhouette/size review and coherent light/dark/tinted vector sources; this bitmap is not a completed icon set.
+
+## Prompt
+
+Use case: logo-brand. Create a premium iOS app icon concept for Folding, a personal tracker for a folding phone. A single distinctive folded-paper butterfly emblem: two broad asymmetric origami wings connected by a precise central crease, a compact dynamic silhouette that implies opening and closing. Abstract and iconic, not a detailed insect. Elegant warm white folded material with softly shaded pale icy-blue underside, a restrained hint of luminous light along the fold, on rich saturated periwinkle-blue full-bleed background. Strong graphic geometry and a little tactile depth, disciplined and beautifully proportioned like a carefully designed native Apple app icon. Centered mark occupies 65 percent of square, generous negative space, high legibility at small size. Output one square icon artwork, background fills entire square with no pre-rounded corners. No text, no lettering, no borders, no presentation mockup, no device, no extra objects, no cube or box, no stock clipart, no lens flare, no excessive glass or chrome. This is a new design exploration, not a reproduction of another logo.

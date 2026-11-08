@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "xcode": {"version": "27.2", "build": "27B52"},
+  "swift": "6.4.2",
+  "iphonesimulator_sdk": "27.2",
+  "simulator": {
+    "runtime": "com.apple.CoreSimulator.SimRuntime.iOS-27-2-iPhone19-4",
+    "build": "24B91016s",
+    "device_type": "com.apple.CoreSimulator.SimDeviceType.iPhone-Duo"
+  },
+  "xcodegen": "2.46.0",
+  "ruby": "3.3.13",
+  "bundler": "4.0.23",
+  "fastlane": "2.241.2",
+  "rust": "1.99.1",
+  "node": "26.13.0",
+  "opentofu": "1.13.9",
+  "python": "3.15.2"
+}

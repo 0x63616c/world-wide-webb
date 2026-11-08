@@ -1,0 +1,10 @@
+{
+  "container": "iCloud.app.getfolding.Folding",
+  "development_manifest_sha256": "da3ea3720e49b533d200b747b07b95523451d959a909c7d90edacc438e97e603",
+  "environment": "production",
+  "production_schema_sha256": "ae365dd379959789d439ec8734b88179cc1947ae20a6458561cca103eae01f84",
+  "records_or_sync_verified": false,
+  "result": "schema_tokens_equal",
+  "schema_version": 1,
+  "verified_at": "2026-11-07T21:25:22.459283+00:00"
+}

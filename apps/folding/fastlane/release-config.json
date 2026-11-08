@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "repository": "0x63616c/folding",
+  "apple_team_id": "X9E4HG27NK",
+  "reservation_tag": "folding-build-reservations",
+  "scheme": "Folding",
+  "archive_configuration": "Release",
+  "fixture_version": 2,
+  "backend_contract_version": 1,
+  "preview_backend_capabilities": [
+    "profiles.milestones",
+    "events.history_import",
+    "notifications.badges"
+  ],
+  "minimum_backend_capabilities": [
+    "auth.apple",
+    "auth.refresh",
+    "auth.reauthenticate",
+    "attest.enroll",
+    "enrollment.join",
+    "enrollment.transfer",
+    "events.submit",
+    "events.receipt",
+    "account.delete",
+    "account.deletion_status",
+    "account.deletion_recovery",
+    "history.reset",
+    "leaderboard.live",
+    "results.finalized",
+    "results.share",
+    "avatars.upload",
+    "avatars.moderation",
+    "profiles.edit",
+    "moderation.reports",
+    "moderation.blocks",
+    "notifications.results",
+    "profiles.milestones",
+    "events.history_import",
+    "notifications.badges"
+  ],
+  "required_checks": [
+    "contracts",
+    "domain-storage",
+    "backend",
+    "simulator",
+    "localization",
+    "screenshots",
+    "final-review"
+  ],
+  "public_urls": [
+    "https://getfolding.app/",
+    "https://getfolding.app/privacy/",
+    "https://getfolding.app/support/",
+    "https://getfolding.app/delete/",
+    "https://getfolding.app/appeal/"
+  ],
+  "tip_product_ids": [
+    "app.getfolding.Folding.tip.small",
+    "app.getfolding.Folding.tip.medium",
+    "app.getfolding.Folding.tip.large"
+  ],
+  "testflight_groups_env": "FOLDING_TESTFLIGHT_GROUPS",
+  "review_contact_env": {
+    "first_name": "FOLDING_REVIEW_FIRST_NAME",
+    "last_name": "FOLDING_REVIEW_LAST_NAME",
+    "phone_number": "FOLDING_REVIEW_PHONE",
+    "email_address": "FOLDING_REVIEW_EMAIL"
+  }
+}
