@@ -277,4 +277,4 @@ November 8 competition cleanup: removed the active Leave and manual profile-appr
 
 ### Admin-managed required updates — November 8, 2026
 
-- [ ] [#65](https://github.com/0x63616c/folding/issues/65): Operations owns the persisted minimum build, with existing Access/CSRF/revision/audit safeguards, default 0, bounded policy caching and no deployment-variable override. Local Rust/Wasm checks and 16 Worker/D1 tests verify activation, rollback, authorization, bounds and replay/stale edits; staging/production rollout remains pending.
+- [x] [#65](https://github.com/0x63616c/folding/issues/65): Operations owns the persisted minimum build, with existing Access/CSRF/revision/audit safeguards, default 0, bounded policy caching and no deployment-variable override. Local Rust/Wasm checks and 16 Worker/D1 tests verify activation, rollback, authorization, bounds and replay/stale edits; staging/production now have all 20 checksum migrations, the old variable is absent, and both policies remain 0. Actual staging admin activation/rollback and the production form are verified. See [evidence](experiments/admin-minimum-build-2026-11-08.md).
