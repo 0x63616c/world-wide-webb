@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Consistent service snapshots. Must execute beneath homelab-operation."""
-from contextlib import contextmanager
+from contextlib import contextmanager, ExitStack
 import json
+import datetime
 import hashlib
 import os
 from pathlib import Path
@@ -20,10 +21,14 @@ SOCKETS = {
     'ha': 'unix:///var/lib/_containers/.colima-ha/ha/docker.sock',
 }
 NAMES = {
-    'control-center': ('services', ['www-control-center-www-1', 'www-control-center-postgres-1']),
+    'control-center': ('services', ['www-control-center-www-1']),
     'bambuddy': ('services', ['bambuddy', 'bambu-studio-api', 'bambuddy-tailscale']),
     'hindsight': ('services', ['hindsight']),
     'cloudflared': ('services', ['www-tunnel-cloudflared-1']),
+    'penpot': ('services', ['penpot-penpot-frontend-1', 'penpot-penpot-mcp-1',
+                          'penpot-penpot-exporter-1', 'penpot-penpot-admin-console-1',
+                          'penpot-penpot-backend-1', 'penpot-penpot-postgres-1',
+                          'penpot-penpot-valkey-1']),
     'home-assistant': ('ha', ['www-home-assistant-home-assistant-1']),
 }
 
@@ -34,6 +39,7 @@ def docker(runtime, *args):
 
 def run(args, **kwargs):
     kwargs.setdefault('timeout', 900)
+    kwargs.setdefault('stderr', subprocess.DEVNULL)
     return subprocess.run(args, check=True, **kwargs)
 
 
@@ -51,7 +57,10 @@ def healthy(runtime, name):
     while True:
         state = running_state(runtime, name)
         health = state.get('Health') or {}
-        has_no_healthcheck = name in ('bambuddy-tailscale', 'www-tunnel-cloudflared-1')
+        has_no_healthcheck = name in ('bambuddy-tailscale', 'www-tunnel-cloudflared-1',
+                                     'penpot-penpot-frontend-1', 'penpot-penpot-mcp-1',
+                                     'penpot-penpot-exporter-1', 'penpot-penpot-admin-console-1',
+                                     'penpot-penpot-backend-1')
         if state.get('Running') and (
                 health.get('Status') == 'healthy' or (has_no_healthcheck and not health)):
             return
@@ -84,7 +93,7 @@ def container_files(destination, runtime, name, path):
     # Stream Docker's tar archive through gzip with bounded process waits.
     with destination.open('wb') as target:
         process = subprocess.Popen(docker(runtime, 'cp', name + ':' + path + '/.', '-'),
-                                   stdout=subprocess.PIPE)
+                                   stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
         try:
             run(['gzip', '-c'], stdin=process.stdout, stdout=target)
             process.stdout.close()
@@ -130,10 +139,56 @@ def export_banks(destination):
         shutil.rmtree(staging)
 
 
-def snapshot(destination, services, weekly_exports=False):
+def online_control_center(destination):
+    name = 'www-control-center-www-1'
+    if not running_state('services', name).get('Running'):
+        raise RuntimeError('Hourly snapshots require a running writer')
+    stamp = datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%dT%H%M%SZ')
+    remote = '/app/data/.hourly-' + stamp + '.sqlite'
+    mounts = json.loads(run(docker('services', 'inspect', '--format', '{{json .Mounts}}', name),
+                            capture_output=True, text=True, timeout=30).stdout)
+    data = [mount for mount in mounts if mount.get('Destination') == '/app/data']
+    if len(data) != 1 or data[0].get('Type') != 'volume':
+        raise RuntimeError('Hourly SQLite requires a local Linux volume')
+    volume = json.loads(run(docker('services', 'volume', 'inspect', data[0]['Name']),
+                            capture_output=True, text=True, timeout=30).stdout)[0]
+    if volume.get('Driver') != 'local' or volume.get('Options'):
+        raise RuntimeError('Network-backed SQLite storage is forbidden')
+    # Do not remove an earlier attempt if its timestamp output already exists.
+    run(docker('services', 'exec', name, 'test', '!', '-e', remote),
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    pending = destination / (name + '.online-snapshot-pending')
+    durable.write_json(pending, {'runtime': 'services', 'container': name, 'remote': remote})
+    created = False
+    # Native SQLite backup API includes committed WAL data without stopping the
+    # writer. Photos are immutable/synced before indexing, so a later photo copy
+    # contains every referenced photo, possibly with harmless newer extras.
+    with __import__('tempfile').TemporaryDirectory(prefix='homelab-hourly-') as temporary:
+        raw = Path(temporary) / 'snapshot.sqlite'
+        try:
+            run(docker('services', 'exec', name, 'www-server', 'database-snapshot', remote),
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            created = True
+            run(docker('services', 'cp', name + ':' + remote, str(raw)),
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        finally:
+            if created:
+                run(docker('services', 'exec', name, 'rm', '--', remote),
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                durable.remove(pending)
+        spec = importlib.util.spec_from_file_location('sqlite_snapshot', Path(__file__).with_name('sqlite-snapshot.py'))
+        sqlite_snapshot = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(sqlite_snapshot)
+        sqlite_snapshot.snapshot_database(raw, destination / 'control-center.sqlite')
+    container_files(destination / 'control-center-media.tar.gz', 'services', name, '/app/media')
+
+
+def snapshot(destination, services, weekly_exports=False, control_center_online=False):
     os.umask(0o077)
     if destination.is_symlink() or destination.stat().st_uid != os.geteuid() or destination.stat().st_mode & 0o077:
         raise RuntimeError('Snapshot destination must be a private service-owned directory')
+    if control_center_online and services != ['control-center']:
+        raise ValueError('Online snapshots are restricted to the hourly Control Center scope')
     images = {}
     for service in services:
         runtime, names = NAMES[service]
@@ -146,16 +201,32 @@ def snapshot(destination, services, weekly_exports=False):
                          capture_output=True, text=True, timeout=30)
             images[name] = {'id': image, 'repo_digests': json.loads(result.stdout)}
     (destination / 'images.json').write_text(json.dumps(images, indent=2))
-    if 'control-center' in services:
+    if control_center_online:
+        online_control_center(destination)
+    elif 'control-center' in services:
         with stopped('services', 'www-control-center-www-1', destination):
-            with (destination / 'control-center.dump').open('wb') as output:
-                run(docker('services', 'exec', 'www-control-center-postgres-1',
-                           'pg_dump', '-U', 'postgres', '-d', 'control_center', '-Fc'), stdout=output)
-            with (destination / 'control-center.dump').open('rb') as source:
-                run(docker('services', 'exec', '-i', 'www-control-center-postgres-1',
-                           'pg_restore', '-l'), stdin=source, stdout=subprocess.DEVNULL)
+            spec = importlib.util.spec_from_file_location('sqlite_snapshot', Path(__file__).with_name('sqlite-snapshot.py'))
+            sqlite_snapshot = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(sqlite_snapshot)
+            sqlite_snapshot.snapshot_container(destination / 'control-center.sqlite', docker, run)
             container_files(destination / 'control-center-media.tar.gz', 'services',
                             'www-control-center-www-1', '/app/media')
+    if 'penpot' in services:
+        # Freeze all app writers together so the database and asset store agree.
+        with ExitStack() as stack:
+            for name in NAMES['penpot'][1][:5]:
+                stack.enter_context(stopped('services', name, destination))
+            with (destination / 'penpot.dump').open('xb') as output:
+                run(docker('services', 'exec', 'penpot-penpot-postgres-1',
+                           'pg_dump', '-U', 'penpot', '-d', 'penpot', '-Fc'), stdout=output)
+            with (destination / 'penpot.dump').open('rb') as source:
+                run(docker('services', 'exec', '-i', 'penpot-penpot-postgres-1',
+                           'pg_restore', '-l'), stdin=source, stdout=subprocess.DEVNULL)
+            container_files(destination / 'penpot-assets.tar.gz', 'services',
+                            'penpot-penpot-backend-1', '/opt/data/assets')
+            with stopped('services', 'penpot-penpot-valkey-1', destination):
+                container_files(destination / 'penpot-valkey.tar.gz', 'services',
+                                'penpot-penpot-valkey-1', '/data')
     if 'home-assistant' in services:
         name = 'www-home-assistant-home-assistant-1'
         with stopped('ha', name, destination):
@@ -182,6 +253,13 @@ def snapshot(destination, services, weekly_exports=False):
         with stopped('services', 'hindsight', destination):
             container_files(destination / 'hindsight-codex-home.tar.gz', 'services',
                             'hindsight', '/home/hindsight/.codex-hindsight')
+            spec = importlib.util.spec_from_file_location('codex_archive', Path(__file__).with_name('sanitize-codex-archive.py'))
+            codex_archive = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(codex_archive)
+            sanitized = destination / 'hindsight-codex-home.sanitized.tar.gz'
+            codex_archive.sanitize(destination / 'hindsight-codex-home.tar.gz', sanitized)
+            # Only replace after complete validation; failed raw archives survive.
+            os.replace(sanitized, destination / 'hindsight-codex-home.tar.gz')
         if weekly_exports:
             export_banks(destination)
     for service in services:

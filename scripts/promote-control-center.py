@@ -7,21 +7,23 @@ import re
 
 
 def validate(value):
-    required = {'schemaVersion', 'sourceRepository', 'sourceRevision', 'image', 'postgresImage'}
-    if not isinstance(value, dict) or set(value) != required or value['schemaVersion'] != 1:
+    required = {'schemaVersion', 'sourceRepository', 'sourceRevision', 'image', 'databaseEngine'}
+    if not isinstance(value, dict) or set(value) != required or value['schemaVersion'] != 2:
         raise ValueError('Invalid release manifest schema')
     if value['sourceRepository'] != '0x63616c/world-wide-webb':
         raise ValueError('Unexpected source repository')
     if not isinstance(value['sourceRevision'], str) or not re.fullmatch(r'[a-f0-9]{40}', value['sourceRevision']):
         raise ValueError('Source revision must be an exact commit')
-    for key, prefix in (('image', 'ghcr.io/0x63616c/www-control-center-mini'), ('postgresImage', 'postgres')):
+    if value['databaseEngine'] != 'sqlite':
+        raise ValueError('Only the native SQLite runtime is supported')
+    for key, prefix in (('image', 'ghcr.io/0x63616c/www-control-center-mini'),):
         if not isinstance(value[key], str) or not re.fullmatch(re.escape(prefix) + r'@sha256:[a-f0-9]{64}', value[key]):
             raise ValueError('Image must use the approved repository and an immutable digest')
     return value
 
 
 def promote(current, revision, image):
-    # PostgreSQL changes are separate, manually reviewed migrations.
+    # Database engine changes are separate, manually reviewed migrations.
     return validate({**validate(current), 'sourceRevision': revision, 'image': image})
 
 

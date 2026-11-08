@@ -130,18 +130,19 @@
         # This builds launchd scripts and runs their generated ShellCheck checks.
         macbook-containers = (self.darwinConfigurations.homelab-macbook.extendModules {
           specialArgs.reviewedHost = manifest.hosts.homelab-macbook // {
-            services = [ "bambuddy" "control-center" "hindsight" "cloudflared" "home-assistant" ];
+            services = [ "bambuddy" "control-center" "hindsight" "cloudflared" "penpot" "home-assistant" ];
           };
           modules = [({ lib, ... }: {
             homelab.containers.enable = lib.mkForce true;
             homelab.containers.services = lib.mkForce [
-              "bambuddy" "control-center" "hindsight" "cloudflared"
+              "bambuddy" "control-center" "hindsight" "cloudflared" "penpot"
             ];
             homelab.homeassistant.enable = true;
             # Compile only; this is not a claim about the MacBook's interface.
             homelab.homeassistant.bridgeInterface = "en0";
             homelab.backups.enable = true;
-            homelab.updates.enable = lib.mkForce false;
+            homelab.updates.enable = lib.mkForce true;
+            homelab.updates.stateful.enable = true;
           })];
         }).system;
         compose = pkgs.runCommand "homelab-compose-check" {

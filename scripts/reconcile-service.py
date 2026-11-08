@@ -9,11 +9,12 @@ import stat
 import subprocess
 import tempfile
 
-WWW_KEYS = ('POSTGRES_PASSWORD', 'HA_TOKEN', 'ALARM_API_TOKEN', 'HOME_LAT',
+WWW_KEYS = ('HA_TOKEN', 'ALARM_API_TOKEN', 'HOME_LAT',
             'HOME_LON', 'WIFI_GUEST_SSID', 'WIFI_GUEST_PASSWORD')
 FILES = {
     'control-center': {name: 'www-' + name for name in WWW_KEYS},
     'hindsight': {'environment': 'hindsight-env'},
+    'penpot': {'environment': 'penpot-env'},
     'cloudflared': {'TUNNEL_TOKEN': 'tunnel-token'},
     'bambuddy': {'environment': 'bambuddy-environment'},
 }
@@ -80,12 +81,15 @@ def reconcile(service, source, runtime, compose_root, compose_env):
             promotion = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(promotion)
             promotion.validate(release)
-            env.update(WWW_IMAGE=release['image'], POSTGRES_IMAGE=release['postgresImage'])
+            env.update(WWW_IMAGE=release['image'])
+            env.pop('POSTGRES_IMAGE', None)
         # These paths contain only the selected service's files and are inside
         # Colima's service-user home mount; never expose the SOPS backing store.
         env.update({
             'control-center': {'WWW_SECRETS_DIR': str(destination)},
             'hindsight': {'HINDSIGHT_ENV_FILE': str(destination / 'environment')},
+            'penpot': {'PENPOT_ENV_FILE': str(destination / 'environment'),
+                       'PENPOT_MCP_TEMPLATE': str(compose_root / service / 'mcp-locations.conf.template')},
             'cloudflared': {'TUNNEL_TOKEN_FILE': str(destination / 'TUNNEL_TOKEN')},
             'bambuddy': {'BAMBUDDY_ENV_FILE': str(destination / 'environment'),
                          'BAMBUDDY_SERVE_CONFIG': str(destination / 'serve.json')},

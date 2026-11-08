@@ -4,14 +4,26 @@ let
   cominConfiguration = import (inputs.comin + "/nix/comin-config.nix") {
     inherit config lib pkgs;
   };
+  transaction = pkgs.writeShellScriptBin "homelab-activate-generation" ''
+    exec ${pkgs.python3}/bin/python3 ${../scripts}/stateful-activation.py "$@"
+  '';
 in {
-  options.homelab.updates.enable = lib.mkEnableOption "Git reconciliation from main";
+  options.homelab.updates = {
+    enable = lib.mkEnableOption "Git reconciliation from main";
+    stateful.enable = lib.mkEnableOption "reviewed transactional stateful activation";
+  };
 
   config = lib.mkIf config.homelab.updates.enable {
     assertions = [{
-      assertion = !(config.homelab.containers.enable || config.homelab.homeassistant.enable);
-      message = "Comin enrollment currently supports base hosts only. Stateful services need a reviewed backup and deployment workflow before enabling automatic updates.";
+      assertion = !(config.homelab.containers.enable || config.homelab.homeassistant.enable)
+        || (config.homelab.updates.stateful.enable && config.homelab.backups.enable);
+      message = "Stateful Comin requires explicit transactional activation and verified backup configuration.";
     }];
+    environment.systemPackages = lib.optional config.homelab.updates.stateful.enable transaction;
+    system.activationScripts.preActivation.text = lib.mkBefore (lib.optionalString
+      (config.homelab.updates.stateful.enable && (config.homelab.containers.enable || config.homelab.homeassistant.enable)) ''
+      ${transaction}/bin/homelab-activate-generation guard --candidate "$systemConfig"
+    '');
     environment.etc."homelab/github_known_hosts".source = ../lib/github_known_hosts;
 
     services.comin = {
@@ -19,7 +31,7 @@ in {
       # Pinned Comin otherwise advances only its private profile, leaving
       # nix-darwin's boot/RunAtLoad activation on the old configuration.
       package = inputs.comin.packages.${pkgs.stdenv.hostPlatform.system}.comin.overrideAttrs (old: {
-        patches = (old.patches or []) ++ [ ../packages/comin-darwin-profile.patch ];
+        patches = (old.patches or []) ++ [ ../packages/comin-darwin-profile.patch ../packages/comin-stateful-activation.patch ];
         doCheck = true;
         checkPhase = ''
           runHook preCheck
@@ -60,6 +72,7 @@ in {
         "--config" "${cominConfiguration.cominConfigYaml}"
       ]);
       serviceConfig = {
+        AbandonProcessGroup = config.homelab.updates.stateful.enable;
         # Determinate owns Nix, so nix-darwin deliberately disables nix.package.
         EnvironmentVariables = lib.mkForce {
           # Darwin activation also invokes native tools such as grep by name.

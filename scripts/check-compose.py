@@ -17,7 +17,6 @@ def check(root):
         env = {key: os.environ[key] for key in ('PATH', 'TMPDIR') if key in os.environ}
         env.update(HOME=directory, COMPOSE_DISABLE_ENV_FILE='true')
         fixtures = {
-            'POSTGRES_IMAGE': 'postgres@sha256:' + 'a' * 64,
             'WWW_IMAGE': 'ghcr.io/example/control-center@sha256:' + 'b' * 64,
             'WWW_DATA_DIR': directory + '/www-data',
             'WWW_SECRETS_DIR': directory + '/www-secrets',
@@ -25,6 +24,8 @@ def check(root):
             'WORKER_CYCLES': 'off',
             'TUNNEL_TOKEN_FILE': directory + '/tunnel-token',
             'HINDSIGHT_ENV_FILE': str(env_file),
+            'PENPOT_ENV_FILE': str(env_file),
+            'PENPOT_MCP_TEMPLATE': directory + '/mcp.conf',
             'HINDSIGHT_DATA_DIR': directory + '/hindsight-data',
             'HINDSIGHT_CODEX_HOME': directory + '/codex-home',
             'BAMBUDDY_ENV_FILE': str(env_file),
@@ -44,7 +45,7 @@ def check(root):
                     if volume['type'] == 'bind':
                         assert volume.get('bind', {}).get('create_host_path') is False, (name, volume)
             print('Validated', path.parent.name)
-        assert set(models) == {'bambuddy', 'control-center', 'cloudflared', 'hindsight', 'home-assistant'}
+        assert set(models) == {'bambuddy', 'control-center', 'cloudflared', 'hindsight', 'home-assistant', 'penpot'}
         bambuddy = models['bambuddy']
         assert bambuddy['services']['bambu-studio-api']['platform'] == 'linux/amd64'
         for volume in ('bambuddy_data', 'tailscale_state', 'bambu_studio_api_data'):
@@ -54,7 +55,11 @@ def check(root):
         assert ha['services']['home-assistant']['network_mode'] == 'host'
         assert 'ha0' in '\n'.join(ha['services']['home-assistant']['entrypoint'])
         assert models['control-center']['services']['www']['environment']['WORKER_CYCLES'] == 'off'
-        for project in ('control-center', 'cloudflared', 'hindsight'):
+        assert models['control-center']['volumes']['www_sqlite']['external'] is True
+        assert 'postgres' not in models['control-center']['services']
+        assert models['penpot']['volumes']['assets']['external'] is True
+        assert models['penpot']['volumes']['postgres']['external'] is True
+        for project in ('control-center', 'cloudflared', 'hindsight', 'penpot'):
             path = root / project / 'compose.yaml'
             result = subprocess.run(['docker-compose', '--project-directory', str(path.parent),
                                      '-f', str(path), 'config', '--quiet'], env=env,

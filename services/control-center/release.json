@@ -1,7 +1,7 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "sourceRepository": "0x63616c/world-wide-webb",
-  "sourceRevision": "38afee6c84fcf48c0edb2466aa4b27d287a59c30",
-  "image": "ghcr.io/0x63616c/www-control-center-mini@sha256:7c039963a2d94132d2cae54e5000f24fb1dceb683a685cc7e109ef5bb224afe8",
-  "postgresImage": "postgres@sha256:3a4264520e121176619f54ff867d12774bc81e95e7b84db58d63bccdb6144b81"
+  "sourceRevision": "72f9533c84cc9362b9a3df9a5fe3f079411c638d",
+  "image": "ghcr.io/0x63616c/www-control-center-mini@sha256:b99bced2cd96c21b225e2017c1b296651b2c820690d7b983c7257a6b88410f59",
+  "databaseEngine": "sqlite"
 }

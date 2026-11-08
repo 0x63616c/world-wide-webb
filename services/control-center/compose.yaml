@@ -1,64 +1,39 @@
 name: www-control-center
-
 services:
-  postgres:
-    image: ${POSTGRES_IMAGE:?Set a pinned PostgreSQL 18 image}
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_DB: control_center
-      POSTGRES_PASSWORD_FILE: /run/secrets/POSTGRES_PASSWORD
-    volumes:
-      - type: bind
-        source: ${WWW_DATA_DIR:?Set the persistent data directory}/postgres
-        target: /var/lib/postgresql
-        bind: {create_host_path: false}
-      - type: bind
-        source: ${WWW_SECRETS_DIR:?Set the secrets directory}/POSTGRES_PASSWORD
-        target: /run/secrets/POSTGRES_PASSWORD
-        read_only: true
-        bind: {create_host_path: false}
-    healthcheck:
-      test: [CMD-SHELL, "pg_isready -U postgres -d control_center"]
-      interval: 5s
-      timeout: 5s
-      retries: 20
-    mem_limit: 512m
-    logging:
-      driver: json-file
-      options: {max-size: 10m, max-file: '3'}
-
   www:
-    image: ${WWW_IMAGE:?Set an immutable www image digest}
+    image: ${WWW_IMAGE:?Set an immutable native SQLite app image digest}
+    user: '${WWW_UID:-450}:${WWW_GID:-450}'
     restart: unless-stopped
-    depends_on:
-      postgres:
-        condition: service_healthy
     environment:
-      NODE_ENV: production
-      APP_ENV: production
       TZ: America/Los_Angeles
-      PORT: '4201'
-      POSTGRES_HOST: postgres
-      POSTGRES_DB: control_center
-      POSTGRES_USER: postgres
+      WWW_LISTEN: 0.0.0.0:4201
+      WWW_DATA_DIR: /app/data
+      WWW_DATABASE_PATH: /app/data/control-center.sqlite
+      WWW_REQUIRE_DATABASE: 'on'
+      WWW_SECRETS_DIR: /run/secrets
       HA_URL: ${HA_URL:?Set the Home Assistant origin}
       WORKER_CYCLES: ${WORKER_CYCLES:?Explicitly choose on or off}
+      BEDROOM_SWITCH_INPUT_ENABLED: ${BEDROOM_SWITCH_INPUT_ENABLED:-off}
+      BEDROOM_SWITCH_INPUT_VERIFIED: ${BEDROOM_SWITCH_INPUT_VERIFIED:-off}
+      BEDROOM_SWITCH_INPUT_ENTITY_ID: ${BEDROOM_SWITCH_INPUT_ENTITY_ID:-}
       MEDIA_STORAGE_DIR: /app/media
     volumes:
       - type: bind
-        source: ${WWW_SECRETS_DIR}
+        source: ${WWW_SECRETS_DIR:?Set the secrets directory}
         target: /run/secrets
         read_only: true
         bind: {create_host_path: false}
+      - type: volume
+        source: www_sqlite
+        target: /app/data
       - type: bind
-        source: ${WWW_DATA_DIR}/media
+        source: ${WWW_DATA_DIR:?Restore the persistent media directory}/media
         target: /app/media
         bind: {create_host_path: false}
     ports:
-      - 127.0.0.1:${WWW_PORT:-4201}:4201
+      - 127.0.0.1:${WWW_PORT:-4202}:4201
     healthcheck:
-      test: [CMD, bun, -e, "const r = await fetch('http://127.0.0.1:4201/healthz'); process.exit(r.ok ? 0 : 1)"]
+      test: [CMD, www-server, healthcheck]
       interval: 5s
       timeout: 5s
       retries: 24
@@ -68,3 +43,7 @@ services:
     logging:
       driver: json-file
       options: {max-size: 10m, max-file: '3'}
+volumes:
+  www_sqlite:
+    external: true
+    name: www-control-center-sqlite

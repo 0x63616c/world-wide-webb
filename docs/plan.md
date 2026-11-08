@@ -1,5 +1,354 @@
 # Homelab plan
 
+## Execution plan — November 8, 2026
+
+This is the current plan. The historical design below is reference material and
+is superseded wherever it differs. [Current state](current-state.md) records the
+read-only inventory; refresh it before execution because other work is ongoing.
+Writing/reviewing this plan does not deploy anything or authorize an agent to
+wipe a machine.
+
+### Agreed end state and responsibilities
+
+- **Mac mini:** runs all retained home services under this repository's managed
+  configuration: Control Center, Home Assistant, Bambuddy/studio API, Hindsight,
+  Penpot including MCP, Cloudflare connector/recovery, backups, and new golink.
+  Other discovered jobs must receive an explicit keep/retire/archive decision;
+  every kept home service returns to the mini before completion.
+- **MacBook:** temporary production destination during the rebuild, then returns
+  to its CI role. No production service remains here as an unannounced compromise.
+- **Operator tool:** use the homelab CLI to enroll the rebuilt mini, then the
+  repository's supported management/health/backup tooling for operations. Git
+  defines host/service assignments and Comin applies reviewed changes. Do not
+  invent CLI migration features or assume the enrollment wizard restores data.
+- **Calum:** performs the physical wipe/macOS installation, creates the `calum`
+  administrator, enables Remote Login and runs the homelab CLI setup. The agent
+  prepares the exact handoff and verifies the result afterward.
+- **Agent during separately authorized execution:** inventories, prepares/reviews
+  configuration, backups and isolated restores, coordinates service cutovers,
+  validates the wipe gate and provides evidence. Never erases the physical Mac.
+- **golink:** Tailscale only; add after the existing services return to the mini.
+- **Penpot data:** Calum confirmed its contents are unimportant and authorized
+  migration without further backups. Keep existing recovery copies, but Penpot
+  backup/restore, design editing/export and MCP recovery tests are not wipe gates.
+  Migrate it with a basic startup check; a fresh instance is acceptable if needed.
+- **Timing:** no fixed 24–48-hour, 48–72-hour or overnight wait. Advance when the
+  functional, reboot and recovery checks pass. Plan short per-service outages.
+
+### Execution evidence so far
+
+Work is active in the isolated `codex/mini-migration` worktree. Production remains
+on the mini; it is not ready to wipe. No migration configuration has been activated.
+
+- Correct separate administrator items verified on both Macs; the manually
+  created mini item requires explicit handling during fresh CLI enrollment.
+- Fresh full backup `20261108T125756Z` and Penpot `20261108T125654Z` verified on
+  NAS, downloaded independently using pinned TLS, and every payload hash checked.
+  Full manifest SHA-256: `f0d0c83a8ac4a4052beac715ebc1c069350513777da0b692df4df5e6522c1c5c`.
+- A disposable VM on the MacBook's actual Wi-Fi bridge obtained 192.168.0.45;
+  both physical Macs reached its HTTP probe. It received 20 mDNS responses and
+  reached the existing HA UI. No HA data/identity was loaded. This removes the
+  assumed Ethernet prerequisite; production discovery still needs cutover checks.
+- Isolated real-data restores passed for Control Center (SQLite/build/workers-off
+  and 1,788 media entries), HA (configuration and authenticated entity API) and
+  Bambuddy (app plus amd64 Studio readiness). These instances cannot reach
+  production devices; actual device checks remain part of cutover.
+- Hindsight logical PostgreSQL restore verified 31 banks, 6,364 memory units and
+  1,559 documents and a clean shutdown. App startup needs a model cache available
+  inside the isolated environment; this is still being resolved.
+- Penpot database import passed (1 file, 2 projects, 730 storage objects). Further
+  data recovery/rehearsal checks are optional per Calum's explicit authorization.
+- Updated native base and all-service MacBook builds passed without activation.
+  Python migration/backup tests passed (103, plus the lock-selection regression).
+- Owner confirmed retirement/removal of Firstmate/Herdr, Zero and the build-cache
+  server, alongside Vov staging; do not redeploy them. Preserve recovery inputs
+  before local cleanup and remove only their owned resources.
+- Stateful activation/locking, full real-data restores, archival of other host
+  data, resource validation and actual cutovers remain required.
+
+### 1. Reconcile production and prepare the managed definitions — agent
+
+Independent agent review completed November 8, 2026, including the wipe/setup
+handoff. The reviewer requested explicit stateful GitOps, memory-budget and
+cutover-snapshot prerequisites; all three were incorporated and rechecked.
+Final verdict: no remaining plan-level blockers. This is a review of the
+sequence, not evidence that deployment/recovery/capacity checks have passed.
+
+Refresh remote main, the active MacBook generation and current mini inventory.
+Preserve unrelated working changes and concurrent runner work. Record actual
+image digests, effective Compose files, mounts, credentials, startup dependencies,
+network routes, schedules and deployment owners, without logging secret values.
+
+Known differences to resolve before enabling services:
+
+- Control Center now runs SQLite in local volume `www-control-center-sqlite`,
+  with photos in a bind mount and host port 4202. Its old PostgreSQL container is
+  stopped; existing homelab definitions still describe PostgreSQL. Port the
+  current runtime and SQLite snapshot/restore behavior, not that old recipe.
+- Penpot 2.18.6 needs backend, frontend, exporter, admin console, MCP,
+  PostgreSQL 15.15, Valkey and assets. Capture both effective Compose files,
+  custom MCP routing and all persistent volumes; decide whether cache state
+  needs preservation from actual configuration.
+- Preserve nightly backups, hourly Control Center database/photo history,
+  Penpot backups, Hindsight exports and tunnel recovery behavior. Add these to
+  the same operation locking and health model as deployments.
+- Preserve HA's separate bridged VM and LAN discovery; do not convert to HA OS
+  or upgrade applications/databases as part of this migration.
+
+Finish keep/retire/archive decisions for firstmate/herdr, zero/sampler, sccache,
+cargo cleanup, portal forwarding, Tailscale exit-node behavior and Serve port
+10350. Vov was previously approved for retirement, but identify protected data
+and shared dependencies before removal. Archive retained stopped Multica/old
+PostgreSQL data and unknown valuable state; do not automatically restart them.
+Include required host files, scripts, user data, locally held credentials and
+uncommitted work in the pre-wipe disposition, beyond just running containers.
+
+Prepare reviewed service definitions, health checks and recovery instructions
+for both hosts, initially disabled. Identify exact supported homelab operations;
+implement/document gaps rather than presenting speculative commands to Calum.
+Test the relevant configurations and builds before activation. No competing
+repository/workflow may deploy the same service after ownership transfers.
+
+**Known implementation blocker:** `modules/updates.nix` currently rejects
+enabling Comin with either containers or HA. Implement and review the stateful
+activation/backup/operation-lock workflow and test its failure recovery before
+enabling assignments; do not just remove the assertion. This is required work
+before evacuation, not a capability that enrollment already supplies. First roll
+out a base-only generation with the patched Comin and transactional helper,
+verify that running updater, then enable guarded service assignments in a separate
+generation. The old updater cannot safely activate the first guarded generation.
+Existing
+host operations include `homelab-backup-now`, `homelab-reconcile-ha`,
+`homelab-reconcile-containers` and `homelab-reconcile-all`; verify their updated
+behavior and required service user against [operations](operations.md).
+
+**Pass condition:** every retained service/data set/job has an owner and a
+recovery path, current definitions match production, and checks pass.
+
+### 2. Prove capacity and recovery — agent
+
+Mini baseline: M2/8 GiB, approximately 26 GiB free. MacBook baseline: M2/32 GiB,
+approximately 172 GiB free. Refresh these figures. Pause new runner admissions
+and drain the active job before rehearsals and temporary production. Keep the
+MacBook powered and awake. Ethernet is likely unavailable: test the HA bridge
+on the actual Wi-Fi interface first. Require proven LAN discovery/connectivity,
+not a particular cable; resolve failures before evacuation/wipe.
+
+Measure actual memory pressure and peak CPU/storage under representative work,
+including Penpot export, slicing, Hindsight and backups. Budget the destination
+for persistent data, VM disks, images, Nix generations, backup retention, restore
+workspace and update overlap. Do not stage a full extra machine copy on the
+nearly full mini; stream verified transfers or use off-host staging. The runner's
+140 GiB admission/80 GiB emergency thresholds are CI settings, not a production
+capacity budget. Keep CI paused until temporary home services have moved back.
+
+The end-state requirement is all retained services on the 8 GiB mini. Measure
+and size the VM/container allocations before wipe, then confirm under real load
+after return. Tune allocations/concurrency where justified. If capacity cannot
+be established, stop and revise the hardware/resource plan with Calum; leaving
+services permanently on the MacBook does not satisfy this plan.
+
+Known incompatible defaults: `modules/containers.nix` allocates 6 GiB for the
+services VM and `modules/homeassistant.nix` allocates 2 GiB for HA, leaving no
+RAM budget for macOS on the 8 GiB mini. Change and validate those allocations
+before proceeding. If HA memory needs adjustment, expose an explicit host
+setting rather than silently changing the shared default for every host.
+
+Take consistent backups using the current live formats. Store a verified
+recovery copy off both Macs, on the encrypted NAS, plus the active/rehearsal
+copy on the MacBook. Verify recovery credentials/keys are accessible from the
+operator machine without the mini. Inventory and archive any data not covered
+by scheduled backups. Keep sensitive recovery bundles private and out of Git.
+
+Download recovery copies and restore into fresh isolated storage. Preload the
+recorded images, block external access and prove isolation before starting
+restored applications. Rehearsals must not contact real printers/HA devices,
+run production workers against outside systems, or start copied Tailscale
+identities/tunnel connectors. Keep rehearsal identities separate from production.
+
+Validate actual contents and application behavior:
+
+- Control Center: SQLite integrity/foreign keys, representative records/photos;
+  preserve the current hourly history and full media recovery.
+- Penpot: basic startup check. Existing dump/assets may be reused, but further
+  backup, content recovery and design/export/MCP rehearsal are optional under
+  Calum's explicit data-disposal authorization.
+- HA: configuration, history and local UI; device interactions wait for cutover.
+- Bambuddy: app/studio state, archived files and amd64 slicer readiness.
+- Hindsight: logical embedded-PostgreSQL restore, banks/memories and separate
+  Codex home; a logical dump is not a replacement `.pg0` directory.
+
+**Pass condition:** downloaded real backups restore, sensitive/retained data is
+covered, the MacBook fits the temporary workload, and the mini resource plan is
+credible. Record backup IDs/hashes, results and measured resource budgets.
+
+### 3. Evacuate the mini one service at a time — agent
+
+Suggested order: Hindsight, Penpot, Bambuddy, Control Center, then HA. Adjust for
+actual dependencies. Use this sequence for every service:
+
+1. Identify/disable the old deploy path and any updater/watchdog/backup that
+   could race the move. Acquire the operation lock and stop the old writer.
+2. Take the final consistent snapshot, transfer and verify it, and restore it
+   into the MacBook's intended persistent storage using the same image version.
+3. Assign/enable the service through reviewed homelab configuration only after
+   state/secrets are ready. Ensure automatic reconciliation cannot start a
+   second writer prematurely; coordinate assignment changes and stopped jobs.
+4. Switch client/origin routes and validate real reads/writes and dependencies.
+5. Enable the replacement backup/recovery jobs, exercise them and retain the old
+   installation stopped and intact. Record which host now owns authoritative data.
+
+Prepare a cutover-specific snapshot/export operation before this sequence:
+the existing scheduled snapshot helper refuses already-stopped services and
+normally restarts sources after copying. Do not call it blindly after step 1.
+The reviewed cutover path must own quiescing/stopping, final export and failure
+handling, leave the source stopped and verify it cannot restart. Apply the same
+requirement in the return direction; keep ordinary scheduled backups separate.
+
+Bambuddy's sidecar identity must have one active instance. Test printer access
+and slicing without starting a print. For HA, stop the old VM before transferring
+its MAC/IP reservation; validate the MacBook's physical interface, bridge,
+reserved address and discovery, then test representative devices/automations.
+If equivalent networking fails, fix it before proceeding to the wipe gate.
+
+Move tunnel origins incrementally and transfer the connector/watchdog once all
+origins are reachable without the mini. Cover app, HA, NAS/DSM, Penpot/MCP and
+any newly discovered routes. Preserve useful client URLs where possible;
+explicitly record any required address changes.
+
+Rollback before new writes: stop the replacement, revert routes and start the
+old service. After new writes: transfer/recover the replacement's authoritative
+state before switching back. Never silently discard writes by restarting stale
+old data. Keep exactly one active writer/identity throughout.
+
+**Pass condition:** all retained services run on the MacBook, old production
+instances cannot restart automatically, and routes/backups follow the new owner.
+
+### 4. Prove independence and issue the wipe handoff — agent, then Calum
+
+Shut the mini down temporarily, without erasing it. Verify all retained services,
+remote access, HA devices/discovery, printer/slicer, Penpot/MCP, external tunnel
+routes and NAS access while the mini is off. Resolve its former exit-node/Serve
+roles and ensure the operator can reach both Macs without relying on it.
+
+Reboot the MacBook and verify service startup without desktop login, accounting
+for any FileVault unlock requirement. Check installed schedules, run the normal
+full and hourly Control Center backup entry points on demand, download
+new MacBook-era recovery copies and verify representative restores. Do not wait
+for an overnight scheduled run. Stop isolated rehearsal instances after checks.
+
+**All of these must be recorded before the wipe handoff:**
+
+- All retained services work with the mini off and after the MacBook reboot.
+- Every important retained data set/host file has a verified off-mini copy;
+  required production backups have been restored, not merely checked for file
+  existence. Penpot data is explicitly exempt as agreed above.
+- A fresh backup/recovery path works without mini-held credentials or jobs.
+- No required mini-only process, route, identity or unclassified data remains.
+- The supported empty-service mini configuration, account, CLI version and
+  connection path are ready; CLI behavior has been checked against that version.
+- Calum receives an explicit PASS summary, backup references, exact physical Mac
+  identity to erase and a setup checklist. Any failed item means do not wipe.
+
+Calum performs the wipe only after this handoff. Before erasure the old mini is
+still a rollback source; afterward recovery depends on the MacBook and off-host
+copies. The agent does not initiate the erase.
+
+### 5. Calum wipes and enrolls the mini — Calum
+
+The handoff will include version-verified instructions using the current
+[setup guide](setup.md), rather than assuming today's release remains current.
+
+1. Confirm the device is the physical homelab Mac mini, not either MacBook.
+2. Erase/reinstall the agreed supported macOS using Apple's appropriate flow
+   for the device. Have any required Apple Account/Activation Lock credentials
+   ready before starting. Disconnect unrelated external disks where practical.
+3. Complete Setup Assistant; create the administrator **`calum`**, matching the
+   reviewed manifest. Confirm actual account/UID assumptions before activation.
+4. Connect power/wired networking, enable **Remote Login** for `calum`, and
+   confirm the Mini's address. Do not hand-install old app stacks or restore an
+   entire old system over the clean installation.
+5. On the operator laptop, use the verified homelab CLI release, attach
+   **`0x63616c/homelab`**, select **`homelab-mac-mini`** and confirm its address.
+   Verify GitHub, 1Password and Tailscale prerequisites from the setup guide.
+6. Verify the target/account and that service assignments are initially empty,
+   then choose **Begin setup**. Complete the CLI's publication/review,
+   installation, reboot and access checks. Handle requested local/native prompts.
+7. Provide the agent the completion result; if setup stops, preserve its state
+   and resume the same attempt after diagnosis rather than recreating credentials.
+
+A wiped host legitimately has a new SSH host key. Verify its new fingerprint
+through trusted local/physical access before replacing the specific old trust
+entry. Do not disable host-key checking globally. Distinguish old/new Tailscale
+identities and saved connections; do not reuse a completed enrollment receipt
+for the old installation. Verify the supported CLI re-enrollment behavior before
+handoff, and resolve any stale binding explicitly rather than guessing.
+
+**Pass condition:** clean mini enrollment completes; the agent verifies its exact
+Git revision, secrets, Comin, SSH/Tailscale, restart/power behavior and headless
+reboot. No application starts before its data and assignment are ready.
+
+### 6. Return every retained service to the mini — agent
+
+Use the same stop/final-copy/verify/restore/assign/route/validate sequence from
+phase 3, with the MacBook as the source of current authoritative data. Start
+with HA, Control Center and Bambuddy, then Hindsight and Penpot, adjusting to
+actual resource/dependency measurements. Transfer tunnel, recovery and backup
+ownership when dependencies are ready. Preserve state created during the rebuild.
+
+Keep each MacBook instance stopped but intact until the corresponding mini
+instance passes checks. If return fails, resume on the MacBook with the latest
+state; fix the mini and retry. The project remains incomplete while retained
+production services still depend on the MacBook.
+
+Run representative concurrent workloads on the mini and confirm memory pressure,
+swap behavior, responsiveness and enough space for backup/update overlap. No
+unreviewed app upgrade or CI workload on the mini is part of this return.
+
+**Pass condition:** every retained home service and its schedules/routes run on
+the rebuilt mini, with evidence of real functionality and adequate capacity.
+
+### 7. Add golink on the mini — agent
+
+Deploy [Tailscale golink](https://github.com/tailscale/golink) as a pinned managed
+service. Scope is explicitly Tailscale only, using MagicDNS and its own `go`
+identity; no LAN-only/public access work. Upstream embeds Tailscale and needs no
+published host ports. Review access policy/admin rights and any existing `go`
+name before enrollment. Protect credentials using existing secret handling.
+
+Persist the SQLite database and Tailscale state. Add consistent database/identity
+backup and portable link exports to recovery, respecting permissions. Candidate
+links: `go/nas`, `go/ha`, `go/penpot`, `go/bambuddy`, `go/control`. Use stable
+service URLs; redirects do not grant access to the destination. Test redirects,
+editing, reboot survival and isolated restoration without duplicating identity.
+
+**Pass condition:** intended Tailscale clients can use/manage the links, state
+survives restart and backup/restore works.
+
+### 8. Final acceptance and cleanup — agent
+
+Reboot the mini, keep temporary MacBook production stacks stopped, and repeat
+service/route/device checks. Exercise full, hourly and Penpot backups and golink
+recovery; validate schedules are installed without imposing a waiting period.
+Confirm operation from the normal homelab management tools and automatic GitOps
+convergence on the reviewed revision, without service disruption or duplicate jobs.
+
+Only after acceptance remove temporary MacBook stacks/data and obsolete deploy
+jobs/identities according to the recorded retention decisions. Preserve required
+recovery copies; remove temporary rehearsal credentials and artifacts safely.
+Resume the MacBook CI controller once capacity and cleanup checks pass. Update
+inventory/runbooks to match the final deployed system.
+
+**Done means:** the rebuilt mini runs every retained home service plus golink,
+managed through the homelab configuration/tooling; recovery and reboot are proven;
+the MacBook is back to CI with no production dependency; no unexplained duplicate
+writer, deploy owner or backup job remains.
+
+Historical design and migration research. Runner account/controller proposals
+below are deferred, not implemented configuration. The unused prototype has
+been removed; [current update behavior](updates.md) supersedes the custom updater
+design described here.
+
 Status: the initial implementation and CLI 0.1.4 are merged, following the
 November 3, 2026 research. The tool is now extracted into the public
 [homelab-cli](https://github.com/0x63616c/homelab-cli) repository with public macOS

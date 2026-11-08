@@ -1,5 +1,70 @@
 # Current state
 
+## Read-only refresh — November 8, 2026
+
+Live SSH inspection used the existing trusted names `calum@homelab` and
+`admin@homelab-macbook.local`. No host/service changes or backups/restores were
+performed, and no credentials were retrieved. Root-only mini inspection remains
+unavailable through noninteractive sudo. The November 3 snapshot below is
+historical; use this refresh for the observed changes and the refreshed
+[migration plan](plan.md) for the proposed sequence.
+
+- Mini: hostname `homelab.local`, macOS 15.6, 8 GB per prior hardware census;
+  data filesystem 228 GiB, 178 GiB used, approximately 26 GiB available.
+- MacBook: enrolled `homelab-macbook`, macOS 27.2, live sysctl confirms 32 GiB
+  RAM; data filesystem 460 GiB, 260 GiB used, approximately 172 GiB available.
+  `/run/current-system` exists; Comin and the homelab runner plist are installed.
+  Observed revision was `042feacdde382c5b9cc07341353a80b0c3772408`; another
+  chat is actively updating runner configuration, so recheck before changes.
+- Control Center is healthy on localhost:4202, running image digest
+  `sha256:b99bced2cd96c21b225e2017c1b296651b2c820690d7b983c7257a6b88410f59`.
+  `/app/data` is local named volume `www-control-center-sqlite`; media and
+  secrets are bind mounts. Its effective Compose label points into
+  `~/www-control-center/candidate.gcYkFn/compose.yaml`. Old PostgreSQL is stopped.
+  Existing homelab recipes still describe PostgreSQL and must be refreshed.
+- Penpot 2.18.6 has seven running containers: backend, frontend, admin console,
+  exporter, PostgreSQL 15.15, MCP and Valkey 8.1.4. Frontend localhost:9001
+  responds 200. `penpot_assets`, `penpot_postgres` and Valkey's anonymous `/data`
+  volume are retained state. Effective Compose labels reference both
+  `~/penpot/compose.yaml` and `~/penpot/bootstrap.yaml`; a separate MCP nginx
+  template is mounted. Penpot has its own 05:15 backup agent and dated local
+  backup directories; NAS recovery/restore was not independently tested here.
+- Bambuddy, its separate Tailscale sidecar and amd64 studio API are running;
+  app health responds 200. Preserve app/studio/log and identity volumes.
+- Hindsight 1.0.0 remains running with local bind-mounted `data` and `codex-home`
+  (combined directory approximately 1.9 GiB), exposed on 8888/9999. Its container
+  has no explicit memory limit; placement needs measurement.
+- HA is healthy in the separate running `colima-ha` daemon, using `ha_config`
+  and the existing pinned image. LAN HTTP at 192.168.0.130:8123 responds 200.
+  Created migration inspection containers and an exited seed container remain;
+  do not infer these are active services or delete their storage by inference.
+- Cloudflared runs the pinned tunnel image; a newer user watchdog is scheduled
+  every 30 seconds. Host Tailscale Serve now also sends its HTTPS root to 4202,
+  alongside 8000 and 10350. External route inventory still needs refreshing.
+- Loaded custom agents include HA startup, Hindsight health/backup, nightly
+  homelab backup, hourly Control Center backup, Penpot backup, tunnel recovery,
+  firstmate/herdr, sccache, cargo cleanup and zero/sampler. Zero reports exit 1.
+  System launchd still lists vov colima/stack/updater; protected state was not
+  inspected. Portal forwarding is listed with exit 1. Retained Multica is stopped.
+- Nightly backup is scheduled 04:15. Latest observed full-set success in its log
+  is November 7 (`20261107T121505Z`) with COMPLETE/NAS_VERIFIED present; this
+  does not establish a current successful restore or November 8 nightly success.
+  Hourly Control Center logs report verified SQLite/photo snapshots through
+  `20261108T120004Z` (04:00 local). Script inspection confirms SQLite snapshot
+  support and separate NAS upload markers. Penpot's script uses PostgreSQL
+  custom-format dumps. All replacement paths need actual downloaded restores.
+- OrbStack Docker reports 70 images (~22.97 GB), 11 volumes (~1.059 GB), and
+  ~3.174 GB build cache. This excludes HA/vov daemons and host bind mounts.
+  `~/www-control-center/data` is ~1.3 GiB and `~/homelab-backups` ~6.1 GiB.
+  Do not sum these into a claimed full disk/migration budget.
+
+The newer runner worktree declares one 4-vCPU/8-GiB guest, 140 GiB admission
+free-space requirement and 80 GiB emergency floor. It also still contains the
+old Control Center recipe. Local working changes in this checkout were left
+untouched. Remaining uncertainty includes privileged vov/process inventory,
+miscellaneous job disposition, current network reservations/public routes,
+all-service recovery, full state sizing and final 8-GiB-mini capacity.
+
 Research snapshot: November 3, 2026, America/Los_Angeles. No host, service,
 router, or repository settings were changed. This document distinguishes live
 observations from repository documentation and information supplied by Calum.
