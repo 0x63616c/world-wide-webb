@@ -155,6 +155,8 @@ targets:
     sources:
       - path: BuildTests
         includes: ['*.swift']
+      - path: ../../contracts/fixtures/milestones.json
+        buildPhase: resources
       - path: BuildTests/Fixtures
     settings:
       base:

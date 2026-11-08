@@ -231,7 +231,7 @@ def main():
     # Read durable provider state even after a nonzero exit. A killed wrapper resumes by re-running.
     after = validate_state(database.state(), manifest)
     report.update(after_applied=after, cli_exit_code=result.returncode,
-                  verified_at=datetime.datetime.now(datetime.UTC).isoformat(),
+                  verified_at=datetime.datetime.now(datetime.timezone.utc).isoformat(),
                   complete=after == len(manifest["migrations"]))
     write_json(directory / "result.json", report)
     if result.returncode or not report["complete"]:

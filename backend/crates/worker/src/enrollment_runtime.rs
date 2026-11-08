@@ -188,6 +188,18 @@ pub(crate) async fn mutate(
             )?);
         }
         if !transfer {
+            writes.extend(crate::milestone_runtime::purge(
+                db,
+                &session.participant_id,
+                true,
+            )?);
+            writes.push(crate::milestone_runtime::initialize(
+                db,
+                &session.participant_id,
+                &generation,
+                session.revision + 1,
+                true,
+            )?);
             // Rejoin begins new public totals; a leave cleanup need not finish before these owned rows purge.
             for table in ["observations", "live_scores", "score_jobs"] {
                 writes.push(statement(

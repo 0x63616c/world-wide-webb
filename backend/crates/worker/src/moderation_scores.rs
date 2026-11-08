@@ -167,6 +167,13 @@ pub(crate) async fn change(
             revision + 1,
         )?);
     }
+    writes.extend(crate::milestone_runtime::rebuild(
+        db,
+        participant,
+        &generation,
+        revision + 1,
+        true,
+    )?);
     Ok((writes, submission))
 }
 pub(crate) fn score(

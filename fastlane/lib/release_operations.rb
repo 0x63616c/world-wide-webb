@@ -114,6 +114,7 @@ module FoldingRelease
       if preview
         require_state!(record, "planned")
         raise "TestFlight preview requires a 0.x version" unless record.data.fetch("marketing_version").start_with?("0.")
+        FoldingRelease.preview_prerequisites!(record)
       else
         require_state!(record, "assets_ready")
       end
@@ -250,6 +251,7 @@ module FoldingRelease
 
     def self.beta(context, record)
       record.verify_identity!
+      FoldingRelease.preview_prerequisites!(record) if record.data.fetch("marketing_version").start_with?("0.")
       raise "Archive required" if STATES.index(record.data.fetch("state")) < STATES.index("archived")
       build = FoldingRelease.exact_build(record.data)
       unless build

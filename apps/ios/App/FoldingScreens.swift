@@ -7,6 +7,7 @@ import SwiftUI
 import UIKit
 
 struct FoldingRootView: View {
+  @Environment(\.scenePhase) private var milestoneScenePhase
   @Bindable var model: FoldingPresentation
   let actions: FoldingActions
   @State private var historyPath: [HistoryRoute] = []
@@ -75,6 +76,7 @@ struct FoldingRootView: View {
             systemImage: "gearshape", value: .settings
           ) {
             SettingsScreen(model: model, actions: actions)
+              .id(model.competitionProfile?.id)
           }
         }
       }
@@ -86,7 +88,13 @@ struct FoldingRootView: View {
     .tint(FoldingTint.color)
     .environment(\.timeZone, TimeZone(identifier: model.preferences.homeTimezone) ?? .current)
     .preferredColorScheme(model.preferences.appearance.scheme)
-    .sheet(item: ordinarySheet, onDismiss: model.didDismissSheet) { sheet in
+    .sheet(
+      item: ordinarySheet,
+      onDismiss: {
+        model.didDismissSheet()
+        Task { await model.dismissMilestoneUnlock(using: actions) }
+      }
+    ) { sheet in
       sheetContent(sheet)
         .preferredColorScheme(model.preferences.appearance.scheme)
         .tint(FoldingTint.color)
@@ -99,6 +107,14 @@ struct FoldingRootView: View {
         .modifier(FoldingFeedback(model: model, presentsAlert: true))
     }
     .modifier(FoldingFeedback(model: model, presentsAlert: model.sheet == nil))
+    .onChange(of: milestoneScenePhase, initial: true) { _, phase in
+      model.milestonesForeground = phase == .active
+    }
+    .task(id: "\(model.milestonesContext)-\(model.competitionJoined)-\(milestoneScenePhase)") {
+      if milestoneScenePhase == .active { await model.requestMilestones(using: actions) }
+    }
+    .onChange(of: model.milestonePresentationTrigger) { _, _ in model.presentMilestoneUnlockIfSafe()
+    }
   }
 
   private var ordinarySheet: Binding<PresentedSheet?> {
@@ -111,6 +127,8 @@ struct FoldingRootView: View {
 
   @ViewBuilder private func sheetContent(_ sheet: PresentedSheet) -> some View {
     switch sheet {
+    case .milestoneUnlock(let badges):
+      MilestoneUnlockScreen(badges: badges, model: model, actions: actions)
     case .settings: SettingsScreen(model: model, actions: actions)
     case .competition(let screen):
       CompetitionSheetScreen(screen: screen, model: model, actions: actions)
@@ -132,7 +150,11 @@ struct FoldingRootView: View {
             $0.rank == rank && !model.hiddenParticipantIDs.contains($0.id)
           } ?? []
         ) { entry in
-          LeaderboardRow(entry: entry).contextMenu {
+          NavigationLink {
+            ProfileDestinationScreen(participantID: entry.id, model: model, actions: actions)
+          } label: {
+            LeaderboardRow(entry: entry)
+          }.contextMenu {
             ParticipantMenu(entry: entry, model: model, actions: actions)
           }
         }
@@ -774,6 +796,13 @@ private struct SettingsScreen: View {
             NotificationSettingsScreen(model: model, actions: actions)
           }
         }
+        if model.competitionJoined {
+          Section {
+            NavigationLink(String(localized: "profile.yours", defaultValue: "Your Profile")) {
+              YourProfileScreen(model: model, actions: actions)
+            }
+          }
+        }
         Section(String(localized: "settings.data", defaultValue: "Data")) {
           if model.privateHistoryHealth?.requiresAttention == true {
             NavigationLink {
@@ -841,7 +870,7 @@ private struct SettingsScreen: View {
         Text(
           String(
             localized: "reset.message",
-            defaultValue: "Deletes history, scores and medals."))
+            defaultValue: "Deletes history, scores, medals and badges."))
       }
     }
     .interactiveDismissDisabled(model.operation != nil)
@@ -1391,8 +1420,18 @@ private struct LeaderboardScreen: View {
             ForEach([2, 1, 3], id: \.self) { rank in
               if let entries = podium[rank], let first = entries.first {
                 VStack(spacing: 8) {
-                  CompetitionAvatar(entry: first, size: rank == 1 ? 64 : 48)
-                  Text(first.displayName).font(.caption).lineLimit(2)
+                  NavigationLink {
+                    ProfileDestinationScreen(
+                      participantID: first.id, model: model, actions: actions)
+                  } label: {
+                    VStack(spacing: 8) {
+                      CompetitionAvatar(entry: first, size: rank == 1 ? 64 : 48)
+                      Text(first.displayName).font(.caption).lineLimit(2)
+                      if let badge = first.featuredBadge {
+                        MilestoneBadgeArtwork(badge: badge, size: 24)
+                      }
+                    }
+                  }.buttonStyle(.plain)
                   if entries.count > 1 {
                     Button("+\((entries.count - 1).formatted())") { model.present(.tiedRank(rank)) }
                       .font(.caption).frame(minWidth: 44, minHeight: 44)
@@ -1418,7 +1457,11 @@ private struct LeaderboardScreen: View {
             .foregroundStyle(.secondary)
         }
         ForEach(value.entries.filter { !model.hiddenParticipantIDs.contains($0.id) }) { entry in
-          LeaderboardRow(entry: entry).contextMenu {
+          NavigationLink {
+            ProfileDestinationScreen(participantID: entry.id, model: model, actions: actions)
+          } label: {
+            LeaderboardRow(entry: entry)
+          }.contextMenu {
             ParticipantMenu(entry: entry, model: model, actions: actions)
           }
         }
@@ -1443,7 +1486,11 @@ private struct LeaderboardScreen: View {
       if let current = value.currentUser {
         VStack(spacing: 4) {
           HStack {
-            LeaderboardRow(entry: current)
+            NavigationLink {
+              YourProfileScreen(model: model, actions: actions)
+            } label: {
+              LeaderboardRow(entry: current)
+            }.buttonStyle(.plain)
             Button {
               model.present(.competition(.liveShare))
             } label: {
@@ -1478,6 +1525,7 @@ private struct LeaderboardRow: View {
       ).frame(minWidth: 24, alignment: .trailing)
       CompetitionAvatar(entry: entry, size: 36)
       Text(entry.displayName).fontWeight(entry.isCurrentUser ? .semibold : .regular).lineLimit(2)
+      if let badge = entry.featuredBadge { MilestoneBadgeArtwork(badge: badge, size: 24) }
       Spacer(minLength: 8)
       Text(entry.folds, format: .number).monospacedDigit()
     }

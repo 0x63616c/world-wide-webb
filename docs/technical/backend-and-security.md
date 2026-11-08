@@ -30,6 +30,8 @@ Routes are denied by default. Reads of leaderboards require an authenticated, jo
 
 ## Operations and permissions
 
+Profiles/milestones add the operation contracts in [HTTP](http-contracts.md) and the [single-release plan](profiles-and-milestones.md). Public profile lookup requires current eligible community membership and current target visibility, returning an explicit allowlist without progress/dates. Owner progress, earned featuring and displayed-group acknowledgment remain session/participant/generation/revision guarded; they never accept client counts or weaken ingestion attestation. Migration 0021 supplies derived projection/backfill/grant/selection/acknowledgment state. Scoring, moderation, deletion and reset update or purge that state in their existing guarded batches. Backfill uses durable bounded keyset pages; partial projections remain unavailable and cannot resurrect reset/deleted accounts. Install the additive migration before its Worker and ship all client surfaces in the same release. Provider acceptance is separate from local implementation.
+
 The following are the complete v1 operation families; nested response shapes and mutation inputs are in [http-contracts.md](http-contracts.md). Implement only these families until a contract change is reviewed.
 
 - Authentication: challenge, Apple exchange, refresh, logout. Session lifecycle only; never award scores.

@@ -146,7 +146,7 @@ const authenticatedRuntime = new Miniflare(convertV4MiniflareOptions({ workers: 
   queueProducers: {JOBS:"folding-local-jobs", JOBS_DEAD:"folding-local-dead"},
   queueConsumers: {"folding-local-jobs":{maxBatchSize:1,maxBatchTimeout:0}},
   bindings: {
-    WORKER_VERSION:"synthetic-local-worker",ADMIN_ORIGIN:"https://admin.example",ACCESS_TEAM_DOMAIN:"https://folding-test.cloudflareaccess.com",ACCESS_AUDIENCE:"local-admin",ADMIN_EMAIL_ALLOWLIST:JSON.stringify(["admin@example.test"]),AVATAR_UPLOADS_ENABLED:"true",
+    WORKER_VERSION:"synthetic-local-worker",VERIFIED_CAPABILITIES:'["profiles.milestones"]',ADMIN_ORIGIN:"https://admin.example",ACCESS_TEAM_DOMAIN:"https://folding-test.cloudflareaccess.com",ACCESS_AUDIENCE:"local-admin",ADMIN_EMAIL_ALLOWLIST:JSON.stringify(["admin@example.test"]),AVATAR_UPLOADS_ENABLED:"true",
     APP_ATTEST_APP_ID:"TEAM123456.app.test.Folding",APP_ATTEST_ENVIRONMENT:"development",APP_ATTEST_BUNDLE_VERSIONS:JSON.stringify(["1"]),
     APPLE_SIGN_IN_CLIENT_ID:"app.test.Folding",APPLE_SIGN_IN_TEAM_ID:"TEAM123456",APPLE_SIGN_IN_KEY_ID:"KEY1234567",
     APPLE_SIGN_IN_PRIVATE_KEY_PKCS8:appleClient.privateKey.export({type:"pkcs8",format:"der"}).toString("base64url"),
@@ -165,7 +165,7 @@ test("actual Worker issues bounded challenges and rotates encrypted sessions wit
   const {createHash}=await import("node:crypto");
   const hash=bytes=>createHash("sha256").update(bytes).digest();
   const db=await authenticatedRuntime.getD1Database("DB");
-  for (const migration of ["0001_mutation_fences.sql","0002_sessions.sql","0003_auth_operations.sql","0004_sign_in.sql","0005_attestation_enrollment.sql","0006_competition.sql","0007_community_reads.sql","0008_privacy_lifecycle.sql","0009_period_finalization.sql","0010_moderation.sql","0011_avatars.sql","0012_notifications.sql", "0013_operations.sql", "0014_corrections.sql", "0015_moderation_cases.sql", "0016_monitoring.sql", "0017_external_retries.sql", "0018_entry_deletions.sql", "0019_resource_protection.sql", "0020_admin_minimum_build.sql"]) {
+  for (const migration of ["0001_mutation_fences.sql","0002_sessions.sql","0003_auth_operations.sql","0004_sign_in.sql","0005_attestation_enrollment.sql","0006_competition.sql","0007_community_reads.sql","0008_privacy_lifecycle.sql","0009_period_finalization.sql","0010_moderation.sql","0011_avatars.sql","0012_notifications.sql", "0013_operations.sql", "0014_corrections.sql", "0015_moderation_cases.sql", "0016_monitoring.sql", "0017_external_retries.sql", "0018_entry_deletions.sql", "0019_resource_protection.sql", "0020_admin_minimum_build.sql", "0021_profile_milestones.sql"]) {
     const source=await readFile(`${root}migrations/${migration}`,"utf8");
     for(const sql of source.split(";").filter(s=>s.trim())) await db.prepare(sql).run();
   }
@@ -615,4 +615,39 @@ test("admin minimum build is authenticated, audited, revision guarded and revers
  const rollback={...await form(),minimum_ios_build:'0',reason:'Disable required updates'};
  assert.equal((await post(rollback)).status,303);assert.equal(await policy(),0);
  assert.equal((await authenticatedRuntime.dispatchFetch('https://api.example/v1/me',{headers:{'X-Folding-Build':'11'}})).status,401);
+});
+
+test('admin quarantine and reinstatement reconcile awards without replaying acknowledged celebrations',async()=>{
+ const db=await authenticatedRuntime.getD1Database('DB'),id=n=>`00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
+ const participant=id(80001),device=id(80002),epoch=id(80003),generation={revision:0,reset_id:'00000000-0000-0000-0000-000000000000'},time=Date.now(),token=Buffer.alloc(32,239),session='milestone-moderation-session';
+ await db.batch([
+  db.prepare("INSERT INTO participants(participant_id,subject_hmac,membership,restriction,generation_revision,generation_id,epoch_id,active_device_id) VALUES (?,?,'joined','none',0,?,?,?)").bind(participant,participant,generation.reset_id,epoch,device),
+  db.prepare('INSERT INTO participant_revisions VALUES (?,0)').bind(participant),
+  db.prepare("INSERT INTO profiles VALUES (?,'Replay Folder',NULL,'approved','none')").bind(participant),
+  db.prepare('INSERT INTO epochs VALUES (?,?,?,0,?,0,0,NULL)').bind(epoch,participant,device,generation.reset_id),
+  db.prepare("INSERT INTO sessions VALUES (?,?,?,'staging',?,?,?,?,0)").bind(session,participant,device,time,time,time+86400000,time+86400000),
+  db.prepare('INSERT INTO access_tokens VALUES (?,?,?)').bind(createHash('sha256').update(token).digest(),session,time+86400000),
+  db.prepare("INSERT INTO live_scores VALUES (?,0,?,'all',100,0)").bind(participant,generation.reset_id),
+ ]);
+ const events=Array.from({length:100},(_,i)=>({schema_version:1,event_id:id(81000+i),device_id:device,sequence:i+1,generation,observed_at_ms:time-100000+i,timezone_id:'UTC',transition:i%2?'close':'open',is_test:false,competition_epoch_id:epoch}));
+ await db.batch(events.map(e=>db.prepare("INSERT INTO observations(participant_id,event_id,device_id,sequence,event_json,disposition,received_at_ms,submission_id) VALUES (?,?,?,?,?,'accepted',?,?)").bind(participant,e.event_id,device,e.sequence,JSON.stringify(e),time,'moderation-batch')));
+ const headers={Authorization:'Bearer '+token.toString('base64url'),'Content-Type':'application/json'};
+ const get=async()=>{const r=await authenticatedRuntime.dispatchFetch('https://api.example/v1/milestones',{headers});assert.equal(r.status,200,await r.clone().text());return r.json();};
+ const write=async(path,body,method='POST')=>{const r=await authenticatedRuntime.dispatchFetch('https://api.example'+path,{method,headers,body:JSON.stringify(body)});assert.equal(r.status,200,await r.clone().text());};
+ assert.equal((await get()).progress.folds,100);
+ await write('/v1/profile/badge',{operation_id:id(82001),generation,badge_id:'folds_100'},'PATCH');
+ await write('/v1/milestones/acknowledgments',{operation_id:id(82002),generation,badge_ids:['folds_1','folds_100']});
+ const jwt=appleToken({iss:'https://folding-test.cloudflareaccess.com',aud:['local-admin'],sub:'synthetic-admin',email:'admin@example.test',type:'app'});
+ const adminHeaders={'Cf-Access-Jwt-Assertion':jwt,Origin:'https://admin.example','Content-Type':'application/x-www-form-urlencoded'};
+ const page=await authenticatedRuntime.dispatchFetch('https://admin.example/admin/queue',{headers:adminHeaders}),html=await page.text();assert.equal(page.status,200);
+ const csrf=html.match(/name="csrf_token" value="([^"]+)"/)[1];
+ for(const [index,action] of ['quarantine_submission','reinstate_submission'].entries()){
+  const revision=await db.prepare('SELECT revision FROM participant_revisions WHERE participant_id=?').bind(participant).first('revision');
+  const body={operation_id:id(83001+index),csrf_token:csrf,participant_id:participant,expected_revision:String(revision),action,event_id:events[0].event_id,reason:'Verify badge correction replay',confirmation:'yes'};
+  const response=await authenticatedRuntime.dispatchFetch('https://admin.example/admin/moderation',{method:'POST',redirect:'manual',headers:adminHeaders,body:new URLSearchParams(body)});
+  assert.equal(response.status,303,await response.clone().text());
+  const own=await get();assert.equal(own.progress.folds,index?100:0);assert.equal(own.featured_badge_id,null);
+  assert.equal(own.grants.length,index?2:0);assert.ok(own.grants.every(g=>g.acknowledged));
+ }
+ const capability=await authenticatedRuntime.dispatchFetch('https://api.example/v1/capabilities');assert.deepEqual((await capability.json()).capabilities,['profiles.milestones']);
 });

@@ -25,6 +25,9 @@ pub struct IngestionPlan {
     pub new_observations: Vec<NewObservation>,
     pub all_time_folds: u64,
     pub counted_timestamps: Vec<u64>,
+    /// Reducer-owned identities allow incremental milestone projections to update
+    /// only changed contributions; shared boundary neighbors must cancel out.
+    pub counted_events: Vec<(Id, u64)>,
 }
 /// A stable hash of typed business fields, independent of JSON whitespace/object-key order.
 /// Tokens, assertions and request IDs are deliberately excluded.
@@ -144,6 +147,11 @@ pub fn plan_batch_with_deletions(
         .map(|event| (&event.event_id, event.observed_at_ms))
         .collect();
     let counted_timestamps = summary.counted_events.iter().map(|id| times[id]).collect();
+    let counted_events = summary
+        .counted_events
+        .iter()
+        .map(|id| (id.clone(), times[id]))
+        .collect();
     let mut reported: BTreeSet<Id> = previous
         .iter()
         .map(|old| old.event.event_id.clone())
@@ -183,6 +191,7 @@ pub fn plan_batch_with_deletions(
         new_observations,
         all_time_folds,
         counted_timestamps,
+        counted_events,
     })
 }
 #[cfg(test)]

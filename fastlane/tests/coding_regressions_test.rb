@@ -8,6 +8,20 @@ class CodingRegressionsTest < Minitest::Test
     def save(values); data.merge!(values); end
     def advance(state, values = {}); save(values.merge("state" => state)); end
   end
+  def test_preview_requires_the_complete_milestone_capability_and_exact_worker_source
+    source = "a" * 40
+    record = Record.new({"commit_sha" => source, "archive_configuration" => {"api_origin" => "https://api.example"}})
+    accepted = {"contract_version" => 1, "worker_version" => source, "capabilities" => ["profiles.milestones"]}
+    [{"capabilities" => []}, {"worker_version" => "b" * 40}, {"contract_version" => 2}].each do |change|
+      FoldingRelease.stub(:fetch_json, accepted.merge(change)) do
+        assert_raises(RuntimeError) { FoldingRelease.preview_prerequisites!(record) }
+      end
+    end
+    FoldingRelease.stub(:fetch_json, accepted) do
+      assert_equal source, FoldingRelease.preview_prerequisites!(record)
+    end
+    assert_equal ["profiles.milestones"], record.data.fetch("preview_backend_verification").fetch("capabilities")
+  end
   class Apple
     attr_reader :review_items, :created
     def initialize

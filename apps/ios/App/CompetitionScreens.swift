@@ -16,7 +16,8 @@ struct CompetitionSheetScreen: View {
       Group {
         switch screen {
         case .join: CompetitionProfileScreen(model: model, actions: actions, joining: true)
-        case .profile: CompetitionProfileScreen(model: model, actions: actions, joining: false)
+        case .profile: YourProfileScreen(model: model, actions: actions)
+        case .milestones: MilestonesScreen(model: model, actions: actions)
         case .results: CompetitionResultsScreen(model: model, actions: actions)
         case .liveShare: LiveCompetitionShareScreen(model: model)
         }
@@ -147,6 +148,13 @@ struct CompetitionProfileScreen: View {
             colorScheme == .dark ? Color.black : Color(uiColor: .systemBackground))
           if !creating {
             Section {
+              NavigationLink(
+                String(localized: "milestones.featured", defaultValue: "Featured badge")
+              ) {
+                MilestonesScreen(model: model, actions: actions)
+              }
+            }
+            Section {
               Button(
                 String(localized: "profile.delete", defaultValue: "Delete competition account"),
                 role: .destructive
@@ -243,6 +251,13 @@ struct CompetitionProfileScreen: View {
               model.joinNickname = value
             }
           }
+          Text(
+            String(
+              localized: "profile.visibility",
+              defaultValue:
+                "Your name, photo, scores and earned badges are visible to leaderboard members.")
+          )
+          .font(.footnote).foregroundStyle(.secondary)
           if rejectedName {
             Text(String(localized: "profile.chooseName", defaultValue: "Choose another name"))
               .foregroundStyle(.red)

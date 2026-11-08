@@ -212,6 +212,13 @@ pub(crate) async fn delete(
             session.revision + 1,
         )?);
     }
+    writes.extend(crate::milestone_runtime::rebuild(
+        db,
+        &session.participant_id,
+        &generation,
+        session.revision + 1,
+        true,
+    )?);
     // A deletion before publication invalidates any in-progress staged contribution.
     writes.push(statement(db, "DELETE FROM staged_results WHERE participant_id=?1 AND EXISTS(SELECT 1 FROM periods p WHERE p.period_id=staged_results.period_id AND p.state='finalizing' AND p.target_version=staged_results.version)", &[text(&session.participant_id)])?);
     writes.push(statement(db, "UPDATE period_roster SET state='pending' WHERE participant_id=?1 AND state='completed' AND EXISTS(SELECT 1 FROM periods p WHERE p.period_id=period_roster.period_id AND p.state='finalizing' AND p.target_version=period_roster.version)", &[text(&session.participant_id)])?);

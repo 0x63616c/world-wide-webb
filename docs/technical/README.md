@@ -20,6 +20,7 @@ Read in order:
 5. [Release and operations](release-and-operations.md): pinned tooling, infrastructure, CI, screenshot and release flow.
 6. [Agent work orders](work-orders.md): dependency order, file ownership, acceptance evidence, and prohibited shortcuts.
 7. [Review record](review.md): independent review findings and resolutions.
+8. [Profiles and milestones](profiles-and-milestones.md): #71 single-release scope, sequential tracks, earned collection, featuring, privacy/lifecycle and acceptance.
 
 Machine-readable contracts are in [contracts/](../../contracts/README.md). They define shapes and deterministic examples, not proof that an implementation is correct.
 

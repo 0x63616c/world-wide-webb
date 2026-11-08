@@ -312,6 +312,22 @@ pub(crate) async fn events(
         )?);
     }
     writes.push(statement(db,"INSERT INTO score_jobs VALUES (?1,?2,'pending') ON CONFLICT(participant_id) DO UPDATE SET revision=excluded.revision,state='pending'",&[text(&session.participant_id),number(session.revision+1)])?);
+    let old_counted: Vec<_> = previous
+        .iter()
+        .filter(|o| baseline.counted_events.contains(&o.event.event_id))
+        .map(|o| (o.event.event_id.clone(), o.event.observed_at_ms))
+        .collect();
+    writes.extend(
+        crate::milestone_runtime::incremental(
+            db,
+            &session.participant_id,
+            &generation,
+            session.revision + 1,
+            &old_counted,
+            &plan.counted_events,
+        )
+        .await?,
+    );
     writes.push(statement(
         db,
         crate::mutation::ADVANCE_REVISION,

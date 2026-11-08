@@ -150,6 +150,14 @@ Your Results lives in the Leaderboard tab and shows finalized weekly/monthly ran
 
 On reset, leaving competition, or account deletion, remove that person's public scores and their own result history, remove public identity references from historical entries and cached share data, and cancel queued result notifications. A reset may retain the current profile for future participation, but must remove its association with erased results. Leaving/deletion also removes avatar assets and cached derivatives. Preserve other users' already-earned results; anonymize/remove affected public entries rather than silently rerank historical awards. Confirmed cheating can trigger an explicit, audited period correction and medal reissue. Never send duplicate original award notifications after a correction.
 
+### Profiles and milestones — owner decision November 8
+
+[Deliverable #71](https://github.com/0x63616c/folding/issues/71) ships browsable profiles, milestones, earned badges, featuring and grouped unlocks together in one release. Your profile opens from Leaderboard and Settings, with editing behind Edit Profile. Leaderboard rows/podium/tie groups open the selected participant. Keep the four tabs.
+
+The two sequential tracks are Folds (1 → 100 → 1,000 → 10,000) and Days used (7 → 30 different UTC days, not consecutive). Show only the next unmet target per track and keep all earlier earned badges. Only owners see next-target progress and earned dates. Community profiles show published identity, accepted All Time folds, earned badges and one optional user-selected featured badge; no detailed daily history. Rank crowns remain period-specific and separate. No XP, independent level number, streak or timed fold challenge.
+
+Use eligible verified competition history since joining/current reset, including a bounded backfill for existing participants. Offline progress remains the last confirmed account/generation-scoped snapshot; pending folds never advance public awards. Reset clears badges/featuring as well as scores. The [full feature plan](technical/profiles-and-milestones.md) and [implementation evidence](experiments/profile-milestones-implementation-2026-11-08.md) distinguish locally verified code from remaining staging/release and deferred shipping acceptance.
+
 ## 7. Notifications, daily limit, and reviews
 
 All notification categories begin off. Ask for system permission when the user enables their first category. Settings offers:

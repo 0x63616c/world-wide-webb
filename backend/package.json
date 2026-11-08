@@ -6,7 +6,7 @@
     "node": "26.13.0"
   },
   "scripts": {
-    "test:runtime": "node --test tests/runtime.test.mjs"
+    "test:runtime": "node --test tests/runtime.test.mjs tests/milestones.test.mjs"
   },
   "devDependencies": {
     "miniflare": "5.20261104.0-beta",

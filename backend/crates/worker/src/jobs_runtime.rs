@@ -17,7 +17,7 @@ struct Job {
 // A single indexed existence query replaces unconditional dispatch writes.
 // Per-category domain dispatchers still enforce leases, privacy fences and retry times.
 pub const DUE_CATEGORIES_SQL: &str = r#"
-SELECT value AS kind FROM json_each('["avatar_cleanup","finalization","corrections","awards","deletion","recovery_revocation","retention"]')
+SELECT value AS kind FROM json_each('["avatar_cleanup","finalization","corrections","awards","deletion","recovery_revocation","retention","milestones"]')
 WHERE CASE value
  WHEN 'avatar_cleanup' THEN (EXISTS(SELECT 1 FROM avatar_purge_jobs a WHERE lease_until_ms<=?1 AND NOT EXISTS(SELECT 1 FROM external_retry_state r WHERE r.kind='avatar_cleanup' AND r.work_key=a.object_key AND (r.state='failed' OR r.next_attempt_ms>?1)))
  OR (NOT EXISTS(SELECT 1 FROM jobs WHERE kind='avatar_cleanup' AND version>=?2)
@@ -32,6 +32,7 @@ WHERE CASE value
  AND NOT EXISTS(SELECT 1 FROM external_retry_state WHERE kind='recovery_revocation' AND work_key='' AND state='paused'))
  WHEN 'retention' THEN (NOT EXISTS(SELECT 1 FROM jobs WHERE kind='retention' AND version>=?2)
  OR EXISTS(SELECT 1 FROM participants WHERE restriction='suspended' AND suspended_until_ms<=?1))
+ WHEN 'milestones' THEN EXISTS(SELECT 1 FROM participants p LEFT JOIN milestone_state s ON s.participant_id=p.participant_id WHERE p.account_state='active' AND p.membership='joined' AND p.restriction='none' AND EXISTS(SELECT 1 FROM epochs e WHERE e.epoch_id=p.epoch_id AND e.participant_id=p.participant_id AND e.closed_at_ms IS NULL) AND (s.participant_id IS NULL OR s.state='building'))
  ELSE 0 END
 "#;
 pub const INSERT_CATEGORY_SQL: &str = r#"
@@ -68,7 +69,11 @@ pub(crate) async fn schedule(env: &Env, db: &D1Database) -> std::result::Result<
         if feature.is_some_and(|name| !env.var(name).is_ok_and(|v| v.to_string() == "true")) {
             continue;
         }
-        let version = time / 300000;
+        let version = if category.kind == "milestones" {
+            time
+        } else {
+            time / 300000
+        };
         writes.push(statement(
             db,
             INSERT_CATEGORY_SQL,
@@ -132,6 +137,7 @@ async fn run(env: &Env, db: &D1Database, id: &Id) -> std::result::Result<(), Fai
             "deletion" => crate::deletion_runtime::process(env, db).await,
             "recovery_revocation" => crate::deletion_runtime::revoke_recovery_grants(env, db).await,
             "monitoring" => crate::monitoring_runtime::dispatch(db).await,
+            "milestones" => crate::milestone_runtime::dispatch(db).await,
             "retention" => crate::auth_maintenance::cleanup(db, now())
                 .await
                 .map_err(|_| Failure::unavailable()),
@@ -163,6 +169,9 @@ async fn run(env: &Env, db: &D1Database, id: &Id) -> std::result::Result<(), Fai
         console_error!("background_job_dead_lettered");
     }
     statement(db,"UPDATE jobs SET state=?1,lease_until_ms=0,published_at_ms=NULL,due_ms=?2,last_error=?3 WHERE job_id=?4 AND state='pending' AND lease_until_ms=?5",&[text(state),number(due),if outcome.is_ok(){wasm_bindgen::JsValue::NULL}else{text("execution_failed")},text(id.as_str()),number(lease)])?.run().await.map_err(|_|Failure::unavailable())?;
+    if job.kind == "milestones" && outcome.is_ok() {
+        schedule(env, db).await?;
+    }
     Ok(())
 }
 #[event(queue)]
