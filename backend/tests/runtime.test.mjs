@@ -370,3 +370,52 @@ test("entry deletion is owned, idempotent and durable before late upload", async
   const recalculate=await send({operation_id:"00000000-0000-0000-0000-000000008123",event_ids:[future],epoch_ids:[epoch]});assert.equal(recalculate.status,200);
   assert.equal(await db.prepare("SELECT folds FROM live_scores WHERE participant_id=? AND period_id='all'").bind(participant).first("folds"),1);
 });
+
+test("actual Worker verifies Apple assertion extension names on Join without weakening replay or body binding", async () => {
+  const db = await authenticatedRuntime.getD1Database("DB");
+  const hash = value => createHash("sha256").update(value).digest();
+  const pair = generateKeyPairSync("ec", { namedCurve: "prime256v1" });
+  const jwk = pair.publicKey.export({ format: "jwk" });
+  const publicKey = Buffer.concat([Buffer.from([4]), Buffer.from(jwk.x, "base64url"), Buffer.from(jwk.y, "base64url")]);
+  const keyID = hash(publicKey).toString("base64");
+  const token = Buffer.alloc(32, 46);
+  const participant = "00000000-0000-4000-8000-000000000046";
+  const device = "00000000-0000-4000-8000-000000000047";
+  const session = "join-metadata-session";
+  const now = Date.now();
+  await db.batch([
+    db.prepare("INSERT INTO participants(participant_id,subject_hmac,membership,restriction,generation_revision,generation_id) VALUES (?,?,'not_joined','none',0,'00000000-0000-0000-0000-000000000000')").bind(participant, "join-metadata-subject"),
+    db.prepare("INSERT INTO participant_revisions VALUES (?,0)").bind(participant),
+    db.prepare("INSERT INTO profiles VALUES (?,'Folder',NULL,'approved','none')").bind(participant),
+    db.prepare("INSERT INTO sessions VALUES (?, ?, ?, 'staging', ?, ?, ?, ?, 0)").bind(session, participant, device, now, now, now + 900000, now + 900000),
+    db.prepare("INSERT INTO access_tokens VALUES (?, ?, ?)").bind(hash(token), session, now + 900000),
+    db.prepare("INSERT INTO attestation_keys(key_id,participant_id,device_id,deployment,public_key_sec1,counter,revoked,attestation_environment) VALUES (?, ?, ?, 'staging', ?, 0, 0, 'development')").bind(keyID, participant, device, publicKey),
+  ]);
+  const headers = { Authorization: "Bearer " + token.toString("base64url"), "Content-Type": "application/json" };
+  const challengeResponse = await authenticatedRuntime.dispatchFetch("https://api.example/v1/attestation/challenges", {
+    method: "POST", headers, body: JSON.stringify({purpose: "join", device_id: device, key_id: keyID}),
+  });
+  assert.equal(challengeResponse.status, 200);
+  const challenge = await challengeResponse.json();
+  const path = "/v1/enrollment/join";
+  const body = JSON.stringify({operation_id: "00000000-0000-4000-8000-000000000048", device_id: device, generation: {revision: 0, reset_id: "00000000-0000-0000-0000-000000000000"}, nickname: "Metadata Tester"});
+  const binding = hash(Buffer.from(["Folding-v1", "staging", "POST", path, challenge.challenge_id, challenge.nonce, hash(body).toString("hex")].join("\n")));
+  const length = (major, n) => Buffer.from(n < 24 ? [(major << 5) | n] : [(major << 5) | 24, n]);
+  const bytes = value => Buffer.concat([length(2, value.length), value]);
+  const text = value => { const b = Buffer.from(value); return Buffer.concat([length(3, b.length), b]); };
+  const category = Buffer.alloc(4); category.writeUInt32LE(3);
+  const extensions = Buffer.concat([Buffer.from([0xa2]), text("validationCategory"), bytes(category), text("bundleVersion"), text("1")]);
+  const auth = Buffer.concat([hash("TEAM123456.app.test.Folding"), Buffer.from([0x80, 0, 0, 0, 1]), extensions]);
+  const signature = sign("sha256", hash(Buffer.concat([auth, binding])), pair.privateKey);
+  const assertion = Buffer.concat([Buffer.from([0xa2]), text("signature"), bytes(signature), text("authenticatorData"), bytes(auth)]);
+  const signedHeaders = {...headers, "X-Folding-Key-ID": keyID, "X-Folding-Challenge-ID": challenge.challenge_id, "X-Folding-Assertion": assertion.toString("base64url")};
+  const submit = value => authenticatedRuntime.dispatchFetch("https://api.example" + path, {method: "POST", headers: signedHeaders, body: value});
+  assert.equal((await submit(body.replace("Metadata Tester", "Changed Name"))).status, 401);
+  assert.equal(await db.prepare("SELECT counter FROM attestation_keys WHERE key_id=?").bind(keyID).first("counter"), 0);
+  const result = await submit(body);
+  assert.equal(result.status, 200, JSON.stringify(await result.clone().json()));
+  assert.equal((await result.json()).profile.membership, "joined");
+  assert.equal(await db.prepare("SELECT counter FROM attestation_keys WHERE key_id=?").bind(keyID).first("counter"), 1);
+  assert.equal(await db.prepare("SELECT used FROM challenges WHERE challenge_id=?").bind(challenge.challenge_id).first("used"), 1);
+  assert.equal((await submit(body)).status, 401);
+});

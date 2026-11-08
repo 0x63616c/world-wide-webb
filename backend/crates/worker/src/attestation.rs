@@ -52,6 +52,19 @@ fn value_at<'a>(map: &'a [(Value, Value)], name: &str) -> Result<&'a Value, Atte
     Ok(value)
 }
 pub fn verify_extensions(encoded: &[u8], policy: &AppPolicy<'_>) -> Result<(), AttestationError> {
+    verify_named_extensions(
+        encoded,
+        policy,
+        "apple_validation_category_01",
+        "apple_bundle_version_01",
+    )
+}
+fn verify_named_extensions(
+    encoded: &[u8],
+    policy: &AppPolicy<'_>,
+    category_name: &str,
+    version_name: &str,
+) -> Result<(), AttestationError> {
     let mut reader = Cursor::new(encoded);
     let value: Value =
         ciborium::from_reader(&mut reader).map_err(|_| AttestationError::Malformed)?;
@@ -59,16 +72,19 @@ pub fn verify_extensions(encoded: &[u8], policy: &AppPolicy<'_>) -> Result<(), A
         return Err(AttestationError::Malformed);
     }
     let map = value.as_map().ok_or(AttestationError::InvalidExtensions)?;
-    let category = value_at(map, "apple_validation_category_01")?
-        .as_bytes()
-        .ok_or(AttestationError::InvalidExtensions)?;
-    let category = u32::from_le_bytes(
-        category
-            .as_slice()
-            .try_into()
-            .map_err(|_| AttestationError::InvalidExtensions)?,
-    );
-    let version = value_at(map, "apple_bundle_version_01")?
+    let category = match value_at(map, category_name)? {
+        Value::Bytes(bytes) => u32::from_le_bytes(
+            bytes
+                .as_slice()
+                .try_into()
+                .map_err(|_| AttestationError::InvalidExtensions)?,
+        ),
+        Value::Integer(value) => {
+            u32::try_from(i128::from(*value)).map_err(|_| AttestationError::InvalidExtensions)?
+        }
+        _ => return Err(AttestationError::InvalidExtensions),
+    };
+    let version = value_at(map, version_name)?
         .as_text()
         .ok_or(AttestationError::InvalidExtensions)?;
     if !(if policy.development {
@@ -86,10 +102,12 @@ pub fn verify_assertion_metadata(
     auth: &[u8],
     policy: &AppPolicy<'_>,
 ) -> Result<(), AttestationError> {
-    if auth.len() <= 37 || auth[32] & 0x40 != 0 {
+    if auth.len() <= 37 || auth[32] & 0xc0 != 0x80 {
         return Err(AttestationError::InvalidExtensions);
     }
-    verify_extensions(&auth[37..], policy)
+    // Apple uses different extension keys for assertions and key attestations.
+    // Keep the same required distribution/build policy; do not accept missing metadata.
+    verify_named_extensions(&auth[37..], policy, "validationCategory", "bundleVersion")
 }
 pub fn verify_credential_stage(
     encoded: &[u8],
@@ -253,11 +271,11 @@ mod tests {
         let encode = |category: i32, version: &str| {
             let value = Value::Map(vec![
                 (
-                    Value::Text("apple_validation_category_01".into()),
+                    Value::Text("validationCategory".into()),
                     Value::Bytes((category as u32).to_le_bytes().to_vec()),
                 ),
                 (
-                    Value::Text("apple_bundle_version_01".into()),
+                    Value::Text("bundleVersion".into()),
                     Value::Text(version.into()),
                 ),
             ]);
