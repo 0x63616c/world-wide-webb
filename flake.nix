@@ -73,6 +73,17 @@
             pkgs.runCommand "homelab-runner-concurrency-limits-check" {} ''
               touch "$out"
             '';
+        # Compile the enabled Linux path and fetch its pinned runner archive,
+        # without booting a VM, registering a runner or enabling the real profile.
+        runner-linux-profile = (self.darwinConfigurations.homelab-macbook.extendModules {
+          modules = [({ lib, ... }: {
+            homelab.runners.linux = {
+              enable = lib.mkForce true;
+              image = lib.mkForce "ghcr.io/test/linux@sha256:${lib.concatStrings (lib.replicate 64 "a")}";
+              routingAuditApproved = lib.mkForce true;
+            };
+          })];
+        }).system;
         service-assignments =
           let
             haOnly = (self.darwinConfigurations.homelab-macbook.extendModules {

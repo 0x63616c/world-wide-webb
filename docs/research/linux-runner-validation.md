@@ -15,9 +15,11 @@ validation.
 - Clippy with warnings denied and Rust formatting pass.
 - Python tests pass, including the workflow route audit. Current `world-wide-webb`
   main `242eb8f4a` passes the static routing check.
-- The target MacBook built the updated Nix runner package, including its tests and
-  Darwin portable-helper library check, and evaluated the separate global/macOS
-  capacity option limits. Later source changes require a final rebuild.
+- The target MacBook built the updated runner package and full MacBook Nix host
+  generation without activation, including tests and the Darwin portable-helper
+  library check. The separate global/macOS capacity option limits evaluated.
+  The enabled Linux Nix profile also built through its compile-only fixture,
+  including a verified fetch of the pinned Linux ARM64 runner archive.
 
 ## Native Linux image and four guest smoke test
 
