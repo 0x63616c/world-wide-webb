@@ -213,4 +213,4 @@ GitHub #28, #32 and #40 checklists reflect these partial completions. CI and phy
 
 ## Automatic tint update
 
-- [ ] [#50 — Automatic white/dark and black/light tint](https://github.com/0x63616c/folding/issues/50): implemented; 74 core tests, 29 app-hosted simulator tests and 199-key × 10-locale validation pass. Appearance capture and signed TestFlight distribution in progress. App Store submission/device acceptance remain separate.
+- [x] [#50 — Automatic white/dark and black/light tint](https://github.com/0x63616c/folding/issues/50): removed tint settings; verified 74 core tests, 29 simulator tests, localization and light/dark captures; Apple confirmed TestFlight 0.1.6 (7) VALID and distributed to Folding Internal. Implementation `187a05d`. App Store submission/device acceptance remain separate.
