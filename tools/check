@@ -17,6 +17,9 @@ case "${1:-all}" in
     cargo clippy --workspace --all-targets -- -D warnings
     cargo test --workspace
     ;;
+  dependencies)
+    bash tools/check_dependencies.sh
+    ;;
   ops)
     python3 -m unittest discover -s deploy/mini -p 'test_*.py'
     python3 -m unittest discover -s tools -p 'test_*.py'
@@ -39,10 +42,11 @@ case "${1:-all}" in
   all)
     bash tools/check lint
     bash tools/check rust
+    bash tools/check dependencies
     bash tools/check ops
     bash tools/check apple
     bash tools/check integration
     bash tools/check infra
     ;;
-  *) echo 'Usage: tools/check [lint|rust|ops|apple|integration|infra|--staged|all]' >&2; exit 64 ;;
+  *) echo 'Usage: tools/check [lint|rust|dependencies|ops|apple|integration|infra|--staged|all]' >&2; exit 64 ;;
 esac
