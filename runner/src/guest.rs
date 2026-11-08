@@ -374,13 +374,17 @@ async fn start_runner(
     let mut cmd = Command::new(&config.runner);
     cmd.env_clear()
         .env("HOME", &config.home)
-        // The reviewed stock guest identity is independently verified as UID501.
+        // The controller verifies the pinned image's admin identity before JIT.
         // Native Apple tools also consult these basic identity variables.
         .env("USER", "admin")
         .env("LOGNAME", "admin")
         .env(
             "PATH",
-            "/Users/admin/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+            if cfg!(target_os = "linux") {
+                "/home/admin/.cargo/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+            } else {
+                "/Users/admin/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+            },
         )
         .env("ACTIONS_RUNNER_INPUT_JITCONFIG", jit)
         // Supported by the pinned official wrapper; preserve its retry/update loop.

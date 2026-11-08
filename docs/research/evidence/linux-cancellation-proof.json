@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "run_id": 42528327661,
+  "cancel_response_status": 202,
+  "jobs": [
+    {
+      "id": 128876762882,
+      "name": "Linux recovery",
+      "conclusion": "cancelled",
+      "runner_id": 65
+    },
+    {
+      "id": 128876763251,
+      "name": "macOS recovery",
+      "conclusion": "cancelled",
+      "runner_id": 64
+    }
+  ],
+  "registrations_absent": [
+    64,
+    65
+  ],
+  "cleanup": {
+    "hold_acknowledged_idle": true,
+    "journal_idle": true,
+    "local_vms": []
+  }
+}

@@ -3,7 +3,7 @@ use jsonwebtoken::{Algorithm, EncodingKey, Header};
 use reqwest::{Client, Method, StatusCode};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use std::{
-    collections::{BTreeMap, BTreeSet},
+    collections::BTreeMap,
     fmt,
     path::PathBuf,
     time::{Duration, SystemTime, UNIX_EPOCH},
@@ -15,6 +15,7 @@ const PAGE_SIZE: usize = 100;
 const MAX_PAGES: usize = 100;
 const MAX_RESPONSE_BYTES: usize = 4 * 1024 * 1024;
 const ACTIVE_STATUSES: [&str; 5] = ["queued", "in_progress", "requested", "waiting", "pending"];
+#[cfg(test)]
 const LABELS: [&str; 4] = ["self-hosted", "macOS", "ARM64", "homelab-tart"];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -108,10 +109,7 @@ pub struct GithubJob {
 impl GithubJob {
     /// Requests may omit default labels, but must include our routing label and request only this approved profile.
     pub fn supported_profile(&self) -> bool {
-        let labels: BTreeSet<_> = self.labels.iter().map(|v| v.to_ascii_lowercase()).collect();
-        let approved: BTreeSet<_> = LABELS.iter().map(|v| v.to_ascii_lowercase()).collect();
-        labels.contains("homelab-tart")
-            && labels.is_subset(&approved)
+        crate::config::Platform::resolve(&self.labels).is_some()
             && self.runner_group_id.unwrap_or(0) == 0
             && self.runner_group_name.as_deref().unwrap_or("").is_empty()
     }
@@ -548,6 +546,21 @@ impl GithubApi {
         name: &str,
         runner_group_id: u64,
     ) -> Result<JitRegistration, ApiError> {
+        self.create_jit_for_profile(
+            repo,
+            name,
+            runner_group_id,
+            crate::config::Platform::MacosArm64,
+        )
+        .await
+    }
+    pub async fn create_jit_for_profile(
+        &mut self,
+        repo: &Repository,
+        name: &str,
+        runner_group_id: u64,
+        platform: crate::config::Platform,
+    ) -> Result<JitRegistration, ApiError> {
         if name.is_empty()
             || name.len() > 64
             || !name.bytes().all(|v| v.is_ascii_alphanumeric() || v == b'-')
@@ -561,7 +574,7 @@ impl GithubApi {
             encoded_jit_config: String,
         }
         let token = Zeroizing::new(self.token(repo).await?);
-        let response: JitResponse = self.request(Method::POST, &format!("{}/actions/runners/generate-jitconfig", repo.path()), &token, Some(serde_json::json!({"name": name, "runner_group_id": runner_group_id, "labels": LABELS, "work_folder": "_work"})), "create_jit", true).await?;
+        let response: JitResponse = self.request(Method::POST, &format!("{}/actions/runners/generate-jitconfig", repo.path()), &token, Some(serde_json::json!({"name": name, "runner_group_id": runner_group_id, "labels": platform.labels(), "work_folder": "_work"})), "create_jit", true).await?;
         if response.runner.name != name
             || response.runner.id == 0
             || response.encoded_jit_config.is_empty()
@@ -867,6 +880,30 @@ mod tests {
             serde_json::from_str(request.split("\r\n\r\n").nth(1).unwrap()).unwrap();
         assert_eq!(body["runner_group_id"], 42);
         assert_eq!(body["labels"], serde_json::json!(LABELS));
+    }
+    #[tokio::test]
+    async fn linux_jit_never_advertises_macos_or_the_legacy_routing_label() {
+        let runner =
+            serde_json::json!({"id":31,"name":"linux-attempt","status":"offline","busy":false});
+        let (mut api, handle) = fixture(vec![reply(
+            "/generate-jitconfig",
+            serde_json::json!({"runner":runner,"encoded_jit_config":"SECRET_JIT_FIXTURE"}),
+        )]);
+        api.create_jit_for_profile(
+            &repo(),
+            "linux-attempt",
+            42,
+            crate::config::Platform::LinuxArm64,
+        )
+        .await
+        .unwrap();
+        let request = handle.join().unwrap().pop().unwrap();
+        let body: serde_json::Value =
+            serde_json::from_str(request.split("\r\n\r\n").nth(1).unwrap()).unwrap();
+        assert_eq!(
+            body["labels"],
+            serde_json::json!(["self-hosted", "Linux", "ARM64", "homelab-linux"])
+        );
     }
     #[tokio::test]
     async fn lost_or_invalid_successful_jit_response_requires_reconciliation() {

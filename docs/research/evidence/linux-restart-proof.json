@@ -1,0 +1,41 @@
+{
+  "schema": 1,
+  "run_id": 42528327661,
+  "started_at": "2026-11-08T22:11:09.171698+00:00",
+  "old_controller_pid": 78919,
+  "new_controller_pid": 79031,
+  "ownership_before_after": [
+    [
+      "556b2f95e1f94936a3c68f52bab03a2b",
+      64,
+      128876763251,
+      "macos-arm64"
+    ],
+    [
+      "a507801002e54524813c7540dad73f7c",
+      65,
+      128876762882,
+      "linux-arm64"
+    ]
+  ],
+  "guest_status_after": {
+    "macos-arm64": {
+      "schema": 1,
+      "attempt_id": "556b2f95e1f94936a3c68f52bab03a2b",
+      "phase": "executing",
+      "updated_at": 1794175671,
+      "exit_code": null,
+      "reason": null
+    },
+    "linux-arm64": {
+      "schema": 1,
+      "attempt_id": "a507801002e54524813c7540dad73f7c",
+      "phase": "executing",
+      "updated_at": 1794175691,
+      "exit_code": null,
+      "reason": null
+    }
+  },
+  "controller_reconciled_without_replacing_attempts": true,
+  "production_hold_preserved": true
+}

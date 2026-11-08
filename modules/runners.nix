@@ -11,6 +11,18 @@ let
       host_name = config.networking.hostName;
       admission_enabled = cfg.admissionEnabled;
       max_concurrent_jobs = cfg.maxConcurrentJobs;
+      max_macos_guests = cfg.tart.maxMacOSGuests;
+      cpu_budget = cfg.cpuBudget;
+      memory_budget_mib = cfg.memoryBudgetMiB;
+      linux = if cfg.linux.enable then {
+        image = cfg.linux.image;
+        cpu = cfg.linux.cpu;
+        memory_mib = cfg.linux.memoryMiB;
+        disk_growth_bytes = cfg.linux.diskGrowthBytes;
+        routing_audit_approved = cfg.linux.routingAuditApproved;
+        runner_archive = "${package.linuxRunnerArchive}";
+        runner_version = package.runnerVersion;
+      } else null;
       repositories = lib.mapAttrsToList (name: repository: {
         owner = builtins.elemAt (lib.splitString "/" name) 0;
         name = builtins.elemAt (lib.splitString "/" name) 1;
@@ -71,14 +83,30 @@ in {
       description = "Allow new jobs. Disabling admission keeps the daemon available to finish cleanup.";
     };
     maxConcurrentJobs = lib.mkOption {
-      type = lib.types.ints.between 1 2;
+      type = lib.types.ints.between 1 4;
       default = 1;
-      description = "Concurrent jobs per host; macOS supports at most two guest VMs.";
+      description = "Shared macOS/Linux job capacity, at most four attempts.";
     };
     tart.maxMacOSGuests = lib.mkOption {
       type = lib.types.ints.between 1 2;
       default = 1;
       description = "macOS guest capacity per physical Mac (one or two).";
+    };
+    cpuBudget = lib.mkOption { type = lib.types.ints.positive; default = 12; };
+    memoryBudgetMiB = lib.mkOption { type = lib.types.ints.positive; default = 24576; };
+    linux = {
+      enable = lib.mkEnableOption "digest-pinned disposable Linux ARM64 guests";
+      image = lib.mkOption { type = lib.types.str; default = ""; };
+      routingAuditApproved = lib.mkOption {
+        type = lib.types.bool; default = false;
+        description = "Every runnable allowlisted workflow has unambiguous platform routing.";
+      };
+      cpu = lib.mkOption { type = lib.types.ints.between 1 8; default = 2; };
+      memoryMiB = lib.mkOption { type = lib.types.ints.between 1024 16384; default = 4096; };
+      diskGrowthBytes = lib.mkOption {
+        type = lib.types.ints.positive; default = 25769803776;
+        description = "Conservative full per-attempt growth reservation; measure before enabling.";
+      };
     };
     githubAppId = lib.mkOption { type = lib.types.str; default = ""; };
     repositories = lib.mkOption {
@@ -120,8 +148,9 @@ in {
         fi
       '';
       assertions = [
-        { assertion = cfg.maxConcurrentJobs <= cfg.tart.maxMacOSGuests;
-          message = "Runner concurrency must fit tart.maxMacOSGuests; macOS supports at most two guests per host."; }
+        { assertion = !cfg.linux.enable || (cfg.linux.routingAuditApproved
+            && builtins.match ".+@sha256:[0-9a-f]{64}" cfg.linux.image != null);
+          message = "Linux admission requires a digest-pinned image and completed workflow routing audit."; }
         { assertion = lib.all (name: builtins.length (lib.splitString "/" name) == 2)
             (builtins.attrNames cfg.repositories);
           message = "Runner repository names must use owner/name."; }
@@ -138,6 +167,7 @@ in {
       ];
       environment.systemPackages = [ package tools.tart ];
       environment.etc."homelab/runner.json".source = settings;
+      environment.etc."homelab/linux/cache-image.py".source = ../runner/images/linux/cache-image.py;
       sops.secrets.runner-github-app-key = {
         key = "runners/github-app-private-key";
         owner = "_runner";

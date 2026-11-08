@@ -128,6 +128,10 @@ mod tests {
             host_name: "homelab-macbook".into(),
             admission_enabled: true,
             max_concurrent_jobs: 1,
+            max_macos_guests: 2,
+            cpu_budget: 12,
+            memory_budget_mib: 24576,
+            linux: None,
             repositories: vec![RepositoryConfig {
                 owner: "test".into(),
                 name: "repo".into(),

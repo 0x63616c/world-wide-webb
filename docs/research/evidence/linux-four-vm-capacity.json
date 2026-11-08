@@ -1,0 +1,46 @@
+{
+  "observed_utc": "2026-11-08T20:01:03.529054+00:00",
+  "platform": "linux-arm64",
+  "guest_cpu": 2,
+  "guest_memory_mib": 4096,
+  "guests": [
+    {
+      "vm": "homelab-linux-capacity-1",
+      "result": {
+        "arch": "aarch64",
+        "seconds": 60.33,
+        "sha256_rounds": 254912,
+        "resident_test_bytes": 2147483648
+      }
+    },
+    {
+      "vm": "homelab-linux-capacity-2",
+      "result": {
+        "arch": "aarch64",
+        "seconds": 60.4,
+        "sha256_rounds": 254885,
+        "resident_test_bytes": 2147483648
+      }
+    },
+    {
+      "vm": "homelab-linux-capacity-3",
+      "result": {
+        "arch": "aarch64",
+        "seconds": 60.36,
+        "sha256_rounds": 254920,
+        "resident_test_bytes": 2147483648
+      }
+    },
+    {
+      "vm": "homelab-linux-capacity-4",
+      "result": {
+        "arch": "aarch64",
+        "seconds": 60.34,
+        "sha256_rounds": 254938,
+        "resident_test_bytes": 2147483648
+      }
+    }
+  ],
+  "host_pressure": "1",
+  "host_swap": "total = 0.00M  used = 0.00M  free = 0.00M  (encrypted)"
+}

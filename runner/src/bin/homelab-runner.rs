@@ -56,6 +56,11 @@ enum Command {
         #[arg(long)]
         control_directory: PathBuf,
     },
+    /// After draining and unloading the controller, write an idle v2 journal for rollback.
+    DowngradeJournal {
+        #[arg(long)]
+        state_directory: PathBuf,
+    },
     Provision {
         #[arg(long)]
         softnet_source: PathBuf,
@@ -256,6 +261,14 @@ async fn execute(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
                 gate.release(&request)?;
             }
             println!("activation hold released");
+        }
+        Command::DowngradeJournal { state_directory } => {
+            root()?;
+            verify_unloaded().await?;
+            verify_offline_idle(&state_directory)?;
+            homelab_runner::store::Store::open_for_owner(&state_directory, 451)?
+                .downgrade_idle_to_v2()?;
+            println!("idle journal converted for v2 rollback");
         }
         Command::Provision {
             softnet_source,

@@ -3,7 +3,10 @@ use homelab_runner::guest::{self, ServiceConfig};
 use std::path::PathBuf;
 
 #[derive(Parser)]
-#[command(about = "Fixed one-shot guest service; never pass credentials as arguments")]
+#[command(
+    version,
+    about = "Fixed one-shot guest service; never pass credentials as arguments"
+)]
 struct Args {
     #[arg(long,default_value=guest::DEFAULT_DIRECTORY)]
     directory: PathBuf,

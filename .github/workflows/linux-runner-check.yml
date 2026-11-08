@@ -1,0 +1,26 @@
+name: Linux runner checks
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: linux-runner-check-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  linux:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
+        with:
+          toolchain: 1.99.0
+          components: rustfmt, clippy
+      - name: Validate native Linux helper and lifecycle code
+        run: |
+          test "$(uname -m)" = aarch64
+          cargo test --manifest-path runner/Cargo.toml --locked
+          cargo clippy --manifest-path runner/Cargo.toml --locked --all-targets -- -D warnings
+          cargo fmt --manifest-path runner/Cargo.toml --check

@@ -2,7 +2,7 @@
 use crate::config::RepositoryConfig;
 use serde::{Deserialize, Serialize};
 
-pub const JOURNAL_VERSION: u32 = 2;
+pub const JOURNAL_VERSION: u32 = 3;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
@@ -36,6 +36,12 @@ pub struct Attempt {
     pub runner_name: String,
     // Snapshot keeps cleanup valid after allowlist/image/tool configuration changes.
     pub repository: RepositoryConfig,
+    #[serde(default)]
+    pub platform: crate::config::Platform,
+    #[serde(default)]
+    pub disk_growth_bytes: u64,
+    #[serde(default)]
+    pub linux_profile: Option<crate::config::LinuxProfile>,
     pub image: String,
     pub cpu: u16,
     pub memory_mib: u32,
@@ -123,14 +129,14 @@ impl Journal {
         }
     }
     pub fn migrate(&mut self) {
-        if self.version == 1
-            && self.additional.is_empty()
-            && self.last_attempt.is_none()
-            && self
-                .active
-                .as_ref()
-                .and_then(|a| a.pending.as_ref())
-                .is_none_or(|p| p.ticket == self.sequence)
+        if (self.version == 1 || self.version == 2)
+            && (self.version == 2 || (self.additional.is_empty() && self.last_attempt.is_none()))
+            && (self.version == 2
+                || self
+                    .active
+                    .as_ref()
+                    .and_then(|a| a.pending.as_ref())
+                    .is_none_or(|p| p.ticket == self.sequence))
         {
             self.version = JOURNAL_VERSION;
         }
@@ -161,6 +167,9 @@ impl Journal {
                 || a.runner_name != a.vm_name
             {
                 return Err("invalid attempt ownership");
+            }
+            if (a.platform == crate::config::Platform::LinuxArm64) != a.linux_profile.is_some() {
+                return Err("attempt platform snapshot missing or inconsistent");
             }
             if a.candidate.repository != a.repository.key()
                 || a.boot_lease_version > 1

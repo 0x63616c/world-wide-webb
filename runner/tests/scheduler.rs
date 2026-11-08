@@ -15,6 +15,10 @@ fn config() -> Config {
         host_name: "homelab-macbook".into(),
         admission_enabled: true,
         max_concurrent_jobs: 1,
+        max_macos_guests: 2,
+        cpu_budget: 12,
+        memory_budget_mib: 24576,
+        linux: None,
         repositories: vec![repo("a", 1), repo("b", 2)],
         image: format!("registry/image@sha256:{}", "a".repeat(64)),
         cpu: 4,
@@ -656,10 +660,14 @@ fn configured_capacity_admits_second_but_never_third_macos_guest() {
 
 #[test]
 fn unsupported_macos_capacity_is_rejected_before_admission() {
-    for limit in [0, 3, 8, 128, usize::MAX] {
+    for limit in [0, 5, 8, 128, usize::MAX] {
         let mut cfg = config();
         cfg.max_concurrent_jobs = limit;
-        assert!(cfg.validate().unwrap_err().contains("1 or 2 jobs per host"));
+        assert!(
+            cfg.validate()
+                .unwrap_err()
+                .contains("invalid total, macOS or resource capacity")
+        );
         let observed = fleet_observation(&Journal::default());
         let decision = decide(&cfg, &Journal::default(), &observed, 200);
         assert!(decision.effect.is_none());
@@ -1013,4 +1021,227 @@ async fn production_engine_runs_two_jobs_and_cleans_one_without_touching_its_pee
     assert!(engine.journal().is_idle());
     assert!(engine.backend.vms.is_empty());
     assert!(engine.backend.runners.is_empty());
+}
+
+fn mixed_config() -> Config {
+    let mut cfg = config();
+    cfg.max_concurrent_jobs = 4;
+    cfg.linux = Some(homelab_runner::config::LinuxProfile {
+        image: format!("ghcr.io/test/linux@sha256:{}", "b".repeat(64)),
+        cpu: 2,
+        memory_mib: 4096,
+        disk_growth_bytes: 24,
+        routing_audit_approved: true,
+        runner_archive: "/nix/store/linux-runner.tar.gz".into(),
+        runner_version: "2.338.2".into(),
+    });
+    cfg
+}
+fn linux_candidate(id: u64) -> Candidate {
+    let mut c = candidate("owner/a", id, id);
+    c.labels = homelab_runner::config::Platform::LinuxArm64
+        .labels()
+        .map(String::from)
+        .to_vec();
+    c
+}
+fn linux_fleet(count: usize) -> Journal {
+    let mut j = fleet(count);
+    for a in j.active.iter_mut().chain(j.additional.iter_mut()) {
+        a.platform = homelab_runner::config::Platform::LinuxArm64;
+        a.linux_profile = mixed_config().linux;
+        a.cpu = 2;
+        a.memory_mib = 4096;
+        a.disk_growth_bytes = 24;
+    }
+    j
+}
+fn demand(mut o: Observation, candidates: Vec<Candidate>) -> Observation {
+    o.revalidated = candidates.iter().map(|c| c.job.clone()).collect();
+    o.candidates = candidates;
+    o
+}
+#[test]
+fn fourth_linux_borrows_capacity_but_fifth_never_starts() {
+    let cfg = mixed_config();
+    let j = linux_fleet(3);
+    let o = demand(fleet_observation(&j), vec![linux_candidate(44)]);
+    let d = decide(&cfg, &j, &o, 200);
+    assert_eq!(d.next.attempts().count(), 4);
+    let a = d.next.additional.last().unwrap();
+    assert_eq!(a.platform, homelab_runner::config::Platform::LinuxArm64);
+    assert_eq!(a.memory_mib, 4096);
+    assert_eq!(a.linux_profile, cfg.linux);
+    let mut full = linux_fleet(4);
+    full.sequence = 50;
+    assert!(
+        decide(
+            &cfg,
+            &full,
+            &demand(fleet_observation(&full), vec![linux_candidate(55)]),
+            200
+        )
+        .effect
+        .is_none()
+    );
+}
+#[test]
+fn two_mac_guests_leave_two_linux_slots_and_never_admit_third_mac() {
+    let cfg = mixed_config();
+    let j = fleet(2);
+    let o = demand(
+        fleet_observation(&j),
+        vec![candidate("owner/a", 33, 1), linux_candidate(44)],
+    );
+    let d = decide(&cfg, &j, &o, 200);
+    assert_eq!(d.next.attempts().count(), 3);
+    assert_eq!(
+        d.next.additional.last().unwrap().platform,
+        homelab_runner::config::Platform::LinuxArm64
+    );
+}
+#[test]
+fn waiting_mac_takes_released_borrowed_capacity_before_replacement_linux() {
+    let cfg = mixed_config();
+    let j = linux_fleet(3);
+    let o = demand(
+        fleet_observation(&j),
+        vec![linux_candidate(44), candidate("owner/a", 55, 99)],
+    );
+    let d = decide(&cfg, &j, &o, 200);
+    assert_eq!(
+        d.next.additional.last().unwrap().platform,
+        homelab_runner::config::Platform::MacosArm64
+    );
+}
+#[test]
+fn mixed_admission_respects_cpu_ram_disk_and_routing_audit() {
+    let j = linux_fleet(3);
+    let o = demand(fleet_observation(&j), vec![linux_candidate(44)]);
+    for resource in ["cpu", "ram", "disk", "audit"] {
+        let mut cfg = mixed_config();
+        let mut observed = o.clone();
+        match resource {
+            "cpu" => cfg.cpu_budget = 7,
+            "ram" => cfg.memory_budget_mib = 15000,
+            "disk" => observed.free_bytes = Some(100),
+            "audit" => cfg.linux.as_mut().unwrap().routing_audit_approved = false,
+            _ => unreachable!(),
+        }
+        assert!(
+            decide(&cfg, &j, &observed, 200).effect.is_none(),
+            "{resource}"
+        );
+    }
+}
+#[test]
+fn legacy_v2_fleet_migrates_without_losing_pending_peer_or_identity() {
+    let mut j = fleet(2);
+    j.version = 2;
+    j.active.as_mut().unwrap().pending = Some(Intent {
+        ticket: 1,
+        operation: Operation::StopVm,
+    });
+    j.additional[0].pending = Some(Intent {
+        ticket: 2,
+        operation: Operation::StopVm,
+    });
+    j.sequence = 2;
+    let mut value = serde_json::to_value(&j).unwrap();
+    for a in std::iter::once(value["active"].as_object_mut().unwrap()) {
+        a.remove("platform");
+        a.remove("linux_profile");
+        a.remove("disk_growth_bytes");
+    }
+    let mut loaded: Journal = serde_json::from_value(value).unwrap();
+    loaded.migrate();
+    assert!(loaded.validate().is_ok());
+    assert_eq!(loaded.version, homelab_runner::state::JOURNAL_VERSION);
+    assert_eq!(loaded.attempts().count(), 2);
+    assert_eq!(
+        loaded.active.unwrap().platform,
+        homelab_runner::config::Platform::MacosArm64
+    );
+}
+
+#[test]
+fn two_mac_plus_two_linux_fit_exactly_and_one_mib_less_blocks_fourth() {
+    let mut cfg = mixed_config();
+    let mut j = fleet(3);
+    let linux = j.additional.last_mut().unwrap();
+    linux.platform = homelab_runner::config::Platform::LinuxArm64;
+    linux.linux_profile = cfg.linux.clone();
+    linux.cpu = 2;
+    linux.memory_mib = 4096;
+    linux.disk_growth_bytes = 24;
+    let o = demand(fleet_observation(&j), vec![linux_candidate(66)]);
+    let d = decide(&cfg, &j, &o, 200);
+    assert_eq!(d.next.attempts().count(), 4);
+    assert_eq!(d.next.attempts().map(|a| u32::from(a.cpu)).sum::<u32>(), 12);
+    assert_eq!(d.next.attempts().map(|a| a.memory_mib).sum::<u32>(), 24576);
+    cfg.memory_budget_mib = 24575;
+    assert!(decide(&cfg, &j, &o, 200).effect.is_none());
+}
+#[test]
+fn already_starting_mac_attempts_do_not_reserve_linux_capacity_twice() {
+    let cfg = mixed_config();
+    let mut j = fleet(2);
+    for a in j.active.iter_mut().chain(j.additional.iter_mut()) {
+        a.phase = Phase::Starting;
+        a.assigned = None;
+    }
+    let o = demand(
+        fleet_observation(&j),
+        vec![candidate("owner/a", 88, 1), linux_candidate(99)],
+    );
+    let d = decide(&cfg, &j, &o, 200);
+    assert_eq!(d.next.attempts().count(), 3);
+    assert_eq!(
+        d.next.additional.last().unwrap().platform,
+        homelab_runner::config::Platform::LinuxArm64
+    );
+}
+
+#[test]
+fn borrowed_linux_does_not_refill_resources_needed_by_waiting_large_mac() {
+    let mut cfg = mixed_config();
+    cfg.memory_mib = 16384;
+    let j = linux_fleet(3);
+    let o = demand(
+        fleet_observation(&j),
+        vec![linux_candidate(44), candidate("owner/a", 55, 99)],
+    );
+    // A fourth Linux VM would fit today but would stop the waiting macOS job
+    // fitting after one of the three already-borrowed slots is released.
+    let d = decide(&cfg, &j, &o, 200);
+    assert!(d.effect.is_none());
+    assert_eq!(d.next, j);
+    let freed = linux_fleet(2);
+    let o = demand(
+        fleet_observation(&freed),
+        vec![linux_candidate(44), candidate("owner/a", 55, 99)],
+    );
+    let d = decide(&cfg, &freed, &o, 200);
+    assert_eq!(
+        d.effect.unwrap().attempt.platform,
+        homelab_runner::config::Platform::MacosArm64
+    );
+}
+
+#[test]
+fn malformed_linux_runner_versions_are_rejected_before_a_slot_is_owned() {
+    for version in ["2..3", ".2.3", "2.3.", "0.1.0", "123456.1.2", "2.3.70000"] {
+        let mut cfg = mixed_config();
+        cfg.linux.as_mut().unwrap().runner_version = version.into();
+        assert!(
+            cfg.validate().is_err(),
+            "invalid version admitted: {version}"
+        );
+        let observed = demand(observation(), vec![linux_candidate(44)]);
+        assert!(
+            decide(&cfg, &Journal::default(), &observed, 200)
+                .effect
+                .is_none()
+        );
+    }
 }

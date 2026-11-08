@@ -1,0 +1,20 @@
+{
+  "post_clone_cache_verified": true,
+  "image": "ghcr.io/0x63616c/homelab-linux-runner@sha256:c1d4c31b2576eda6adff0889e350efddda73e38a0153743f1972b5c994bcd78c",
+  "tart_home": "/var/lib/_runner/tart",
+  "receipt": {
+    "schema": 1,
+    "image": "ghcr.io/0x63616c/homelab-linux-runner@sha256:c1d4c31b2576eda6adff0889e350efddda73e38a0153743f1972b5c994bcd78c",
+    "disk_sha256": "734c48bbb378617ea91c8f5c6596004591b5e67bc6cea9a9f02f9db086cef165",
+    "sizes": {
+      "config.json": 211,
+      "disk.img": 24000000000,
+      "nvram.bin": 131072,
+      "manifest.json": 16364
+    }
+  },
+  "registry_environment_cleared": true,
+  "credential_free_clone_succeeded": true,
+  "proof_clone_deleted": true,
+  "production_daemon_still_held": true
+}

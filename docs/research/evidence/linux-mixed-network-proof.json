@@ -1,0 +1,260 @@
+{
+  "schema": 1,
+  "run_id": 42528327661,
+  "peer_addresses": {
+    "macos-arm64": {
+      "interface": "en0",
+      "ipv4": "192.168.68.98",
+      "ipv6": "fe80::1007:42c8:bcb9:c3ac",
+      "listener_pid": 887
+    },
+    "linux-arm64": {
+      "interface": "enp0s1",
+      "ipv4": "192.168.96.138",
+      "ipv6": "fe80::d46a:d0ff:fe21:7741",
+      "listener_pid": 1389
+    }
+  },
+  "ownership": [
+    {
+      "nonce": "556b2f95e1f94936a3c68f52bab03a2b",
+      "platform": "macos-arm64",
+      "job_id": 128876763251,
+      "runner_id": 64
+    },
+    {
+      "nonce": "a507801002e54524813c7540dad73f7c",
+      "platform": "linux-arm64",
+      "job_id": 128876762882,
+      "runner_id": 65
+    }
+  ],
+  "host_controls": {
+    "schema": 1,
+    "public_https_status": 200,
+    "targets": [
+      {
+        "label": "local_ipv4",
+        "address": "127.0.0.1",
+        "port": 45951,
+        "connected": true,
+        "proof_listener": true,
+        "error": null
+      },
+      {
+        "label": "local_ipv6",
+        "address": "::1",
+        "port": 45952,
+        "connected": true,
+        "proof_listener": true,
+        "error": null
+      },
+      {
+        "label": "host_lan",
+        "address": "192.168.0.44",
+        "port": 45951,
+        "connected": true,
+        "proof_listener": true,
+        "error": null
+      },
+      {
+        "label": "host_tailnet_ipv4",
+        "address": "100.96.15.83",
+        "port": 45951,
+        "connected": true,
+        "proof_listener": true,
+        "error": null
+      },
+      {
+        "label": "host_tailnet_ipv6",
+        "address": "fd7a:115c:a1e0::8928:f54",
+        "port": 45952,
+        "connected": false,
+        "proof_listener": false,
+        "error": "timeout"
+      },
+      {
+        "label": "lan_router_https",
+        "address": "192.168.0.1",
+        "port": 443,
+        "connected": true,
+        "proof_listener": false,
+        "error": null
+      }
+    ]
+  },
+  "macos-arm64": {
+    "schema": 1,
+    "public_https_status": 200,
+    "targets": [
+      {
+        "label": "local_ipv4",
+        "address": "127.0.0.1",
+        "port": 45951,
+        "connected": true,
+        "proof_listener": true,
+        "error": null
+      },
+      {
+        "label": "local_ipv6",
+        "address": "::1",
+        "port": 45952,
+        "connected": true,
+        "proof_listener": true,
+        "error": null
+      },
+      {
+        "label": "own_primary_ipv4",
+        "address": "192.168.68.98",
+        "port": 45951,
+        "connected": true,
+        "proof_listener": true,
+        "error": null
+      },
+      {
+        "label": "own_link_local_ipv6",
+        "address": "fe80::1007:42c8:bcb9:c3ac%en0",
+        "port": 45952,
+        "connected": true,
+        "proof_listener": true,
+        "error": null
+      },
+      {
+        "label": "host_lan",
+        "address": "192.168.0.44",
+        "port": 45951,
+        "connected": false,
+        "proof_listener": false,
+        "error": "timeout"
+      },
+      {
+        "label": "host_tailnet_ipv4",
+        "address": "100.96.15.83",
+        "port": 45951,
+        "connected": false,
+        "proof_listener": false,
+        "error": "timeout"
+      },
+      {
+        "label": "host_tailnet_ipv6",
+        "address": "fd7a:115c:a1e0::8928:f54",
+        "port": 45952,
+        "connected": false,
+        "proof_listener": false,
+        "error": "OSError"
+      },
+      {
+        "label": "lan_router_https",
+        "address": "192.168.0.1",
+        "port": 443,
+        "connected": false,
+        "proof_listener": false,
+        "error": "timeout"
+      },
+      {
+        "label": "peer_ipv4",
+        "address": "192.168.96.138",
+        "port": 45951,
+        "connected": false,
+        "proof_listener": false,
+        "error": "timeout"
+      },
+      {
+        "label": "peer_link_local_ipv6",
+        "address": "fe80::d46a:d0ff:fe21:7741%en0",
+        "port": 45952,
+        "connected": false,
+        "proof_listener": false,
+        "error": "timeout"
+      }
+    ]
+  },
+  "linux-arm64": {
+    "schema": 1,
+    "public_https_status": 200,
+    "targets": [
+      {
+        "label": "local_ipv4",
+        "address": "127.0.0.1",
+        "port": 45951,
+        "connected": true,
+        "proof_listener": true,
+        "error": null
+      },
+      {
+        "label": "local_ipv6",
+        "address": "::1",
+        "port": 45952,
+        "connected": true,
+        "proof_listener": true,
+        "error": null
+      },
+      {
+        "label": "own_primary_ipv4",
+        "address": "192.168.96.138",
+        "port": 45951,
+        "connected": true,
+        "proof_listener": true,
+        "error": null
+      },
+      {
+        "label": "own_link_local_ipv6",
+        "address": "fe80::d46a:d0ff:fe21:7741%enp0s1",
+        "port": 45952,
+        "connected": true,
+        "proof_listener": true,
+        "error": null
+      },
+      {
+        "label": "host_lan",
+        "address": "192.168.0.44",
+        "port": 45951,
+        "connected": false,
+        "proof_listener": false,
+        "error": "TimeoutError"
+      },
+      {
+        "label": "host_tailnet_ipv4",
+        "address": "100.96.15.83",
+        "port": 45951,
+        "connected": false,
+        "proof_listener": false,
+        "error": "TimeoutError"
+      },
+      {
+        "label": "host_tailnet_ipv6",
+        "address": "fd7a:115c:a1e0::8928:f54",
+        "port": 45952,
+        "connected": false,
+        "proof_listener": false,
+        "error": "OSError"
+      },
+      {
+        "label": "lan_router_https",
+        "address": "192.168.0.1",
+        "port": 443,
+        "connected": false,
+        "proof_listener": false,
+        "error": "TimeoutError"
+      },
+      {
+        "label": "peer_ipv4",
+        "address": "192.168.68.98",
+        "port": 45951,
+        "connected": false,
+        "proof_listener": false,
+        "error": "TimeoutError"
+      },
+      {
+        "label": "peer_link_local_ipv6",
+        "address": "fe80::1007:42c8:bcb9:c3ac%enp0s1",
+        "port": 45952,
+        "connected": false,
+        "proof_listener": false,
+        "error": "TimeoutError"
+      }
+    ]
+  },
+  "tailnet_ipv6_control": "inconclusive: host-side IPv6 target unavailable",
+  "public_ipv6_control": "not exercised; public HTTPS control may use IPv4"
+}

@@ -1,0 +1,18 @@
+{
+  "claimed_preparation": "rejected",
+  "github_job_execution": "not exercised",
+  "platform": "linux-arm64",
+  "preparation": "ready",
+  "repeat_unclaimed_preparation": "ready",
+  "schema": 1,
+  "second_submission": "rejected",
+  "synthetic_wrapper_exit": {
+    "attempt_id": "f0288f2825cc48d3afc65f2ea6ebc918",
+    "exit_code": 0,
+    "phase": "exited",
+    "reason": "process_exited",
+    "schema": 1,
+    "updated_at": 1794169161
+  },
+  "vm": "homelab-macbook-job-f0288f2825cc48d3afc65f2ea6ebc918"
+}

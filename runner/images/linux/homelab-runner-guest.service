@@ -1,0 +1,20 @@
+[Unit]
+Description=Disposable one-job GitHub runner
+After=network-online.target docker.service
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=simple
+User=admin
+Group=admin
+WorkingDirectory=/home/admin/actions-runner
+Environment=HOME=/home/admin
+Environment=PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
+ExecStart=/usr/local/libexec/homelab-runner-guest serve --runner /home/admin/actions-runner/run.sh --home /home/admin
+UMask=0077
+Restart=no
+KillMode=control-group
+
+[Install]
+WantedBy=multi-user.target

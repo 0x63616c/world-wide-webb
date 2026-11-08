@@ -1,7 +1,7 @@
 # homelab
 
 Private configuration for the macOS homelab. The MacBook is enrolled and configured
-for one disposable CI runner. Application migration remains disabled; the Mac mini
+for disposable CI runners. Application migration remains disabled; the Mac mini
 continues running its existing services.
 
 ## Start here
@@ -61,7 +61,7 @@ flowchart TB
 
 | Host | Hardware | Administrator | Intended first role |
 | --- | --- | --- | --- |
-| `homelab-macbook` | M2, 32 GB, about 500 GB | `admin` | One disposable macOS CI runner; application migration later |
+| `homelab-macbook` | M2 Pro, 12 cores, 32 GB, about 500 GB | `admin` | Disposable CI guests; application migration later |
 | `homelab-mac-mini` | M2, 8 GB | `calum` | Keep production running until verified cutover |
 
 ## What a merge does
@@ -92,9 +92,11 @@ flowchart LR
   Host -->|After completion or cancellation| Cleanup[Delete VM and runner registration]
 ```
 
-The controller runs as `_runner`. Jobs run inside fresh VMs with Xcode and a pinned
-GitHub runner SDK. Softnet blocks access to the host, LAN and tailnet. No idle VM
-is kept running. The GitHub App key stays on the host; only a short-lived JIT
+The controller runs as `_runner`. It supports four shared job slots with at most
+two macOS guests; Linux ARM64 can use all four when macOS work is not waiting.
+Linux image promotion and rollout are described in [Linux runners](docs/linux-runners.md).
+Jobs run inside fresh VMs with a pinned GitHub runner SDK. Softnet blocks access
+to the host, LAN and tailnet. No idle VM is kept running. The GitHub App key stays on the host; only a short-lived JIT
 registration is passed into each guest.
 
 Repository access, image digest, resources and storage floors live in

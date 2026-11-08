@@ -1,0 +1,17 @@
+{
+  "source_revision": "f31128d028af982dfc9d6f56fffe55e2253a2802",
+  "exit_code": 0,
+  "outputs": [
+    "/nix/store/zn67vmyp8carm2qrl3cs42h7lf9lwr88-darwin-system-26.11.ff0e21a",
+    "/nix/store/zwpdpz5kygnikcc8ips7b8w8r2d5vdxs-darwin-system-26.11.ff0e21a",
+    "/nix/store/qaa4ikjg4bm44csnz3b51sqfb9q63kxp-homelab-runner-concurrency-limits-check",
+    "/nix/store/lax6l7gcdspigr9x8y72dx7vvjrnx2s8-homelab-runner-process-survival-check"
+  ],
+  "linux_enabled_host_built": true,
+  "compile_only_linux_fixture_built": true,
+  "concurrency_limits_check_built": true,
+  "process_survival_check_built": true,
+  "mini_connection_repair_included": true,
+  "temporary_controller_binary": "/nix/store/9p9fv81ads5gn49b7z9y70yf9x1986d4-homelab-runner-0.1.0/bin/homelab-runner",
+  "production_activated": false
+}
