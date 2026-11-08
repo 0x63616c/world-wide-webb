@@ -13,11 +13,11 @@
       ],
       "services": [
         "control-center",
-        "home-assistant",
         "bambuddy",
         "hindsight",
         "cloudflared",
-        "penpot"
+        "penpot",
+        "home-assistant"
       ]
     },
     "homelab-macbook": {
