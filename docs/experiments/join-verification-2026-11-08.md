@@ -29,3 +29,7 @@ The corrected assertion parser requires ED and a complete CBOR metadata map dire
 A compiled-Worker HTTP regression with `0xc0` and enrollment-style metadata keys failed with HTTP 401 before the correction and passed afterward. The 99-byte synthetic metadata test and alias/flag/trailing-byte rejection tests passed. The complete backend check passed seven domain contracts, 25 Worker unit tests and ten compiled runtime tests. Production/device retry remains pending for this second correction.
 
 The device-format correction was deployed from `0abd207bb5fc2dcefdbff19c70308bbe892147d8` as Cloudflare version `817c62ed-ed8e-4bc6-85c8-ef6aa6fff8cc`. Public health returned that exact source. Provider readback confirmed all other bindings and compatibility settings unchanged. Receipt: `build/runtime/production-join-device-fix-verification.json` in the isolated checkout (ignored). Owner retry after this correction remains pending; earlier retries still failed, and no successful Join is claimed.
+
+## Owner-device Join verified
+
+The owner reported success ("yay"). Live tail captured enrollment HTTP 200 on `0abd207` with request `96092526-8259-4567-980a-1990bdb816f8`. Production aggregate readback confirmed joined/unrestricted membership, one epoch, a key counter advanced to 10, and consumed Join/avatar-upload challenges. This verifies the specific protected Join and subsequent upload boundary; reset/leave/delete and broader device/shipping checks remain separate.
