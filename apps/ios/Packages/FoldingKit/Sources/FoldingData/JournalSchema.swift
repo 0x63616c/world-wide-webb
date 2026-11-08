@@ -4,7 +4,7 @@ extension SQLiteConnection {
   func migrate() throws {
     try transaction {
       let version = try rows("PRAGMA user_version").first?["user_version"]
-      guard let version, let schemaVersion = Int(version), (0...7).contains(schemaVersion) else {
+      guard let version, let schemaVersion = Int(version), (0...8).contains(schemaVersion) else {
         throw StoreError.incompatibleSchema
       }
       if schemaVersion == 0 { for statement in Self.schema { try execute(statement) } }
@@ -107,6 +107,17 @@ extension SQLiteConnection {
           "CREATE TABLE IF NOT EXISTS daily_limit_claim (id INTEGER PRIMARY KEY CHECK(id=1),claim_id TEXT NOT NULL,payload_json TEXT NOT NULL,state TEXT NOT NULL CHECK(state IN ('pending','leased','acknowledged','cancelled','expired')),lease_token TEXT,lease_until_ms INTEGER,next_attempt_ms INTEGER NOT NULL)"
         )
         try execute("PRAGMA user_version=7")
+      }
+      if schemaVersion < 8 {
+        try execute(
+          "CREATE TABLE IF NOT EXISTS entry_deletions (deletion_id TEXT PRIMARY KEY, payload_json TEXT NOT NULL, public_state TEXT NOT NULL DEFAULT 'pending')"
+        )
+        for operation in ["INSERT", "UPDATE", "DELETE"] {
+          try execute(
+            "CREATE TRIGGER IF NOT EXISTS derived_entry_deletions_\(operation.lowercased()) AFTER \(operation) ON entry_deletions BEGIN UPDATE derived_state SET revision=revision+1,epoch=epoch+1; END"
+          )
+        }
+        try execute("PRAGMA user_version=8")
       }
       // Seed durable high-water marks for journals created before recovery diagnostics existed.
       if try rows("SELECT value FROM settings WHERE key='highest_reset_revision'").isEmpty {

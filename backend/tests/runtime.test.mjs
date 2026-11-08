@@ -158,7 +158,7 @@ test("actual Worker issues bounded challenges and rotates encrypted sessions wit
   const {createHash}=await import("node:crypto");
   const hash=bytes=>createHash("sha256").update(bytes).digest();
   const db=await authenticatedRuntime.getD1Database("DB");
-  for (const migration of ["0001_mutation_fences.sql","0002_sessions.sql","0003_auth_operations.sql","0004_sign_in.sql","0005_attestation_enrollment.sql","0006_competition.sql","0007_community_reads.sql","0008_privacy_lifecycle.sql","0009_period_finalization.sql","0010_moderation.sql","0011_avatars.sql","0012_notifications.sql", "0013_operations.sql", "0014_corrections.sql", "0015_moderation_cases.sql", "0016_monitoring.sql", "0017_external_retries.sql"]) {
+  for (const migration of ["0001_mutation_fences.sql","0002_sessions.sql","0003_auth_operations.sql","0004_sign_in.sql","0005_attestation_enrollment.sql","0006_competition.sql","0007_community_reads.sql","0008_privacy_lifecycle.sql","0009_period_finalization.sql","0010_moderation.sql","0011_avatars.sql","0012_notifications.sql", "0013_operations.sql", "0014_corrections.sql", "0015_moderation_cases.sql", "0016_monitoring.sql", "0017_external_retries.sql", "0018_entry_deletions.sql"]) {
     const source=await readFile(`${root}migrations/${migration}`,"utf8");
     for(const sql of source.split(";").filter(s=>s.trim())) await db.prepare(sql).run();
   }
@@ -318,4 +318,55 @@ test("reset raw-history purge is atomic and preserves replay receipts and other 
   assert.equal(await db.prepare("SELECT count(*) n FROM observations WHERE participant_id='reset-person'").first("n"),0);
   assert.equal(await db.prepare("SELECT count(*) n FROM observations WHERE participant_id='auth-person'").first("n"),1);
   assert.equal(await db.prepare("SELECT count(*) n FROM competition_operations WHERE participant_id='reset-person'").first("n"),1);
+});
+
+test("entry deletion is owned, idempotent and durable before late upload", async () => {
+  const db=await authenticatedRuntime.getD1Database("DB");
+  const participant="00000000-0000-0000-0000-000000008101";
+  const other="00000000-0000-0000-0000-000000008102";
+  const device="00000000-0000-0000-0000-000000008103";
+  const nil="00000000-0000-0000-0000-000000000000";
+  const first="00000000-0000-0000-0000-000000008111";
+  const repeated="00000000-0000-0000-0000-000000008112";
+  const close="00000000-0000-0000-0000-000000008113";
+  const future="00000000-0000-0000-0000-000000008114";
+  const operation="00000000-0000-0000-0000-000000008121";
+  const time=Date.now();
+  for(const person of [participant,other]) {
+    await db.prepare("INSERT INTO participants(participant_id,subject_hmac,membership,restriction,generation_revision,generation_id) VALUES (?,?,'joined','none',0,?)").bind(person,person,nil).run();
+    await db.prepare("INSERT INTO participant_revisions VALUES (?,0)").bind(person).run();
+  }
+  const access=Buffer.alloc(32,81);
+  await db.prepare("INSERT INTO sessions VALUES ('entry-delete-session',?,?,'staging',?,?,?,?,0)").bind(participant,device,time,time,time+86400000,time+86400000).run();
+  await db.prepare("INSERT INTO access_tokens VALUES (?,'entry-delete-session',?)").bind(createHash("sha256").update(access).digest(),time+900000).run();
+  const event=(id,sequence,transition)=>({schema_version:1,event_id:id,device_id:device,sequence,generation:{revision:0,reset_id:nil},observed_at_ms:time-10000+sequence*1000,timezone_id:"UTC",transition,is_test:false,competition_epoch_id:null});
+  for(const [id,seq,state] of [[first,1,"open"],[repeated,2,"open"],[close,3,"close"]]) {
+    await db.prepare("INSERT INTO observations(participant_id,event_id,device_id,sequence,event_json,disposition,received_at_ms) VALUES (?,?,?,?,?,'accepted',?)").bind(participant,id,device,seq,JSON.stringify(event(id,seq,state)),time).run();
+  }
+  await db.prepare("INSERT INTO live_scores VALUES (?,0,?,'all',2,0)").bind(participant,nil).run();
+  await db.prepare("INSERT INTO live_scores VALUES (?,0,?,'all',8,0)").bind(other,nil).run();
+  const send=(body,token=access.toString("base64url"))=>authenticatedRuntime.dispatchFetch("https://api.example/v1/entry-deletions",{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify(body)});
+  const epoch="00000000-0000-0000-0000-000000008131";
+  const otherEpoch="00000000-0000-0000-0000-000000008132";
+  for(const [id,owner] of [[epoch,participant],[otherEpoch,other]]) {
+    await db.prepare("INSERT INTO epochs VALUES (?,?,?,0,?,?,?,NULL)").bind(id,owner,device,nil,time-20000,time-20000).run();
+  }
+  const body={operation_id:operation,event_ids:[first,future],epoch_ids:[epoch]};
+  const concurrent=await Promise.all([send(body),send(body)]);
+  assert.ok(concurrent.every(value=>[200,409].includes(value.status)));
+  const initial=concurrent.find(value=>value.status===200);assert.ok(initial);
+  assert.equal(await db.prepare("SELECT revision FROM participant_revisions WHERE participant_id=?").bind(participant).first("revision"),1);
+  assert.equal((await initial.json()).state,"completed");
+  assert.equal(await db.prepare("SELECT folds FROM live_scores WHERE participant_id=? AND period_id='all'").bind(participant).first("folds"),1);
+  assert.equal(await db.prepare("SELECT folds FROM live_scores WHERE participant_id=? AND period_id='all'").bind(other).first("folds"),8);
+  const retry=await send({...body,event_ids:[future,first]});assert.equal(retry.status,200);
+  assert.equal(await db.prepare("SELECT count(*) AS n FROM deleted_observations WHERE participant_id=?").bind(participant).first("n"),2);
+  assert.equal((await send({...body,event_ids:[close]})).status,409);
+  assert.equal((await send({operation_id:"00000000-0000-0000-0000-000000008122",event_ids:[first,first],epoch_ids:[epoch]})).status,422);
+  assert.equal((await send(body,Buffer.alloc(32,82).toString("base64url"))).status,401);
+  assert.equal((await send({operation_id:"00000000-0000-0000-0000-000000008124",event_ids:[close],epoch_ids:[otherEpoch]})).status,403);
+  // An immutable upload arriving after deletion cannot restore that observation's score.
+  await db.prepare("INSERT INTO observations(participant_id,event_id,device_id,sequence,event_json,disposition,received_at_ms) VALUES (?,?,?,?,?,'accepted',?)").bind(participant,future,device,4,JSON.stringify(event(future,4,"open")),time).run();
+  const recalculate=await send({operation_id:"00000000-0000-0000-0000-000000008123",event_ids:[future],epoch_ids:[epoch]});assert.equal(recalculate.status,200);
+  assert.equal(await db.prepare("SELECT folds FROM live_scores WHERE participant_id=? AND period_id='all'").bind(participant).first("folds"),1);
 });

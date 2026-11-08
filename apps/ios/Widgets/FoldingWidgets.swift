@@ -135,6 +135,7 @@ struct TrackingWidgetView: View {
         .font(.caption)
       }
     }
+    .fontDesign(.rounded)
     .containerBackground(.background, for: .widget)
     .widgetURL(URL(string: entry.metric == .trend ? "folding://history" : "folding://today"))
   }

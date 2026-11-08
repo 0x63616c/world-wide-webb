@@ -39,6 +39,23 @@ pub fn plan_batch(
     received_at_ms: u64,
     request_id: Id,
 ) -> Result<IngestionPlan, DomainError> {
+    plan_batch_with_deletions(
+        batch,
+        previous,
+        enrollment,
+        received_at_ms,
+        request_id,
+        &BTreeSet::new(),
+    )
+}
+pub fn plan_batch_with_deletions(
+    batch: &EventBatch,
+    previous: &[StoredObservation],
+    enrollment: &Enrollment<'_>,
+    received_at_ms: u64,
+    request_id: Id,
+    deleted: &BTreeSet<Id>,
+) -> Result<IngestionPlan, DomainError> {
     let hash = normalized_batch_hash(batch)?;
     // Identity uniqueness is participant-wide, including quarantined/rejected events/generations.
     let mut by_id = BTreeMap::new();
@@ -120,7 +137,7 @@ pub fn plan_batch(
             reason_code: reason.map(str::to_owned),
         });
     }
-    let summary = reducer::reduce(&accepted, &[], enrollment.generation)?;
+    let summary = reducer::reduce_with_deletions(&accepted, &[], enrollment.generation, deleted)?;
     let all_time_folds = summary.folds();
     let times: BTreeMap<_, _> = accepted
         .iter()

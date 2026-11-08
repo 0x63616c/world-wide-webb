@@ -4,7 +4,7 @@ use crate::{
         COMMUNITY_GUARD, Configuration, Failure, blob, decode, now, number, response,
         session_guard, statement, text, uuid,
     },
-    ingestion::{StoredObservation, plan_batch},
+    ingestion::{StoredObservation, plan_batch_with_deletions},
     protected_request::{self, VerifiedRequest},
 };
 use folding_domain::{
@@ -166,12 +166,14 @@ pub(crate) async fn events(
         generation: &generation,
         issued_at_ms: epoch.issued_at_ms,
     };
-    let plan = plan_batch(
+    let deleted = crate::entry_deletion_runtime::deleted_ids(db, &session.participant_id).await?;
+    let plan = plan_batch_with_deletions(
         &batch,
         &previous,
         &enrollment,
         time as u64,
         request_id.clone(),
+        &deleted,
     )
     .map_err(|_| Failure {
         status: 409,

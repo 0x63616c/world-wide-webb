@@ -69,7 +69,7 @@ public enum PersonalAnalytics {
     events: [TrackingEvent], interruptions: [TrackingInterruption] = [],
     generation: ResetGeneration,
     homeTimezone: String, asOfMS: Int64, range: PersonalDateRange,
-    transferMarkers: [PrivateTransferMarker] = []
+    transferMarkers: [PrivateTransferMarker] = [], deletions: [TrackingDeletion] = []
   ) throws -> PersonalAnalyticsSnapshot {
     guard (0...TrackingReducer.maximumInteger).contains(asOfMS),
       range.startMS < range.endMS,
@@ -79,7 +79,7 @@ public enum PersonalAnalytics {
     _ = try calendar(homeTimezone)
     // Validate the full immutable input before filtering; hidden conflicting history is still invalid.
     let validated = try TrackingReducer.reduce(
-      events: events, interruptions: interruptions, generation: generation)
+      events: events, interruptions: interruptions, generation: generation, deletions: deletions)
     let selection = try PrivateTransferPolicy.winner(transferMarkers)
     let unique = Array(Set(events)).filter { $0.generation == generation }
     let included = unique.filter { PrivateTransferPolicy.includes($0, under: selection) }
@@ -92,7 +92,8 @@ public enum PersonalAnalytics {
       try selection == nil
       ? validated
       : TrackingReducer.reduce(
-        events: included, interruptions: includedMarkers, generation: generation)
+        events: included, interruptions: includedMarkers, generation: generation,
+        deletions: deletions)
     // An inactive phone cannot keep a running timer alive beyond its transfer watermark.
     if let selection {
       lifetime.sessions = lifetime.sessions.map {
@@ -101,14 +102,16 @@ public enum PersonalAnalytics {
         }
         return TrackingSession(
           deviceID: $0.deviceID, generation: $0.generation, startMS: $0.startMS, endMS: nil,
-          durationMS: nil, completeness: .incomplete)
+          durationMS: nil, completeness: .incomplete, openingEventID: $0.openingEventID)
       }
     }
+    let deletedIDs = Set(
+      deletions.filter { $0.target.generation == generation }.flatMap(\.eventIDs))
     var counted: Set<UUID> = []
     for source in Dictionary(grouping: included.filter { !$0.isTest }, by: \.deviceID).values {
       var last: Transition?
       for event in source.sorted(by: { $0.sequence < $1.sequence }) {
-        if event.transition != last {
+        if event.transition != last && !deletedIDs.contains(event.eventID) {
           counted.insert(event.eventID)
 
         }

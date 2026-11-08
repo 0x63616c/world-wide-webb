@@ -36,7 +36,8 @@ struct FoldingRootView: View {
                 .navigationTitle(String(localized: "tab.history", defaultValue: "History"))
                 .navigationDestination(for: HistoryRoute.self) { route in
                   switch route {
-                  case .session(let session): SessionScreen(session: session)
+                  case .session(let session):
+                    SessionScreen(session: session, model: model, actions: actions)
                   }
                 }
             }
@@ -73,6 +74,8 @@ struct FoldingRootView: View {
         }
       }
     }
+    .fontDesign(.rounded)
+    .buttonBorderShape(.roundedRectangle(radius: FoldingShape.cornerRadius))
     .tabViewStyle(.tabBarOnly)
     .tabBarMinimizeBehavior(.never)
     .tint(FoldingTint.color)
@@ -116,13 +119,7 @@ struct FoldingRootView: View {
           }
       }
     case .editSummary: SummaryEditor(model: model, actions: actions)
-    case .travelInfo:
-      InformationSheet(
-        title: String(localized: "metric.equivalentTravel", defaultValue: "Equivalent travel"),
-        text: String(
-          localized: "travel.explanation",
-          defaultValue:
-            "A playful full-swing equivalent based on your recorded folds, not measured movement."))
+    case .patterns: PatternsScreen(model: model, actions: actions)
     case .leaderboardInfo:
       let periodTitle = model.competition.previous?.periodTitle ?? ""
       InformationSheet(
@@ -223,21 +220,6 @@ private struct TodayScreen: View {
             .foregroundStyle(.secondary)
         }
         if let today {
-          VStack(alignment: .leading, spacing: 4) {
-            Text(today.folds, format: .number).font(
-              .system(.largeTitle, design: .rounded, weight: .bold)
-            ).monospacedDigit().foregroundStyle(FoldingTint.color)
-            Text(String(localized: "metric.folds", defaultValue: "Folds")).foregroundStyle(
-              .secondary)
-          }
-          .frame(maxWidth: .infinity, alignment: .leading)
-          .padding(20)
-          .frame(minHeight: 108, alignment: .leading)
-          .background(
-            Color(uiColor: .secondarySystemGroupedBackground),
-            in: RoundedRectangle(cornerRadius: 20)
-          )
-          .accessibilityElement(children: .combine)
           ForEach(Array(metricRows.enumerated()), id: \.offset) { _, row in
             HStack(spacing: 12) {
               ForEach(row) { metric in
@@ -247,7 +229,31 @@ private struct TodayScreen: View {
                   .frame(minHeight: 108, alignment: .leading)
                   .background(
                     Color(uiColor: .secondarySystemGroupedBackground),
-                    in: RoundedRectangle(cornerRadius: 20))
+                    in: RoundedRectangle(cornerRadius: FoldingShape.cornerRadius)
+                  )
+                  .draggable(metric.rawValue)
+                  .dropDestination(for: String.self) { values, _ in
+                    guard let raw = values.first, let moved = SummaryMetric(rawValue: raw),
+                      model.preferences.orderedCards.contains(moved), moved != metric
+                    else { return false }
+                    var next = model.preferences
+                    next.moveCard(moved, to: metric)
+                    let saved = next
+                    Task {
+                      await model.command(
+                        String(localized: "settings.saving", defaultValue: "Saving")
+                      ) {
+                        try await actions.savePreferences(saved)
+                      }
+                    }
+                    return true
+                  }
+                  .contextMenu {
+                    Button(String(localized: "today.editSummary", defaultValue: "Edit Summary")) {
+                      model.present(.editSummary)
+                    }
+                  }
+
               }
             }
           }
@@ -277,7 +283,8 @@ private struct TodayScreen: View {
 
   private var metricRows: [[SummaryMetric]] {
     var rows: [[SummaryMetric]] = []
-    for metric in model.preferences.metrics {
+    for metric in model.preferences.orderedCards
+    where metric != .competitionComparison || model.competitionJoined {
       let compact = Self.isCompact(metric)
       if compact, let last = rows.indices.last, rows[last].count == 1,
         Self.isCompact(rows[last][0])
@@ -333,24 +340,29 @@ private struct TodayScreen: View {
       }
 
     case .timeUnfolded:
-      HStack(alignment: .lastTextBaseline, spacing: 12) {
-        MetricRow(title: metric.title, value: foldingDuration(today.completeDurationMS))
-        Spacer(minLength: 0)
-        if let snapshot = model.analytics {
-          let running = RunningDurationPresentation(snapshot: snapshot, day: today)
-          if running.isRunning {
-            TimelineView(.periodic(from: .now, by: 1)) { context in
-              let durationMS = running.durationMS(at: context.date)
-              Label(foldingDuration(durationMS), systemImage: "timer")
-                .font(.subheadline).foregroundStyle(.secondary)
-                .monospacedDigit()
+      if let snapshot = model.analytics {
+        let running = RunningDurationPresentation(snapshot: snapshot, day: today)
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+          let durationMS = running.durationMS(at: context.date)
+          HStack(alignment: .lastTextBaseline) {
+            MetricRow(
+              title: metric.title,
+              value: Duration.milliseconds(running.totalDurationMS(at: context.date)).formatted(
+                .units(
+                  allowed: [.hours, .minutes, .seconds], width: .abbreviated, maximumUnitCount: 3)))
+            Spacer(minLength: 0)
+            if running.isRunning {
+              Image(systemName: "timer").foregroundStyle(.secondary)
                 .accessibilityLabel(
                   String(
                     localized: "session.runningDuration",
-                    defaultValue: "Running, \(foldingDuration(durationMS))"))
+                    defaultValue:
+                      "Running, \(foldingDuration(durationMS))"))
             }
           }
         }
+      } else {
+        MetricRow(title: metric.title, value: foldingDuration(today.completeDurationMS))
       }
     case .trend:
       VStack(alignment: .leading, spacing: 12) {
@@ -395,25 +407,9 @@ private struct TodayScreen: View {
     case .cycles: MetricRow(title: metric.title, value: today.cycles.formatted())
     case .lifetimeFolds:
       MetricRow(title: metric.title, value: model.analytics?.lifetime.folds.formatted() ?? "—")
-    case .equivalentTravel:
-      HStack {
-        let unit =
-          model.preferences.travelUnit
-          ?? (Locale.current.usesMetricSystem ? TravelUnit.metres : .feet)
-        let travel = Measurement(value: today.equivalentMetres, unit: UnitLength.meters)
-          .converted(to: unit == .feet ? .feet : .meters)
-        MetricRow(
-          title: metric.title,
-          value: travel.formatted(
-            .measurement(width: .abbreviated, usage: .asProvided)))
-        Button {
-          model.present(.travelInfo)
-        } label: {
-          Image(systemName: "info.circle")
-        }.frame(minWidth: 44, minHeight: 44)
-          .accessibilityLabel(
-            String(localized: "travel.about", defaultValue: "About equivalent travel"))
-      }
+    case .folds:
+      MetricRow(title: metric.title, value: today.folds.formatted(), prominent: true)
+
     }
   }
 }
@@ -421,11 +417,19 @@ private struct TodayScreen: View {
 private struct MetricRow: View {
   let title: String
   let value: String
+  var prominent = false
   var body: some View {
-    VStack(alignment: .leading, spacing: 4) {
+    VStack(alignment: .leading, spacing: 0) {
       Text(title).font(.subheadline).foregroundStyle(.secondary)
-      Text(value).font(.title2.weight(.semibold)).monospacedDigit()
-    }.accessibilityElement(children: .combine)
+      Spacer(minLength: 8)
+      Text(value).font(
+        prominent
+          ? .system(.largeTitle, design: .rounded, weight: .bold)
+          : .title2.weight(.semibold)
+      ).monospacedDigit()
+    }
+    .frame(minHeight: 72, alignment: .leading)
+    .accessibilityElement(children: .combine)
   }
 }
 
@@ -444,19 +448,22 @@ private struct HistoryScreen: View {
               .frame(maxWidth: .infinity, alignment: .leading)
               .background(
                 Color(uiColor: .secondarySystemGroupedBackground),
-                in: RoundedRectangle(cornerRadius: 20))
+                in: RoundedRectangle(cornerRadius: FoldingShape.cornerRadius))
             VStack(alignment: .leading, spacing: 12) {
               if model.history != nil {
                 Text(String(localized: "history.sessions", defaultValue: "Sessions"))
                   .font(.headline)
-                sessionsContent
+                ScrollView {
+                  LazyVStack(alignment: .leading, spacing: 16) { sessionsContent }
+                }
+                .frame(height: max(240, geometry.size.height - 120))
               }
             }
             .padding(20)
             .frame(width: min(380, geometry.size.width * 0.38), alignment: .leading)
             .background(
               Color(uiColor: .secondarySystemGroupedBackground),
-              in: RoundedRectangle(cornerRadius: 20))
+              in: RoundedRectangle(cornerRadius: FoldingShape.cornerRadius))
           }
           .padding(20)
         }
@@ -466,10 +473,25 @@ private struct HistoryScreen: View {
           Section { summaryContent }
           if model.history != nil {
             Section(String(localized: "history.sessions", defaultValue: "Sessions")) {
-              sessionsContent
+              ScrollView {
+                LazyVStack(alignment: .leading, spacing: 16) { sessionsContent }
+                  .padding(.vertical, 8)
+              }
+              .frame(height: min(360, max(160, geometry.size.height * 0.45)))
             }
           }
         }
+      }
+    }
+    .toolbar {
+      ToolbarItem(placement: .topBarTrailing) {
+        Button {
+          model.present(.patterns)
+        } label: {
+          Image(systemName: "chart.bar")
+        }
+        .accessibilityLabel(String(localized: "patterns.title", defaultValue: "Patterns"))
+        .disabled(actions.loadPatterns == nil)
       }
     }
     .overlay(alignment: .top) {
@@ -500,7 +522,7 @@ private struct HistoryScreen: View {
           .accessibilityLabel(
             String(localized: "history.previous", defaultValue: "Previous period")
           )
-          .disabled(actions.loadHistory == nil || model.historyPeriod == .all)
+          .disabled(actions.loadHistory == nil || model.historyLoading || !history.canGoPrevious)
         Text(history.title).font(.headline).frame(maxWidth: .infinity)
         Button {
           model.historyOffset += 1
@@ -531,7 +553,7 @@ private struct HistoryScreen: View {
             selectedBinIndex.map({ $0 == index }) == false
               ? FoldingTint.color.opacity(0.4) : FoldingTint.color
           )
-          .cornerRadius(4)
+          .cornerRadius(5)
           .accessibilityLabel(bin.label).accessibilityValue(bin.folds.formatted())
         }
         .chartXScale(domain: -0.5...(Double(history.bins.count) - 0.5))
@@ -556,8 +578,23 @@ private struct HistoryScreen: View {
         .frame(height: 180)
         .listRowSeparator(.hidden)
         if let index = selectedBinIndex, history.bins.indices.contains(index) {
-          LabeledContent(history.bins[index].label, value: history.bins[index].folds.formatted())
+          HStack {
+            if model.historyPeriod == .month {
+              Text(history.bins[index].start, format: .dateTime.month(.wide).day())
+            } else {
+              Text(history.bins[index].label)
+            }
+            Spacer()
+            Text(history.bins[index].folds, format: .number).monospacedDigit()
+          }
         }
+      }
+      if model.entryDeletionPending {
+        Label(
+          String(localized: "history.deletionPending", defaultValue: "Leaderboard update pending"),
+          systemImage: "clock"
+        )
+        .font(.caption).foregroundStyle(.secondary)
       }
       if model.historyFailed {
         Button(String(localized: "action.retry", defaultValue: "Retry")) {
@@ -598,6 +635,10 @@ private struct HistoryScreen: View {
 
 private struct SessionScreen: View {
   let session: SessionPresentation
+  @Bindable var model: FoldingPresentation
+  let actions: FoldingActions
+  @Environment(\.dismiss) private var dismiss
+  @State private var confirmingDeletion = false
   var body: some View {
     Form {
       LabeledContent(String(localized: "session.opened", defaultValue: "Opened")) {
@@ -614,6 +655,42 @@ private struct SessionScreen: View {
       Label(
         session.completeness.title,
         systemImage: session.completeness == .incomplete ? "exclamationmark.circle" : "clock")
+    }
+    .toolbar {
+      if session.completeness == .incomplete, actions.deleteIncompleteEntry != nil {
+        ToolbarItem(placement: .topBarTrailing) {
+          Button(role: .destructive) {
+            confirmingDeletion = true
+          } label: {
+            Image(systemName: "trash")
+          }
+          .accessibilityLabel(
+            String(localized: "history.deleteEntry", defaultValue: "Delete entry")
+          )
+          .disabled(model.operation != nil)
+        }
+      }
+    }
+    .confirmationDialog(
+      String(localized: "history.deleteTitle", defaultValue: "Delete this entry?"),
+      isPresented: $confirmingDeletion, titleVisibility: .visible
+    ) {
+      Button(
+        String(localized: "history.deleteEntry", defaultValue: "Delete entry"), role: .destructive
+      ) {
+        guard let remove = actions.deleteIncompleteEntry else { return }
+        Task {
+          await model.command(String(localized: "settings.saving", defaultValue: "Saving")) {
+            try await remove(session.deletionTarget)
+            dismiss()
+          }
+        }
+      }
+    } message: {
+      Text(
+        String(
+          localized: "history.deleteEffect",
+          defaultValue: "Removes its folds from your totals and leaderboards."))
     }
     .navigationTitle(String(localized: "history.session", defaultValue: "Session"))
     .navigationBarTitleDisplayMode(.inline)
@@ -641,22 +718,20 @@ private struct SettingsScreen: View {
           Button(String(localized: "today.editSummary", defaultValue: "Edit Summary")) {
             model.present(.editSummary)
           }
-          Picker(
-            String(localized: "metric.equivalentTravel", defaultValue: "Equivalent travel"),
-            selection: preference(\.travelUnit)
-          ) {
-            Text(String(localized: "appearance.system", defaultValue: "System"))
-              .tag(nil as TravelUnit?)
-            Text("m").tag(TravelUnit.metres as TravelUnit?)
-            Text("ft").tag(TravelUnit.feet as TravelUnit?)
-          }
+
         }
         Section(String(localized: "settings.tracking", defaultValue: "Tracking")) {
-          LabeledContent(
-            String(localized: "settings.setup", defaultValue: "Setup"),
-            value: model.needsSetup
-              ? String(localized: "settings.setupRequired", defaultValue: "Not complete")
-              : String(localized: "settings.setupComplete", defaultValue: "Tested"))
+          LabeledContent(String(localized: "settings.setup", defaultValue: "Setup")) {
+            HStack(spacing: 6) {
+              if !model.needsSetup {
+                Image(systemName: "checkmark").font(.caption.weight(.bold)).foregroundStyle(.green)
+              }
+              Text(
+                model.needsSetup
+                  ? String(localized: "settings.setupRequired", defaultValue: "Not complete")
+                  : String(localized: "settings.setupComplete", defaultValue: "Tested"))
+            }
+          }
           if let last = model.lastEventAt {
             LabeledContent(String(localized: "settings.lastEvent", defaultValue: "Last event")) {
               Text(last, format: .dateTime.month(.abbreviated).day().hour().minute())
@@ -804,26 +879,27 @@ private struct SummaryEditor: View {
     NavigationStack {
       List {
         Section {
-          Label(String(localized: "metric.folds", defaultValue: "Folds"), systemImage: "checkmark")
-            .foregroundStyle(.secondary)
-        }
-        Section {
           ForEach(ordered) { metric in
             Toggle(
               metric.title,
               isOn: Binding(
-                get: { model.preferences.metrics.contains(metric) },
+                get: { metric == .folds || model.preferences.metrics.contains(metric) },
                 set: { enabled in
                   var next = model.preferences
                   next.metrics = ordered.filter {
-                    $0 == metric ? enabled : next.metrics.contains($0)
+                    $0 != .folds && ($0 == metric ? enabled : next.metrics.contains($0))
                   }
+                  next.cardOrder = ordered
                   save(next)
-                }))
+                })
+            )
+            .tint(.black)
+            .disabled(metric == .folds)
           }.onMove { source, destination in
             ordered.move(fromOffsets: source, toOffset: destination)
             var next = model.preferences
-            next.metrics = ordered.filter { next.metrics.contains($0) }
+            next.metrics = ordered.filter { $0 != .folds && next.metrics.contains($0) }
+            next.cardOrder = ordered
             save(next)
           }
         }
@@ -839,8 +915,8 @@ private struct SummaryEditor: View {
       }
       .onAppear {
         ordered =
-          (model.preferences.metrics
-          + SummaryMetric.allCases.filter { !model.preferences.metrics.contains($0) })
+          (model.preferences.orderedCards
+          + SummaryMetric.allCases.filter { !model.preferences.orderedCards.contains($0) })
           .filter { $0 != .competitionComparison || model.competitionJoined }
       }
     }
@@ -950,6 +1026,7 @@ private struct SetupScreen: View {
                 perform(.next)
               }
               .buttonStyle(.borderedProminent)
+              .foregroundStyle(FoldingTint.onTint)
               .disabled(model.operation != nil)
             }
             if (step == .openingReady || step == .closingReady)
@@ -964,11 +1041,13 @@ private struct SetupScreen: View {
                 }
               }
               .buttonStyle(.borderedProminent)
+              .foregroundStyle(FoldingTint.onTint)
               .disabled(model.operation != nil || (hinge != nil && !readyForTest))
             }
             if step == .complete {
               Button(String(localized: "action.done", defaultValue: "Done")) { dismissSetup() }
                 .buttonStyle(.borderedProminent)
+                .foregroundStyle(FoldingTint.onTint)
             }
             if showingAutomationInstructions || step == .openingRetry || step == .closingRetry {
               DisclosureGroup(String(localized: "action.help", defaultValue: "Help")) {
@@ -1182,8 +1261,8 @@ private struct FoldIllustration: View {
     .frame(width: compact ? 100 : 160, height: compact ? 96 : 154)
     .overlay {
       if success {
-        Image(systemName: "checkmark.circle.fill").font(.largeTitle).symbolRenderingMode(.palette)
-          .foregroundStyle(.white, .green).background(.background, in: Circle())
+        Image(systemName: "checkmark.circle.fill").font(.title3).foregroundStyle(.green)
+          .symbolRenderingMode(.monochrome).background(.background, in: Circle())
       }
     }
     .task(id: open) {
@@ -1214,14 +1293,21 @@ private struct LeaderboardScreen: View {
         case .notJoined:
           VStack(spacing: 24) {
             Image(systemName: "trophy").font(.largeTitle).foregroundStyle(.secondary)
-            Text(String(localized: "leaderboard.joinTitle", defaultValue: "Find your place")).font(
+            Text(String(localized: "leaderboard.joinTitle", defaultValue: "Join Folding")).font(
               .title.bold())
             Text(
               String(
                 localized: "leaderboard.joinDetail",
                 defaultValue: "Compare folds. Keep tracking personal.")
             ).foregroundStyle(.secondary)
-            if let signIn = actions.signInCompetition {
+            if model.competitionProfile != nil {
+              Button(String(localized: "profile.continueSetup", defaultValue: "Continue setup")) {
+                model.beginJoin(suggestedNickname: model.joinNickname)
+              }
+              .buttonStyle(.borderedProminent)
+              .foregroundStyle(FoldingTint.onTint)
+              .controlSize(.large)
+            } else if let signIn = actions.signInCompetition {
               NativeAppleSignInButton(dark: colorScheme == .dark) {
                 Task {
                   await model.command(
@@ -1230,7 +1316,7 @@ private struct LeaderboardScreen: View {
                 }
               }.id(colorScheme).frame(height: 50).disabled(model.operation != nil)
             } else if let request = actions.appleRequest, let completion = actions.appleCompletion {
-              SignInWithAppleButton(.signIn, onRequest: request, onCompletion: completion)
+              SignInWithAppleButton(.continue, onRequest: request, onCompletion: completion)
                 .frame(maxWidth: 320).frame(height: 50)
                 .signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black)
             }
@@ -1453,7 +1539,7 @@ private struct InformationSheet: View {
   }
 }
 
-private struct NotificationSettingsScreen: View {
+struct NotificationSettingsScreen: View {
   @Bindable var model: FoldingPresentation
   let actions: FoldingActions
   var body: some View {
@@ -1473,7 +1559,9 @@ private struct NotificationSettingsScreen: View {
       Section {
         Toggle(
           String(localized: "notifications.daily", defaultValue: "Daily limit reached"),
-          isOn: preference(\.dailyLimit))
+          isOn: preference(\.dailyLimit)
+        )
+        .tint(.black)
         if model.notificationPreferences.dailyLimit {
           Stepper(value: dailyThreshold, in: 1...100_000, step: 10) {
             LabeledContent(
@@ -1486,12 +1574,21 @@ private struct NotificationSettingsScreen: View {
           selection: preference(\.weeklyResult)
         ) {
           ForEach(ResultNotificationChoice.allCases) { Text($0.title).tag($0) }
-        }
+        }.disabled(!model.competitionJoined)
         Picker(
           String(localized: "notifications.monthly", defaultValue: "Monthly result"),
           selection: preference(\.monthlyResult)
         ) {
           ForEach(ResultNotificationChoice.allCases) { Text($0.title).tag($0) }
+        }.disabled(!model.competitionJoined)
+        if !model.competitionJoined {
+          Button(
+            String(
+              localized: "profile.signInForNotifications",
+              defaultValue: "Join to enable result notifications")
+          ) {
+            model.selectedTab = .leaderboard
+          }
         }
       }.disabled(actions.saveNotifications == nil || model.operation != nil)
     }
@@ -1732,7 +1829,9 @@ private struct FoldingFeedback: ViewModifier {
         if let operation = model.operation {
           ProgressView(operation)
             .padding(24)
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
+            .background(
+              .regularMaterial, in: RoundedRectangle(cornerRadius: FoldingShape.cornerRadius)
+            )
             .accessibilityAddTraits(.updatesFrequently)
         }
       }

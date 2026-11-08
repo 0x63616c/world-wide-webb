@@ -218,3 +218,10 @@ GitHub #28, #32 and #40 checklists reflect these partial completions. CI and phy
 ## Today and Join follow-up
 
 - [x] [#51 — Card heights, chart alignment and profile prefilling](https://github.com/0x63616c/folding/issues/51): shipped TestFlight 0.1.7 (8), Apple VALID and confirmed in Folding Internal. Implementation `a8a6e85`; 74 core tests, 30 simulator tests, localization and rendered fixtures passed. Device authorization/Join/upload acceptance remains separate.
+
+## Preserved refinements — November 8
+
+- [ ] [#52 — Live stats, History and presentation](https://github.com/0x63616c/folding/issues/52): implementation experiments remain in the separate `codex/live-history-refinements` worktree. The month-selection readout uses a full localized date; the screenshot target compiles. See [date-readout evidence](experiments/history-month-readout-2026-11-08.md). Interactive review remains pending.
+- [ ] [#53 — Incomplete-entry deletion](https://github.com/0x63616c/folding/issues/53): local app/domain/server experiments are preserved. Provider migration, deployment and TestFlight distribution have not occurred for this batch.
+
+The owner explicitly resumed app changes and TestFlight shipping on November 8, and confirmed Penpot is outside the current work. Release verification is in progress. Existing iOS and Penpot experiments in the original checkout remain untouched.

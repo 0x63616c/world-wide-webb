@@ -264,6 +264,7 @@ pub async fn dispatch(
             "/v1/enrollment/transfer",
             "/v1/enrollment/leave",
             "/v1/resets",
+            "/v1/entry-deletions",
             "/v1/account/delete",
         ]
         .contains(&request.path().as_str())
@@ -320,6 +321,9 @@ pub async fn dispatch(
         "/v1/enrollment/transfer" => {
             crate::enrollment_runtime::mutate(request, env, &db, &config, body, request_id, true)
                 .await?
+        }
+        "/v1/entry-deletions" => {
+            crate::entry_deletion_runtime::delete(request, &db, &config, body, request_id).await?
         }
         "/v1/resets" => {
             crate::lifecycle_runtime::reset(request, env, &db, &config, body, request_id).await?

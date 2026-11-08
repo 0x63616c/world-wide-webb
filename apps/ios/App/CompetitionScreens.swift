@@ -124,10 +124,13 @@ struct CompetitionProfileScreen: View {
           }
           Section {
             TextField(
-              String(localized: "profile.nickname", defaultValue: "Nickname"), text: $nickname
+              String(localized: "profile.nickname", defaultValue: "Display name"), text: $nickname
             )
             .textInputAutocapitalization(.never).autocorrectionDisabled()
-            .onChange(of: nickname) { _, _ in rejectedName = false }
+            .onChange(of: nickname) { _, value in
+              rejectedName = false
+              model.joinNickname = value
+            }
             if rejectedName {
               Text(String(localized: "profile.chooseName", defaultValue: "Choose another name"))
                 .foregroundStyle(.red)
@@ -177,7 +180,11 @@ struct CompetitionProfileScreen: View {
       }
     }
     .disabled(model.operation != nil)
-    .navigationTitle(String(localized: "profile.title", defaultValue: "Profile"))
+    .navigationTitle(
+      joining
+        ? String(localized: "profile.joinTitle", defaultValue: "Join Folding")
+        : String(localized: "profile.title", defaultValue: "Profile")
+    )
     .navigationBarTitleDisplayMode(.inline)
     .task {
       nickname = joining ? model.joinNickname : (model.competitionProfile?.nickname ?? "")
@@ -256,17 +263,24 @@ struct CompetitionProfileScreen: View {
             Text(String(localized: "profile.photoFailed", defaultValue: "Choose another photo"))
               .foregroundStyle(.secondary)
           }
-          TextField(
-            String(localized: "profile.nickname", defaultValue: "Nickname"), text: $nickname
-          )
-          .textContentType(.name)
-          .textInputAutocapitalization(.words)
-          .padding(16)
-          .background(
-            Color(uiColor: .secondarySystemGroupedBackground),
-            in: RoundedRectangle(cornerRadius: 14)
-          )
-          .onChange(of: nickname) { _, _ in rejectedName = false }
+          VStack(alignment: .leading, spacing: 8) {
+            Text(String(localized: "profile.nickname", defaultValue: "Display name"))
+              .font(.caption).foregroundStyle(.secondary)
+            TextField(
+              String(localized: "profile.nickname", defaultValue: "Display name"), text: $nickname
+            )
+            .textContentType(.name)
+            .textInputAutocapitalization(.words)
+            .padding(16)
+            .background(
+              Color(uiColor: .secondarySystemGroupedBackground),
+              in: RoundedRectangle(cornerRadius: FoldingShape.cornerRadius)
+            )
+            .onChange(of: nickname) { _, value in
+              rejectedName = false
+              model.joinNickname = value
+            }
+          }
           if rejectedName {
             Text(String(localized: "profile.chooseName", defaultValue: "Choose another name"))
               .foregroundStyle(.red)
@@ -677,7 +691,7 @@ struct NativeAppleSignInButton: UIViewRepresentable {
   let action: () -> Void
   func makeCoordinator() -> Coordinator { Coordinator(action: action) }
   func makeUIView(context: Context) -> ASAuthorizationAppleIDButton {
-    let button = ASAuthorizationAppleIDButton(type: .signIn, style: dark ? .white : .black)
+    let button = ASAuthorizationAppleIDButton(type: .continue, style: dark ? .white : .black)
     button.addTarget(
       context.coordinator, action: #selector(Coordinator.activate), for: .touchUpInside)
     return button

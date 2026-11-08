@@ -13,6 +13,7 @@ struct TrackingExportSnapshot: Sendable {
   let transferMarkers: [PrivateTransferMarker]
   let excludedEventIDs: Set<UUID>
   let uploadStates: [UUID: ExportUploadState]
+  var deletions: [TrackingDeletion] = []
 }
 
 /// A capability owned by the creating export service. Obtain its URL through shareURL immediately

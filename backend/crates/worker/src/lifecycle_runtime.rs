@@ -198,6 +198,11 @@ pub(crate) fn erase_results(
     Ok(vec![
         statement(
             db,
+            "DELETE FROM deleted_observations WHERE participant_id=?1",
+            &[text(participant)],
+        )?,
+        statement(
+            db,
             "DELETE FROM results WHERE participant_id=?1",
             &[text(participant)],
         )?,

@@ -80,7 +80,7 @@ struct DerivedHeader: Codable, Sendable {
   var lastEventMS: Int64?
   var version: PersonalSnapshotVersion {
     PersonalSnapshotVersion(
-      cacheSchemaVersion: 1, reducerVersion: TrackingReducer.version, journalID: journalID,
+      cacheSchemaVersion: 3, reducerVersion: TrackingReducer.version, journalID: journalID,
       revision: revision, generation: generation, homeTimezone: homeTimezone)
   }
 }
@@ -90,4 +90,5 @@ struct DerivedInput: Sendable {
   let events: [TrackingEvent]
   let interruptions: [TrackingInterruption]
   let transfers: [PrivateTransferMarker]
+  var deletions: [TrackingDeletion] = []
 }

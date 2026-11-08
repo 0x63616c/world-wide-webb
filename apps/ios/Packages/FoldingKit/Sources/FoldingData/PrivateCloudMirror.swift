@@ -252,7 +252,7 @@ public actor PrivateCloudMirror {
     of record: MirrorRecord, on object: NSManagedObject
   ) {
     switch record {
-    case .event, .interruption:
+    case .event, .interruption, .deletion:
       guard let generation = record.generation else { return }
       object.setValue(generation.revision, forKey: "generationRevision")
       object.setValue(generation.resetID.uuidString.lowercased(), forKey: "generationID")

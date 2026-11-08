@@ -51,7 +51,8 @@ public actor TrackingExportService {
           events: snapshot.events, interruptions: snapshot.interruptions,
           transferMarkers: snapshot.transferMarkers,
           generation: snapshot.generation, homeTimezone: homeTimezone, exportedAtMS: nowMS,
-          uploadStates: snapshot.uploadStates, excludedEventIDs: snapshot.excludedEventIDs)
+          uploadStates: snapshot.uploadStates, excludedEventIDs: snapshot.excludedEventIDs,
+          deletions: snapshot.deletions)
         try Task.checkCancellation()
         try ExportFiles.write(document: document, ticket: ticket)
       } catch {

@@ -77,6 +77,7 @@ pub(crate) async fn alerts(db: &D1Database) -> std::result::Result<Vec<Alert>, F
 }
 pub(crate) fn route(path: &str) -> &'static str {
     match path {
+        "/v1/entry-deletions" => "entries.delete",
         "/v1/event-batches" => "events.submit",
         "/v1/capabilities" => "capabilities",
         "/v1/health" => "health",

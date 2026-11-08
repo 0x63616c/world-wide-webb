@@ -16,6 +16,7 @@ public struct PersonalHistoryBin: Sendable, Equatable {
 public struct PersonalHistorySnapshot: Sendable {
   public let analytics: PersonalAnalyticsSnapshot
   public let bins: [PersonalHistoryBin]
+  public let canGoPrevious: Bool
   public let canGoNext: Bool
 }
 
@@ -27,23 +28,26 @@ public enum PersonalHistory {
   public static func snapshot(
     events: [TrackingEvent], interruptions: [TrackingInterruption], generation: ResetGeneration,
     homeTimezone: String, asOfMS: Int64, period: PersonalHistoryPeriod, offset: Int,
-    transferMarkers: [PrivateTransferMarker] = []
+    transferMarkers: [PrivateTransferMarker] = [], deletions: [TrackingDeletion] = []
   ) throws -> PersonalHistorySnapshot {
     let transfer = try PrivateTransferPolicy.winner(transferMarkers)
     let included = events.filter {
       $0.generation == generation && !$0.isTest
         && PrivateTransferPolicy.includes($0, under: transfer)
     }
+    let deletedIDs = Set(deletions.flatMap(\.eventIDs))
+    let firstEventMS = included.filter { !deletedIDs.contains($0.eventID) }.map(\.observedAtMS)
+      .min()
     let layout = try layout(
       homeTimezone: homeTimezone, asOfMS: asOfMS, period: period, offset: offset,
-      firstEventMS: included.map(\.observedAtMS).min(),
+      firstEventMS: firstEventMS,
       lastEventMS: included.map(\.observedAtMS).max())
     let range = layout.range
     var bins = layout.bins
     let analytics = try PersonalAnalytics.snapshot(
       events: events, interruptions: interruptions,
       generation: generation, homeTimezone: homeTimezone, asOfMS: asOfMS, range: range,
-      transferMarkers: transferMarkers)
+      transferMarkers: transferMarkers, deletions: deletions)
     // Calendar.hour intervals can start before cursor during half-hour DST transitions.
     // Assign by the actual contiguous bin boundaries, never by a separately derived hour key.
     var counts = Array(repeating: 0, count: bins.count)
@@ -65,7 +69,10 @@ public enum PersonalHistory {
     bins = zip(bins, counts).map {
       PersonalHistoryBin(startMS: $0.0.startMS, endMS: $0.0.endMS, folds: $0.1)
     }
-    return PersonalHistorySnapshot(analytics: analytics, bins: bins, canGoNext: offset < 0)
+    return PersonalHistorySnapshot(
+      analytics: analytics, bins: bins,
+      canGoPrevious: period != .all && firstEventMS.map { $0 < range.startMS } == true,
+      canGoNext: firstEventMS == nil ? offset < 0 : range.endMS <= asOfMS)
   }
   public static func layout(
     homeTimezone: String, asOfMS: Int64, period: PersonalHistoryPeriod,
@@ -107,6 +114,16 @@ public enum PersonalHistory {
     else { throw AnalyticsError.calendarFailure }
     var start = interval.start
     var end = interval.end
+    if period != .all, let firstEventMS {
+      let earliestDate = Date(timeIntervalSince1970: Double(min(firstEventMS, asOfMS)) / 1000)
+      guard let earliest = calendar.dateInterval(of: component, for: earliestDate) else {
+        throw AnalyticsError.calendarFailure
+      }
+      if start < earliest.start {
+        start = earliest.start
+        end = earliest.end
+      }
+    }
     if period == .all {
       let firstMS = min(firstEventMS ?? asOfMS, asOfMS)
       let lastMS = max(lastEventMS ?? asOfMS, asOfMS)

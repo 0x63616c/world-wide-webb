@@ -21,6 +21,7 @@ pub struct Session {
     pub end_ms: Option<u64>,
     pub duration_ms: Option<u64>,
     pub completeness: Completeness,
+    pub opening_event_id: Id,
 }
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize)]
 pub struct Summary {
@@ -43,10 +44,11 @@ impl Summary {
             .count()
     }
 }
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 struct Active {
     start: u64,
     candidate: bool,
+    opening_event_id: Id,
 }
 fn finish(
     active: &mut Option<Active>,
@@ -72,6 +74,7 @@ fn finish(
             end_ms: end,
             duration_ms: duration,
             completeness,
+            opening_event_id: session.opening_event_id,
         });
     }
 }
@@ -157,6 +160,7 @@ pub fn reduce(
                         active = Some(Active {
                             start: event.observed_at_ms,
                             candidate: true,
+                            opening_event_id: event.event_id.clone(),
                         });
                     } else {
                         result.opens += 1;
@@ -164,6 +168,7 @@ pub fn reduce(
                         active = Some(Active {
                             start: event.observed_at_ms,
                             candidate: false,
+                            opening_event_id: event.event_id.clone(),
                         });
                     }
                 }
@@ -172,7 +177,7 @@ pub fn reduce(
                         result.closes += 1;
                         result.counted_events.push(event.event_id.clone());
                     }
-                    if let Some(session) = active {
+                    if let Some(session) = active.as_ref() {
                         let completeness = if event.observed_at_ms < session.start {
                             Completeness::Incomplete
                         } else if session.candidate {
@@ -221,4 +226,45 @@ pub fn reduce(
             .ok_or(DomainError::Overflow)?;
     }
     Ok(result)
+}
+
+/// User deletion suppresses contributions after causal replay. Removing an observation
+/// before replay could turn a later repeated state into a new fold, increasing scores.
+pub fn reduce_with_deletions(
+    events: &[Event],
+    interruptions: &[Interruption],
+    generation: &Generation,
+    deleted: &BTreeSet<Id>,
+) -> Result<Summary, DomainError> {
+    let mut summary = reduce(events, interruptions, generation)?;
+    if deleted.is_empty() {
+        return Ok(summary);
+    }
+    let by_id: BTreeMap<_, _> = events.iter().map(|e| (&e.event_id, e)).collect();
+    summary.counted_events.retain(|id| {
+        if !deleted.contains(id) {
+            return true;
+        }
+        if let Some(event) = by_id.get(id) {
+            match event.transition {
+                Transition::Open => summary.opens -= 1,
+                Transition::Close => summary.closes -= 1,
+            }
+        }
+        false
+    });
+    summary
+        .sessions
+        .retain(|session| !deleted.contains(&session.opening_event_id));
+    summary.cycles = summary
+        .sessions
+        .iter()
+        .filter(|s| s.completeness == Completeness::Complete)
+        .count() as u64;
+    summary.complete_duration_ms = summary
+        .sessions
+        .iter()
+        .map(|s| s.duration_ms.unwrap_or(0))
+        .sum();
+    Ok(summary)
 }

@@ -38,10 +38,16 @@ final class PersonalDerivedCache {
       try db.execute(
         "CREATE TABLE IF NOT EXISTS counted (key TEXT NOT NULL,event_id TEXT NOT NULL,observed_ms INTEGER NOT NULL,PRIMARY KEY(key,event_id))"
       )
+      try db.execute(
+        "CREATE TABLE IF NOT EXISTS deleted_events (key TEXT NOT NULL,event_id TEXT NOT NULL,PRIMARY KEY(key,event_id))"
+      )
+      try db.execute(
+        "CREATE TABLE IF NOT EXISTS deleted_sessions (key TEXT NOT NULL,device TEXT NOT NULL,start_ms INTEGER NOT NULL,PRIMARY KEY(key,device,start_ms))"
+      )
       try db.execute("CREATE INDEX IF NOT EXISTS counted_time ON counted(key,observed_ms)")
     }
   }
-  private func key(_ timezone: String) -> String { "1:\(TrackingReducer.version):\(timezone)" }
+  private func key(_ timezone: String) -> String { "3:\(TrackingReducer.version):\(timezone)" }
   private func encode<T: Encodable>(_ value: T) throws -> String {
     String(decoding: try encoder.encode(value), as: UTF8.self)
   }
@@ -70,6 +76,18 @@ final class PersonalDerivedCache {
         .text(session.completeness.rawValue), .text(try encode(session)),
       ])
   }
+  private func isDeleted(_ session: TrackingSession, key: String) throws -> Bool {
+    if let openingID = session.openingEventID {
+      return try !db.rows(
+        "SELECT event_id FROM deleted_events WHERE key=? AND event_id=?",
+        [.text(key), .text(openingID.uuidString.lowercased())]
+      ).isEmpty
+    }
+    return try !db.rows(
+      "SELECT start_ms FROM deleted_sessions WHERE key=? AND device=? AND start_ms=?",
+      [.text(key), .text(session.deviceID.uuidString.lowercased()), .integer(session.startMS)]
+    ).isEmpty
+  }
   private func saveSource(_ checkpoint: TrackingCheckpoint, ordinal: Int64, key: String) throws {
     try db.execute(
       "INSERT INTO sources VALUES (?,?,?,?) ON CONFLICT(key,device) DO UPDATE SET ordinal=excluded.ordinal,checkpoint=excluded.checkpoint",
@@ -92,13 +110,15 @@ final class PersonalDerivedCache {
     let projection = try PersonalAnalytics.snapshot(
       events: input.events, interruptions: input.interruptions,
       generation: input.generation, homeTimezone: timezone, asOfMS: 0,
-      range: PersonalDateRange(startMS: 0, endMS: 1), transferMarkers: input.transfers)
+      range: PersonalDateRange(startMS: 0, endMS: 1), transferMarkers: input.transfers,
+      deletions: input.deletions)
     let counted = input.events.filter { projection.countedEventIDs.contains($0.eventID) }
     let days = try PersonalDayAggregation.days(
       countedEvents: counted, sessions: projection.sessions, homeTimezone: timezone)
     let selection = try PrivateTransferPolicy.winner(input.transfers)
     let included = input.events.filter { PrivateTransferPolicy.includes($0, under: selection) }
-    let eligible = included.filter { !$0.isTest }
+    let deletedIDs = Set(input.deletions.flatMap(\.eventIDs))
+    let eligible = included.filter { !$0.isTest && !deletedIDs.contains($0.eventID) }
     let header = DerivedHeader(
       journalID: input.revision.journalID, revision: input.revision.revision,
       rebuildEpoch: input.revision.rebuildEpoch,
@@ -116,8 +136,22 @@ final class PersonalDerivedCache {
       {
         return
       }
-      for table in ["sources", "sessions", "days", "counted"] {
+      for table in ["sources", "sessions", "days", "counted", "deleted_events", "deleted_sessions"]
+      {
         try db.execute("DELETE FROM \(table) WHERE key=?", [.text(cacheKey)])
+      }
+      for marker in input.deletions where marker.target.generation == input.generation {
+        try db.execute(
+          "INSERT OR IGNORE INTO deleted_sessions VALUES (?,?,?)",
+          [
+            .text(cacheKey), .text(marker.target.deviceID.uuidString.lowercased()),
+            .integer(marker.target.startMS),
+          ])
+        for eventID in marker.eventIDs {
+          try db.execute(
+            "INSERT OR IGNORE INTO deleted_events VALUES (?,?)",
+            [.text(cacheKey), .text(eventID.uuidString.lowercased())])
+        }
       }
       for (source, events) in Dictionary(grouping: included, by: \.deviceID) {
         var checkpoint = TrackingCheckpoint(deviceID: source, generation: input.generation)
@@ -177,7 +211,14 @@ final class PersonalDerivedCache {
           try row.map { try decode($0["checkpoint"]!) }
           ?? TrackingCheckpoint(deviceID: event.deviceID, generation: header.generation)
         var ordinal = row?["ordinal"].flatMap(Int64.init) ?? 0
-        let delta = try checkpoint.append(event)
+        let rawDelta = try checkpoint.append(event)
+        let deletedEvent = try !db.rows(
+          "SELECT event_id FROM deleted_events WHERE key=? AND event_id=?",
+          [.text(cacheKey), .text(event.eventID.uuidString.lowercased())]
+        ).isEmpty
+        let deletedSession =
+          try rawDelta.finishedSession.map { try isDeleted($0, key: cacheKey) } ?? false
+        let delta = rawDelta.suppressingDeleted(event: deletedEvent, session: deletedSession)
         try header.totals.apply(delta)
         try db.execute(
           "DELETE FROM sessions WHERE key=? AND device=? AND state='running'",
@@ -186,7 +227,7 @@ final class PersonalDerivedCache {
           try saveSession(finished, ordinal: ordinal, key: cacheKey)
           ordinal += 1
         }
-        if let running = checkpoint.runningSession {
+        if let running = checkpoint.runningSession, try !isDeleted(running, key: cacheKey) {
           try saveSession(running, ordinal: ordinal, key: cacheKey)
         }
         try saveSource(checkpoint, ordinal: ordinal, key: cacheKey)

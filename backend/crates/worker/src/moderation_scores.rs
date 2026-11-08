@@ -120,7 +120,9 @@ pub(crate) async fn change(
     }) {
         return Err(Failure::conflict());
     }
-    let summary = reducer::reduce(&accepted, &[], &generation).map_err(|_| Failure::conflict())?;
+    let deleted = crate::entry_deletion_runtime::deleted_ids(db, participant).await?;
+    let summary = reducer::reduce_with_deletions(&accepted, &[], &generation, &deleted)
+        .map_err(|_| Failure::conflict())?;
     let times: std::collections::BTreeMap<_, _> = accepted
         .iter()
         .map(|e| (&e.event_id, e.observed_at_ms))
@@ -167,7 +169,7 @@ pub(crate) async fn change(
     }
     Ok((writes, submission))
 }
-fn score(
+pub(crate) fn score(
     db: &D1Database,
     participant: &str,
     generation: &Generation,

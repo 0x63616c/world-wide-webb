@@ -28,6 +28,13 @@ import struct FoldingData.SetupProgress
           .allowsHitTesting(false)
           .preferredColorScheme(.light)
           .tint(FoldingTint.color)
+        } else if fixture.scenario == "notifications" {
+          NavigationStack {
+            NotificationSettingsScreen(model: fixture.model, actions: fixture.actions)
+          }
+          .fontDesign(.rounded)
+          .preferredColorScheme(fixture.model.preferences.appearance.scheme)
+          .tint(FoldingTint.color)
         } else {
           FoldingRootView(model: fixture.model, actions: fixture.actions)
         }
@@ -61,8 +68,11 @@ import struct FoldingData.SetupProgress
     locale = value("--folding-screenshot-locale", default: "en")
     let appearance = value("--folding-screenshot-appearance", default: "light")
     guard
-      ["today", "today-running", "history", "leaderboard", "settings", "setup", "join", "tipjar"]
-        .contains(scenario),
+      [
+        "today", "today-running", "today-live", "history", "history-month", "history-long",
+        "patterns", "notifications", "leaderboard", "settings", "setup", "join", "tipjar",
+      ]
+      .contains(scenario),
       ["en", "de", "fr", "es", "es-419", "ja", "ko", "pt-BR", "zh-Hans", "zh-Hant"].contains(
         locale) || (scenario == "tipjar" && locale == "en-US"),
       ["light", "dark"].contains(appearance)
@@ -75,7 +85,9 @@ import struct FoldingData.SetupProgress
     } else {
       tipRows = []
     }
-    let now = ISO8601DateFormatter().date(from: Self.fixedClock)!
+    // The diagnostic live-timer scene uses the real clock; release/storefront fixtures remain fixed.
+    let now =
+      scenario == "today-live" ? Date.now : ISO8601DateFormatter().date(from: Self.fixedClock)!
     let nowMS = Int64(now.timeIntervalSince1970 * 1000)
     let device = UUID(uuidString: "11111111-1111-1111-1111-111111111111")!
     var events: [TrackingEvent] = []
@@ -98,7 +110,7 @@ import struct FoldingData.SetupProgress
         }
       }
     }
-    if scenario == "today-running" {
+    if scenario == "today-running" || scenario == "today-live" {
       sequence += 1
       events.append(
         TrackingEvent(
@@ -163,15 +175,23 @@ import struct FoldingData.SetupProgress
     model.lastEventAt = Date(timeIntervalSince1970: Double(events.last!.observedAtMS) / 1000)
     model.preferences.homeTimezone = "GMT"
     model.preferences.appearance = appearance == "dark" ? .dark : .light
-    model.history = history
-    model.historyOffset = -1
+    let displayedPeriod: HistoryPeriod = scenario == "history-month" ? .month : .week
+    let displayedOffset = scenario == "history-month" ? 0 : -1
+    model.history = try Self.history(
+      events: events, at: nowMS, period: displayedPeriod, offset: displayedOffset)
+    model.historyPeriod = displayedPeriod
+    model.historyOffset = displayedOffset
     model.competition = .loaded(board)
     model.competitionPeriod = .month
     model.competitionProfile = CompetitionProfile(
       id: "sample-mika", nickname: "Mika",
       approvedAvatarURL: nil, nicknamePending: false, avatarState: .none)
     switch scenario {
-    case "history": model.selectedTab = .history
+    case "history", "history-long", "history-month": model.selectedTab = .history
+    case "patterns": model.sheet = .patterns
+    case "notifications":
+      model.notificationAuthorization = .allowed
+      model.notificationPreferences.dailyLimit = true
     case "leaderboard": model.selectedTab = .leaderboard
     case "settings": model.selectedTab = .settings
     case "join":
@@ -187,12 +207,63 @@ import struct FoldingData.SetupProgress
       model.showInitialSetup = true
     default: break
     }
+    let fixtureEvents = events
     self.model = model
     self.actions = FoldingActions(
       refresh: {}, setup: { _ in throw Failure.readOnly },
-      savePreferences: { _ in throw Failure.readOnly }, loadHistory: { _, _ in history },
+      // Interaction fixtures only mutate this in-memory model, never app/provider data.
+      savePreferences: { proposed in model.preferences = proposed },
+      loadHistory: { period, offset in
+        try Self.history(events: fixtureEvents, at: nowMS, period: period, offset: offset)
+      },
+      saveNotifications: { proposed in
+        model.notificationPreferences = proposed
+        return proposed
+      },
       loadLeaderboard: { _ in board }, openShortcuts: {},
       joinCompetition: { _ in throw Failure.readOnly },
-      uploadAvatar: { _ in throw Failure.readOnly })
+      uploadAvatar: { _ in throw Failure.readOnly },
+      loadPatterns: {
+        try FoldingActivityPatterns.snapshot(events: fixtureEvents, analytics: analytics)
+      }, deleteIncompleteEntry: { _ in throw Failure.readOnly })
   }
+  private static func history(
+    events: [TrackingEvent], at nowMS: Int64, period: HistoryPeriod, offset: Int
+  ) throws -> HistoryPresentation {
+    let result = try PersonalHistory.snapshot(
+      events: events, interruptions: [], generation: .initial,
+      homeTimezone: "GMT", asOfMS: nowMS, period: PersonalHistoryPeriod(rawValue: period.rawValue)!,
+      offset: offset)
+    let format = DateFormatter()
+    format.timeZone = TimeZone(secondsFromGMT: 0)
+    format.locale = Locale.current
+    switch period {
+    case .day: format.dateFormat = "j"
+    case .week: format.dateFormat = "EEE"
+    case .month: format.dateFormat = "d"
+    case .all: format.dateFormat = "MMM yyyy"
+    }
+    let range = result.analytics.range
+    let interval = DateIntervalFormatter()
+    interval.dateStyle = .medium
+    interval.timeStyle = .none
+    interval.timeZone = TimeZone(secondsFromGMT: 0)
+    let start = Date(timeIntervalSince1970: Double(range.startMS) / 1000)
+    let end = Date(timeIntervalSince1970: Double(range.endMS) / 1000)
+    return HistoryPresentation(
+      title: interval.string(from: start, to: end.addingTimeInterval(-0.001)),
+      folds: result.bins.reduce(0) { $0 + $1.folds },
+      completeDurationMS: result.analytics.days.reduce(0) { $0 + $1.completeDurationMS },
+      bins: result.bins.map { bin in
+        let start = Date(timeIntervalSince1970: Double(bin.startMS) / 1000)
+        return HistoryBin(
+          start: start, end: Date(timeIntervalSince1970: Double(bin.endMS) / 1000),
+          label: format.string(from: start), folds: bin.folds)
+      },
+      sessions: result.analytics.sessions.filter {
+        $0.startMS < range.endMS && ($0.endMS ?? Int64.max) > range.startMS
+      },
+      canGoNext: result.canGoNext, canGoPrevious: result.canGoPrevious)
+  }
+
 }

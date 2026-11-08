@@ -43,6 +43,21 @@ enum AppleNameSuggestion {
   private struct Saved: Codable {
     let userHash: String
     let name: String
+    var participantID: String?
+  }
+  static func bindParticipant(_ participantID: String) throws {
+    guard let data = try store.read("apple-name"),
+      var saved = try? JSONDecoder().decode(Saved.self, from: data)
+    else { return }
+    saved.participantID = participantID
+    try store.write(JSONEncoder().encode(saved), account: "apple-name")
+  }
+  static func name(forParticipant participantID: String) -> String? {
+    guard let data = try? store.read("apple-name"),
+      let saved = try? JSONDecoder().decode(Saved.self, from: data),
+      saved.participantID == participantID
+    else { return nil }
+    return saved.name
   }
   static func resolve(
     _ components: PersonNameComponents?, userID: String,
@@ -56,7 +71,8 @@ enum AppleNameSuggestion {
         let given = components.givenName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let name = full.count <= 20 || given.isEmpty ? full : given
         try store.write(
-          JSONEncoder().encode(Saved(userHash: userHash, name: name)), account: "apple-name")
+          JSONEncoder().encode(Saved(userHash: userHash, name: name, participantID: nil)),
+          account: "apple-name")
         return name
       }
     }
@@ -92,6 +108,7 @@ final class CompetitionSignIn: NSObject, ASAuthorizationControllerDelegate,
       CompetitionSession(
         access_token: access,
         refresh_token: refresh, expires_at_ms: expiry), context: context)
+    try AppleNameSuggestion.bindParticipant(profile.participant_id)
     return CompetitionSignInResult(profile: profile, suggestedName: name)
   }
 

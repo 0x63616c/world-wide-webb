@@ -289,3 +289,27 @@ Only choices that cannot sensibly be invented remain:
 - Access to the owner's Duo for guided real-device testing during implementation.
 
 Everything else above has a recommended default. Review this document by pointing to anything you disagree with; there is no need to answer another technical questionnaire. The owner has now authorized implementation and shipping under an active goal.
+
+## Owner follow-up — November 8, 2026
+
+The owner explicitly resumed app implementation and internal TestFlight shipping,
+leaving Penpot proposals outside this work. This update supersedes older UI
+details: use SF Rounded, consistent rounded cards and equal stat insets; remove
+Equivalent travel from visible UI/preferences. The main Time unfolded value
+includes the active bounded session and ticks in the foreground. Today cards
+support persisted drag-and-drop ordering and a native accessible editor.
+
+History navigation stops at the first recorded period. Its session area scrolls
+within a bounded height. Month scrubbing shows the full localized month/day in
+the lower-left readout. Patterns aggregate countable folds by home-zone hour,
+weekday and month day. Incomplete entries can be deleted with confirmation;
+their contributions leave personal totals and current leaderboards, with
+durable offline retry. Published historical result versions remain immutable
+and retain the existing correction policy.
+
+Only successful Shortcuts checks use a small green tick. Notification switches
+use monochrome contrast. Competition result notification choices require joining;
+local daily-limit alerts remain independent. Authenticated unjoined users can
+continue name/photo review without another Apple grant. The tip jar thanks indie
+developer supporters and celebrates verified purchases, respecting Reduce Motion.
+Broader App Store and physical-device acceptance remain deferred.

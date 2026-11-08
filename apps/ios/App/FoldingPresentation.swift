@@ -22,6 +22,10 @@ enum FoldingAppearance: String, Codable, CaseIterable, Identifiable {
   }
 }
 
+enum FoldingShape {
+  static let cornerRadius: CGFloat = 20
+}
+
 enum FoldingTint {
   static let color = Color(
     uiColor: UIColor { traits in
@@ -34,7 +38,7 @@ enum FoldingTint {
 }
 
 enum SummaryMetric: String, Codable, CaseIterable, Identifiable {
-  case timeUnfolded, trend, opens, closes, cycles, lifetimeFolds, equivalentTravel,
+  case folds, timeUnfolded, trend, opens, closes, cycles, lifetimeFolds,
     competitionComparison
   var id: Self { self }
   var title: String {
@@ -47,8 +51,7 @@ enum SummaryMetric: String, Codable, CaseIterable, Identifiable {
     case .closes: String(localized: "metric.closes", defaultValue: "Closes")
     case .cycles: String(localized: "metric.cycles", defaultValue: "Cycles")
     case .lifetimeFolds: String(localized: "metric.lifetimeFolds", defaultValue: "All-time folds")
-    case .equivalentTravel:
-      String(localized: "metric.equivalentTravel", defaultValue: "Equivalent travel")
+    case .folds: String(localized: "metric.folds", defaultValue: "Folds")
     }
   }
 }
@@ -59,11 +62,39 @@ struct FoldingPreferences: Codable, Equatable {
   var metrics: [SummaryMetric] = [.timeUnfolded, .trend]
   var homeTimezone = TimeZone.current.identifier
   var dailyLimit = 100
-  var travelUnit: TravelUnit? = nil
-}
-
-enum TravelUnit: String, Codable, CaseIterable {
-  case metres, feet
+  var cardOrder: [SummaryMetric]? = nil
+  init() {}
+  enum CodingKeys: String, CodingKey {
+    case schemaVersion, appearance, metrics, homeTimezone, dailyLimit, cardOrder
+  }
+  init(from decoder: Decoder) throws {
+    let values = try decoder.container(keyedBy: CodingKeys.self)
+    schemaVersion = try values.decode(Int.self, forKey: .schemaVersion)
+    appearance = try values.decode(FoldingAppearance.self, forKey: .appearance)
+    // Discard retired/unknown metrics without discarding timezone or other saved choices.
+    metrics = try values.decode([String].self, forKey: .metrics)
+      .compactMap(SummaryMetric.init(rawValue:)).filter { $0 != .folds }
+    homeTimezone = try values.decode(String.self, forKey: .homeTimezone)
+    dailyLimit = try values.decode(Int.self, forKey: .dailyLimit)
+    cardOrder = try values.decodeIfPresent([String].self, forKey: .cardOrder)?
+      .compactMap(SummaryMetric.init(rawValue:))
+  }
+  var orderedCards: [SummaryMetric] {
+    let enabled = [.folds] + metrics
+    var seen = Set<SummaryMetric>()
+    return ((cardOrder ?? []) + enabled).filter {
+      enabled.contains($0) && seen.insert($0).inserted
+    }
+  }
+  mutating func moveCard(_ card: SummaryMetric, to target: SummaryMetric) {
+    var order = orderedCards
+    guard card != target, let source = order.firstIndex(of: card),
+      let destination = order.firstIndex(of: target)
+    else { return }
+    order.remove(at: source)
+    order.insert(card, at: destination)
+    cardOrder = order
+  }
 }
 
 enum HistoryPeriod: String, CaseIterable, Identifiable {
@@ -95,6 +126,7 @@ struct HistoryPresentation: Sendable {
   let bins: [HistoryBin]
   let sessions: [TrackingSession]
   let canGoNext: Bool
+  var canGoPrevious: Bool = false
 }
 
 enum CompetitionPeriod: String, CaseIterable, Identifiable, Sendable {
@@ -151,7 +183,7 @@ enum CompetitionPresentation {
 }
 
 enum PresentedSheet: Identifiable, Equatable {
-  case settings, setup, editSummary, travelInfo, leaderboardInfo, trackingPhone
+  case settings, setup, editSummary, patterns, leaderboardInfo, trackingPhone
   case tiedRank(Int)
   case export(UUID)
   case competition(CompetitionSheet)
@@ -162,7 +194,7 @@ enum PresentedSheet: Identifiable, Equatable {
     case .trackingPhone: "tracking-phone"
     case .setup: "setup"
     case .editSummary: "summary"
-    case .travelInfo: "travel"
+    case .patterns: "patterns"
     case .leaderboardInfo: "leaderboard-info"
     case .tiedRank(let rank): "tie-\(rank)"
     case .export(let ticket): "export-\(ticket.uuidString)"
@@ -188,12 +220,14 @@ struct SessionPresentation: Hashable {
   let end: Date?
   let durationMS: Int64?
   let completeness: SessionCompleteness
+  let deletionTarget: SessionDeletionTarget
   init(_ session: TrackingSession) {
     deviceID = session.deviceID
     start = Date(timeIntervalSince1970: Double(session.startMS) / 1000)
     end = session.endMS.map { Date(timeIntervalSince1970: Double($0) / 1000) }
     durationMS = session.durationMS
     completeness = session.completeness
+    deletionTarget = SessionDeletionTarget(session)
   }
 }
 
@@ -251,6 +285,8 @@ enum ExportChoice { case json, csv }
   var leaveCompetition: (() async throws -> Void)?
   var deleteCompetitionAccount: (() async throws -> Void)?
   var signInCompetition: (() async throws -> Void)?
+  var loadPatterns: (() async throws -> FoldingActivityPatterns)?
+  var deleteIncompleteEntry: ((SessionDeletionTarget) async throws -> Void)?
   var appleRequest: ((ASAuthorizationAppleIDRequest) -> Void)?
   var appleCompletion: ((Result<ASAuthorization, Error>) -> Void)?
   /// Verified per-OS/localized instructions, supplied by composition rather than invented by views.
@@ -259,6 +295,7 @@ enum ExportChoice { case json, csv }
 }
 
 @MainActor @Observable final class FoldingPresentation {
+  var entryDeletionPending = false
   /// Widget links select the tab underneath setup; dismissing setup preserves the destination.
   func openWidgetURL(_ url: URL) {
     guard let parts = URLComponents(url: url, resolvingAgainstBaseURL: false),
@@ -533,11 +570,13 @@ struct RunningDurationPresentation {
   private let startsMS: [Int64]
   private let asOfMS: Int64
   private let dayEndMS: Int64
+  private let completeDurationMS: Int64
   var isRunning: Bool { !startsMS.isEmpty }
 
   init(snapshot: PersonalAnalyticsSnapshot, day: PersonalDailySummary) {
     asOfMS = snapshot.asOfMS
     dayEndMS = day.endMS
+    completeDurationMS = day.completeDurationMS
     startsMS = snapshot.sessions.compactMap { session in
       guard day.timezoneID == snapshot.homeTimezone,
         day.startMS <= snapshot.asOfMS, snapshot.asOfMS < day.endMS,
@@ -547,6 +586,11 @@ struct RunningDurationPresentation {
       else { return nil }
       return max(day.startMS, session.startMS)
     }
+  }
+
+  func totalDurationMS(at date: Date) -> Int64 {
+    let sum = completeDurationMS.addingReportingOverflow(durationMS(at: date))
+    return sum.overflow ? Int64.max : sum.partialValue
   }
 
   func durationMS(at date: Date) -> Int64 {

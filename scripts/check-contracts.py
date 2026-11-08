@@ -32,7 +32,7 @@ def invalid(schema, value):
     assert not validators[schema].is_valid(value), f'{schema} accepted invalid example'
     checks += 1
 
-for stem in ('event-batch', 'event-receipt', 'reset-request', 'error'):
+for stem in ('event-batch', 'event-receipt', 'reset-request', 'error', 'entry-deletion-request', 'entry-deletion-receipt'):
     valid(f'{stem}.schema.json', json.loads((FIXTURES / f'{stem}.json').read_text()))
 auth = json.loads((FIXTURES / 'auth-requests.json').read_text())
 for case in auth['valid']:
@@ -66,6 +66,14 @@ invalid('event-batch.schema.json', batch)
 receipt = json.loads((FIXTURES / 'event-receipt.json').read_text())
 receipt['events'][0]['disposition'] = 'quarantined'
 invalid('event-receipt.schema.json', receipt)
+
+deletion = json.loads((FIXTURES / 'entry-deletion-request.json').read_text())
+for key, value in [('event_ids', []), ('event_ids', deletion['event_ids'] * 2),
+                   ('epoch_ids', []), ('epoch_ids', deletion['epoch_ids'] * 2),
+                   ('client_total', 100)]:
+    changed = copy.deepcopy(deletion)
+    changed[key] = value
+    invalid('entry-deletion-request.schema.json', changed)
 
 # Parse the complete fixture set; these lifecycle expectations are consumed by
 # later Swift/Rust integration tests, not claimed as executed implementation here.

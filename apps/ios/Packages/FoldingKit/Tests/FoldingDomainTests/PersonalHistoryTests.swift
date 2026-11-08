@@ -174,3 +174,16 @@ private func history(
     }
   }
 }
+
+@Test func historyStopsAtEarliestRecordedCalendarPeriod() throws {
+  let events = [
+    observation(1, .open, "2026-11-02T12:00:00Z"), observation(2, .close, "2026-11-02T12:00:10Z"),
+  ]
+  let current = try history(events, period: .month, now: "2026-12-07T12:00:00Z")
+  #expect(current.canGoPrevious)
+  let earliest = try history(events, period: .month, offset: -1, now: "2026-12-07T12:00:00Z")
+  #expect(!earliest.canGoPrevious)
+  let beyond = try history(events, period: .month, offset: -100, now: "2026-12-07T12:00:00Z")
+  #expect(beyond.analytics.range == earliest.analytics.range)
+  #expect(!beyond.canGoPrevious)
+}

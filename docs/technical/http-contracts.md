@@ -78,3 +78,26 @@ Every POST has `operation_id`, `csrf_token`, `reason` (10–500 graphemes), `exp
 Admin management amendments (prelaunch): `GET /admin/periods` lists periods; `GET /admin/jobs` lists failed dispatch/award work and `POST /admin/jobs/{id}/retry` retries the same logical record with Access, CSRF, explicit confirmation, reason, expected failed-state attempt count and audit. No retry bypasses consent/privacy or recreates a logical award. Existing `/admin/moderation` additionally accepts `review_ban` (records upheld result and next annual review, without lifting restriction) and `close_case` (starts the 90-day evidence retention window), both participant-revision fenced and audited. Appeals remain the public support/appeal route; administrative case reasons record their outcome. Destructive moderation choices require explicit confirmation.
 
 `GET /v1/health` is a public, read-only operational probe: `200 {status:"ok",worker_version:string}` after a fixed indexed D1 administrative-configuration singleton query; `503 {status:"unavailable"}` on missing/invalid version configuration, DB failure, missing row or a two-second readiness timeout. Always `Cache-Control: no-store`; never return user records/counts, credential state or error details. This probe does not claim feature acceptance and is independent of `/v1/capabilities`.
+
+## Incomplete-entry contribution removal
+
+`POST /v1/entry-deletions` accepts the typed
+[request](../../contracts/schemas/entry-deletion-request.schema.json):
+`operation_id`, 1–2 distinct `event_ids`, and 1–2 distinct `epoch_ids`. An
+authenticated session is required; App Attest is not required to remove one's
+own data. Every supplied epoch must belong to that participant. Tombstones are
+participant-scoped, so arbitrary IDs cannot affect another participant. No score
+is accepted from the client.
+
+The [receipt](../../contracts/schemas/entry-deletion-receipt.schema.json) reports
+completed state and request ID. Normalized retries are idempotent; changed bodies
+under the same operation return conflict. Wrong-account epochs return 403
+`wrong_account`. Per-participant authentication/mutation rate limits apply.
+
+The atomic, session/revision-fenced mutation persists tombstones, replays accepted
+causal observations with contributions suppressed, and refreshes current
+week/month/all-time scores. Late uploads also honor the tombstones. A decision
+clock guards in-flight finalization; affected staged results are invalidated.
+Published historical result versions retain the formal correction workflow.
+Migration 0018 creates the indexed participant-owned tombstone table; account
+erasure removes it.

@@ -17,6 +17,19 @@ public struct TrackingSession: Codable, Equatable, Sendable {
   public let endMS: Int64?
   public let durationMS: Int64?
   public let completeness: SessionCompleteness
+  public let openingEventID: UUID?
+  public init(
+    deviceID: UUID, generation: ResetGeneration, startMS: Int64, endMS: Int64?,
+    durationMS: Int64?, completeness: SessionCompleteness, openingEventID: UUID? = nil
+  ) {
+    self.deviceID = deviceID
+    self.generation = generation
+    self.startMS = startMS
+    self.endMS = endMS
+    self.durationMS = durationMS
+    self.completeness = completeness
+    self.openingEventID = openingEventID
+  }
 }
 
 public struct TrackingSummary: Codable, Equatable, Sendable {
@@ -33,7 +46,7 @@ public struct TrackingSummary: Codable, Equatable, Sendable {
 
 /// Replays immutable observations. Persistence and calendar aggregation are separate operations.
 public enum TrackingReducer {
-  public static let version = 1
+  public static let version = 2
   public static let maximumInteger: Int64 = 9_007_199_254_740_991
 
   private struct Source: Hashable {
@@ -43,8 +56,16 @@ public enum TrackingReducer {
 
   public static func reduce(
     events: [TrackingEvent], interruptions: [TrackingInterruption] = [],
-    generation: ResetGeneration
+    generation: ResetGeneration, deletions: [TrackingDeletion] = []
   ) throws -> TrackingSummary {
+    for deletion in deletions { try deletion.validate() }
+    let activeDeletions = deletions.filter { $0.target.generation == generation }
+    let deletedIDs = Set(activeDeletions.flatMap(\.eventIDs))
+    let deletedSessions = Set(activeDeletions.map { TrackingSessionIdentity($0.target) })
+    func visible(_ session: TrackingSession) -> Bool {
+      if let openingID = session.openingEventID { return !deletedIDs.contains(openingID) }
+      return !deletedSessions.contains(TrackingSessionIdentity(session))
+    }
     var byID: [UUID: TrackingEvent] = [:]
     var bySource: [Source: [Int64: TrackingEvent]] = [:]
     for event in events {
@@ -85,19 +106,27 @@ public enum TrackingReducer {
       var checkpoint = TrackingCheckpoint(deviceID: source.deviceID, generation: source.generation)
       for event in ordered {
         while markerIndex < markers.count && markers[markerIndex] < event.sequence {
-          if let session = checkpoint.interrupt() { result.sessions.append(session) }
+          if let session = checkpoint.interrupt(), visible(session) {
+            result.sessions.append(session)
+          }
           markerIndex += 1
         }
         let delta = try checkpoint.append(event)
-        result.opens += delta.opens
-        result.closes += delta.closes
-        result.cycles += delta.cycles
-        if let session = delta.finishedSession { result.sessions.append(session) }
+        if !deletedIDs.contains(event.eventID) {
+          result.opens += delta.opens
+          result.closes += delta.closes
+        }
+        if let session = delta.finishedSession, visible(session) {
+          result.cycles += delta.cycles
+          result.sessions.append(session)
+        }
       }
-      if markerIndex < markers.count, let session = checkpoint.interrupt() {
+      if markerIndex < markers.count, let session = checkpoint.interrupt(), visible(session) {
         result.sessions.append(session)
       }
-      if let session = checkpoint.runningSession { result.sessions.append(session) }
+      if let session = checkpoint.runningSession, visible(session) {
+        result.sessions.append(session)
+      }
     }
     for session in result.sessions {
       guard let duration = session.durationMS else { continue }

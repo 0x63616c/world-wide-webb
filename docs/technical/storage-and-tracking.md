@@ -121,3 +121,26 @@ Schema v4 indexes deferred records by generation and reset ID. Each import proce
 `AccountPartitionRouter` persists an active namespace, installation identity and opaque lease epoch in a protected, atomically replaced and fsynced route record. Shared OS file locks span journal reads/writes; suspension uses the exclusive lock and invalidates every earlier lease. A paused route remains paused after process death. A restored route cannot authorize a different installation; account re-verification must activate a new lease before its history becomes accessible. Activation requires the latest transition ticket, prepares the isolated target journal, clears its stale public enrollment/work and waiting setup lease, and records a tracking interruption if it has prior observations. No history is copied between accounts.
 
 `PrivatePartitionSession` owns the app's mirror lifecycle: invalidate the route before awaiting shutdown or account lookup, stop/close the old coordinator, and reconcile only a newly verified account. A matching verified account on ordinary launch reuses the existing lease and preserves session continuity. Recheck the lease after asynchronous mirror loading so an intervening account signal cannot expose a stale journal. App/intent/widget composition must use routed handles; the raw journal initializer remains for isolated storage tests. Actual CloudKit identity lookup/account notification wiring and UI/widget/export cache invalidation remain pending integration requirements.
+
+## Per-entry deletion (journal v8 / reducer v2 / cache v3)
+
+Incomplete entries use immutable UUID tombstones carrying source/generation,
+opening-event identity, optional end, deleted event IDs and their public epochs.
+Resolve the target against authoritative replay in the same transaction. Retain
+the raw causal stream internally; suppress deleted contributions after replay so
+a later repeated state cannot become a new fold. Use the opening ID, not a
+timestamp alone, to avoid deleting a same-time neighbour. Deleted observations
+are omitted from export rows and analytics; legacy export travel formula fields
+remain for compatibility although the visible travel feature is retired.
+
+`entry_deletions` stores payload and durable public acknowledgment state. Imported
+markers can precede events and cannot resurrect on append/cache rebuild. Mirror
+records reuse the existing generation-indexed TrackingInterruption payload entity;
+no CloudKit schema promotion is required. The indexed cache stores deleted event
+and session identities separately rather than growing the snapshot header.
+
+Deletions made offline or signed out retain their epoch ownership hints and retry
+when authenticated. A server wrong-account result defers that marker for the
+current participant without blocking other removals. Only a matching completed
+operation is acknowledged. A reset clears old-generation tombstones and pending
+work. Prepared exports are purged on deletion.

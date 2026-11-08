@@ -112,6 +112,21 @@ async fn freeze(db: &D1Database, period: &Period, time: i64) -> std::result::Res
 pub(crate) async fn stage(db: &D1Database, period: &Period) -> std::result::Result<(), Failure> {
     let rows=statement(db,"SELECT participant_id,generation_revision,generation_id,joined_at_ms FROM period_roster WHERE period_id=?1 AND version=?2 AND state='pending' ORDER BY participant_id LIMIT 25",&[text(&period.period_id),number(period.target_version)])?.all().await.map_err(|_|Failure::unavailable())?.results::<Roster>().map_err(|_|Failure::unavailable())?;
     for row in rows {
+        #[derive(Deserialize)]
+        struct DecisionVersion {
+            version: i64,
+        }
+        let decision_version = statement(
+            db,
+            "SELECT version FROM decision_clock WHERE singleton=1",
+            &[],
+        )?
+        .first::<DecisionVersion>(None)
+        .await
+        .map_err(|_| Failure::unavailable())?
+        .ok_or_else(Failure::unavailable)?
+        .version;
+        let deleted = crate::entry_deletion_runtime::deleted_ids(db, &row.participant_id).await?;
         let input=statement(db,"SELECT event_json FROM finalization_inputs WHERE period_id=?1 AND version=?2 AND participant_id=?3",&[text(&period.period_id),number(period.target_version),text(&row.participant_id)])?.all().await.map_err(|_|Failure::unavailable())?.results::<Input>().map_err(|_|Failure::unavailable())?;
         let events: Vec<Event> = input
             .into_iter()
@@ -121,8 +136,8 @@ pub(crate) async fn stage(db: &D1Database, period: &Period) -> std::result::Resu
             revision: row.generation_revision,
             reset_id: Id::parse(&row.generation_id).map_err(|_| Failure::unavailable())?,
         };
-        let summary =
-            reducer::reduce(&events, &[], &generation).map_err(|_| Failure::unavailable())?;
+        let summary = reducer::reduce_with_deletions(&events, &[], &generation, &deleted)
+            .map_err(|_| Failure::unavailable())?;
         let times: std::collections::BTreeMap<_, _> = events
             .iter()
             .map(|e| (&e.event_id, e.observed_at_ms))
@@ -133,7 +148,7 @@ pub(crate) async fn stage(db: &D1Database, period: &Period) -> std::result::Resu
             .filter(|id| times[id] >= period.start_ms && times[id] < period.end_ms)
             .count() as i64;
         let guard = uuid()?;
-        let result=db.batch(vec![statement(db,STAGE_GUARD,&[text(&guard),text(&period.period_id),number(period.target_version),text(&row.participant_id),number(row.generation_revision as i64),text(&row.generation_id),number(row.joined_at_ms),number(folds)])?,statement(db,"INSERT INTO staged_results VALUES (?1,?2,?3,?4) ON CONFLICT(period_id,version,participant_id) DO UPDATE SET folds=excluded.folds",&[text(&period.period_id),number(period.target_version),text(&row.participant_id),number(folds)])?,statement(db,"UPDATE period_roster SET state='completed' WHERE period_id=?1 AND version=?2 AND participant_id=?3",&[text(&period.period_id),number(period.target_version),text(&row.participant_id)])?,statement(db,"DELETE FROM mutation_guards WHERE guard_id=?1",&[text(&guard)])?]).await;
+        let result=db.batch(vec![statement(db,STAGE_GUARD,&[text(&guard),text(&period.period_id),number(period.target_version),text(&row.participant_id),number(row.generation_revision as i64),text(&row.generation_id),number(row.joined_at_ms),number(folds),number(decision_version)])?,statement(db,"INSERT INTO staged_results VALUES (?1,?2,?3,?4) ON CONFLICT(period_id,version,participant_id) DO UPDATE SET folds=excluded.folds",&[text(&period.period_id),number(period.target_version),text(&row.participant_id),number(folds)])?,statement(db,"UPDATE period_roster SET state='completed' WHERE period_id=?1 AND version=?2 AND participant_id=?3",&[text(&period.period_id),number(period.target_version),text(&row.participant_id)])?,statement(db,"DELETE FROM mutation_guards WHERE guard_id=?1",&[text(&guard)])?]).await;
         if result.is_err() {
             // Privacy may have won the race. The shared suppression pass handles that without recreating data.
             suppress(db, &period.period_id, period.target_version).await?;
@@ -160,6 +175,7 @@ INSERT INTO mutation_guards VALUES (?1,CASE WHEN EXISTS(
  AND ((d.state='finalizing' AND d.target_version=?3) OR (d.state='finalized' AND EXISTS(SELECT 1 FROM period_corrections c WHERE c.period_id=d.period_id AND c.version=?3 AND c.base_version=d.published_version AND c.state='building'))) AND p.account_state='active'
  AND p.membership='joined' AND p.restriction='none' AND p.generation_revision=?5 AND p.generation_id=?6
  AND e.joined_at_ms=?7 AND e.closed_at_ms IS NULL
+ AND (SELECT version FROM decision_clock WHERE singleton=1)=?9
  AND NOT EXISTS(SELECT 1 FROM staged_results s WHERE s.period_id=?2 AND s.version=?3 AND s.participant_id=?4 AND s.folds<>?8)
 ) THEN 1 ELSE 0 END)
 "#;

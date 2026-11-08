@@ -180,3 +180,36 @@ The implementation must compile against the pinned SDK and test actual platform 
 - [SwiftUI model data](https://developer.apple.com/documentation/swiftui/managing-model-data-in-your-app) and [navigation stack](https://developer.apple.com/documentation/swiftui/understanding-the-navigation-stack).
 - [Widget families](https://developer.apple.com/documentation/widgetkit/widgetfamily/) and [widget rendering modes](https://developer.apple.com/documentation/widgetkit/widgetrenderingmode).
 - [Adopting Liquid Glass](https://developer.apple.com/documentation/technologyoverviews/adopting-liquid-glass).
+
+## November 8 owner refinements
+
+SF Rounded is inherited by app-owned views and widgets. Cards share a 20-point
+radius and stat content uses 20-point insets and a 72-point minimum content
+height. Dynamic Type may expand cards. Today cards use stable metric IDs for
+drag/drop; the editor supplies native reorder controls. Saved retired travel
+metrics are discarded without resetting appearance, timezone or the daily limit.
+
+The foreground duration uses a one-second presentation timer and adds the valid
+running interval to the completed daily duration. A lightweight journal revision
+observer refreshes after events written by another app process; timer ticks never
+create tracking events. History uses ordinal bar positions and matching axis
+anchors. Month selection formats the selected bin start with full month/day in
+the saved home timezone and environment locale. Period navigation is bounded by
+retained data; the session list has a bounded independent scroll area. Patterns
+count the analytics counted-event IDs exactly once by local hour, weekday and
+month day.
+
+Only incomplete session details offer Delete. Confirmation commits a durable
+local tombstone before the row disappears. Widgets, export and personal summaries
+refresh immediately; pending leaderboard removal is visible until acknowledged.
+Signed-out weekly/monthly notification controls are disabled, and the controller
+rejects result preference changes before permission or network calls. Daily-limit
+alerts remain available locally. Switches use a black track and contrasting thumb;
+only successful Shortcuts status ticks are green.
+
+Join uses Apple-provided/cached name suggestions when available, an explicit photo
+picker, a labeled name field and Join confirmation. Authenticated unjoined users
+resume review without repeating Apple authorization. Apple provides no profile
+photo. Tip thanks/confetti only follow verified matching consumable transactions;
+recovery of old unfinished tips does not trigger celebration, and Reduce Motion
+keeps static thanks.

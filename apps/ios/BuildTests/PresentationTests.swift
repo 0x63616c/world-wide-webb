@@ -146,6 +146,36 @@ import XCTest
     XCTAssertEqual(model.sheet, .setup)
   }
 
+  func testRetiredTravelMigrationAndCardOrderPersistence() throws {
+    var preferences = FoldingPreferences()
+    preferences.homeTimezone = "UTC"
+    var json = try XCTUnwrap(
+      JSONSerialization.jsonObject(with: JSONEncoder().encode(preferences)) as? [String: Any])
+    json["metrics"] = ["equivalentTravel", "timeUnfolded", "trend"]
+    json["travelUnit"] = "feet"
+    var decoded = try JSONDecoder().decode(
+      FoldingPreferences.self, from: JSONSerialization.data(withJSONObject: json))
+    XCTAssertEqual(decoded.metrics, [.timeUnfolded, .trend])
+    XCTAssertEqual(decoded.homeTimezone, "UTC")
+    decoded.moveCard(.trend, to: .folds)
+    XCTAssertEqual(decoded.orderedCards, [.trend, .folds, .timeUnfolded])
+    let reopened = try JSONDecoder().decode(
+      FoldingPreferences.self, from: JSONEncoder().encode(decoded))
+    XCTAssertEqual(reopened.orderedCards, decoded.orderedCards)
+  }
+
+  func testMainDurationIncludesRunningTimeAndStopsAfterClose() throws {
+    let snapshot = try runningSnapshot(open: "2026-03-08T09:00:00Z", at: "2026-03-08T09:00:00Z")
+    let day = try XCTUnwrap(snapshot.days.last)
+    let running = RunningDurationPresentation(snapshot: snapshot, day: day)
+    XCTAssertEqual(running.totalDurationMS(at: date("2026-03-08T09:00:05Z")), 5_000)
+    let closed = try runningSnapshot(
+      open: "2026-03-08T09:00:00Z", at: "2026-03-08T09:00:10Z", closed: true)
+    let finished = RunningDurationPresentation(
+      snapshot: closed, day: try XCTUnwrap(closed.days.last))
+    XCTAssertEqual(finished.totalDurationMS(at: date("2026-03-08T09:00:20Z")), 10_000)
+  }
+
   func testRunningDurationAdvancesWithoutMutatingSnapshot() throws {
     let snapshot = try runningSnapshot(open: "2026-03-08T09:00:00Z", at: "2026-03-08T09:00:00Z")
     let day = try XCTUnwrap(snapshot.days.last)

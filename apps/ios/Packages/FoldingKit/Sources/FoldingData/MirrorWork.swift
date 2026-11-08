@@ -3,6 +3,7 @@ import Foundation
 
 public enum MirrorRecord: Codable, Sendable, Equatable {
   case event(TrackingEvent)
+  case deletion(TrackingDeletion)
   case reset(ResetGeneration, createdAtMS: Int64)
   case interruption(TrackingInterruption)
   case transfer(PrivateTransferMarker)
@@ -19,6 +20,7 @@ extension MirrorRecord {
   public var logicalID: UUID {
     switch self {
     case .event(let event): event.eventID
+    case .deletion(let marker): marker.deletionID
     case .reset(let generation, _): generation.resetID
     case .interruption(let marker): marker.interruptionID
     case .transfer(let marker): marker.transferID
@@ -28,6 +30,7 @@ extension MirrorRecord {
   public var generation: ResetGeneration? {
     switch self {
     case .event(let event): event.generation
+    case .deletion(let marker): marker.target.generation
     case .reset(let generation, _): generation
     case .interruption(let marker): marker.generation
     case .transfer, .transferRejection: nil
@@ -37,7 +40,7 @@ extension MirrorRecord {
     switch self {
     case .event: "ReplicatedEvent"
     case .reset: "ResetMarker"
-    case .interruption: "TrackingInterruption"
+    case .interruption, .deletion: "TrackingInterruption"
     case .transfer, .transferRejection: "TransferMarker"
     }
   }

@@ -684,7 +684,8 @@ public actor TrackingStore {
       return .rebuild(
         DerivedInput(
           revision: revision, generation: try generation(), events: try events(),
-          interruptions: try interruptions(), transfers: try transferMarkersInTransaction()))
+          interruptions: try interruptions(), transfers: try transferMarkersInTransaction(),
+          deletions: try deletions()))
     }
     let directory = derivedCacheDirectory
     let observer = derivedBuildObserver
@@ -888,7 +889,7 @@ public actor TrackingStore {
       try PersonalAnalytics.snapshot(
         events: events(), interruptions: interruptions(), generation: generation(),
         homeTimezone: "UTC", asOfMS: 0, range: PersonalDateRange(startMS: 0, endMS: 1),
-        transferMarkers: transferMarkersInTransaction()
+        transferMarkers: transferMarkersInTransaction(), deletions: deletions()
       ).lifetime
     }
   }
@@ -899,22 +900,28 @@ public actor TrackingStore {
     -> PersonalAnalyticsSnapshot
   {
     let input = try journalTransaction(write: false) {
-      (try events(), try interruptions(), try generation(), try transferMarkersInTransaction())
+      (
+        try events(), try interruptions(), try generation(), try transferMarkersInTransaction(),
+        try deletions()
+      )
     }
     return try PersonalAnalytics.snapshot(
       events: input.0, interruptions: input.1, generation: input.2, homeTimezone: homeTimezone,
-      asOfMS: asOfMS, range: range, transferMarkers: input.3)
+      asOfMS: asOfMS, range: range, transferMarkers: input.3, deletions: input.4)
   }
 
   public func history(
     homeTimezone: String, asOfMS: Int64, period: PersonalHistoryPeriod, offset: Int
   ) throws -> PersonalHistorySnapshot {
     let input = try journalTransaction(write: false) {
-      (try events(), try interruptions(), try generation(), try transferMarkersInTransaction())
+      (
+        try events(), try interruptions(), try generation(), try transferMarkersInTransaction(),
+        try deletions()
+      )
     }
     return try PersonalHistory.snapshot(
       events: input.0, interruptions: input.1, generation: input.2, homeTimezone: homeTimezone,
-      asOfMS: asOfMS, period: period, offset: offset, transferMarkers: input.3)
+      asOfMS: asOfMS, period: period, offset: offset, transferMarkers: input.3, deletions: input.4)
   }
 
   public func lastObservedAtMS() throws -> Int64? {
@@ -949,7 +956,7 @@ public actor TrackingStore {
       return TrackingExportSnapshot(
         generation: try generation(), events: try events(includeQuarantined: true),
         interruptions: try interruptions(), transferMarkers: try transferMarkersInTransaction(),
-        excludedEventIDs: excluded, uploadStates: uploads)
+        excludedEventIDs: excluded, uploadStates: uploads, deletions: try deletions())
     }
   }
 
@@ -1368,7 +1375,7 @@ public actor TrackingStore {
       let rows = try database.rows(
         """
         SELECT work_id,kind,entity_id FROM work_outbox
-        WHERE kind IN ('mirror_event','mirror_reset','mirror_interruption','mirror_transfer') AND next_attempt_ms<=?
+        WHERE kind IN ('mirror_event','mirror_reset','mirror_interruption','mirror_transfer','mirror_deletion') AND next_attempt_ms<=?
         AND (state='pending' OR (state='leased' AND lease_until_ms<=?))
         ORDER BY CASE kind WHEN 'mirror_reset' THEN 0 ELSE 1 END, work_id LIMIT ?
         """, [.integer(nowMS), .integer(nowMS), .integer(Int64(limit))])
@@ -1386,6 +1393,13 @@ public actor TrackingStore {
             ).first?["payload_json"]
           else { throw StoreError.invalidInput }
           record = .event(try decode(payload))
+        case "mirror_deletion":
+          guard
+            let payload = try database.rows(
+              "SELECT payload_json FROM entry_deletions WHERE deletion_id=?", [.text(entity)]
+            ).first?["payload_json"]
+          else { throw StoreError.invalidInput }
+          record = .deletion(try decode(payload))
         case "mirror_interruption":
           guard
             let payload = try database.rows(
@@ -1452,7 +1466,7 @@ public actor TrackingStore {
       guard previous != storeID else { return }
       // Local mirror saves are not cloud acknowledgments. A replaced mirror must be rebuilt.
       try database.execute(
-        "UPDATE work_outbox SET state='pending',lease_token=NULL,lease_until_ms=NULL,next_attempt_ms=0 WHERE kind IN ('mirror_event','mirror_reset','mirror_interruption','mirror_transfer')"
+        "UPDATE work_outbox SET state='pending',lease_token=NULL,lease_until_ms=NULL,next_attempt_ms=0 WHERE kind IN ('mirror_event','mirror_reset','mirror_interruption','mirror_transfer','mirror_deletion')"
       )
       try database.execute(
         "INSERT INTO settings(key,value) VALUES ('mirror_store_id',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
@@ -1564,6 +1578,7 @@ public actor TrackingStore {
           switch record {
           case .event(let event): try importEventInTransaction(event)
           case .interruption(let marker): try importInterruptionInTransaction(marker)
+          case .deletion(let marker): try importDeletionInTransaction(marker)
           case .reset, .transfer, .transferRejection: break
           }
         } catch StoreError.identityConflict {
@@ -1625,6 +1640,7 @@ public actor TrackingStore {
 
   private func validateMirrorRecord(_ record: MirrorRecord) throws {
     switch record {
+    case .deletion(let marker): try marker.validate()
     case .transferRejection: break
     case .transfer(let marker):
       _ = try PrivateTransferPolicy.winner([marker])
@@ -1668,7 +1684,7 @@ public actor TrackingStore {
       device = marker.deviceID
       sequence = marker.afterSequence
       time = marker.observedAtMS
-    case .reset, .transfer, .transferRejection: return
+    case .reset, .transfer, .transferRejection, .deletion: return
     }
     guard let recordGeneration = record.generation else { throw StoreError.invalidInput }
     let barrier = TrackingInterruption(
@@ -1710,6 +1726,7 @@ public actor TrackingStore {
     try cancelDailyLimitWorkInTransaction()
     try database.execute("DELETE FROM events")
     try database.execute("DELETE FROM interruptions")
+    try database.execute("DELETE FROM entry_deletions")
     try database.execute("DELETE FROM setup_attempt")
     try database.execute("DELETE FROM quarantines")
     try database.execute(
@@ -1717,6 +1734,120 @@ public actor TrackingStore {
     if try competitionEpoch() != nil {
       try enqueue("competition_reset", entity: marker.resetID, generation: marker)
     }
+  }
+
+  public func journalRevisionToken() throws -> String {
+    try journalTransaction(write: false) {
+      let version = try derivedRevision()
+      return "\(version.journalID):\(version.revision)"
+    }
+  }
+
+  public func deleteIncompleteEntry(
+    _ target: SessionDeletionTarget, participantID: String?, nowMS: Int64
+  ) throws -> TrackingDeletion {
+    try validateTime(nowMS)
+    return try journalTransaction {
+      let existing = try deletions()
+      if let old = existing.first(where: { $0.target == target }) { return old }
+      guard target.generation == (try generation()) else { throw StoreError.staleGeneration }
+      let all = try events()
+      let reduced = try TrackingReducer.reduce(
+        events: all, interruptions: interruptions(), generation: target.generation,
+        deletions: existing)
+      let matches = reduced.sessions.filter { target.matches($0) && $0.endMS == target.endMS }
+      guard matches.count == 1, matches[0].completeness == .incomplete else {
+        throw StoreError.invalidInput
+      }
+      let source = all.filter {
+        $0.deviceID == target.deviceID && $0.generation == target.generation && !$0.isTest
+      }.sorted { $0.sequence < $1.sequence }
+      let openings = source.filter {
+        $0.transition == .open && $0.observedAtMS == target.startMS
+          && (target.openingEventID == nil || $0.eventID == target.openingEventID)
+      }
+      guard openings.count == 1, let opening = openings.first else { throw StoreError.invalidInput }
+      var selected = [opening]
+      if let end = target.endMS {
+        guard let next = source.first(where: { $0.sequence > opening.sequence }),
+          next.transition == .close, next.observedAtMS == end
+        else { throw StoreError.invalidInput }
+        selected.append(next)
+      }
+      let marker = TrackingDeletion(
+        target: target, eventIDs: selected.map(\.eventID), createdAtMS: nowMS,
+        participantID: nil, epochIDs: Array(Set(selected.compactMap(\.competitionEpochID))))
+      try importDeletionInTransaction(marker)
+      try enqueue("mirror_deletion", entity: marker.deletionID, generation: target.generation)
+      return marker
+    }
+  }
+  public func pendingEntryDeletions(participantID: String) throws -> [TrackingDeletion] {
+    try journalTransaction(write: false) {
+      try database.rows(
+        "SELECT payload_json FROM entry_deletions WHERE public_state NOT IN ('acknowledged',?) ORDER BY deletion_id LIMIT 50",
+        [.text("wrong_account:" + participantID)]
+      )
+      .map { try decode($0["payload_json"]!) as TrackingDeletion }
+      .filter {
+        ($0.participantID == nil || $0.participantID == participantID)
+          && $0.target.generation == (try? generation())
+      }
+    }
+  }
+  public func deferEntryDeletionForDifferentAccount(
+    _ marker: TrackingDeletion, participantID: String
+  ) throws {
+    try journalTransaction {
+      try database.execute(
+        "UPDATE entry_deletions SET public_state=? WHERE deletion_id=? AND payload_json=?",
+        [
+          .text("wrong_account:" + participantID), .text(marker.deletionID.canonical),
+          .text(try encode(marker)),
+        ])
+    }
+  }
+  public func acknowledgeEntryDeletion(_ marker: TrackingDeletion) throws {
+    try journalTransaction {
+      try database.execute(
+        "UPDATE entry_deletions SET public_state='acknowledged' WHERE deletion_id=? AND payload_json=?",
+        [.text(marker.deletionID.canonical), .text(try encode(marker))])
+    }
+  }
+  public func hasPendingEntryDeletions() throws -> Bool {
+    try journalTransaction(write: false) {
+      try !database.rows(
+        "SELECT deletion_id FROM entry_deletions WHERE public_state<>'acknowledged' LIMIT 1"
+      ).isEmpty
+    }
+  }
+  public func entryDeletions() throws -> [TrackingDeletion] {
+    try journalTransaction(write: false) { try deletions() }
+  }
+  private func deletions() throws -> [TrackingDeletion] {
+    try database.rows(
+      "SELECT payload_json FROM entry_deletions"
+    ).map { try decode($0["payload_json"]!) }
+  }
+  private func importDeletionInTransaction(_ marker: TrackingDeletion) throws {
+    try marker.validate()
+    guard marker.target.generation == (try generation()) else { throw StoreError.staleGeneration }
+    if let row = try database.rows(
+      "SELECT payload_json FROM entry_deletions WHERE deletion_id=?",
+      [.text(marker.deletionID.canonical)]
+    ).first {
+      let old: TrackingDeletion = try decode(row["payload_json"]!)
+      guard old == marker else { throw StoreError.identityConflict }
+      return
+    }
+    try database.execute(
+      "INSERT INTO entry_deletions(deletion_id,payload_json,public_state) VALUES (?,?,?)",
+      [
+        .text(marker.deletionID.canonical), .text(try encode(marker)),
+        .text(marker.epochIDs.isEmpty ? "acknowledged" : "pending"),
+      ])
+    try cancelDailyLimitWorkInTransaction()
+    exportPurgePending = true
   }
 
   private func journalTransaction<T>(write: Bool = true, _ operation: () throws -> T) throws -> T {

@@ -26,6 +26,8 @@ import struct FoldingData.SetupProgress
   private var accountChanging = false
   private var accountChangeRevision = UUID()
   private var didLoad = false
+  private var flushingEntryDeletions = false
+  private var deletionRetryAfter = Date.distantPast
   private let preferencesKey = "folding.preferences.v1"
 
   init(
@@ -75,6 +77,11 @@ import struct FoldingData.SetupProgress
       tipJar: { AnyView(TipJarView(store: .shared)) },
       saveNotifications: { requested in
         let previous = self.notifications.preferences
+        guard
+          self.presentation.competitionJoined
+            || (requested.weeklyResult == previous.weeklyResult
+              && requested.monthlyResult == previous.monthlyResult)
+        else { throw CompetitionTransportError.unauthorized }
         let saved = try await self.notifications.save(requested) { resolved in
           if previous.weeklyResult != resolved.weeklyResult
             || previous.monthlyResult != resolved.monthlyResult
@@ -201,7 +208,26 @@ import struct FoldingData.SetupProgress
       },
       leaveCompetition: { try await self.beginRemoval(.leave) },
       deleteCompetitionAccount: { try await self.beginRemoval(.delete) },
-      signInCompetition: { try await self.signInToCompetition() })
+      signInCompetition: { try await self.signInToCompetition() },
+      loadPatterns: {
+        try await self.refresh()
+        guard let analytics = self.presentation.analytics else { throw AnalyticsError.invalidRange }
+        let events = try await self.runtime.store().retainedEvents()
+        return try FoldingActivityPatterns.snapshot(events: events, analytics: analytics)
+      },
+      deleteIncompleteEntry: { target in
+        _ = self.presentation.dismissExports()
+        try await self.runtime.cancelExports()
+        let store = try await self.runtime.store()
+        _ = try await store.deleteIncompleteEntry(
+          target,
+          participantID: self.presentation.competitionProfile?.id, nowMS: TrackingRuntime.nowMS)
+        try await self.refresh()
+        await self.presentation.requestHistory(using: self.actions)
+        await self.runtime.publishWidgets()
+        await self.flushEntryDeletions()
+        await self.runtime.synchronizePrivateHistory()
+      })
   }
 
   private func beginRemoval(_ kind: CompetitionRemovalOperation.Kind) async throws {
@@ -440,12 +466,16 @@ import struct FoldingData.SetupProgress
         ? me.profile.participant_id : nil
       if let remote = me.preferences { try notifications.applyResultPreferences(remote) }
       await configurePush()
+      await flushEntryDeletions()
       guard identity == accountChangeRevision, !accountChanging else { return }
       if me.profile.restriction != "none" {
         presentation.competition = .banned
       } else if me.profile.membership == "joined" {
         await presentation.requestLeaderboard(using: actions)
       } else {
+        let name =
+          AppleNameSuggestion.name(forParticipant: me.profile.participant_id) ?? me.profile.nickname
+        presentation.joinNickname = ["Folder", "Member"].contains(name) ? "" : name
         presentation.competition = .notJoined
       }
     } catch CompetitionTransportError.unauthorized {
@@ -629,6 +659,59 @@ import struct FoldingData.SetupProgress
       nowMS: TrackingRuntime.nowMS)
   }
 
+  func watchJournalChanges() async {
+    var last: String?
+    while !Task.isCancelled {
+      if let token = try? await runtime.store().journalRevisionToken(), token != last {
+        last = token
+        await refreshVisible()
+      }
+      if presentation.entryDeletionPending, Date.now >= deletionRetryAfter {
+        await flushEntryDeletions()
+      }
+      do { try await Task.sleep(for: .seconds(1)) } catch { return }
+    }
+  }
+
+  private func flushEntryDeletions() async {
+    guard !flushingEntryDeletions, !accountChanging,
+      let participant = presentation.competitionProfile?.id
+    else { return }
+    flushingEntryDeletions = true
+    defer { flushingEntryDeletions = false }
+    let identity = accountChangeRevision
+    do {
+      let store = try await runtime.store()
+      let pending = try await store.pendingEntryDeletions(participantID: participant)
+      presentation.entryDeletionPending = try await store.hasPendingEntryDeletions()
+      deletionRetryAfter = Date.now.addingTimeInterval(30)
+      guard !pending.isEmpty else { return }
+      let api = try await competitionClient()
+      for marker in pending {
+        guard identity == accountChangeRevision, !accountChanging,
+          presentation.competitionProfile?.id == participant
+        else { return }
+        let receipt: CompetitionOperation
+        do { receipt = try await api.deleteEntry(marker) } catch CompetitionTransportError.service(
+          403, "wrong_account", _, _)
+        {
+          try await store.deferEntryDeletionForDifferentAccount(marker, participantID: participant)
+          continue
+        }
+        guard receipt.state == "completed",
+          receipt.operation_id == marker.deletionID.uuidString.lowercased(),
+          identity == accountChangeRevision, !accountChanging
+        else { throw CompetitionTransportError.invalidResponse }
+        try await store.acknowledgeEntryDeletion(marker)
+      }
+      presentation.entryDeletionPending = try await store.hasPendingEntryDeletions()
+      if presentation.competitionJoined { await presentation.requestLeaderboard(using: actions) }
+    } catch {
+      presentation.entryDeletionPending = true
+      deletionRetryAfter = Date.now.addingTimeInterval(30)
+    }
+  }
+
   func watch() async {
     for await _ in await runtime.updates() {
       if Task.isCancelled { return }
@@ -693,6 +776,7 @@ import struct FoldingData.SetupProgress
       guard identity == accountChangeRevision, !accountChanging else { return }
       // Expired share files are housekeeping. A transient failure must not interrupt setup.
       try? await runtime.cleanupExports()
+      await flushEntryDeletions()
       if presentation.history != nil {
         await presentation.requestHistory(using: actions)
       }
@@ -721,6 +805,7 @@ import struct FoldingData.SetupProgress
     let lastEvent = try await store.lastObservedAtMS()
     let health = try await store.privateHistoryHealth()
     let sync = try await runtime.syncStatus(refresh: false)
+    let deletionPending = try await store.hasPendingEntryDeletions()
     guard request == token, !Task.isCancelled else { return }
     if let previous = presentation.analytics, previous.generation != analytics.generation {
       presentation.dismissExports()
@@ -729,6 +814,7 @@ import struct FoldingData.SetupProgress
     }
     presentation.privateHistoryHealth = health
     presentation.syncStatus = sync
+    presentation.entryDeletionPending = deletionPending
     presentation.localDeviceID = store.deviceID
     presentation.lastEventAt = lastEvent.map { Date(timeIntervalSince1970: Double($0) / 1000) }
     presentation.analytics = analytics
@@ -814,6 +900,6 @@ import struct FoldingData.SetupProgress
       sessions: result.analytics.sessions.filter {
         $0.startMS < range.endMS && ($0.endMS ?? Int64.max) > range.startMS
       },
-      canGoNext: result.canGoNext)
+      canGoNext: result.canGoNext, canGoPrevious: result.canGoPrevious)
   }
 }

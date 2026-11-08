@@ -217,3 +217,23 @@ extension CompetitionAPI {
           participantID: participantID, reason: reason)))
   }
 }
+
+extension CompetitionAPI {
+  func deleteEntry(_ marker: TrackingDeletion) async throws -> CompetitionOperation {
+    struct Delete: Encodable {
+      // swift-format-ignore: AlwaysUseLowerCamelCase
+      let operation_id: String
+      // swift-format-ignore: AlwaysUseLowerCamelCase
+      let event_ids: [String]
+      // swift-format-ignore: AlwaysUseLowerCamelCase
+      let epoch_ids: [String]
+    }
+    return try await transport.send(
+      "POST", path: "/v1/entry-deletions",
+      body: CompetitionTransport.encode(
+        Delete(
+          operation_id: marker.deletionID.uuidString.lowercased(),
+          event_ids: marker.eventIDs.map { $0.uuidString.lowercased() },
+          epoch_ids: marker.epochIDs.map { $0.uuidString.lowercased() })))
+  }
+}

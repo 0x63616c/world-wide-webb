@@ -43,6 +43,8 @@ mod deletion_runtime;
 #[cfg(target_arch = "wasm32")]
 mod enrollment_runtime;
 #[cfg(target_arch = "wasm32")]
+mod entry_deletion_runtime;
+#[cfg(target_arch = "wasm32")]
 mod finalization_runtime;
 pub mod ingestion;
 #[cfg(target_arch = "wasm32")]

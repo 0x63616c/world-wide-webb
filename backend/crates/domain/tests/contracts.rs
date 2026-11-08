@@ -223,3 +223,63 @@ fn foundation_timezone_vectors() {
         );
     }
 }
+
+#[test]
+fn entry_deletion_never_creates_a_fold_from_a_later_repeated_state() {
+    use std::collections::BTreeSet;
+    let source = Id::parse("11111111-1111-1111-1111-111111111111").unwrap();
+    let event = |sequence: u64, transition| Event {
+        schema_version: 1,
+        event_id: Id::parse(&format!("22222222-2222-2222-2222-{sequence:012}")).unwrap(),
+        device_id: source.clone(),
+        sequence,
+        generation: Generation::initial(),
+        observed_at_ms: sequence * 1000,
+        timezone_id: "UTC".into(),
+        transition,
+        is_test: false,
+        competition_epoch_id: None,
+    };
+    let events = vec![
+        event(1, Transition::Open),
+        event(2, Transition::Open),
+        event(3, Transition::Close),
+    ];
+    let deleted = BTreeSet::from([events[0].event_id.clone()]);
+    let summary = folding_domain::reducer::reduce_with_deletions(
+        &events,
+        &[],
+        &Generation::initial(),
+        &deleted,
+    )
+    .unwrap();
+    assert_eq!(summary.opens, 0);
+    assert_eq!(summary.closes, 1);
+    assert_eq!(summary.counted_events, vec![events[2].event_id.clone()]);
+    let reverse: Vec<_> = events.iter().rev().cloned().collect();
+    assert_eq!(
+        folding_domain::reducer::reduce_with_deletions(
+            &reverse,
+            &[],
+            &Generation::initial(),
+            &deleted
+        )
+        .unwrap(),
+        summary
+    );
+    for count in 0..=events.len() {
+        let deleted: BTreeSet<_> = events
+            .iter()
+            .take(count)
+            .map(|e| e.event_id.clone())
+            .collect();
+        let result = folding_domain::reducer::reduce_with_deletions(
+            &events,
+            &[],
+            &Generation::initial(),
+            &deleted,
+        )
+        .unwrap();
+        assert!(result.folds() <= 2);
+    }
+}

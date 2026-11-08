@@ -122,6 +122,7 @@ pub(crate) async fn delete(
         "live_scores",
         "score_jobs",
         "observations",
+        "deleted_observations",
         "nickname_requests",
         "push_installations",
     ] {
@@ -355,6 +356,7 @@ pub(crate) async fn process(env: &Env, db: &D1Database) -> std::result::Result<(
             "period_roster",
             "award_jobs",
             "observations",
+            "deleted_observations",
             "live_scores",
             "score_jobs",
             "competition_operations",

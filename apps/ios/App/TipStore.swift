@@ -9,6 +9,8 @@ import StoreKit
   private(set) var loading = false
   private(set) var purchasing: String?
   var message: String?
+  private(set) var celebrationID: UUID?
+  private var celebratedTransactions = Set<UInt64>()
   private var listener: Task<Void, Never>?
 
   init(bundleID: String = Bundle.main.bundleIdentifier ?? "app.getfolding.Folding") {
@@ -32,10 +34,17 @@ import StoreKit
           ids.contains(transaction.productID), transaction.productType == .consumable
         {
           // Tips grant no entitlement or competition benefit.
+          celebrate(transaction.id)
           await transaction.finish()
         }
       }
     }
+  }
+
+  private func celebrate(_ transactionID: UInt64) {
+    guard celebratedTransactions.insert(transactionID).inserted else { return }
+    message = String(localized: "tips.thanks", defaultValue: "Thank you!")
+    celebrationID = UUID()
   }
 
   func load() async {
@@ -66,8 +75,8 @@ import StoreKit
       case .success(.verified(let transaction)):
         guard productIDs.contains(transaction.productID), transaction.productType == .consumable
         else { return }
+        celebrate(transaction.id)
         await transaction.finish()
-        message = String(localized: "tips.thanks", defaultValue: "Thank you!")
       case .success(.unverified):
         message = String(
           localized: "error.tryAgain", defaultValue: "Something went wrong. Try again.")

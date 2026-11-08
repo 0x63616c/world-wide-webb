@@ -96,6 +96,57 @@ import XCTest
     XCTAssertEqual(retained.count, 3)
   }
 
+  func testForegroundWatcherNoticesAnotherJournalConnection() async throws {
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    let suite = "folding.foreground.test.\(UUID())"
+    let defaults = UserDefaults(suiteName: suite)!
+    defer {
+      try? FileManager.default.removeItem(at: directory)
+      defaults.removePersistentDomain(forName: suite)
+    }
+    let source = UUID()
+    let journal = try TrackingStore(directory: directory, installationID: source)
+    let otherConnection = try TrackingStore(directory: directory, installationID: source)
+    let controller = AppController(
+      runtime: TrackingRuntime(journal: journal), preferencesStore: defaults)
+    try await controller.refresh()
+    let watcher = Task { await controller.watchJournalChanges() }
+    let now = TrackingRuntime.nowMS
+    _ = try await otherConnection.record(
+      Observation(
+        generation: .initial, transition: .open,
+        observedAtMS: now, timezoneID: "UTC", competitionEpochID: nil), nowMS: now)
+    for _ in 0..<40 {
+      if controller.presentation.analytics?.lifetime.folds == 1 { break }
+      try await Task.sleep(for: .milliseconds(100))
+    }
+    watcher.cancel()
+    await watcher.value
+    XCTAssertEqual(controller.presentation.analytics?.lifetime.folds, 1)
+  }
+
+  func testSignedOutResultPreferencesAreRejectedBeforeTheyAreSaved() async throws {
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    let suite = "folding.notifications.test.\(UUID())"
+    let defaults = UserDefaults(suiteName: suite)!
+    defer {
+      try? FileManager.default.removeItem(at: directory)
+      defaults.removePersistentDomain(forName: suite)
+    }
+    let journal = try TrackingStore(directory: directory, installationID: UUID())
+    let controller = AppController(
+      runtime: TrackingRuntime(journal: journal), preferencesStore: defaults)
+    var requested = NotificationPreferences()
+    requested.weeklyResult = .all
+    do {
+      _ = try await controller.actions.saveNotifications?(requested)
+      XCTFail("Signed-out result preferences must be unavailable")
+    } catch CompetitionTransportError.unauthorized {} catch {
+      XCTFail("Unexpected error: \(error)")
+    }
+    XCTAssertNil(defaults.data(forKey: "folding.notifications.v1"))
+  }
+
   func testDevelopmentCompositionOpensRealSandboxAndKeychain() async throws {
     let first = TrackingRuntime()
     let firstJournal = try await first.store()

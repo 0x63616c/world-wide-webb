@@ -126,7 +126,8 @@ public enum PersonalExport {
     events: [TrackingEvent], interruptions: [TrackingInterruption] = [],
     transferMarkers: [PrivateTransferMarker] = [],
     generation: ResetGeneration, homeTimezone: String, exportedAtMS: Int64,
-    uploadStates: [UUID: ExportUploadState] = [:], excludedEventIDs: Set<UUID> = []
+    uploadStates: [UUID: ExportUploadState] = [:], excludedEventIDs: Set<UUID> = [],
+    deletions: [TrackingDeletion] = []
   ) throws -> PersonalExportDocument {
     guard (0...TrackingReducer.maximumInteger).contains(exportedAtMS) else {
       throw AnalyticsError.invalidRange
@@ -134,7 +135,10 @@ public enum PersonalExport {
     _ = try TrackingReducer.reduce(
       events: events, interruptions: interruptions, generation: generation)
     let cal = try PersonalAnalytics.calendar(homeTimezone)
-    let retained = Array(Set(events.filter { $0.generation == generation })).sorted {
+    let deletedIDs = Set(deletions.flatMap(\.eventIDs))
+    let retained = Array(
+      Set(events.filter { $0.generation == generation && !deletedIDs.contains($0.eventID) })
+    ).sorted {
       if $0.deviceID != $1.deviceID { return $0.deviceID.uuidString < $1.deviceID.uuidString }
       return $0.sequence < $1.sequence
     }
@@ -151,7 +155,7 @@ public enum PersonalExport {
       homeTimezone: homeTimezone, asOfMS: exportedAtMS,
       range: PersonalDateRange(
         startMS: PersonalAnalytics.milliseconds(start), endMS: PersonalAnalytics.milliseconds(end)),
-      transferMarkers: transferMarkers)
+      transferMarkers: transferMarkers, deletions: deletions)
     let selected = try PrivateTransferPolicy.winner(transferMarkers)
     var uniqueTransfers: [UUID: PrivateTransferMarker] = [:]
     for marker in transferMarkers { uniqueTransfers[marker.transferID] = marker }

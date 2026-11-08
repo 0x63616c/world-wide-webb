@@ -52,6 +52,9 @@ import SwiftUI
         Task { await controller.synchronizePrivateHistory() }
       }
       .task { await controller.watch() }
+      .task(id: scenePhase) {
+        if scenePhase == .active { await controller.watchJournalChanges() }
+      }
       .task { await controller.refreshVisible() }
       .task(id: [
         controller.presentation.analytics?.range.endMS, controller.presentation.analytics?.asOfMS,
