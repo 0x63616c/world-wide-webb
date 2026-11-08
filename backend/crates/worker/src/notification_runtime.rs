@@ -225,7 +225,7 @@ pub(crate) async fn mutate(
             if input.environment != environment
                 || input.token_hex.is_empty()
                 || input.token_hex.len() > 1024
-                || input.token_hex.len() % 2 != 0
+                || !input.token_hex.len().is_multiple_of(2)
                 || !input.token_hex.bytes().all(|c| c.is_ascii_hexdigit())
             {
                 return Err(Failure::malformed());

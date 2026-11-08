@@ -249,6 +249,23 @@ pub(crate) fn extract_p256_key(encoded: &[u8]) -> Result<Vec<u8>, CertificateErr
 }
 
 #[cfg(test)]
+pub(crate) fn test_credential_root(
+    chain: &[Vec<u8>],
+    nonce: &[u8; 32],
+    now: u64,
+    root: &[u8],
+) -> Result<Vec<u8>, CertificateError> {
+    verify_credential_with_root(chain, nonce, now, root)
+}
+#[cfg(test)]
+pub(crate) fn test_receipt_root(
+    chain: &[Vec<u8>],
+    now: u64,
+    root: &[u8],
+) -> Result<Vec<u8>, CertificateError> {
+    verify_receipt_signer_with_root(chain, now, root)
+}
+#[cfg(test)]
 mod tests {
     use super::*;
     use base64::{Engine, engine::general_purpose::STANDARD};
@@ -288,22 +305,4 @@ mod tests {
             Err(CertificateError::InvalidChain)
         );
     }
-}
-
-#[cfg(test)]
-pub(crate) fn test_credential_root(
-    chain: &[Vec<u8>],
-    nonce: &[u8; 32],
-    now: u64,
-    root: &[u8],
-) -> Result<Vec<u8>, CertificateError> {
-    verify_credential_with_root(chain, nonce, now, root)
-}
-#[cfg(test)]
-pub(crate) fn test_receipt_root(
-    chain: &[Vec<u8>],
-    now: u64,
-    root: &[u8],
-) -> Result<Vec<u8>, CertificateError> {
-    verify_receipt_signer_with_root(chain, now, root)
 }

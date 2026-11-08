@@ -315,3 +315,7 @@ developer supporters and celebrates verified purchases, respecting Reduce Motion
 Broader App Store and physical-device acceptance remain deferred.
 
 Owner decision, November 8: leaving competition is not a separate action. Users who want to stop participation delete their competition account; personal tracking remains separate. Remove the Leave UI, transport, polling state and server handler. The leaderboard uses This Week / This Month / All Time, retains displayed content while refreshing, and Your Results includes live All Time totals/rank rather than a fabricated finalized award.
+
+## Owner compatibility decision — November 8, 2026
+
+The owner explicitly selected a whole-app required-update screen once a confirmed remotely configured minimum build exceeds the installed build. This supersedes earlier guidance that a release handshake never disables private UI. Unknown/unreachable policy alone must not block offline use; a known requirement remains cached. Saved history/background observations must not be erased or terminally rejected. Policy rollback and a supported new installation can recover access. See [client compatibility](technical/client-compatibility.md), #56 and the separate offline cold-start caveat #57. This is not provider/device acceptance.

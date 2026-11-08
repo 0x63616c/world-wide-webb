@@ -12,9 +12,18 @@ actor TrackingRuntime {
   private var accountRevision = UUID()
   private var accountSuspended = false
   private var journal: TrackingStore?
+  private var scheduledUpload: Task<Void, Never>?
+  private let uploadOverride: (@Sendable () async -> Void)?
   private var exportService: TrackingExportService?
   private var exportTickets: [UUID: PreparedTrackingExport] = [:]
-  init(journal: TrackingStore? = nil) { self.journal = journal }
+  init(
+    journal: TrackingStore? = nil, cloudConnection: CloudTrackingConnection? = nil,
+    uploadOverride: (@Sendable () async -> Void)? = nil
+  ) {
+    self.journal = journal
+    self.cloudConnection = cloudConnection
+    self.uploadOverride = uploadOverride
+  }
 
   private var captureReplay: (id: UUID, task: Task<Void, Never>)?
   private var synchronizing = false
@@ -24,6 +33,14 @@ actor TrackingRuntime {
   func store() async throws -> TrackingStore {
     guard !accountSuspended else { throw PartitionError.superseded }
     let revision = accountRevision
+    if let cloudConnection {
+      let current = try await cloudConnection.connect()
+      guard revision == accountRevision, !accountSuspended else { throw PartitionError.superseded }
+      journal = current
+      await replayCapturedObservations(in: current)
+      guard revision == accountRevision, !accountSuspended else { throw PartitionError.superseded }
+      return current
+    }
     if let journal {
       await replayCapturedObservations(in: journal)
       guard revision == accountRevision, !accountSuspended else { throw PartitionError.superseded }
@@ -74,6 +91,10 @@ actor TrackingRuntime {
     #else
       throw CloudTrackingError.missingConfiguration
     #endif
+  }
+
+  func hasMatchingLocalIdentity() async -> Bool {
+    await cloudConnection?.hasMatchingLocalIdentity() ?? false
   }
 
   func suspendForAccountChange(revision: UUID) async throws {
@@ -261,6 +282,7 @@ actor TrackingRuntime {
     }
     if committed, revision == accountRevision, !accountSuspended {
       await DailyLimitDelivery.shared.deliver(from: current)
+      await scheduleCompetitionUpload(from: current)
       // Upload and iCloud outboxes were committed with each event. Existing workers
       // retry those independently; widgets remain best effort as specified.
       await publishWidgets(using: current)
@@ -300,10 +322,20 @@ actor TrackingRuntime {
     let pending = try await current.dailyLimitNotificationIdentifier()
     _ = try await current.reset(nowMS: Self.nowMS)
     await DailyLimitDelivery.shared.cancel(pending)
-    await uploadCompetition()
+    await scheduleCompetitionUpload(from: current)
     clearWidgets()
     await publishWidgets()
     changed()
+  }
+
+  private func scheduleCompetitionUpload(from store: TrackingStore) async {
+    guard (try? await store.currentCompetitionEpoch()) != nil, scheduledUpload == nil else {
+      return
+    }
+    scheduledUpload = Task {
+      await self.uploadCompetition()
+      self.scheduledUpload = nil
+    }
   }
 
   func maintainCompetitionUploads() async {
@@ -314,6 +346,10 @@ actor TrackingRuntime {
   }
 
   func uploadCompetition() async {
+    if let uploadOverride {
+      await uploadOverride()
+      return
+    }
     do {
       let current = try await store()
       guard try await current.currentCompetitionEpoch() != nil,

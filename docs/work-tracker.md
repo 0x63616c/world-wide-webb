@@ -245,6 +245,20 @@ GitHub #28, #32 and #40 checklists reflect these partial completions. CI and phy
 - [x] [#58 — Shortcuts partition-busy failures](https://github.com/0x63616c/folding/issues/58): reproduced the reported `FoldingData.PartitionError error 3` through concurrent account startup and brief route-lock contention. Same-account callers now share initialization; bounded recording retries retain observation identity/time and respect account/reset fences. All 89 core and 41 app-hosted simulator tests pass. TestFlight **0.1.10 (11)** is Apple **VALID** and verified in **Folding Internal**, from `da0ac00`. [Evidence](experiments/shortcuts-partition-busy-2026-11-08.md); physical overnight/Shortcuts acceptance remains deferred to #47/F13.
 
 
+## API cost and abuse protection — November 8
+
+- [x] [#55 — API resource protection and idle-cost reduction](https://github.com/0x63616c/folding/issues/55): implemented, staging/production deployed with preserved settings and all 19 checksum migrations; Fastlane-distributed 0.1.11 (12) to Folding Internal with exact Apple readback. See [release evidence](experiments/api-offline-release-2026-11-08.md). Includes pre-D1 burst limits, selective/hourly maintenance, ten-message queue batches, indexed score deltas, shared one-minute uploads, persisted cooldowns, bounded read caching and sampled safe route logs. See [implementation and evidence](experiments/resource-protection-2026-11-08.md). Existing physical-device/load/CI/shipping deferrals remain unchanged.
+
+
+## App compatibility and offline startup — November 8
+
+- [x] [#56 — Minimum supported app build](https://github.com/0x63616c/folding/issues/56): whole-app gate chosen by owner; local implementation verified (31 Rust, 11 Worker/D1 and eight focused simulator tests). Default-zero policy is deployed in both environments and policy-aware 0.1.11 (12) is internally distributed; later floor activation and device evidence remain separate. See [compatibility contract](technical/client-compatibility.md).
+- [ ] [#57 — Reliable offline cold startup](https://github.com/0x63616c/folding/issues/57): local implementation verified through 93 core and 51 app-hosted tests, including cold reopening with cloud lookups unavailable, continued recording/history, same-account availability notifications and account/installation fences. See [evidence](experiments/offline-cold-start-2026-11-08.md). Updated TestFlight 0.1.11 (12) is distributed; physical airplane-mode/Shortcuts and cloud reconnection acceptance remain open in #47/F13; do not mark them passed.
+
+### App copy cleanup — November 8, 2026
+
+- [x] [#25](https://github.com/0x63616c/folding/issues/25): review app/view, widget, notification and Intent wording; remove repeated setup/join/tip explanations, duplicate profile labels and daily-limit body; shorten errors, results and removal copy across ten locales. Persist the product-copy rule. Local app compilation, 207-key catalog validation, ten localization regressions and compiled ten-locale/40-plural runtime checks pass. Final display/device acceptance remains open in #25/#47.
+
 ## Review request timing — November 8
 
 - [x] Owner-approved local policy update in [#40](https://github.com/0x63616c/folding/issues/40): remove the seven-day wait, retain three separate recorded-use days and completed-summary safeguards, and allow another request attempt after 30 days. Existing persisted attempt timestamps are retained.
@@ -254,3 +268,7 @@ GitHub #28, #32 and #40 checklists reflect these partial completions. CI and phy
 ## Durable capture — November 8, 2026
 
 - [x] [#59 — Durable Shortcuts capture and persistent retries](https://github.com/0x63616c/folding/issues/59): verified local component delivered for PR review, with protected schema-v9 inbox, persisted FIFO leases/backoff and context-preserving replay. All 105 core and 43 app-hosted simulator tests pass, including actual kill/reopen recovery. [Evidence and rollback constraint](experiments/durable-capture-2026-11-08.md). Not merged or shipped; broader #27/#43 integration/release and #47/F13 physical acceptance remain open. Offline startup remains #57.
+
+### Combined rollout — November 8, 2026
+
+- [x] [PR #61](https://github.com/0x63616c/folding/pull/61) merged as `4f8180d`. Combined checks: 109 core, 53 app-hosted, 34 Rust and 15 Worker/D1 tests. Both API environments preserve current bindings/flags and expose minimum 0; Apple confirms VALID build 12 in Folding Internal. [Release evidence](experiments/api-offline-release-2026-11-08.md). No forced-update activation, physical acceptance, CI, storefront review or App Store submission is claimed.

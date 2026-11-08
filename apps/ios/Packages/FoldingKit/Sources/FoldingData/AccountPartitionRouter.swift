@@ -6,6 +6,7 @@ public enum PartitionError: Error, Equatable {
   case inactive
   case superseded
   case busy
+  case identityChanged
   case filesystem(Int32)
 }
 
@@ -65,6 +66,60 @@ public struct AccountPartitionRouter: Sendable {
     let key: String?
     let active: Bool
     let installationID: UUID?
+  }
+
+  private struct OfflineAccess: Codable {
+    let epoch: UUID
+    let key: String
+    let installationID: UUID
+    let identityToken: Data?
+  }
+
+  /// A device identity witness authorizes journal access only, never CloudKit replication.
+  /// The installation and active route epoch prevent restored/stale grants from reopening data.
+  public func rememberOfflineAccess(lease: PartitionLease, identityToken: Data?) throws {
+    guard lease.root == directory, identityToken.map({ $0.count <= 65_536 }) ?? true else {
+      throw PartitionError.inactive
+    }
+    try locked(exclusive: true) {
+      guard let state = try read(), state.active, state.epoch == lease.epoch,
+        state.key == lease.key, state.installationID == lease.installationID
+      else { throw PartitionError.inactive }
+      // A nil iCloud Drive token cannot authenticate an existing cloud partition.
+      guard identityToken != nil || lease.key.hasPrefix("local-") else { return }
+      try write(
+        OfflineAccess(
+          epoch: lease.epoch, key: lease.key, installationID: lease.installationID,
+          identityToken: identityToken), fileName: "offline-access.json")
+    }
+  }
+
+  public func offlineLease(
+    installationID: UUID, allowLocalOnly: Bool,
+    matchesIdentity: @Sendable (Data) -> Bool
+  ) throws -> PartitionLease? {
+    try locked(exclusive: false) {
+      guard let state = try read(), state.active, state.installationID == installationID,
+        let key = state.key
+      else { return nil }
+      let lease = PartitionLease(
+        root: directory, epoch: state.epoch, key: key, installationID: installationID)
+      let file = directory.appendingPathComponent("offline-access.json")
+      guard let size = try? file.resourceValues(forKeys: [.fileSizeKey]).fileSize,
+        size <= 131_072, let data = try? Data(contentsOf: file),
+        let grant = try? JSONDecoder().decode(OfflineAccess.self, from: data),
+        grant.epoch == state.epoch, grant.key == key, grant.installationID == installationID
+      else {
+        // Local-only history contains no other account's imported cloud records.
+        return allowLocalOnly && key.hasPrefix("local-") ? lease : nil
+      }
+      if let token = grant.identityToken {
+        guard matchesIdentity(token) else { throw PartitionError.identityChanged }
+      } else {
+        guard allowLocalOnly, key.hasPrefix("local-") else { throw PartitionError.identityChanged }
+      }
+      return lease
+    }
   }
 
   public func currentLease(installationID: UUID) throws -> PartitionLease? {
@@ -139,8 +194,8 @@ public struct AccountPartitionRouter: Sendable {
     return try JSONDecoder().decode(State.self, from: Data(contentsOf: file))
   }
 
-  private func write(_ state: State) throws {
-    let file = directory.appendingPathComponent("route.json")
+  private func write<Value: Encodable>(_ state: Value, fileName: String = "route.json") throws {
+    let file = directory.appendingPathComponent(fileName)
     try JSONEncoder().encode(state).write(to: file, options: .atomic)
     // Atomic replacement prevents torn JSON; fsync also makes the fence durable before returning.
     for path in [file.path, directory.path] {

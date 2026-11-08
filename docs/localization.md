@@ -7,6 +7,7 @@ The first catalog covers the current native presentation, accessibility text, ap
 ## Authoring contract
 
 - Use stable semantic keys with an English `defaultValue` and translator context. Dates, numbers and durations use Foundation formatting; the app language follows the system's per-app language preference.
+- State each point once: one concise heading and clear action. Omit repeated labels, obvious explanations, unsolicited data reassurance and filler. Keep only instructions needed to act and concrete destructive consequences.
 - Keep UI copy short. Preserve the product names Folding and Duo. Do not translate identifiers, JSON/CSV format acronyms, or the UTC abbreviation.
 - A fold means a detected opening **or** closing transition. A cycle means a paired opening and closing. Neither term guarantees a measured full hinge sweep.
 - Time unfolded is derived from sessions. Equivalent travel is a playful full-swing equivalent, never measured hinge movement. Preserve this distinction in every translation.

@@ -8,10 +8,14 @@ public actor PrivatePartitionSession {
   typealias MirrorFactory = @Sendable (URL, String?) async throws -> PrivateCloudMirror
   private let makeMirror: MirrorFactory
   private let cloudConnectivity: Bool
-  private var active: (lease: PartitionLease, journal: TrackingStore, sync: PrivateSyncCoordinator)?
+  private var active:
+    (lease: PartitionLease, journal: TrackingStore, sync: PrivateSyncCoordinator?)?
   private var revision = UUID()
+  private var pausing = false
   private var opening:
-    (id: UUID, account: PrivateAccountIdentity, task: Task<TrackingStore, Error>)?
+    (
+      id: UUID, account: PrivateAccountIdentity, startMirror: Bool, task: Task<TrackingStore, Error>
+    )?
 
   public init(router: AccountPartitionRouter, installationID: UUID, cloudConnectivity: Bool = true)
   {
@@ -38,49 +42,99 @@ public actor PrivatePartitionSession {
     opening = nil
     let old = active
     active = nil
-    try await old?.sync.stop()
+    try await old?.sync?.stop()
+  }
+
+  public func resumeOffline(
+    allowLocalOnly: Bool, matchesIdentity: @Sendable (Data) -> Bool
+  ) throws -> TrackingStore? {
+    guard
+      let lease = try router.offlineLease(
+        installationID: installationID,
+        allowLocalOnly: allowLocalOnly, matchesIdentity: matchesIdentity)
+    else { return nil }
+    if let active, active.lease == lease { return active.journal }
+    guard active == nil else { throw PartitionError.inactive }
+    let journal = try router.openJournal(lease: lease, installationID: installationID)
+    active = (lease, journal, nil)
+    return journal
+  }
+
+  public func rememberOfflineAccess(identityToken: Data?) throws {
+    guard let active else { throw PartitionError.inactive }
+    try router.rememberOfflineAccess(lease: active.lease, identityToken: identityToken)
+  }
+
+  /// Stop replication without fencing local history. Await in-flight mirror initialization.
+  public func pauseSynchronization() async throws {
+    guard !pausing else { return }
+    pausing = true
+    defer { pausing = false }
+    let context = revision
+    if let opening { _ = try? await opening.task.value }
+    guard context == revision, let current = active else { return }
+    active = (current.lease, current.journal, nil)
+    try await current.sync?.stop()
   }
 
   /// Reuses an unchanged account on ordinary launch; transitions never move files between accounts.
-  public func reconcile(verified account: PrivateAccountIdentity) async throws -> TrackingStore {
+  public func reconcile(verified account: PrivateAccountIdentity, startMirror: Bool = true)
+    async throws -> TrackingStore
+  {
+    guard !pausing else { throw PartitionError.busy }
     if let opening {
       guard opening.account == account else { throw PartitionError.busy }
       let journal = try await opening.task.value
       try Task.checkCancellation()
+      if startMirror, !opening.startMirror {
+        if self.opening?.id == opening.id { self.opening = nil }
+        return try await reconcile(verified: account, startMirror: true)
+      }
       return journal
     }
     let id = UUID()
     let expectedRevision = revision
-    let task = Task { try await openVerifiedPartition(account, revision: expectedRevision) }
-    opening = (id, account, task)
+    let task = Task {
+      try await openVerifiedPartition(account, revision: expectedRevision, startMirror: startMirror)
+    }
+    opening = (id, account, startMirror, task)
     defer { if opening?.id == id { opening = nil } }
     let journal = try await task.value
     try Task.checkCancellation()
     return journal
   }
 
-  private func openVerifiedPartition(_ account: PrivateAccountIdentity, revision expected: UUID)
+  private func openVerifiedPartition(
+    _ account: PrivateAccountIdentity, revision expected: UUID, startMirror: Bool
+  )
     async throws -> TrackingStore
   {
     try requireCurrent(expected)
     let matching = try router.currentLease(forVerified: account, installationID: installationID)
-    if let matching, let active, active.lease == matching { return active.journal }
+    if let matching, let active, active.lease == matching, !startMirror || active.sync != nil {
+      return active.journal
+    }
     let lease: PartitionLease
     if let matching {
       lease = matching
-      let old = active
-      active = nil
-      try await old?.sync.stop()
-      try requireCurrent(expected)
+      if active?.lease != matching {
+        let old = active
+        active = nil
+        try await old?.sync?.stop()
+        try requireCurrent(expected)
+      }
     } else {
       let transition = try router.suspend()
       let old = active
       active = nil
-      try await old?.sync.stop()
+      try await old?.sync?.stop()
       try requireCurrent(expected)
       lease = try router.activate(account, transition: transition, installationID: installationID)
     }
-    let journal = try router.openJournal(lease: lease, installationID: installationID)
+    let journal =
+      try active?.journal ?? router.openJournal(lease: lease, installationID: installationID)
+    active = (lease, journal, nil)
+    guard startMirror else { return journal }
     let container: String?
     if cloudConnectivity, case .iCloud(let identifier, _) = account {
       container = identifier
@@ -107,6 +161,6 @@ public actor PrivatePartitionSession {
 
   public func synchronize(nowMS: Int64) async throws -> PrivateSyncReport? {
     guard let active else { throw PartitionError.inactive }
-    return try await active.sync.synchronize(nowMS: nowMS)
+    return try await active.sync?.synchronize(nowMS: nowMS)
   }
 }

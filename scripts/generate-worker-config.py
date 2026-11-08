@@ -22,6 +22,10 @@ if args.testflight_preview and args.readiness:
     raise SystemExit('TestFlight preview and reviewed release readiness are separate deployment modes')
 bindings = json.load(sys.stdin)
 configuration = json.loads(args.configuration.read_text())
+minimum_ios_build = configuration.pop('MINIMUM_IOS_BUILD', '0')
+if (not isinstance(minimum_ios_build, str) or not re.fullmatch(r'[0-9]{1,10}', minimum_ios_build)
+        or int(minimum_ios_build) > 2147483647):
+    raise SystemExit('MINIMUM_IOS_BUILD must be an integer string from 0 to 2147483647')
 environment = bindings['environment']
 if environment not in ('staging', 'production'):
     raise SystemExit('Invalid environment')
@@ -55,6 +59,7 @@ if not re.fullmatch(r'https://[a-zA-Z0-9-]+\.cloudflareaccess\.com', configurati
     raise SystemExit('Invalid Access team domain')
 bundle = 'app.getfolding.Folding' + ('.Staging' if environment == 'staging' else '')
 variables = dict(configuration, DEPLOYMENT=environment,
+    MINIMUM_IOS_BUILD=minimum_ios_build,
     AUTH_ENCRYPTION_KEY_VERSION='v1', AUTH_SUBJECT_HMAC_KEY_VERSION='v1',
     APPLE_SIGN_IN_CLIENT_ID=bundle,
     APNS_TOPIC=bundle, APNS_ENVIRONMENT='production',
@@ -122,12 +127,26 @@ result = {
     'main': str(root / 'backend/crates/worker/build/worker/shim.mjs'),
     'compatibility_date': '2026-11-07', 'workers_dev': False, 'preview_urls': False,
     'vars': variables,
+    'limits': {'cpu_ms': 5000},
+    # Structured application events only: avoid persisting URLs/auth headers from invocation logs.
+    'observability': {'enabled': True, 'head_sampling_rate': 0.1,
+        'logs': {'enabled': True, 'invocation_logs': False}},
+    # Separate environment namespaces; approximate per-location burst protection.
+    # Existing D1 account limits remain authoritative across locations/sessions.
+    'ratelimits': [
+        {'name': name, 'namespace_id': str((5500 if environment == 'production' else 5400) + index),
+         'simple': {'limit': limit, 'period': 60}}
+        for index, (name, limit) in enumerate([
+            ('API_NETWORK_BURST', 600), ('AUTH_NETWORK_BURST', 60),
+            ('API_CREDENTIAL_BURST', 120),
+        ])
+    ],
     'd1_databases': [{'binding': 'DB', 'database_id': bindings['database_id'],
         'database_name': bindings['database_name'], 'migrations_dir': str(root / 'backend/migrations')}],
     'r2_buckets': [{'binding': 'AVATARS', 'bucket_name': bindings['avatar_bucket']}],
     'queues': {'producers': [{'binding': 'JOBS', 'queue': bindings['jobs_queue']},
         {'binding': 'JOBS_DEAD', 'queue': bindings['dead_queue']}],
-        'consumers': [{'queue': bindings['jobs_queue'], 'max_batch_size': 1,
+        'consumers': [{'queue': bindings['jobs_queue'], 'max_batch_size': 10,
             'max_batch_timeout': 5, 'max_retries': 12, 'retry_delay': 30,
             'max_concurrency': 2, 'dead_letter_queue': bindings['dead_queue']}]},
     'triggers': {'crons': ['*/5 * * * *']},

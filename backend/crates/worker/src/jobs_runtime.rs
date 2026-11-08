@@ -14,26 +14,75 @@ struct Job {
     kind: String,
     attempts: i64,
 }
-const KINDS: &[&str] = &[
-    "avatar_cleanup",
-    "finalization",
-    "corrections",
-    "awards",
-    "deletion",
-    "recovery_revocation",
-    "retention",
-    "monitoring",
-];
+// A single indexed existence query replaces unconditional dispatch writes.
+// Per-category domain dispatchers still enforce leases, privacy fences and retry times.
+pub const DUE_CATEGORIES_SQL: &str = r#"
+SELECT value AS kind FROM json_each('["avatar_cleanup","finalization","corrections","awards","deletion","recovery_revocation","retention"]')
+WHERE CASE value
+ WHEN 'avatar_cleanup' THEN (EXISTS(SELECT 1 FROM avatar_purge_jobs a WHERE lease_until_ms<=?1 AND NOT EXISTS(SELECT 1 FROM external_retry_state r WHERE r.kind='avatar_cleanup' AND r.work_key=a.object_key AND (r.state='failed' OR r.next_attempt_ms>?1)))
+ OR (NOT EXISTS(SELECT 1 FROM jobs WHERE kind='avatar_cleanup' AND version>=?2)
+ AND EXISTS(SELECT 1 FROM avatar_objects WHERE (state='uploading' AND created_at_ms<=?1-3600000) OR (state='pending' AND created_at_ms<=?1-604800000))))
+ WHEN 'finalization' THEN (EXISTS(SELECT 1 FROM periods WHERE state='finalizing' OR (state='grace' AND cutoff_ms<=?1) OR (state='open' AND end_ms<=?1))
+ OR (EXISTS(SELECT 1 FROM epochs) AND NOT EXISTS(SELECT 1 FROM jobs WHERE kind='finalization' AND version>=?2)))
+ WHEN 'corrections' THEN (EXISTS(SELECT 1 FROM period_corrections WHERE state='building' OR (state='ready' AND expires_at_ms<=?1)))
+ WHEN 'awards' THEN (EXISTS(SELECT 1 FROM award_jobs WHERE state='pending' AND lease_until_ms<=?1 AND next_attempt_ms<=?1 AND (due_ms IS NULL OR due_ms<=?1)))
+ WHEN 'deletion' THEN (EXISTS(SELECT 1 FROM deletion_operations d WHERE state='pending' AND lease_until_ms<=?1 AND NOT EXISTS(SELECT 1 FROM avatar_purge_jobs a WHERE a.participant_id=d.participant_id) AND NOT EXISTS(SELECT 1 FROM external_retry_state r WHERE r.kind='account_revocation' AND r.work_key=d.operation_id AND (r.state='failed' OR r.next_attempt_ms>?1)))
+ AND NOT EXISTS(SELECT 1 FROM external_retry_state WHERE kind='account_revocation' AND work_key='' AND state='paused'))
+ WHEN 'recovery_revocation' THEN (EXISTS(SELECT 1 FROM apple_revocation_jobs a WHERE lease_until_ms<=?1 AND NOT EXISTS(SELECT 1 FROM external_retry_state r WHERE r.kind='recovery_revocation' AND r.work_key=a.job_id AND (r.state='failed' OR r.next_attempt_ms>?1)))
+ AND NOT EXISTS(SELECT 1 FROM external_retry_state WHERE kind='recovery_revocation' AND work_key='' AND state='paused'))
+ WHEN 'retention' THEN (NOT EXISTS(SELECT 1 FROM jobs WHERE kind='retention' AND version>=?2)
+ OR EXISTS(SELECT 1 FROM participants WHERE restriction='suspended' AND suspended_until_ms<=?1))
+ ELSE 0 END
+"#;
+pub const INSERT_CATEGORY_SQL: &str = r#"
+INSERT INTO jobs(job_id,kind,logical_key,version,due_ms,state)
+SELECT ?1,?2,?2,?3,?4,'pending'
+WHERE NOT EXISTS(SELECT 1 FROM jobs WHERE kind=?2 AND state IN('pending','failed'))
+ON CONFLICT(kind,logical_key,version) DO NOTHING
+"#;
+
 pub(crate) async fn schedule(env: &Env, db: &D1Database) -> std::result::Result<(), Failure> {
     let time = now();
-    let slot = time / 300000;
-    // The unique category/slot makes repeated Cron delivery harmless. Domain tables retain
-    // individual jobs and receipts, so a lost dispatch cannot lose an accepted business mutation.
-    let mut writes = vec![];
-    for kind in KINDS {
-        writes.push(statement(db,"INSERT INTO jobs(job_id,kind,logical_key,version,due_ms,state) VALUES (?1,?2,?2,?3,?4,'pending') ON CONFLICT(kind,logical_key,version) DO NOTHING",&[text(&uuid()?),text(kind),number(slot),number(time)])?);
+    let first_hour_slot = time / 3600000 * 12;
+    // Retention and finalization catch-up are hourly; due business work remains five-minute.
+    #[derive(Deserialize)]
+    struct Category {
+        kind: String,
     }
-    db.batch(writes).await.map_err(|_| Failure::unavailable())?;
+    let categories = statement(
+        db,
+        DUE_CATEGORIES_SQL,
+        &[number(time), number(first_hour_slot)],
+    )?
+    .all()
+    .await
+    .map_err(|_| Failure::unavailable())?
+    .results::<Category>()
+    .map_err(|_| Failure::unavailable())?;
+    let mut writes = vec![];
+    for category in categories {
+        let feature = match category.kind.as_str() {
+            "awards" => Some("APNS_ENABLED"),
+            _ => None,
+        };
+        if feature.is_some_and(|name| !env.var(name).is_ok_and(|v| v.to_string() == "true")) {
+            continue;
+        }
+        let version = time / 300000;
+        writes.push(statement(
+            db,
+            INSERT_CATEGORY_SQL,
+            &[
+                text(&uuid()?),
+                text(&category.kind),
+                number(version),
+                number(time),
+            ],
+        )?);
+    }
+    if !writes.is_empty() {
+        db.batch(writes).await.map_err(|_| Failure::unavailable())?;
+    }
     let queue = env.queue("JOBS").map_err(|_| Failure::unavailable())?;
     let due=statement(db,"SELECT job_id,kind,attempts FROM jobs WHERE state='pending' AND due_ms<=?1 AND lease_until_ms<=?1 AND (published_at_ms IS NULL OR published_at_ms<=?1-300000) ORDER BY due_ms,job_id LIMIT 50",&[number(time)])?.all().await.map_err(|_|Failure::unavailable())?.results::<Job>().map_err(|_|Failure::unavailable())?;
     for job in due {
@@ -52,6 +101,7 @@ pub(crate) async fn schedule(env: &Env, db: &D1Database) -> std::result::Result<
         .await
         .map_err(|_| Failure::unavailable())?;
     }
+    crate::monitoring_runtime::dispatch(db).await?;
     // Failed jobs remain visible for manual investigation; completed dispatch metadata has no user content.
     statement(
         db,

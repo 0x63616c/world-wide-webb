@@ -114,7 +114,7 @@ import struct FoldingData.SetupProgress
         UIApplication.shared.open(url) { opened in
           if !opened {
             self.presentation.error = String(
-              localized: "error.tryAgain", defaultValue: "Something went wrong. Try again.")
+              localized: "error.tryAgain", defaultValue: "Something went wrong.")
           }
         }
       },
@@ -133,7 +133,7 @@ import struct FoldingData.SetupProgress
       exportFinished: { id in
         do { try await self.runtime.finishExport(id) } catch {
           self.presentation.error = String(
-            localized: "error.tryAgain", defaultValue: "Something went wrong. Try again.")
+            localized: "error.tryAgain", defaultValue: "Something went wrong.")
         }
       },
       joinCompetition: { nickname in
@@ -694,6 +694,12 @@ import struct FoldingData.SetupProgress
   }
 
   func cloudAccountChanged() async {
+    if !accountChanging, await runtime.hasMatchingLocalIdentity() {
+      // CKAccountChanged also reports temporary availability changes. An unchanged
+      // device witness preserves offline history; replication still re-verifies CloudKit.
+      await runtime.synchronizePrivateHistory()
+      return
+    }
     let change = UUID()
     accountChangeRevision = change
     accountChanging = true
@@ -736,7 +742,13 @@ import struct FoldingData.SetupProgress
 
   func maintainCompetitionUploads() async { await runtime.maintainCompetitionUploads() }
 
-  func synchronizePrivateHistory() async { await runtime.synchronizePrivateHistory() }
+  func synchronizePrivateHistory() async {
+    if accountChanging {
+      await cloudAccountChanged()
+    } else {
+      await runtime.synchronizePrivateHistory()
+    }
+  }
 
   func refreshVisible() async {
     guard !accountChanging else { return }

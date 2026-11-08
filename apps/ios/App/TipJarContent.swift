@@ -23,12 +23,6 @@ struct TipJarContent: View {
       Section {
         VStack(spacing: 12) {
           Image(systemName: "cup.and.saucer.fill").font(.largeTitle)
-          Text(
-            String(
-              localized: "tips.supportThanks",
-              defaultValue: "Thanks for supporting indie developers")
-          )
-          .font(.headline).multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity).padding(.vertical, 16)
       }
