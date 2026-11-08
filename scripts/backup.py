@@ -57,6 +57,16 @@ def prune_verified(root, keep):
         shutil.rmtree(old)
 
 
+def private_recovery_tree(root):
+    # copytree preserves immutable Nix-store modes, including unwritable dirs.
+    # Only normalize this newly created private staging tree, never its sources.
+    for directory, _, files in os.walk(root, topdown=True, followlinks=False):
+        Path(directory).chmod(0o700)
+        for name in files:
+            path = Path(directory) / name
+            path.chmod(0o600 | (path.stat().st_mode & 0o111))
+
+
 def recovery_bundle(destination, services, configuration):
     # Includes plaintext service credentials: destination and archives are private.
     staging = destination / 'recovery'
@@ -78,9 +88,12 @@ def recovery_bundle(destination, services, configuration):
                                 staging / 'credentials' / service)
         if any(service != 'home-assistant' for service in services):
             shutil.copyfile('/run/secrets/containers-env', staging / 'containers.env')
+        private_recovery_tree(staging)
         snapshot.run(['tar', '-czf', str(destination / 'recovery.tar.gz'),
                       '-C', str(staging), '.'])
     finally:
+        # A partially failed copy can also have installed readonly directories.
+        private_recovery_tree(staging)
         shutil.rmtree(staging)
 
 

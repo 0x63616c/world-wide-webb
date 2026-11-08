@@ -1,6 +1,8 @@
 import importlib.util
 from pathlib import Path
 import sys
+import shutil
+import tarfile
 import tempfile
 import unittest
 from unittest.mock import Mock, patch
@@ -13,6 +15,45 @@ try:
     spec.loader.exec_module(backup)
 finally:
     sys.path.pop(0)
+
+
+class RecoveryPermissionsTests(unittest.TestCase):
+    def test_readonly_compose_copy_is_private_and_removable(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / 'source'
+            source.mkdir()
+            (source / 'compose.yaml').write_text('public fixture')
+            (source / 'compose.yaml').chmod(0o444)
+            source.chmod(0o555)
+            destination = root / 'backup'
+            destination.mkdir()
+            copytree = shutil.copytree
+            try:
+                with patch.object(backup.shutil, 'copytree',
+                                  side_effect=lambda ignored, target: copytree(source, target)):
+                    backup.recovery_bundle(destination, ['home-assistant'], {'host': 'fixture'})
+                self.assertFalse((destination / 'recovery').exists())
+                with tarfile.open(destination / 'recovery.tar.gz') as archive:
+                    for member in archive.getmembers():
+                        self.assertEqual(member.mode & 0o077, 0)
+                        if member.isdir():
+                            self.assertEqual(member.mode & 0o700, 0o700)
+            finally:
+                source.chmod(0o700)
+
+    def test_partial_readonly_copy_is_removed_without_masking_original_failure(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            destination = Path(temporary)
+            def partial_copy(source, target):
+                target.mkdir(parents=True)
+                (target / 'partial').write_text('public fixture')
+                target.chmod(0o555)
+                raise RuntimeError('copy fixture failed')
+            with patch.object(backup.shutil, 'copytree', side_effect=partial_copy):
+                with self.assertRaisesRegex(RuntimeError, 'copy fixture failed'):
+                    backup.recovery_bundle(destination, ['home-assistant'], {'host': 'fixture'})
+            self.assertFalse((destination / 'recovery').exists())
 
 
 class VerifiedSetTests(unittest.TestCase):
