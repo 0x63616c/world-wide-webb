@@ -339,3 +339,24 @@ for tag27.2, uploaded2026-10-31, with a140000000000-byte uncompressed disk. This
 not yet booted toolchain/runtime proof. Upgrade through the homelab owner after its current work lands,
 with admission held, disk reserve/old-image recovery retained, and fresh native/mixed-load canaries.
 Do not overlap its current pool rollout or silently lower Folding's pins to the old image.
+
+## Automatic Callkeep producer — approximately 36% overall
+
+The local product workflow now verifies the exact trusted-main native CI attempt, atomically
+reserves namespaced source tags above the legacy counter floor, builds universal source-bound
+production binaries, and uses the existing Developer ID/notarization scripts. It seals private
+ZIP/symbols/sanitized Apple acceptance receipts, uploading symbols/evidence before the ZIP so a
+complete archive can resume without rebuilding. An interrupted unsealed build burns its number.
+Immutable private Git promotion, sparse Homebrew download/staging/signature/source verification
+and explicit anonymous denial precede any tap recipe change. Completion fetches/reads the real
+homebrew-tap main and records the exact recipe/artifact commit; stale earlier source runs do not
+roll back a newer confirmed delivery. Only Callkeep's cask is modified. Notes use the last
+published source, not an interrupted reservation, and normalize nested-product Git paths.
+
+Eight producer state/provenance/escape tests and four scoped-note tests pass; eight real Git
+artifact tests remain green. New workflows pass actionlint and code passes pinned Python/shell/
+Ruby syntax checks. This is local integration, not a signed CI/private install acceptance claim.
+Before enabling: drain legacy Callkeep writer, seed all relevant source aliases and the verified
+latest counter, transfer scoped signing/tap credentials, perform real notarized/private download/
+install/upgrade canaries, and pass the independent complete batch review. Intel slices are checked;
+Intel runtime acceptance remains separate from universal packaging.

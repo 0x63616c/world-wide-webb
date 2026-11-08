@@ -107,3 +107,16 @@ production tap remains on its existing release until that cutover.
 Signed/notarized archives and receipts will be retained privately for recovery. Git access
 to the source repository is required for artifact downloads. A GitHub login used only for
 the tap does not automatically authorize a separate HTTP release URL.
+
+## Release automation
+
+The monorepo's `callkeep-ci.yml` verifies this product independently. `callkeep-release.yml`
+reserves a product source tag, builds both Mac architectures, uses the existing Developer ID
+notarization scripts, and seals the app ZIP, symbols and Apple acceptance receipt privately.
+Retries reuse those exact sealed files. An interrupted unsealed build burns its counter.
+
+The producer fetches and stages the private payload through Homebrew, checks its signature,
+source/version identity and anonymous denial, then updates only this cask in the tap. It records
+completion after reading the exact recipe back from the real tap's main branch. Production
+activation remains off until the migration's signing/legacy-writer/private-install canaries pass.
+Intel slices are built and checked; this alone does not prove Intel runtime behavior.

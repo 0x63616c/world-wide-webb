@@ -45,11 +45,14 @@ identity='Developer ID Application: Calum Webb (X9E4HG27NK)'
 python3 Scripts/sign-app.py "$app" "$identity" "$keychain"
 ditto -c -k --sequesterRsrc --keepParent "$app" "$archive"
 xcrun notarytool submit "$archive" --key "$signing_directory/key.p8" --key-id "$APPLE_API_KEY_ID" --issuer "$APPLE_API_ISSUER_ID" --wait --timeout 10m --output-format json > "$signing_directory/result.json"
-python3 - "$signing_directory/result.json" <<'PY'
+python3 - "$signing_directory/result.json" "$archive.notary.json" <<'PY'
 import json,sys
 result=json.load(open(sys.argv[1]))
 print('Notarization:', result.get('status'), 'Submission:', result.get('id'))
 if result.get('status') != 'Accepted': raise SystemExit('Apple did not accept this build; release stopped.')
+with open(sys.argv[2], 'x') as output:
+    json.dump({'schema_version': 1, 'status': 'Accepted', 'submission_id': result['id']}, output)
+    output.write('\n')
 PY
 retry_validation() {
   local attempt

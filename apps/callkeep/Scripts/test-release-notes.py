@@ -62,6 +62,13 @@ class ReleaseNotesTests(unittest.TestCase):
         self.assertIn("Main fix", notes)
         self.assertNotIn("Other branch", notes)
 
+    def test_burned_reservations_do_not_hide_changes_since_the_last_published_release(self):
+        self.commit("apps/callkeep/App.swift", "Published base", "callkeep/v1.0.25")
+        self.commit("apps/callkeep/App.swift", "Recorder improvement", "callkeep/v1.0.26")
+        os.chdir(Path.cwd() / "apps/callkeep")
+        notes = release_notes("1.0.27", previous_tag="callkeep/v1.0.25")
+        self.assertIn("Recorder improvement", notes)
+
 
 if __name__ == "__main__":
     unittest.main()
