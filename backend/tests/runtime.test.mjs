@@ -1,7 +1,7 @@
 import { generateKeyPairSync,sign,verify,createHash,createDecipheriv } from "node:crypto";
 import { after, test } from "node:test";
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { Miniflare, convertV4MiniflareOptions } from "miniflare";
 
@@ -117,6 +117,7 @@ const appleToken=claims=> {
   return message+"."+sign("RSA-SHA256",Buffer.from(message),appleSigning.privateKey).toString("base64url");
 };
 async function syntheticApple(request) {
+  if(request.url==="https://folding-test.cloudflareaccess.com/cdn-cgi/access/certs") return Response.json({keys:[{...appleSigning.publicKey.export({format:"jwk"}),kid:"local-apple",alg:"RS256",use:"sig"}]});
   if(request.url==="https://appleid.apple.com/auth/keys") {jwksRequests++; return Response.json({keys:[{...appleSigning.publicKey.export({format:"jwk"}),kid:"local-apple",alg:"RS256",use:"sig"}]});}
   assert.equal(request.url,"https://appleid.apple.com/auth/token");
   const form=new URLSearchParams(await request.text());
@@ -142,6 +143,7 @@ const authenticatedRuntime = new Miniflare(convertV4MiniflareOptions({ workers: 
   queueProducers: {JOBS:"folding-local-jobs", JOBS_DEAD:"folding-local-dead"},
   queueConsumers: {"folding-local-jobs":{maxBatchSize:1,maxBatchTimeout:0}},
   bindings: {
+    ADMIN_ORIGIN:"https://admin.example",ACCESS_TEAM_DOMAIN:"https://folding-test.cloudflareaccess.com",ACCESS_AUDIENCE:"local-admin",ADMIN_EMAIL_ALLOWLIST:JSON.stringify(["admin@example.test"]),AVATAR_UPLOADS_ENABLED:"true",
     APP_ATTEST_APP_ID:"TEAM123456.app.test.Folding",APP_ATTEST_ENVIRONMENT:"development",APP_ATTEST_BUNDLE_VERSIONS:JSON.stringify(["1"]),
     APPLE_SIGN_IN_CLIENT_ID:"app.test.Folding",APPLE_SIGN_IN_TEAM_ID:"TEAM123456",APPLE_SIGN_IN_KEY_ID:"KEY1234567",
     APPLE_SIGN_IN_PRIVATE_KEY_PKCS8:appleClient.privateKey.export({type:"pkcs8",format:"der"}).toString("base64url"),
@@ -151,6 +153,7 @@ const authenticatedRuntime = new Miniflare(convertV4MiniflareOptions({ workers: 
     AUTH_ENCRYPTION_KEYS: JSON.stringify({"test-v1":Buffer.alloc(32,7).toString("base64url")}),
     AUTH_NETWORK_HMAC_KEY: Buffer.alloc(32,8).toString("base64url"),
   },
+  r2Buckets: { AVATARS: "folding-local-avatars" },
   d1Databases: { DB: "folding-local-auth-experiment" },
 }] }));
 after(() => authenticatedRuntime.dispose());
@@ -462,4 +465,92 @@ test('minimum-build policy rejects old business requests before body/DB work and
   const deletion=await worker.dispatchFetch('https://api.example/v1/account/delete',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});assert.equal(deletion.status,503);
   assert.equal((await invalid.dispatchFetch('https://api.example/v1/client-policy')).status,503);
  } finally { await Promise.all([worker.dispose(),disabled.dispose(),invalid.dispose()]); }
+});
+
+for (const documentedNames of [true, false]) test(`actual Worker verifies ${documentedNames ? "documented metadata" : "device metadata and flags"} Apple assertions on Join without weakening replay or body binding`, async () => {
+  const db = await authenticatedRuntime.getD1Database("DB");
+  const hash = value => createHash("sha256").update(value).digest();
+  const pair = generateKeyPairSync("ec", { namedCurve: "prime256v1" });
+  const jwk = pair.publicKey.export({ format: "jwk" });
+  const publicKey = Buffer.concat([Buffer.from([4]), Buffer.from(jwk.x, "base64url"), Buffer.from(jwk.y, "base64url")]);
+  const keyID = hash(publicKey).toString("base64");
+  const token = Buffer.alloc(32, documentedNames ? 46 : 56);
+  const participant = `00000000-0000-4000-8000-0000000000${documentedNames ? "46" : "56"}`;
+  const device = `00000000-0000-4000-8000-0000000000${documentedNames ? "47" : "57"}`;
+  const session = `join-metadata-session-${documentedNames}`;
+  const now = Date.now();
+  await db.batch([
+    db.prepare("INSERT INTO participants(participant_id,subject_hmac,membership,restriction,generation_revision,generation_id) VALUES (?,?,'not_joined','none',0,'00000000-0000-0000-0000-000000000000')").bind(participant, `join-metadata-subject-${documentedNames}`),
+    db.prepare("INSERT INTO participant_revisions VALUES (?,0)").bind(participant),
+    db.prepare("INSERT INTO profiles VALUES (?,'Folder',NULL,'approved','none')").bind(participant),
+    db.prepare("INSERT INTO sessions VALUES (?, ?, ?, 'staging', ?, ?, ?, ?, 0)").bind(session, participant, device, now, now, now + 900000, now + 900000),
+    db.prepare("INSERT INTO access_tokens VALUES (?, ?, ?)").bind(hash(token), session, now + 900000),
+    db.prepare("INSERT INTO attestation_keys(key_id,participant_id,device_id,deployment,public_key_sec1,counter,revoked,attestation_environment) VALUES (?, ?, ?, 'staging', ?, 0, 0, 'development')").bind(keyID, participant, device, publicKey),
+  ]);
+  const headers = { Authorization: "Bearer " + token.toString("base64url"), "Content-Type": "application/json" };
+  const challengeResponse = await authenticatedRuntime.dispatchFetch("https://api.example/v1/attestation/challenges", {
+    method: "POST", headers, body: JSON.stringify({purpose: "join", device_id: device, key_id: keyID}),
+  });
+  assert.equal(challengeResponse.status, 200);
+  const challenge = await challengeResponse.json();
+  const path = "/v1/enrollment/join";
+  const body = JSON.stringify({operation_id: "00000000-0000-4000-8000-000000000048", device_id: device, generation: {revision: 0, reset_id: "00000000-0000-0000-0000-000000000000"}, nickname: "Metadata Tester"});
+  const binding = hash(Buffer.from(["Folding-v1", "staging", "POST", path, challenge.challenge_id, challenge.nonce, hash(body).toString("hex")].join("\n")));
+  const length = (major, n) => Buffer.from(n < 24 ? [(major << 5) | n] : [(major << 5) | 24, n]);
+  const bytes = value => Buffer.concat([length(2, value.length), value]);
+  const text = value => { const b = Buffer.from(value); return Buffer.concat([length(3, b.length), b]); };
+  const category = Buffer.alloc(4); category.writeUInt32LE(3);
+  const extensions = Buffer.concat([Buffer.from([0xa2]), text(documentedNames ? "validationCategory" : "apple_validation_category_01"), bytes(category), text(documentedNames ? "bundleVersion" : "apple_bundle_version_01"), text("1")]);
+  const auth = Buffer.concat([hash("TEAM123456.app.test.Folding"), Buffer.from([documentedNames ? 0x80 : 0xc0, 0, 0, 0, 1]), extensions]);
+  const signature = sign("sha256", hash(Buffer.concat([auth, binding])), pair.privateKey);
+  const assertion = Buffer.concat([Buffer.from([0xa2]), text("signature"), bytes(signature), text("authenticatorData"), bytes(auth)]);
+  const signedHeaders = {...headers, "X-Folding-Key-ID": keyID, "X-Folding-Challenge-ID": challenge.challenge_id, "X-Folding-Assertion": assertion.toString("base64url")};
+  const submit = value => authenticatedRuntime.dispatchFetch("https://api.example" + path, {method: "POST", headers: signedHeaders, body: value});
+  assert.equal((await submit(body.replace("Metadata Tester", "Changed Name"))).status, 401);
+  assert.equal(await db.prepare("SELECT counter FROM attestation_keys WHERE key_id=?").bind(keyID).first("counter"), 0);
+  const result = await submit(body);
+  assert.equal(result.status, 200, JSON.stringify(await result.clone().json()));
+  const joinedProfile = (await result.json()).profile;
+  assert.equal(joinedProfile.membership, "joined");
+  assert.equal(joinedProfile.nickname, "Metadata Tester");
+  assert.equal(joinedProfile.nickname_status, "approved");
+  assert.equal(await db.prepare("SELECT count(*) n FROM nickname_requests WHERE participant_id=?").bind(participant).first("n"), 0);
+  assert.equal(await db.prepare("SELECT counter FROM attestation_keys WHERE key_id=?").bind(keyID).first("counter"), 1);
+  assert.equal(await db.prepare("SELECT used FROM challenges WHERE challenge_id=?").bind(challenge.challenge_id).first("used"), 1);
+  assert.equal((await submit(body)).status, 401);
+  const changed = await authenticatedRuntime.dispatchFetch("https://api.example/v1/profile", {method:"PATCH", headers, body:JSON.stringify({operation_id:"00000000-0000-4000-8000-000000000049",nickname:"  Public Name  "})});
+  assert.equal(changed.status,200);
+  const changedProfile=(await changed.json()).profile;
+  assert.equal(changedProfile.nickname,"Public Name"); assert.equal(changedProfile.nickname_status,"approved");
+  const photo=await readFile(`${root}tests/fixtures/valid-avatar.png`);
+  const avatarPath="/v1/avatars/00000000-0000-4000-8000-000000000050";
+  const issued=await authenticatedRuntime.dispatchFetch("https://api.example/v1/attestation/challenges",{method:"POST",headers,body:JSON.stringify({purpose:"avatar_upload",device_id:device,key_id:keyID})});
+  assert.equal(issued.status,200);const uploadChallenge=await issued.json();
+  const avatarBinding=hash(Buffer.from(["Folding-v1","staging","PUT",avatarPath,uploadChallenge.challenge_id,uploadChallenge.nonce,hash(photo).toString("hex")].join("\n")));
+  const avatarAuth=Buffer.from(auth);avatarAuth.writeUInt32BE(2,33);
+  const avatarSignature=sign("sha256",hash(Buffer.concat([avatarAuth,avatarBinding])),pair.privateKey);
+  const avatarAssertion=Buffer.concat([Buffer.from([0xa2]),text("signature"),bytes(avatarSignature),text("authenticatorData"),bytes(avatarAuth)]);
+  const upload=await authenticatedRuntime.dispatchFetch("https://api.example"+avatarPath,{method:"PUT",headers:{...headers,"Content-Type":"image/png","X-Folding-Key-ID":keyID,"X-Folding-Challenge-ID":uploadChallenge.challenge_id,"X-Folding-Assertion":avatarAssertion.toString("base64url")},body:photo});
+  assert.equal(upload.status,200,JSON.stringify(await upload.clone().json()));
+  const receipt=await upload.json();assert.equal(receipt.state,"pending");assert.equal(receipt.publication_state,"approved");
+  const profile=await (await authenticatedRuntime.dispatchFetch("https://api.example/v1/me",{headers})).json();
+  assert.equal(profile.profile.avatar_id,receipt.avatar_id);assert.equal(profile.profile.avatar_status,"approved");assert.equal(profile.profile.pending_avatar_id,null);
+  assert.equal(await db.prepare("SELECT count(*) n FROM avatar_alerts WHERE state='pending' AND avatar_id=?").bind(receipt.avatar_id).first("n"),0);
+  const image=await authenticatedRuntime.dispatchFetch(`https://api.example/v1/avatars/${receipt.avatar_id}/image`,{headers});assert.equal(image.status,200);assert.equal(image.headers.get("Content-Type"),"image/jpeg");
+});
+
+
+test("admin root stays host-scoped and every admin view retains shared dark navigation", async () => {
+  const redirect=await authenticatedRuntime.dispatchFetch("https://admin.example/",{redirect:"manual"});
+  assert.equal(redirect.status,303);assert.equal(redirect.headers.get("Location"),"/admin");
+  assert.equal((await authenticatedRuntime.dispatchFetch("https://api.example/")).status,404);
+  assert.equal((await authenticatedRuntime.dispatchFetch("https://admin.example/admin")).status,401);
+  const jwt=appleToken({iss:"https://folding-test.cloudflareaccess.com",aud:["local-admin"],sub:"synthetic-admin",email:"admin@example.test",type:"app"});
+  const pages=["/admin","/admin/queue","/admin/queue?kind=avatars","/admin/queue?kind=reports","/admin/queue?kind=quarantine","/admin/audit","/admin/config","/admin/periods","/admin/jobs","/admin/queue?kind=cases","/admin/queue?kind=ban_reviews"];
+  for(const path of pages){
+    const response=await authenticatedRuntime.dispatchFetch("https://admin.example"+path,{headers:{"Cf-Access-Jwt-Assertion":jwt}});
+    assert.equal(response.status,200,path+" "+await response.clone().text());
+    const html=await response.text();assert.ok(html.includes('<nav aria-label="Admin">'),path);assert.ok(html.includes('href="/admin/jobs"'),path);assert.ok(html.includes('background:#000'),path);assert.ok(html.includes('color-scheme:dark'),path);
+    if(process.env.FOLDING_ADMIN_PREVIEW_DIR){await mkdir(process.env.FOLDING_ADMIN_PREVIEW_DIR,{recursive:true});await writeFile(`${process.env.FOLDING_ADMIN_PREVIEW_DIR}/${path.includes("jobs")?"jobs":path==="/admin"?"people":encodeURIComponent(path)}.html`,html);}
+  }
 });

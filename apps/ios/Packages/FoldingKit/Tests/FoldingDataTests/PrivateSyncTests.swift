@@ -396,10 +396,11 @@ private func event(
     try db.execute("DROP TABLE known_source_sequences")
     try db.execute("DROP TABLE rejected_transfer_ids")
     try db.execute("DROP TABLE transfer_markers")
+    try db.execute("DROP TABLE captured_observations")
     try db.execute("PRAGMA user_version=3")
   }
   let reopened = try TrackingStore(directory: root, installationID: identity)
-  #expect(try db.rows("PRAGMA user_version").first?["user_version"] == "8")
+  #expect(try db.rows("PRAGMA user_version").first?["user_version"] == "9")
   try await reopened.importMirrorBatch(
     [.reset(generation, createdAtMS: 1)], storeID: "m", checkpoint: nil)
   #expect(try await reopened.retainedEvents() == [waiting])

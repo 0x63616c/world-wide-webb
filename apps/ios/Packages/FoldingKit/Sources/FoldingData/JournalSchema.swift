@@ -4,7 +4,7 @@ extension SQLiteConnection {
   func migrate() throws {
     try transaction {
       let version = try rows("PRAGMA user_version").first?["user_version"]
-      guard let version, let schemaVersion = Int(version), (0...8).contains(schemaVersion) else {
+      guard let version, let schemaVersion = Int(version), (0...9).contains(schemaVersion) else {
         throw StoreError.incompatibleSchema
       }
       if schemaVersion == 0 { for statement in Self.schema { try execute(statement) } }
@@ -118,6 +118,21 @@ extension SQLiteConnection {
           )
         }
         try execute("PRAGMA user_version=8")
+      }
+      if schemaVersion < 9 {
+        try execute(
+          """
+          CREATE TABLE captured_observations (
+            event_id TEXT PRIMARY KEY, device_id TEXT NOT NULL, sequence INTEGER NOT NULL,
+            payload_json TEXT NOT NULL, state TEXT NOT NULL DEFAULT 'pending'
+              CHECK(state IN ('pending','quarantined')),
+            attempt_count INTEGER NOT NULL DEFAULT 0, next_attempt_ms INTEGER NOT NULL DEFAULT 0,
+            lease_token TEXT, lease_until_ms INTEGER, last_error TEXT,
+            UNIQUE(device_id,sequence))
+          """)
+        try execute(
+          "CREATE INDEX captured_pending ON captured_observations(state,device_id,sequence)")
+        try execute("PRAGMA user_version=9")
       }
       // Seed durable high-water marks for journals created before recovery diagnostics existed.
       if try rows("SELECT value FROM settings WHERE key='highest_reset_revision'").isEmpty {

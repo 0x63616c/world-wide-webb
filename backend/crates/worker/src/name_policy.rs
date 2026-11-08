@@ -1,4 +1,4 @@
-//! Versioned whole-word checks; every non-rejected custom name still requires human approval.
+//! Versioned whole-word checks for names that publish immediately after validation.
 use serde::Deserialize;
 use unicode_casefold::UnicodeCaseFold;
 use unicode_normalization::UnicodeNormalization;

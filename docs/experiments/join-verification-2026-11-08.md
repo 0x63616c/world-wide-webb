@@ -1,0 +1,35 @@
+# Join assertion verification — November 8, 2026
+
+The owner reported `Unable to continue … (unauthorized)` after Apple sign-in and tapping Join in the TestFlight profile flow (reported version 0.1.8). After the owner-authorized signup reset, production aggregate readback showed a new active/not-joined account, one unrevoked production App Attest key at counter zero, one successful sign-in, one session refresh and two unused Join challenges correctly bound to that session/device/key. There was no joined epoch. This places the failure after fresh Apple sign-in/key enrollment and before committed Join; it does not establish the exact device assertion contents.
+
+Apple documents different extension names for key attestations (`apple_validation_category_01`, `apple_bundle_version_01`) and subsequent assertions (`validationCategory`, `bundleVersion`): [Validating apps that connect to your server](https://developer.apple.com/documentation/devicecheck/validating-apps-that-connect-to-your-server). The implementation reused the enrollment names for assertions. A signed Join assertion using the documented assertion names reproduced rejection in `verify_assertion_with_policy`: `Err(WrongApplication)` instead of `Ok(1)`.
+
+The fix parses the two formats separately, requires assertion extension flags and metadata, accepts the category as a UInt32 CBOR integer or four little-endian bytes, and retains the same distribution/build allowlist. No missing-metadata fallback, App Attest bypass or plaintext proof logging was added. A structured rejection event records only the verifier error enum and fixed request purpose; the client continues to receive a generic unauthorized response.
+
+Local verification:
+
+- The regression failed before the fix and passed afterward.
+- `scripts/check-backend` passed: seven domain contract tests, 24 Worker unit tests and nine compiled Worker/runtime tests. The new full HTTP Join test independently signs its request using Node crypto, obtains a real local Worker challenge, confirms tampered-body rejection without counter advancement, succeeds with the original body and documented metadata, and rejects replay.
+- The existing historical Apple device vector and independent CryptoKit signature fixture passed. The new modern-metadata fixture is synthetic; it is not owner-device proof.
+
+Production deployment is prepared from the exact currently deployed source `480725ecb2007c00669eb0e3ff6102eddb584566`, preserving its API behavior and existing D1 migration lineage. This intentionally excludes unrelated resource-protection/minimum-build work from other branches. Current provider settings accept builds 2–11 and use production App Attest. No account, personal journal or CloudKit changes are part of this fix.
+
+Deployed fix commit `35a98d6f4f30d05fc7d092bcd234a7895618854d` as production Cloudflare version `81519196-59e7-49f6-a396-cb978ae141dd`. Health returned that exact source and `ok`; provider readback confirmed every other binding (including allowed builds 2–11, feature flags and secret binding names) and compatibility settings unchanged. Receipt: `build/runtime/production-join-fix-verification.json` in the isolated deployment checkout (ignored).
+
+Settings version/build display is separately implemented in `079f64b`: installed marketing version, build in parentheses, and TestFlight when a verified release AppTransaction reports sandbox. Debug/simulator installations are not labeled TestFlight; failure to obtain a verified app transaction leaves version/build visible without guessing a distribution channel. Debug simulator and unsigned Release device compilations passed, as did ten localization checks. This app UI change is not yet distributed in TestFlight. Reset history already requires its existing native destructive confirmation.
+
+The owner must retry Join after deployment. Keep #33 live Join acceptance open until a joined epoch and accepted assertion counter are verified. Internal TestFlight distribution, storefront review, App Store submission and deferred physical-device checks retain their existing statuses.
+
+## Captured device rejection and parser correction
+
+The first deployment did not resolve the owner’s failure. A verified live Cloudflare tail captured `InvalidMetadata` for Join; adding temporary size/flag diagnostics captured **99 authenticator bytes and flags 192 (`0xc0`)** on both the initial attempt and the client’s bounded refresh/retry. The server rejected the AT flag before parsing metadata or checking the signature. The earlier synthetic extended assertion used `0x80` and therefore missed this device format. No raw assertion, authorization header or personal data was saved.
+
+The corrected assertion parser requires ED and a complete CBOR metadata map directly after the assertion’s fixed 37-byte header, permits the device’s signed `0xc0` flag combination, and supports either complete Apple metadata naming scheme. Mixed aliases, duplicate required keys, trailing bytes, missing metadata, disallowed distributions/builds, bad signatures, changed bodies and replay remain rejected. The header/flag shape is device-observed; reconstructed field values are synthetic until a successful device request proves the full parser. Enrollment certificate/receipt/environment validation is unchanged.
+
+A compiled-Worker HTTP regression with `0xc0` and enrollment-style metadata keys failed with HTTP 401 before the correction and passed afterward. The 99-byte synthetic metadata test and alias/flag/trailing-byte rejection tests passed. The complete backend check passed seven domain contracts, 25 Worker unit tests and ten compiled runtime tests. Production/device retry remains pending for this second correction.
+
+The device-format correction was deployed from `0abd207bb5fc2dcefdbff19c70308bbe892147d8` as Cloudflare version `817c62ed-ed8e-4bc6-85c8-ef6aa6fff8cc`. Public health returned that exact source. Provider readback confirmed all other bindings and compatibility settings unchanged. Receipt: `build/runtime/production-join-device-fix-verification.json` in the isolated checkout (ignored). Owner retry after this correction remains pending; earlier retries still failed, and no successful Join is claimed.
+
+## Owner-device Join verified
+
+The owner reported success ("yay"). Live tail captured enrollment HTTP 200 on `0abd207` with request `96092526-8259-4567-980a-1990bdb816f8`. Production aggregate readback confirmed joined/unrestricted membership, one epoch, a key counter advanced to 10, and consumed Join/avatar-upload challenges. This verifies the specific protected Join and subsequent upload boundary; reset/leave/delete and broader device/shipping checks remain separate.

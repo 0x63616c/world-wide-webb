@@ -122,9 +122,9 @@ Only folds recorded after joining and from the active tracking phone count. No r
 
 ### Avatars, names, and sharing
 
-Let users crop and preview their own avatar. Accept bounded raster uploads, validate decoded content and dimensions, strip metadata, re-encode, and store approved derivatives in R2. Keep new uploads private pending automated/manual moderation; show the previous approved image or fallback while pending. Provide reporting and admin removal of names/images. Individual hide/block controls are omitted from v1 UI. Deletion removes associated avatar assets and invalidates cached derivatives.
+Let users crop and preview their own avatar. Accept bounded raster uploads, validate decoded content and dimensions, strip metadata, re-encode, and publish the sanitized derivative immediately after successful processing. Names and photos never require administrator approval. Provide reporting and retrospective admin removal of names/images and suspension/ban controls. Individual hide/block controls are omitted from v1 UI. Deletion removes associated avatar assets and invalidates cached derivatives.
 
-Validate display names server-side on creation and changes. Normalize Unicode for abuse detection, check whole words and common obfuscations against a versioned multilingual profanity/slur policy, and rate-limit changes. Avoid naive substring matching that rejects innocent names. Reject clear violations with “Choose another name”; send ambiguous cases for review. A safe generated nickname lets users proceed.
+Validate display names server-side on creation and changes. Normalize Unicode for abuse detection, check whole words and common obfuscations against a versioned multilingual profanity/slur policy, and rate-limit changes. Avoid naive substring matching that rejects innocent names. Reject clear violations with “Choose another name”; publish all other valid names immediately. Do not create a human approval queue or hold signup pending review. Administrators can remove abusive public names or ban accounts afterward.
 
 Overlay tasteful gold, silver, and bronze crowns on top-ranked avatars for the selected period. Crowns are app-rendered rank markers, never baked into uploaded images. Preserve rank text/accessibility labels rather than relying only on color. Allow an optional native share-sheet card of the user's own placement, avatar, crown, score, and period. Show a preview; never share automatically. Current placements are identified by period/date, and finalized result cards use the recorded result.
 
@@ -164,7 +164,7 @@ Send at most one result notification per participant per period; Podium only fil
 
 Competition notifications follow finalization and are delivered at the next 09:00 in the user's home timezone. Recheck current opt-in preferences and account state before sending. Provide the results in-app regardless of push delivery. Daily threshold alerts happen when crossed and respect system Focus behavior.
 
-Use Apple's standard review request after at least seven days since setup and three separate days of recorded use, when the user next views a completed summary. Avoid setup, error, reset, and purchase flows. Do not ask a satisfaction question first. Let the system govern whether the prompt appears.
+Use Apple's standard review request after setup is complete and three separate days of recorded use, when the user next views a completed summary. No additional seven-day wait applies. Allow at least 30 days between request attempts, including attempts where the system does not display a prompt. Avoid setup, error, reset, and purchase flows. Do not ask a satisfaction question first. Let the system govern whether the prompt appears.
 
 ## 8. Reset, privacy, and account deletion
 

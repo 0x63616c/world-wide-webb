@@ -94,6 +94,19 @@ async fn handle(mut request: Request, env: &Env, id: Id) -> Result<Response> {
             Err(failure) => return error(failure.status, failure.code, id, failure.retryable),
         }
     }
+    if path == "/"
+        && matches!(request.method(), Method::Get | Method::Head)
+        && env.var("ADMIN_ORIGIN").is_ok_and(|origin| {
+            request
+                .url()
+                .is_ok_and(|url| url.origin().ascii_serialization() == origin.to_string())
+        })
+    {
+        let mut redirect = Response::empty()?.with_status(303);
+        redirect.headers_mut().set("Location", "/admin")?;
+        redirect.headers_mut().set("Cache-Control", "no-store")?;
+        return Ok(redirect);
+    }
     if request.method() == Method::Get && path == "/v1/health" {
         return crate::monitoring_runtime::health(env).await;
     }

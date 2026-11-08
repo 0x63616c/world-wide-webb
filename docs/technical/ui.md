@@ -103,7 +103,7 @@ Rows contain numerical rank, avatar, nickname, fold total, and optional crown. C
 
 A leaderboard failure with cached results keeps those results visible and offers Retry with an updated timestamp in details. An initial failure shows a compact error state. Empty periods show “No folds yet”; comparison below the minimum population follows the spec. Banned users see the restriction and appeal/account actions, not a fake empty leaderboard.
 
-Profile uses a native form and `PhotosPicker` for optional avatar selection. Decode/crop locally for preview, then upload through the documented backend command. Show the approved avatar or generated fallback publicly until approval; the pending image is visible only in the user's edit preview. Nickname rejection uses “Choose another name”; avoid showing the matched abusive word. Failed uploads retain the draft for retry without changing the public image.
+Profile uses a native form and `PhotosPicker` for avatar selection. Decode/crop locally for preview, then upload through the protected backend command. Display the sanitized image after processing; names/photos do not wait for admin approval. Failed uploads retain the draft for retry without replacing the public image. Reporting and retrospective admin removal/ban controls handle abuse.
 
 Your Results lists finalized week/month summaries with period, rank, score, and medal. Selecting one opens the stored result detail, not a recomputation from current profile totals. Sharing opens a preview rendered from a specific result/version, followed by the native share sheet. Never automatically share or include tokens/internal moderation status. Report and Hide/Block appear in a row menu and use confirmation only when useful; hiding never renumbers remaining ranks.
 

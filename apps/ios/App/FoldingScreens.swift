@@ -2,6 +2,7 @@ import AuthenticationServices
 import Charts
 import FoldingData
 import FoldingDomain
+import StoreKit
 import SwiftUI
 import UIKit
 
@@ -701,6 +702,14 @@ private struct SettingsScreen: View {
   @Bindable var model: FoldingPresentation
   let actions: FoldingActions
   @State private var resetConfirmation = false
+  @State private var isTestFlight = false
+
+  private var versionDescription: String {
+    let version =
+      Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—"
+    let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "—"
+    return "\(version) (\(build))" + (isTestFlight ? " · TestFlight" : "")
+  }
 
   var body: some View {
     NavigationStack {
@@ -806,7 +815,17 @@ private struct SettingsScreen: View {
             destination: URL(string: "https://getfolding.app/privacy")!)
           LabeledContent(
             String(localized: "settings.version", defaultValue: "Version"),
-            value: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—")
+            value: versionDescription
+          )
+          .task {
+            #if !DEBUG && !targetEnvironment(simulator)
+              if let result = try? await AppTransaction.shared,
+                case .verified(let transaction) = result
+              {
+                isTestFlight = transaction.environment == .sandbox
+              }
+            #endif
+          }
         }
       }
       .disabled(model.operation != nil)

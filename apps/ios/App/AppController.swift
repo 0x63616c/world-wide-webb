@@ -764,6 +764,8 @@ import struct FoldingData.SetupProgress
     }
   }
 
+  func maintainCapturedObservations() async { await runtime.maintainCapturedObservations() }
+
   func maintainCompetitionUploads() async { await runtime.maintainCompetitionUploads() }
 
   func synchronizePrivateHistory() async {

@@ -54,6 +54,9 @@ import SwiftUI
       guard scenePhase == .active else { return }
       await controller.maintainCompetitionUploads()
     }
+    .task(id: scenePhase) {
+      if scenePhase == .active { await controller.maintainCapturedObservations() }
+    }
     .task(id: controller.presentation.competitionRemoval) { await controller.watchRemoval() }
     .task { await controller.synchronizePrivateHistory() }
     .onReceive(NotificationCenter.default.publisher(for: .CKAccountChanged)) { _ in

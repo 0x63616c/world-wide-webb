@@ -8,11 +8,14 @@ The JSON [event schema](../../contracts/schemas/event.schema.json) is the persis
 
 A receipt contains event ID, data generation, source sequence, whether this call was a retry, and whether it consumed a test lease. Return success only after the journal commit. A retry with the same operation/event ID and same content returns the original receipt; same ID with different immutable content returns `identity_conflict`. A fresh Shortcut invocation is a fresh observation, not automatically a retry merely because its state matches. Platform execution does not promise a durable invocation ID: generate it once at our entry point and preserve it across our own retries; distinct system re-invocations are handled by repeated-state rules.
 
+Shortcuts use `capture(...) -> CaptureReceipt` first. That receipt acknowledges the protected inbox commit and carries the event ID, retry flag and any notification cancellation identifier. `RecordingReceipt` describes subsequent canonical materialization. Neither receipt proves cloud delivery or a public score.
+
 ## Canonical local schema
 
 Implement SQL migrations with `PRAGMA user_version`, never manual file edits. UUIDs are lowercase canonical strings. A private account namespace is separate from a reset generation. Within every isolated namespace, initial generation is exactly `{revision:0, reset_id:"00000000-0000-0000-0000-000000000000"}`; only explicit reset markers at revision >=1 erase history. Two new installations in the same iCloud account therefore start in the same generation. Never compare reset markers across account namespaces. SQL integer fields are checked against the contract's nonnegative safe-integer range.
 
 - `source_state(device_id PRIMARY KEY, next_sequence, active_generation_revision, active_generation_id)`. Sequence increases for the installation lifetime, including test events; reset does not restart it. Restoring/reinstalling on a different installation creates a new device ID and requires competition transfer.
+- `captured_observations(event_id PRIMARY KEY, device_id, sequence, payload_json, state, attempt_count, next_attempt_ms, lease_token, lease_until_ms, last_error)`, UNIQUE(device_id, sequence), is the local-only schema v9 inbox in the same protected, account-partitioned journal. The full immutable event envelope is captured before canonical processing. States are pending or quarantined; this table never enters the private mirror.
 - `events(event_id PRIMARY KEY, device_id, sequence, generation_revision, generation_id, observed_at_ms, timezone_id, transition, is_test, competition_epoch_id NULL, payload_json, payload_hash)`, UNIQUE(device_id, sequence). Payload hash is of normalized schema fields; identity comparison also checks parsed values. Never hash arbitrary JSON pretty-print output.
 - `reset_markers(reset_id PRIMARY KEY, revision, created_at_ms)`; ordering is `(revision, reset_id)` with lowercase ASCII lexical UUID ordering. Logical revision must be one above the highest known revision. Wall time is for diagnostics only.
 - `sessions` and `daily_summaries`: derived caches with reducer version/generation/timezone keys. Rebuildable from retained events; not separately synced to iCloud. Journal schema v6 adds a durable journal UUID, mutation revision/rebuild epoch, and a bounded append log (last 2,048 revisions). SQLite triggers invalidate across app/intent/process writers atomically with journal mutations. A protected, backup-excluded `derived/derived-v1.sqlite` stores scalar totals, source checkpoints, indexed session/day rows, and counted timestamps, keyed by cache/reducer version, journal identity/revision/generation and home timezone. Append-only observations update the same pure Codable source state machine used by full replay; late events, interruption/selection/conflict/reset changes or a trimmed log trigger conservative full reconstruction. Off-actor cache writers publish atomically and cannot overwrite a newer header. Read transactions accept only a matching fenced journal revision; old results are never called current. Running duration is calculated from current running sessions at query time. Compact day reads require calendar-aligned ranges of at most 366 days. Session/history pages are bounded (200 sessions/240 bins maximum), and cursors bind journal/reducer/cache identity, revision and query context; history cursors freeze calendar range/clock across midnight. Existing full analytics/export APIs retain their complete semantics. A 100k host profile is development evidence only; Duo p95 acceptance remains deferred.
@@ -28,17 +31,25 @@ Choose file protection compatible with access after first unlock (`completeUntil
 
 ## Recording transaction
 
-No network request or long-running task inside this transaction:
+Shortcuts perform no CloudKit identity lookup, mirror initialization, network request, history reduction or widget work before the capture commit:
 
-1. Open `BEGIN IMMEDIATE`; read current winning generation and source state.
-2. Look up supplied retry ID. Return the original receipt on matching content; conflict otherwise.
-3. Allocate the next source sequence and increment source state in this same transaction.
-4. Check the live setup attempt. A matching transition after its baseline, same device/generation, before expiration consumes it once and marks the event `is_test=true`. An opposite transition is ordinary tracking and does not consume the lease. Expired leases cannot suppress events.
-5. Insert the event and mirror work. Insert competition work only if this is a real event captured while locally joined under a server-issued competition epoch; never add it retroactively after joining.
-6. Apply deterministic reduction and update affected summaries/session caches; update threshold claim eligibility atomically. For expensive history rebuilds, commit an invalidation marker instead and return a consistent snapshot version while background work rebuilds.
-7. Commit; then request widget refresh, attempt uploads, and fulfill local notification work outside the transaction.
+1. Use the persisted active account-partition lease. Reject suspended/missing/stale authority; do not guess an account or initialize a production partition from the intent.
+2. Open `BEGIN IMMEDIATE`; validate the ID/content against canonical events and captures, and read the winning generation, installation source and competition epoch.
+3. Apply daily preferences before allocating the source sequence, so preference edits establish the correct baseline.
+4. Allocate the lifetime source sequence. Consume a matching live setup attempt atomically and freeze `is_test`, original UTC timestamp/timezone, device, generation and epoch in the envelope. An opposite transition does not consume setup; delayed replay never reclassifies a test after its lease expires.
+5. Insert the capture and increment source state in the same transaction. Return success only after commit. A failed transaction rolls back capture, sequence and setup consumption together.
 
-No lock or actor in only one process replaces step 1. An import uses the same transaction discipline but preserves original ID/sequence and never allocates a sequence or creates competition work on behalf of another device.
+Replay claims only the local source's oldest pending capture with a 30-second token lease. Retry attempts, leases and exponential backoff (one second up to five minutes) survive restart; stale tokens cannot commit or acknowledge newer work. Future deadlines beyond those bounds are reclaimable after clock rollback. A worker processes at most 25 captures per batch. The app replays on store startup and every two seconds while active; a post-capture task is best effort. iOS suspension does not guarantee immediate retry execution.
+
+Canonical materialization inserts the exact captured event plus private-mirror work and eligible public work atomically. Public work requires the original non-test epoch still to match the current epoch; later joining never makes an old capture eligible. Derived caches invalidate through existing journal triggers. Evaluate the daily-limit claim idempotently, then acknowledge and delete the capture. A kill after event commit but before acknowledgement reuses the same ID/sequence/outbox identities. The legacy `record` API combines capture/materialization in one transaction for existing direct callers.
+
+Reset deletes captures in the same transaction as history cleanup and invalidates their leases. Account-partition fences apply to every capture operation; returning to the same account may resume its own pending observations, never relabel them. Installation replacement quarantines old-source captures rather than replaying them into a new installation. Conflicting imports/immutable captures are quarantined without public credit. Setup receipt queries include pending captures, so setup can observe acceptance before canonical processing.
+
+The inbox shares journal file protection and SQLite locking: storage unavailable before first unlock, exhausted execution budget, or missing active authority can still fail honestly before capture. Never acknowledge an unwritten observation or infer events that Shortcuts did not deliver. Offline foreground account resolution remains separate work (#57).
+
+**Rollout:** schema v9 is a one-way local upgrade relative to existing binaries supporting schema v8. Older binaries reject the upgraded journal. Roll back using a forward-compatible build; never downgrade `user_version`, erase the inbox, or discard history to reopen an older binary.
+
+No lock or actor in only one process replaces the SQLite transaction. Imports preserve original ID/sequence and never allocate local sequences or create competition work for another device.
 
 ## Reducer v1
 

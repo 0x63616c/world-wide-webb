@@ -102,7 +102,19 @@ pub(crate) async fn verify(
             allowed_bundle_versions: &versions,
         },
     )
-    .map_err(|_| Failure::unauthorized())?;
+    .map_err(|error| {
+        // Only a fixed verifier outcome is logged: never assertion bytes, tokens,
+        // request bodies, participant identifiers or the device's public key.
+        console_log!(
+            "{}",
+            serde_json::json!({
+                "event": "app_attest_assertion_rejected",
+                "reason": format!("{error:?}"),
+                "purpose": purpose,
+            })
+        );
+        Failure::unauthorized()
+    })?;
     Ok(VerifiedRequest {
         session,
         key_id,
