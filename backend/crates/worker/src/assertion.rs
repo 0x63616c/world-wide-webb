@@ -12,10 +12,7 @@ pub enum AssertionError {
     Malformed,
     InvalidBinding,
     WrongApplication,
-    InvalidMetadata {
-        authenticator_bytes: usize,
-        flags: u8,
-    },
+    InvalidMetadata,
     Replay,
     InvalidSignature,
 }
@@ -120,10 +117,7 @@ fn verify_assertion_inner(
     match policy {
         Some(policy) => {
             crate::attestation::verify_assertion_metadata(&assertion.authenticator_data, policy)
-                .map_err(|_| AssertionError::InvalidMetadata {
-                    authenticator_bytes: assertion.authenticator_data.len(),
-                    flags: assertion.authenticator_data[32],
-                })?
+                .map_err(|_| AssertionError::InvalidMetadata)?
         }
         None if assertion.authenticator_data.len() != 37 => return Err(AssertionError::Malformed),
         None => {}

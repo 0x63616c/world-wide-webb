@@ -235,13 +235,18 @@ pub(crate) async fn mutate(
                 5,
             )
             .await?;
-            writes.push(statement(db,"INSERT INTO nickname_requests(participant_id,requested_nickname,requested_at_ms) VALUES (?1,?2,?3) ON CONFLICT(participant_id) DO UPDATE SET requested_nickname=excluded.requested_nickname,requested_at_ms=excluded.requested_at_ms",&[text(&session.participant_id),text(&name),number(time)])?);
             writes.push(statement(
                 db,
-                "UPDATE profiles SET nickname_status='pending' WHERE participant_id=?1",
+                "DELETE FROM nickname_requests WHERE participant_id=?1",
                 &[text(&session.participant_id)],
             )?);
-            profile.nickname_status = "pending".into();
+            writes.push(statement(
+                db,
+                "UPDATE profiles SET nickname=?1,nickname_status='approved' WHERE participant_id=?2",
+                &[text(&name),text(&session.participant_id)],
+            )?);
+            profile.nickname = name;
+            profile.nickname_status = "approved".into();
         }
         serde_json::json!({"operation_id":operation,"profile":profile,"enrollment":enrollment,"request_id":request_id})
     };
