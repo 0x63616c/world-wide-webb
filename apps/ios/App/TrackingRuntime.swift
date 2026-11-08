@@ -16,13 +16,19 @@ actor TrackingRuntime {
   private var exportTickets: [UUID: PreparedTrackingExport] = [:]
   init(journal: TrackingStore? = nil) { self.journal = journal }
 
+  private var captureReplay: (id: UUID, task: Task<Void, Never>)?
   private var synchronizing = false
   private var privateSyncFailed = false
   private var observers: [UUID: AsyncStream<Void>.Continuation] = [:]
 
   func store() async throws -> TrackingStore {
     guard !accountSuspended else { throw PartitionError.superseded }
-    if let journal { return journal }
+    let revision = accountRevision
+    if let journal {
+      await replayCapturedObservations(in: journal)
+      guard revision == accountRevision, !accountSuspended else { throw PartitionError.superseded }
+      return journal
+    }
     if let configuration = try ProductionConfiguration.current() {
       let token = accountRevision
       if cloudConnection == nil {
@@ -41,6 +47,8 @@ actor TrackingRuntime {
       let opened = try await cloudConnection!.connect()
       guard token == accountRevision else { throw PartitionError.superseded }
       journal = opened
+      await replayCapturedObservations(in: opened)
+      guard revision == accountRevision, !accountSuspended else { throw PartitionError.superseded }
       return opened
     }
     #if DEBUG && targetEnvironment(simulator)
@@ -60,6 +68,8 @@ actor TrackingRuntime {
       }
       let opened = try router.openJournal(lease: lease, installationID: installation)
       journal = opened
+      await replayCapturedObservations(in: opened)
+      guard revision == accountRevision, !accountSuspended else { throw PartitionError.superseded }
       return opened
     #else
       throw CloudTrackingError.missingConfiguration
@@ -69,6 +79,8 @@ actor TrackingRuntime {
   func suspendForAccountChange(revision: UUID) async throws {
     accountSuspended = true
     accountRevision = revision
+    captureReplay?.task.cancel()
+    captureReplay = nil
     journal = nil
     clearWidgets()
     try await cloudConnection?.invalidate()
@@ -129,55 +141,138 @@ actor TrackingRuntime {
   private func removeObserver(_ id: UUID) { observers[id] = nil }
   private func changed() { for continuation in observers.values { continuation.yield(()) } }
 
+  /// Recording success acknowledges a committed local capture, not network work.
   func record(_ transition: Transition) async throws {
-    let (store, receipt) = try await commitObservation(
-      transition, id: UUID(), observedAtMS: Self.nowMS,
-      timezoneID: TimeZone.current.identifier, revision: accountRevision)
-    if !receipt.wasRetry {
-      let preferences = localPreferences()
-      _ = try? await store.evaluateDailyLimit(
-        afterEventID: receipt.event.eventID, homeTimezone: preferences.homeTimezone,
-        nowMS: Self.nowMS)
-    }
-    await DailyLimitDelivery.shared.deliver(from: store)
-    await uploadCompetition()
-    await publishWidgets()
-    changed()
-  }
-
-  private func commitObservation(
-    _ transition: Transition, id: UUID, observedAtMS: Int64, timezoneID: String, revision: UUID
-  ) async throws -> (TrackingStore, RecordingReceipt) {
-    var prepared: (store: TrackingStore, observation: Observation)?
+    let id = UUID()
+    let observedAt = Self.nowMS
+    let timezone = TimeZone.current.identifier
+    let revision = accountRevision
     for attempt in 0...2 {
       try Task.checkCancellation()
-      guard accountRevision == revision, !accountSuspended else { throw PartitionError.superseded }
+      guard revision == accountRevision, !accountSuspended else { throw PartitionError.superseded }
       do {
-        if prepared == nil {
-          let current = try await store()
-          let generation = try await current.currentGeneration()
-          let epoch = try await current.currentCompetitionEpoch()
-          prepared = (
-            current,
-            Observation(
-              id: id, generation: generation, transition: transition, observedAtMS: observedAtMS,
-              timezoneID: timezoneID, competitionEpochID: epoch)
-          )
-        }
-        guard let prepared else { throw StoreError.invalidInput }
-        await configureDailyLimit()
-        guard accountRevision == revision, !accountSuspended else {
+        let current = try await localCaptureStore()
+        guard revision == accountRevision, !accountSuspended else {
           throw PartitionError.superseded
         }
-        let receipt = try await prepared.store.record(prepared.observation, nowMS: Self.nowMS)
-        return (prepared.store, receipt)
+        let captured = try await current.capture(
+          transition, id: id, observedAtMS: observedAt,
+          timezoneID: timezone, nowMS: Self.nowMS,
+          dailyLimitPreferences: captureDailyLimitPreferences())
+        changed()
+        // This task is best effort. The inbox/leases are authoritative if the process
+        // exits before processing starts or before acknowledgement completes.
+        Task {
+          guard revision == self.accountRevision, !self.accountSuspended else { return }
+          await DailyLimitDelivery.shared.cancel(captured.cancelledNotificationIdentifier)
+          guard revision == self.accountRevision, !self.accountSuspended else { return }
+          await self.replayCapturedObservations(in: current)
+        }
+        return
       } catch PartitionError.busy where attempt < 2 {
-        // No lock is held while waiting. Keep this physical observation's identity,
-        // timestamp, generation and account binding; never acknowledge before commit.
         try await Task.sleep(for: .milliseconds(150 * (attempt + 1)))
       }
     }
-    throw PartitionError.busy
+  }
+
+  /// Intents consume the app's durable account fence; they do not resolve CloudKit
+  /// identity or load a replication mirror before saving an observation.
+  private func localCaptureStore() async throws -> TrackingStore {
+    guard !accountSuspended else { throw PartitionError.superseded }
+    if let journal { return journal }
+    if let configuration = try ProductionConfiguration.current() {
+      guard
+        let shared = FileManager.default.containerURL(
+          forSecurityApplicationGroupIdentifier: configuration.appGroup)
+      else { throw CloudTrackingError.missingConfiguration }
+      let root = shared.appendingPathComponent("FoldingPrivate", isDirectory: true)
+      let installation = try InstallationIdentity.loadOrCreate(
+        service: "\(configuration.bundleID).installation",
+        accessGroup: nil, directory: root.appendingPathComponent("identity"))
+      let router = AccountPartitionRouter(directory: root)
+      guard let lease = try router.currentLease(installationID: installation) else {
+        throw PartitionError.inactive
+      }
+      return try router.openJournal(lease: lease, installationID: installation)
+    }
+    // Only the unconfigured Debug simulator can bootstrap local development storage.
+    // A production phone without an active account fence must open the app first.
+    return try await store()
+  }
+
+  private func captureDailyLimitPreferences() -> DailyLimitPreferences {
+    let enabled =
+      UserDefaults.standard.data(forKey: "folding.notifications.v1")
+      .flatMap { try? JSONDecoder().decode(NotificationPreferences.self, from: $0) }?.dailyLimit
+      ?? false
+    return DailyLimitPreferences(enabled: enabled, threshold: localPreferences().dailyLimit)
+  }
+
+  func replayCapturedObservations() async {
+    let revision = accountRevision
+    guard let current = try? await localCaptureStore(), revision == accountRevision,
+      !accountSuspended
+    else { return }
+    await replayCapturedObservations(in: current)
+  }
+
+  private func replayCapturedObservations(in current: TrackingStore) async {
+    guard !accountSuspended else { return }
+    if let replay = captureReplay {
+      await replay.task.value
+      return
+    }
+    let id = UUID()
+    let task = Task { await self.processCapturedObservations(in: current) }
+    captureReplay = (id, task)
+    await task.value
+    if captureReplay?.id == id { captureReplay = nil }
+  }
+
+  private func processCapturedObservations(in current: TrackingStore) async {
+    let revision = accountRevision
+    var committed = false
+    for _ in 0..<25 {
+      guard !Task.isCancelled, revision == accountRevision, !accountSuspended else { break }
+      let lease: CaptureLease
+      do {
+        guard let next = try await current.claimCapturedObservation(nowMS: Self.nowMS) else {
+          break
+        }
+        lease = next
+      } catch { break }
+      guard !Task.isCancelled, revision == accountRevision, !accountSuspended else { break }
+      do {
+        let receipt = try await current.commitCapturedObservation(lease, nowMS: Self.nowMS)
+        guard revision == accountRevision, !accountSuspended else { break }
+        // Re-evaluation is idempotent and must complete before removing this inbox row.
+        _ = try await current.evaluateDailyLimit(
+          afterEventID: receipt.event.eventID,
+          homeTimezone: localPreferences().homeTimezone, nowMS: Self.nowMS)
+        guard !Task.isCancelled, revision == accountRevision, !accountSuspended else { break }
+        try await current.acknowledgeCapturedObservation(lease)
+        committed = true
+      } catch CaptureError.invalidLease { break } catch {
+        let permanent =
+          error as? StoreError == .identityConflict || error as? StoreError == .invalidInput
+        try? await current.retryCapturedObservation(lease, nowMS: Self.nowMS, quarantine: permanent)
+        break
+      }
+    }
+    if committed, revision == accountRevision, !accountSuspended {
+      await DailyLimitDelivery.shared.deliver(from: current)
+      // Upload and iCloud outboxes were committed with each event. Existing workers
+      // retry those independently; widgets remain best effort as specified.
+      await publishWidgets(using: current)
+      changed()
+    }
+  }
+
+  func maintainCapturedObservations() async {
+    while !Task.isCancelled {
+      await replayCapturedObservations()
+      do { try await Task.sleep(for: .seconds(2)) } catch { return }
+    }
   }
 
   func setup(_ action: SetupAction) async throws -> SetupProgress {
@@ -266,14 +361,15 @@ actor TrackingRuntime {
     WidgetCenter.shared.reloadAllTimelines()
   }
 
-  func publishWidgets() async {
+  func publishWidgets(using suppliedStore: TrackingStore? = nil) async {
     do {
       let destination = try widgetStore()
       let preferences =
         UserDefaults.standard.data(forKey: "folding.preferences.v1")
         .flatMap { try? JSONDecoder().decode(FoldingPreferences.self, from: $0) }
         ?? FoldingPreferences()
-      let store = try await store()
+      let store: TrackingStore
+      if let suppliedStore { store = suppliedStore } else { store = try await self.store() }
       let now = Self.nowMS
       let range = try PersonalDateRange.trailingDays(
         7, throughMS: now, homeTimezone: preferences.homeTimezone)

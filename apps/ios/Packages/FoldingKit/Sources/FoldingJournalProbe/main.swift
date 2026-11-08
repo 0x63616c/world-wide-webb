@@ -5,6 +5,26 @@ import Foundation
 // Local test helper only; never linked into the app or widget targets.
 @main struct JournalProbe {
   static func main() async throws {
+    if CommandLine.arguments.count == 3,
+      CommandLine.arguments[1] == "--capture-wait"
+        || CommandLine.arguments[1] == "--capture-commit-wait"
+    {
+      let root = URL(fileURLWithPath: CommandLine.arguments[2])
+      let store = try TrackingStore(
+        directory: root,
+        installationID: UUID(uuidString: "12345678-1234-4234-8234-123456789abc")!)
+      _ = try await store.capture(
+        .open, id: UUID(uuidString: "aaaaaaaa-0000-4000-8000-000000000001")!,
+        observedAtMS: 1234, timezoneID: "UTC", nowMS: 1234)
+      if CommandLine.arguments[1] == "--capture-commit-wait" {
+        guard let lease = try await store.claimCapturedObservation(nowMS: 1234) else {
+          throw StoreError.invalidInput
+        }
+        _ = try await store.commitCapturedObservation(lease, nowMS: 1234)
+      }
+      try Data().write(to: root.appendingPathComponent("capture-ready"), options: .atomic)
+      while true { try await Task.sleep(for: .seconds(1)) }
+    }
     if CommandLine.arguments.count == 3, CommandLine.arguments[1] == "--cached-read" {
       let start = ContinuousClock.now
       let store = try TrackingStore(

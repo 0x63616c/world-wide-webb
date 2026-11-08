@@ -31,6 +31,7 @@ import XCTest
     do { try await runtime.record(.open) } catch { failure = error }
     try await unlock.value
     XCTAssertNil(failure, "Log Duo Opened must survive brief partition contention")
+    await runtime.replayCapturedObservations()
     let events = try await journal.retainedEvents()
     XCTAssertEqual(events.count, 1)
     if let event = events.first {
@@ -102,6 +103,60 @@ import XCTest
     XCTAssertEqual(failure as? PartitionError, .busy)
     let events = try await journal.retainedEvents()
     XCTAssertTrue(events.isEmpty)
+  }
+
+  func testRecordingAcknowledgesDurableCaptureWhileProcessingIsLeasedAndRestartResumes()
+    async throws
+  {
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let installation = UUID()
+    let journal = try TrackingStore(directory: directory, installationID: installation)
+    let now = TrackingRuntime.nowMS
+    _ = try await journal.capture(.open, observedAtMS: now, timezoneID: "UTC", nowMS: now)
+    let claimed = try await journal.claimCapturedObservation(nowMS: now)
+    let held = try XCTUnwrap(claimed)
+    let runtime = TrackingRuntime(journal: journal)
+    try await runtime.record(.close)
+    let pending = try await journal.captureRetryStatus()
+    XCTAssertEqual(pending.pending, 2)
+    let before = try await journal.summary()
+    XCTAssertEqual(before.folds, 0)
+    // Stop the old owner before simulating a later process; its unstructured
+    // best-effort task must not race the new owner in this integration fixture.
+    try await runtime.suspendForAccountChange(revision: UUID())
+    // A later process has only the on-disk queue, not the old runtime's event IDs.
+    try await journal.retryCapturedObservation(held, nowMS: now - 1000)
+    let reopened = try TrackingStore(directory: directory, installationID: installation)
+    let restarted = TrackingRuntime(journal: reopened)
+    await restarted.replayCapturedObservations()
+    let after = try await reopened.summary()
+    XCTAssertEqual(after.folds, 2)
+    XCTAssertEqual(after.cycles, 1)
+    let empty = try await reopened.captureRetryStatus()
+    XCTAssertEqual(empty.pending, 0)
+  }
+
+  func testCapturedReplayProcessesBoundedBatchesAcrossSubsequentRuns() async throws {
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let installation = UUID()
+    let journal = try TrackingStore(directory: directory, installationID: installation)
+    let now = TrackingRuntime.nowMS
+    for n in 0..<30 {
+      _ = try await journal.capture(
+        n.isMultiple(of: 2) ? .open : .close,
+        observedAtMS: now - 100 + Int64(n), timezoneID: "UTC", nowMS: now)
+    }
+    let runtime = TrackingRuntime(journal: journal)
+    await runtime.replayCapturedObservations()
+    let partial = try await journal.captureRetryStatus()
+    XCTAssertEqual(partial.pending, 5)
+    await runtime.replayCapturedObservations()
+    let completed = try await journal.captureRetryStatus()
+    XCTAssertEqual(completed.pending, 0)
+    let result = try await journal.summary()
+    XCTAssertEqual(result.folds, 30)
   }
 
   func testRuntimeSetupReceiptsFeedRealScreensWithoutCountingTests() async throws {

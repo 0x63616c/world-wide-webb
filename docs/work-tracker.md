@@ -233,3 +233,7 @@ GitHub #28, #32 and #40 checklists reflect these partial completions. CI and phy
 ## Shortcuts busy-error fix — November 8, 2026
 
 - [x] [#58 — Shortcuts partition-busy failures](https://github.com/0x63616c/folding/issues/58): reproduced the reported `FoldingData.PartitionError error 3` through concurrent account startup and brief route-lock contention. Same-account callers now share initialization; bounded recording retries retain observation identity/time and respect account/reset fences. All 89 core and 41 app-hosted simulator tests pass. TestFlight **0.1.10 (11)** is Apple **VALID** and verified in **Folding Internal**, from `da0ac00`. [Evidence](experiments/shortcuts-partition-busy-2026-11-08.md); physical overnight/Shortcuts acceptance remains deferred to #47/F13.
+
+## Durable capture — November 8, 2026
+
+- [x] [#59 — Durable Shortcuts capture and persistent retries](https://github.com/0x63616c/folding/issues/59): verified local component delivered for PR review, with protected schema-v9 inbox, persisted FIFO leases/backoff and context-preserving replay. All 105 core and 43 app-hosted simulator tests pass, including actual kill/reopen recovery. [Evidence and rollback constraint](experiments/durable-capture-2026-11-08.md). Not merged or shipped; broader #27/#43 integration/release and #47/F13 physical acceptance remain open. Offline startup remains #57.
