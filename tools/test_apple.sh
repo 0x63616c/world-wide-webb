@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 cd "$(dirname "$0")/.."
+bash tools/test_canvas_layout.sh
 out="${APPLE_DERIVED_DATA:-${TMPDIR:-/tmp}/www-apple-derived}"
 mkdir -p "$out"
 stamp=$(date -u +%Y%m%dT%H%M%SZ)-$$

@@ -203,21 +203,22 @@ struct HomeView: View {
             })
     }
     var body: some View {
-        NavigationStack(path: appPath) {
-            GeometryReader { proxy in
+        PanelCanvas { canvas in
+            NavigationStack(path: appPath) {
                 ZStack {
                     Color.black.ignoresSafeArea()
                     ZStack {
-                        clockSurface(width: proxy.size.width)
+                        clockSurface(width: canvas.size.width)
+                            .frame(width: canvas.size.width, height: canvas.size.height)
                         if showingClock {
                             // A tap recognizer cancels on movement; a full-screen Button
                             // can activate after a drag that ends inside its large bounds.
                             Color.clear.contentShape(.rect)
                                 .onTapGesture(perform: home)
-                                .gesture(faceDragGesture(width: proxy.size.width))
+                                .gesture(faceDragGesture(width: canvas.size.width))
                                 .accessibilityAdjustableAction { direction in
-                                    if direction == .increment { settleFace(by: 1, width: proxy.size.width) }
-                                    if direction == .decrement { settleFace(by: -1, width: proxy.size.width) }
+                                    if direction == .increment { settleFace(by: 1, width: canvas.size.width) }
+                                    if direction == .decrement { settleFace(by: -1, width: canvas.size.width) }
                                 }
                                 .accessibilityElement()
                                 .accessibilityLabel("Open apps")
@@ -235,22 +236,23 @@ struct HomeView: View {
                             LauncherGlassSurface()
                         }
                         .clipShape(.rect(cornerRadius: PanelSurface.cornerRadius))
-                        .offset(y: showingClock ? proxy.size.height : 0)
+                        .frame(width: canvas.size.width, height: canvas.size.height)
+                        .offset(y: showingClock ? canvas.size.height : 0)
                         .allowsHitTesting(!showingClock && selected == nil)
                         .accessibilityHidden(showingClock || selected != nil)
                     }
-                }.frame(width: proxy.size.width, height: proxy.size.height).clipped()
+                }.frame(width: canvas.size.width, height: canvas.size.height).clipped()
                     .environment(\.colorScheme, .dark).foregroundStyle(.white).tint(.white)
-
-            }
-            .toolbar(.hidden, for: .navigationBar)
-            .navigationDestination(for: String.self) { id in
-                if let app = catalog.app(id: id) {
-                    appScreen(app)
-                        .toolbar(.hidden, for: .navigationBar)
-                        .navigationTransition(.zoom(sourceID: app.id, in: zoom))
-                }
-            }
+                    .toolbar(.hidden, for: .navigationBar)
+                    .navigationDestination(for: String.self) { id in
+                        if let app = catalog.app(id: id) {
+                            appScreen(app)
+                                .frame(width: canvas.size.width, height: canvas.size.height)
+                                .toolbar(.hidden, for: .navigationBar)
+                                .navigationTransition(.zoom(sourceID: app.id, in: zoom))
+                        }
+                    }
+            }.frame(width: canvas.size.width, height: canvas.size.height)
         }
         .onOpenURL { url in if url.host == "dogwalk", let app = catalog.app(id: "walks") { open(app) } }
         .onChange(of: store.walks.activeWalk, initial: true) { _, walk in
@@ -314,6 +316,11 @@ struct HomeView: View {
         }
     }
     private func appScreen(_ app: PanelAppDefinition) -> some View {
+        AppCanvasPage {
+            appContent(app)
+        }
+    }
+    private func appContent(_ app: PanelAppDefinition) -> some View {
         VStack(spacing: 0) {
             Group {
                 switch app.route {
