@@ -180,6 +180,23 @@ backup.hourly_backup()
             with self.assertRaisesRegex(RuntimeError, "missing indexed"):
                 backup.validate_history(root)
 
+    def test_dsm_batch_missing_path_is_absent_and_permission_errors_fail_closed(self):
+        nas = Mock()
+        path = backup.HISTORY_REMOTE + "/20261108T054922Z/control-center.sqlite.gz"
+        nas.call.return_value = {"files": [{"code": 408, "path": path}]}
+        self.assertFalse(backup.nas_exists(nas, path))
+        nas.call.return_value = {"files": [{"code": 407, "path": path}]}
+        with self.assertRaisesRegex(RuntimeError, "metadata error"):
+            backup.nas_exists(nas, path)
+        nas.call.return_value = {"files": [{"path": path, "isdir": False}]}
+        self.assertTrue(backup.nas_exists(nas, path))
+        with tempfile.TemporaryDirectory() as temp:
+            payload = Path(temp) / "control-center.sqlite.gz"
+            payload.write_bytes(b"fixture")
+            nas.call.return_value = {"files": [{"code": 408, "path": path}]}
+            backup.upload_once(nas, payload, backup.HISTORY_REMOTE + "/20261108T054922Z")
+            nas.upload.assert_called_once()
+
     def test_upload_resume_never_overwrites_different_remote_bytes(self):
         with tempfile.TemporaryDirectory() as temp:
             path = Path(temp) / "media.tar.gz"

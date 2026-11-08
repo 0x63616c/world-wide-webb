@@ -426,6 +426,13 @@ def nas_exists(nas, path):
         files = info.get("files", [])
         if len(files) != 1:
             raise RuntimeError("Unexpected NAS file metadata")
+        # DSM can report a missing individual path inside a successful batch
+        # response: {files: [{code: 408, path: ...}]}, without an error object.
+        code = files[0].get("code")
+        if code == 408:
+            return False
+        if code not in (None, 0):
+            raise RuntimeError("NAS file metadata error")
         error = files[0].get("additional", {}).get("error", files[0].get("error"))
         if error:
             if isinstance(error, dict) and error.get("code") == 408:
