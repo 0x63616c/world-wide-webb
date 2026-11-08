@@ -19,6 +19,8 @@ class VolumeTests(unittest.TestCase):
         return [
             {
                 "State": {"Running": running},
+                "Config": {"User": "501:20"},
+                "Image": "test-image",
                 "Mounts": [{"Destination": "/app/data", "Type": kind, "Name": volume.VOLUME}],
             }
         ]
@@ -82,12 +84,34 @@ class VolumeTests(unittest.TestCase):
                 p = root / f"before-release-{i}-{'a' * 40}-20261108T010000Z-{i}.sqlite"
                 p.write_bytes(b"snapshot")
                 os.utime(p, (i, i))
+                Path(str(p) + ".NAS_VERIFIED").write_text(
+                    json.dumps({"file": p.name, "bytes": p.stat().st_size, "sha256": volume.file_digest(p)})
+                )
             (root / "incident-20261108").mkdir()
             (root / "before-release-manual.sqlite").write_bytes(b"manual")
             volume.prune_release_snapshots(root)
             self.assertEqual(len(list(root.glob("before-release-*.sqlite"))), 8)
             self.assertTrue((root / "incident-20261108").is_dir())
             self.assertTrue((root / "before-release-manual.sqlite").is_file())
+
+    def test_low_space_refuses_copy_before_allocating_backup_bytes(self):
+        with tempfile.TemporaryDirectory() as temp:
+            with (
+                patch.object(
+                    volume.subprocess,
+                    "check_output",
+                    side_effect=[
+                        json.dumps(self.info()),
+                        json.dumps([{"Driver": "local", "Options": None}]),
+                        "1000000",
+                    ],
+                ),
+                patch.object(volume.shutil, "disk_usage", return_value=type("Disk", (), {"free": 0})()),
+                patch.object(volume.subprocess, "run") as copy,
+            ):
+                with self.assertRaisesRegex(RuntimeError, "reserve"):
+                    volume.snapshot_container("www", Path(temp) / "backup.sqlite")
+                copy.assert_not_called()
 
     def test_stopped_copy_includes_wal_and_does_not_touch_the_source(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -113,7 +137,11 @@ class VolumeTests(unittest.TestCase):
                 patch.object(
                     volume.subprocess,
                     "check_output",
-                    side_effect=[json.dumps(self.info()), json.dumps([{"Driver": "local", "Options": None}])],
+                    side_effect=[
+                        json.dumps(self.info()),
+                        json.dumps([{"Driver": "local", "Options": None}]),
+                        str(source.stat().st_size),
+                    ],
                 ),
                 patch.object(volume.subprocess, "run", side_effect=copy),
             ):

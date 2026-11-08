@@ -47,6 +47,7 @@ if [[ -f "$root/compose.yaml" ]] && grep -q '^  postgres:' "$root/compose.yaml";
 fi
 if [[ -f "$root/current.env" ]]; then cp "$root/current.env" "$root/previous.env"; fi
 # Ensure only one cycle owner runs; never bring the entire project down.
+python3 "$code/sqlite_snapshot.py" --prune "$root/backups"
 compose stop www
 mkdir -p "$root/backups"
 if ! python3 "$code/sqlite_snapshot.py" --container www-control-center-www-1 \
@@ -77,4 +78,8 @@ mv "$root/current.env.tmp" "$root/current.env"
 printf '%s\n' "$generation" > "$root/generation.tmp"
 mv "$root/generation.tmp" "$root/generation"
 python3 "$code/sqlite_snapshot.py" --prune "$root/backups"
+# Fire-and-forget: NAS replication belongs to the bounded background backup job.
+if ! "${WWW_LAUNCHCTL_BIN:-/bin/launchctl}" kickstart "gui/$(id -u)/com.calum.control-center-hourly-backup"; then
+  echo 'NAS replication will retry on the next hourly backup run.' >&2
+fi
 echo "Verified release $revision"
