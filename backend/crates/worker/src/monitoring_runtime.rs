@@ -19,7 +19,7 @@ async fn alert(
     active: bool,
     value: i64,
 ) -> std::result::Result<(), Failure> {
-    statement(db,"INSERT INTO operational_alerts VALUES (?1,?2,?3,?4) ON CONFLICT(code) DO UPDATE SET active=excluded.active,value=excluded.value,updated_at_ms=excluded.updated_at_ms",&[text(code),number(i64::from(active)),number(value),number(now())])?.run().await.map_err(|_|Failure::unavailable())?;
+    statement(db,"INSERT INTO operational_alerts VALUES (?1,?2,?3,?4) ON CONFLICT(code) DO UPDATE SET active=excluded.active,value=excluded.value,updated_at_ms=excluded.updated_at_ms WHERE operational_alerts.active<>excluded.active OR operational_alerts.value<>excluded.value",&[text(code),number(i64::from(active)),number(value),number(now())])?.run().await.map_err(|_|Failure::unavailable())?;
     if active {
         console_error!(
             "{}",
@@ -82,9 +82,15 @@ pub(crate) fn route(path: &str) -> &'static str {
         "/v1/capabilities" => "capabilities",
         "/v1/health" => "health",
         "/v1/me" => "account.read",
-        p if p.starts_with("/v1/auth/") => "auth",
-        p if p.starts_with("/v1/attestation/") => "attestation",
-        p if p.starts_with("/v1/enrollment/") => "enrollment",
+        "/v1/auth/challenges" => "auth.challenge",
+        "/v1/auth/apple" => "auth.apple",
+        "/v1/auth/refresh" => "auth.refresh",
+        "/v1/auth/logout" => "auth.logout",
+        "/v1/attestation/challenges" => "attestation.challenge",
+        "/v1/attestation/keys" => "attestation.key",
+        "/v1/enrollment/join" => "enrollment.join",
+        "/v1/enrollment/transfer" => "enrollment.transfer",
+        "/v1/enrollment/leave" => "enrollment.leave",
         "/v1/resets" => "history.reset",
         p if p.starts_with("/v1/avatars/") => "avatars",
         p if p.starts_with("/v1/results") => "results",

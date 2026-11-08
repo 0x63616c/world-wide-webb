@@ -18,6 +18,10 @@ Event `timezone_id` accepts supported IANA identifiers and canonical Foundation 
 
 All successes return `request_id` in JSON or `X-Request-ID` for binary responses. All errors use [error.schema.json](../../contracts/schemas/error.schema.json). Request sizes/string bounds in backend-and-security.md also apply. Server never trusts participant ownership, timestamps, roles, or totals merely because they fit a schema.
 
+API burst rejection uses the existing `429 rate_limited` contract with `Retry-After: 60`. Clients persist an origin-wide cooldown for 429 responses (60-second fallback) and 503 responses with a server-provided delay, including non-JSON responses. Accept delta seconds or an HTTP date; clamp persisted delays to 24 hours. Cooldowns apply to image requests, survive relaunch/sign-out, and do not delay private local recording. Concurrent requests already in flight may complete. A cooldown is cooperative behavior, not a server authorization control.
+
+The iOS client spaces new event batches by 60 seconds using the shared journal lease/cooldown, retaining the 256-event maximum and retry operation identity. Privacy/reset work keeps its existing priority. First-page and paginated leaderboard/results responses may be reused locally for 15 seconds; identical concurrent reads share a request. Mutations and session changes invalidate these bounded caches. `/me`, privacy operations and avatar images are not response-cached by this transport.
+
 ## Release capabilities
 
 - `GET /v1/capabilities`: unauthenticated, read-only → `{contract_version:1, worker_version:string, capabilities:string[], request_id:ID}`. `worker_version` is the exact deployed `WORKER_VERSION` binding. `VERIFIED_CAPABILITIES` is a deployment-owner-managed JSON allowlist of implemented capabilities whose final acceptance has passed; missing allowlist returns an empty array. Unknown/unimplemented capability names fail configuration instead of being advertised. This handshake never disables private tracking.

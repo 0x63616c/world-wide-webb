@@ -147,6 +147,7 @@ INSERT INTO mutation_guards VALUES (?1,CASE WHEN EXISTS(
  AND expires_at_ms>?5 AND used=0
 ) THEN 1 ELSE 0 END)
 "#;
+#[allow(clippy::too_many_arguments)]
 pub(crate) async fn recover(
     db: &D1Database,
     config: &Configuration,

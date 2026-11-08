@@ -233,3 +233,8 @@ GitHub #28, #32 and #40 checklists reflect these partial completions. CI and phy
 ## Shortcuts busy-error fix — November 8, 2026
 
 - [x] [#58 — Shortcuts partition-busy failures](https://github.com/0x63616c/folding/issues/58): reproduced the reported `FoldingData.PartitionError error 3` through concurrent account startup and brief route-lock contention. Same-account callers now share initialization; bounded recording retries retain observation identity/time and respect account/reset fences. All 89 core and 41 app-hosted simulator tests pass. TestFlight **0.1.10 (11)** is Apple **VALID** and verified in **Folding Internal**, from `da0ac00`. [Evidence](experiments/shortcuts-partition-busy-2026-11-08.md); physical overnight/Shortcuts acceptance remains deferred to #47/F13.
+
+
+## API cost and abuse protection — November 8
+
+- [ ] [#55 — API resource protection and idle-cost reduction](https://github.com/0x63616c/folding/issues/55): local code implemented and verified; staging/production activation and updated client distribution remain open. Includes pre-D1 burst limits, selective/hourly maintenance, ten-message queue batches, indexed score deltas, shared one-minute uploads, persisted cooldowns, bounded read caching and sampled safe route logs. See [implementation and evidence](experiments/resource-protection-2026-11-08.md). Existing physical-device/load/CI/shipping deferrals remain unchanged.

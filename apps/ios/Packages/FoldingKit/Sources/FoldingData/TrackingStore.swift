@@ -1288,7 +1288,7 @@ public actor TrackingStore {
       try saveCompetitionUpload(upload)
       try database.execute(
         "INSERT INTO settings(key,value) VALUES('competition_upload_not_before',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
-        [.text(String(nowMS + 15_000))])
+        [.text(String(nowMS + 60_000))])
       return upload
     }
   }

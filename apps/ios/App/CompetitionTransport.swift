@@ -138,10 +138,20 @@ actor CompetitionTransport {
   private let attestation: any CompetitionAttestation
   private var signing = false
   private var refreshing = false
+  private var readRevision = UUID()
+  private var recentReads: [String: (data: Data, expiresMS: Int64)] = [:]
+  private var pendingReads: [String: Task<Data, Error>] = [:]
+  private let nowMS: @Sendable () -> Int64
+
+  private struct ServerCooldown: Codable {
+    let untilMS: Int64
+    let status: Int
+  }
 
   init(
     origin: URL, deployment: String, deviceID: UUID, bundleID: String,
-    session injectedSession: URLSession? = nil, attestation: (any CompetitionAttestation)? = nil
+    session injectedSession: URLSession? = nil, attestation: (any CompetitionAttestation)? = nil,
+    nowMS: @escaping @Sendable () -> Int64 = { TrackingRuntime.nowMS }
   ) throws {
     let expectedHost =
       deployment == "production" ? "api.getfolding.app" : "api-staging.getfolding.app"
@@ -153,6 +163,7 @@ actor CompetitionTransport {
     self.origin = origin
     self.deployment = deployment
     self.deviceID = deviceID
+    self.nowMS = nowMS
     credentials = CompetitionCredentialStore(service: "\(bundleID).competition.\(deployment)")
     let configuration = URLSessionConfiguration.ephemeral
     configuration.urlCache = nil
@@ -185,6 +196,7 @@ actor CompetitionTransport {
 
   func clearSession() throws {
     sessionRevision = UUID()
+    invalidateReads()
     avatarContextRevision = UUID()
     for account in [
       "session", "refresh-operation", "attest-enrolled", "attest-key", "attest-pending",
@@ -261,7 +273,7 @@ actor CompetitionTransport {
       throw CompetitionTransportError.unauthorized
     }
     let stored = try JSONDecoder().decode(CompetitionSession.self, from: data)
-    if !forceRefresh, stored.expires_at_ms > TrackingRuntime.nowMS + 30_000 {
+    if !forceRefresh, stored.expires_at_ms > nowMS() + 30_000 {
       return stored.access_token
     }
     guard !refreshing else { throw CompetitionTransportError.busy }
@@ -445,11 +457,65 @@ actor CompetitionTransport {
       ])
   }
 
+  private func invalidateReads() {
+    readRevision = UUID()
+    recentReads.removeAll()
+    pendingReads.removeAll()
+  }
+
   private func execute<Response: Decodable & Sendable>(
     _ method: String, path: String, body: Data?,
     token: String?, authorizationScheme: String = "Bearer",
     contentType: String = "application/json", headers: [String: String] = [:]
   ) async throws -> Response {
+    let requestSession = sessionRevision
+    let cacheable =
+      method == "GET" && authorizationScheme == "Bearer"
+      && (path.hasPrefix("/v1/leaderboards?") || path.hasPrefix("/v1/results?"))
+    if method != "GET" { invalidateReads() }
+    let key = sessionRevision.uuidString + readRevision.uuidString + path
+    let data: Data
+    if cacheable, let cached = recentReads[key], cached.expiresMS > nowMS() {
+      data = cached.data
+    } else if cacheable, let pending = pendingReads[key] {
+      data = try await pending.value
+    } else if cacheable {
+      let context = readRevision
+      let revision = sessionRevision
+      let pending = Task {
+        try await self.executeData(
+          method, path: path, body: body, token: token,
+          authorizationScheme: authorizationScheme, contentType: contentType, headers: headers)
+      }
+      pendingReads[key] = pending
+      do {
+        data = try await pending.value
+        pendingReads[key] = nil
+        guard revision == sessionRevision else { throw CancellationError() }
+        if context == readRevision {
+          recentReads = recentReads.filter { $0.value.expiresMS > nowMS() }
+          if recentReads.count >= 20 { recentReads.removeAll() }
+          recentReads[key] = (data, nowMS() + 15_000)
+        }
+      } catch {
+        pendingReads[key] = nil
+        throw error
+      }
+    } else {
+      data = try await executeData(
+        method, path: path, body: body, token: token,
+        authorizationScheme: authorizationScheme, contentType: contentType, headers: headers)
+    }
+    guard requestSession == sessionRevision else { throw CancellationError() }
+    return try JSONDecoder().decode(Response.self, from: data)
+  }
+
+  private func executeData(
+    _ method: String, path: String, body: Data?,
+    token: String?, authorizationScheme: String = "Bearer",
+    contentType: String = "application/json", headers: [String: String] = [:]
+  ) async throws -> Data {
+    try checkServerCooldown()
     let revision = sessionRevision
     guard path.hasPrefix("/v1/"), let url = URL(string: path, relativeTo: origin)?.absoluteURL,
       url.host == origin.host, url.scheme == "https"
@@ -469,8 +535,10 @@ actor CompetitionTransport {
       throw CompetitionTransportError.invalidResponse
     }
     guard (200..<300).contains(http.statusCode) else {
+      let failure = try? JSONDecoder().decode(CompetitionServiceFailure.self, from: data)
+      try rememberServerCooldown(http, fallback: failure?.retryAfterSeconds.map(TimeInterval.init))
       if http.statusCode == 401 { throw CompetitionTransportError.unauthorized }
-      if let failure = try? JSONDecoder().decode(CompetitionServiceFailure.self, from: data) {
+      if let failure {
         let retryAfter =
           http.value(forHTTPHeaderField: "Retry-After").flatMap(TimeInterval.init)
           ?? failure.retryAfterSeconds.map(TimeInterval.init)
@@ -482,7 +550,64 @@ actor CompetitionTransport {
       throw CompetitionTransportError.server(http.statusCode)
     }
     guard data.count <= 2 * 1024 * 1024 else { throw CompetitionTransportError.invalidResponse }
-    return try JSONDecoder().decode(Response.self, from: data)
+    return data
+  }
+
+  private func checkServerCooldown() throws {
+    guard let data = try credentials.read("server-cooldown") else { return }
+    let cooldown = try JSONDecoder().decode(ServerCooldown.self, from: data)
+    let remaining = Double(cooldown.untilMS - nowMS()) / 1000
+    guard remaining > 0 else { return }
+    throw CompetitionTransportError.service(
+      status: cooldown.status,
+      code: cooldown.status == 429 ? "rate_limited" : "temporarily_unavailable",
+      retryable: true, retryAfter: remaining)
+  }
+
+  // Covers JSON API errors and non-JSON edge responses. The persisted origin-wide
+  // cooldown also applies after relaunch/sign-out and to authenticated image reads.
+  private func rememberServerCooldown(_ response: HTTPURLResponse, fallback: TimeInterval? = nil)
+    throws
+  {
+    guard [429, 503].contains(response.statusCode) else { return }
+    let now = nowMS()
+    let delay = Self.serverRetryDelay(
+      response.value(forHTTPHeaderField: "Retry-After"), fallback: fallback,
+      status: response.statusCode, nowMS: now)
+    guard let delay, delay > 0 else { return }
+    let deadline = now + Int64((delay * 1000).rounded(.up))
+    if let existing = try credentials.read("server-cooldown"),
+      let cooldown = try? JSONDecoder().decode(ServerCooldown.self, from: existing),
+      cooldown.untilMS >= deadline
+    {
+      return
+    }
+    try credentials.write(
+      Self.encode(ServerCooldown(untilMS: deadline, status: response.statusCode)),
+      account: "server-cooldown")
+  }
+
+  static func serverRetryDelay(
+    _ header: String?, fallback: TimeInterval?, status: Int, nowMS: Int64
+  ) -> TimeInterval? {
+    var delay: TimeInterval?
+    if let header {
+      let value = header.trimmingCharacters(in: .whitespacesAndNewlines)
+      if let seconds = TimeInterval(value), seconds.isFinite, seconds >= 0 {
+        delay = seconds
+      } else {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        formatter.dateFormat = "EEE, dd MMM yyyy HH:mm:ss 'GMT'"
+        if let date = formatter.date(from: value) {
+          delay = max(0, date.timeIntervalSince1970 - Double(nowMS) / 1000)
+        }
+      }
+    }
+    if delay == nil, let fallback, fallback.isFinite, fallback >= 0 { delay = fallback }
+    if delay == nil, status == 429 { delay = 60 }
+    return delay.map { min($0, 86400) }
   }
 
   func saveRemoval(_ value: CompetitionRemovalOperation) throws {
@@ -510,6 +635,7 @@ actor CompetitionTransport {
   }
 
   func avatarImage(_ id: String) async throws -> Data {
+    try checkServerCooldown()
     let revision = sessionRevision
     guard UUID(uuidString: id) != nil,
       let url = URL(string: "/v1/avatars/\(id)/image", relativeTo: origin)?.absoluteURL
@@ -517,6 +643,9 @@ actor CompetitionTransport {
     var request = URLRequest(url: url)
     request.setValue("Bearer \(try await accessToken())", forHTTPHeaderField: "Authorization")
     let (bytes, response) = try await session.bytes(for: request)
+    if let http = response as? HTTPURLResponse {
+      try rememberServerCooldown(http)
+    }
     guard let http = response as? HTTPURLResponse, http.statusCode == 200,
       http.mimeType == "image/jpeg"
     else { throw CompetitionTransportError.invalidResponse }

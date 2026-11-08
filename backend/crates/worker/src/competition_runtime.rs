@@ -27,6 +27,15 @@ struct Observation {
     event_json: String,
     disposition: Disposition,
 }
+const SCORE_DELTA_SQL: &str = r#"
+INSERT INTO live_scores
+SELECT ?1,?2,?3,?4,COALESCE((SELECT folds FROM live_scores
+ WHERE participant_id=?1 AND period_id=?4 AND generation_revision=?2 AND generation_id=?3),0)+?5,?6
+WHERE true
+ON CONFLICT(participant_id,period_id) DO UPDATE SET
+generation_revision=excluded.generation_revision,generation_id=excluded.generation_id,
+folds=excluded.folds,revision=excluded.revision
+"#;
 #[derive(Deserialize)]
 pub(crate) struct Receipt {
     pub route: String,
@@ -135,8 +144,11 @@ pub(crate) async fn events(
     .await?;
     let rows = statement(
         db,
-        "SELECT event_json,disposition FROM observations WHERE participant_id=?1",
-        &[text(&session.participant_id)],
+        crate::ingestion_neighbors::NEIGHBORS_SQL,
+        &[
+            text(&session.participant_id),
+            text(std::str::from_utf8(body).map_err(|_| Failure::malformed())?),
+        ],
     )?
     .all()
     .await
@@ -180,6 +192,24 @@ pub(crate) async fn events(
         code: "identity_conflict",
         retryable: false,
     })?;
+    // Unaffected transitions cancel. Adjacent predecessors/successors are included on
+    // both sides, preserving repeated states, late insertion, clock quarantine and ties.
+    let baseline = folding_domain::reducer::reduce(
+        &previous
+            .iter()
+            .filter(|o| o.disposition == Disposition::Accepted)
+            .map(|o| o.event.clone())
+            .collect::<Vec<_>>(),
+        &[],
+        &generation,
+    )
+    .map_err(|_| Failure::unavailable())?;
+    let old_times: Vec<u64> = previous
+        .iter()
+        .filter(|o| baseline.counted_events.contains(&o.event.event_id))
+        .map(|o| o.event.observed_at_ms)
+        .collect();
+    let all_delta = plan.all_time_folds as i64 - baseline.folds() as i64;
     writes.push(statement(
         db,
         "UPDATE decision_clock SET version=version+1 WHERE singleton=1",
@@ -222,7 +252,18 @@ pub(crate) async fn events(
             text(&json),
         ],
     )?);
-    writes.push(statement(db,"INSERT INTO live_scores VALUES (?1,?2,?3,'all',?4,?5) ON CONFLICT(participant_id,period_id) DO UPDATE SET generation_revision=excluded.generation_revision,generation_id=excluded.generation_id,folds=excluded.folds,revision=excluded.revision",&[text(&session.participant_id),number(generation.revision as i64),text(generation.reset_id.as_str()),number(plan.all_time_folds as i64),number(session.revision+1)])?);
+    writes.push(statement(
+        db,
+        SCORE_DELTA_SQL,
+        &[
+            text(&session.participant_id),
+            number(generation.revision as i64),
+            text(generation.reset_id.as_str()),
+            text("all"),
+            number(all_delta),
+            number(session.revision + 1),
+        ],
+    )?);
     let mut windows = std::collections::BTreeMap::new();
     // Accepted timestamps may be up to five minutes ahead, including a calendar boundary.
     for timestamp in [time as u64, time as u64 + 300000] {
@@ -237,7 +278,22 @@ pub(crate) async fn events(
             .iter()
             .filter(|&&timestamp| timestamp >= period.start_ms && timestamp < period.end_ms)
             .count();
-        writes.push(statement(db,"INSERT INTO live_scores VALUES (?1,?2,?3,?4,?5,?6) ON CONFLICT(participant_id,period_id) DO UPDATE SET generation_revision=excluded.generation_revision,generation_id=excluded.generation_id,folds=excluded.folds,revision=excluded.revision",&[text(&session.participant_id),number(generation.revision as i64),text(generation.reset_id.as_str()),text(&period.id),number(folds as i64),number(session.revision+1)])?);
+        let old_folds = old_times
+            .iter()
+            .filter(|&&t| t >= period.start_ms && t < period.end_ms)
+            .count();
+        writes.push(statement(
+            db,
+            SCORE_DELTA_SQL,
+            &[
+                text(&session.participant_id),
+                number(generation.revision as i64),
+                text(generation.reset_id.as_str()),
+                text(&period.id),
+                number(folds as i64 - old_folds as i64),
+                number(session.revision + 1),
+            ],
+        )?);
     }
     writes.push(statement(db,"INSERT INTO score_jobs VALUES (?1,?2,'pending') ON CONFLICT(participant_id) DO UPDATE SET revision=excluded.revision,state='pending'",&[text(&session.participant_id),number(session.revision+1)])?);
     writes.push(statement(

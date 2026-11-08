@@ -116,8 +116,8 @@ pub(crate) async fn exchange(
     }
     let owner = &owners[0];
     let normalized=Sha256::digest(serde_json::to_vec(&serde_json::json!({"operation_id":input.operation_id,"purpose":purpose,"challenge_id":input.challenge_id,"device_id":input.device_id,"deletion_operation_id":input.deletion_operation_id})).map_err(|_|Failure::unavailable())?);
-    if recovery {
-        if let Some(value) = crate::deletion_runtime::recover_receipt(
+    if recovery
+        && let Some(value) = crate::deletion_runtime::recover_receipt(
             db,
             config,
             &owner.participant_id,
@@ -126,9 +126,8 @@ pub(crate) async fn exchange(
             time,
         )
         .await?
-        {
-            return response(&value);
-        }
+    {
+        return response(&value);
     }
     let session = if recovery {
         None
@@ -142,14 +141,13 @@ pub(crate) async fn exchange(
         }
         Some(s)
     };
-    if let Some(s) = &session {
-        if let Some(old)=statement(db,"SELECT normalized_hash,ciphertext,key_version,expires_at_ms,used,session_id FROM reauthentications WHERE participant_id=?1 AND operation_id=?2",&[text(&s.participant_id),text(input.operation_id.as_str())])?.first::<Proof>(None).await.map_err(|_|Failure::unavailable())? {
+    if let Some(s) = &session
+        && let Some(old)=statement(db,"SELECT normalized_hash,ciphertext,key_version,expires_at_ms,used,session_id FROM reauthentications WHERE participant_id=?1 AND operation_id=?2",&[text(&s.participant_id),text(input.operation_id.as_str())])?.first::<Proof>(None).await.map_err(|_|Failure::unavailable())? {
    if old.normalized_hash!=normalized.as_slice(){return Err(Failure::conflict());}
    if old.used!=0||old.expires_at_ms<=time||old.session_id!=s.session_id{return Err(Failure::unauthorized());}
    let plain=config.keys.open(&old.key_version,&format!("Folding-v1/{}/reauth/{}/{}",config.deployment,s.participant_id,input.operation_id.as_str()),&old.ciphertext).map_err(|_|Failure::unavailable())?;
    let value:serde_json::Value=serde_json::from_slice(&plain).map_err(|_|Failure::unavailable())?;
    let guard=uuid()?;db.batch(vec![session_guard(db,&guard,s,config,time)?,statement(db,PRIVACY_GUARD,&[text(&format!("{guard}-community")),text(&s.participant_id),number(s.revision)])?,crate::competition_runtime::cleanup(db,&guard)?]).await.map_err(|_|Failure::unauthorized())?;return response(&value);
-  }
     }
     if challenge.used != 0 {
         return Err(Failure::unauthorized());

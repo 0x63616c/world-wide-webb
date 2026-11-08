@@ -37,13 +37,25 @@ async fn fetch(request: Request, env: Env, context: Context) -> Result<Response>
         .var("WORKER_VERSION")
         .map(|v| v.to_string())
         .unwrap_or_else(|_| "unconfigured".into());
-    let result = handle(request, &env, id.clone()).await;
+    let burst = if request.path().starts_with("/v1/")
+        && request.url().is_ok_and(|url| url.scheme() == "https")
+    {
+        crate::burst_limit::enforce(&request, &env).await
+    } else {
+        Ok(())
+    };
+    let admitted = burst.is_ok();
+    let result = match burst {
+        Ok(()) => handle(request, &env, id.clone()).await,
+        Err(failure) => error(failure.status, failure.code, id.clone(), failure.retryable),
+    };
     let status = result.as_ref().map(|r| r.status_code()).unwrap_or(500);
     console_log!(
         "{}",
         serde_json::json!({"event":"request","request_id":id,"worker_version":version,"route":route,"outcome":format!("http_{status}"),"status":status,"duration_ms":(js_sys::Date::now()-started).max(0.0) as u64})
     );
-    if route == "events.submit" {
+    // Rejections must not turn an unauthenticated flood into one D1 write per request.
+    if admitted && route == "events.submit" && ((200..300).contains(&status) || status >= 500) {
         context.wait_until(async move {
             if let Ok(db) = env.d1("DB")
                 && crate::monitoring_runtime::record(&db, status)
