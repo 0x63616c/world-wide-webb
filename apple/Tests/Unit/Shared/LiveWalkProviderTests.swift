@@ -419,58 +419,6 @@ import XCTest
         XCTAssertEqual(provider.activeWalk?.id, walkID)
     }
 
-    func testActivityObservesRemoteStartCorrectsSkewAvoidsDuplicatesAndEnds() async throws {
-        let localDate = serverDate.addingTimeInterval(-120)
-        let transport = WalkProviderTransport([
-            "walks.state": [.fixture("state-active"), .fixture("state-active"), .fixture("stop")]
-        ])
-        let provider = makeProvider(transport, now: { localDate })
-        let driver = RecordingWalkActivityDriver()
-        let sync = WalkActivitySync(provider: provider, driver: driver)
-        XCTAssertTrue(driver.states.isEmpty)  // Unknown startup must not end a restored activity.
-        await provider.refresh()
-        try await waitUntil { driver.states.count == 1 }
-        XCTAssertEqual(driver.states, [.walking(id: walkID, startedAt: localDate)])
-        await provider.refresh()
-        for _ in 0..<10 { await Task.yield() }
-        XCTAssertEqual(driver.states.count, 1)
-        await provider.refresh()
-        try await waitUntil { driver.states.last == .idle }
-        XCTAssertNil(sync.unavailableReason)
-    }
-
-    func testActivityEndsAfterOptimisticStartRollsBack() async throws {
-        let transport = WalkProviderTransport([
-            "walks.state": [.fixture("state-idle")], "walks.start": [.fixture("unavailable", held: true)],
-        ])
-        let provider = makeProvider(transport)
-        let driver = RecordingWalkActivityDriver()
-        let sync = WalkActivitySync(provider: provider, driver: driver)
-        await provider.refresh()
-        provider.start(at: serverDate)
-        try await waitUntil { driver.states.contains { if case .walking = $0 { true } else { false } } }
-        try await waitFor(transport, "walks.start")
-        await transport.release("walks.start")
-        try await waitUntil { !provider.isMutating && driver.states.last == .idle }
-        XCTAssertNil(sync.unavailableReason)
-    }
-
-    func testActivityFailureDoesNotAffectWalkAndRetriesOnNextRefresh() async throws {
-        var clock = serverDate
-        let transport = WalkProviderTransport(["walks.state": [.fixture("state-active")]])
-        let provider = makeProvider(transport, now: { clock })
-        let driver = RecordingWalkActivityDriver()
-        driver.failNext = true
-        let sync = WalkActivitySync(provider: provider, driver: driver)
-        await provider.refresh()
-        try await waitUntil { sync.unavailableReason != nil }
-        XCTAssertEqual(provider.activeWalk?.id, walkID)
-        clock = clock.addingTimeInterval(5)
-        await provider.refresh()
-        try await waitUntil { sync.unavailableReason == nil }
-        XCTAssertEqual(driver.states.count, 2)
-    }
-
     func testEitherDevicesStartReachesOtherWithinFiveSecondsWithFakeClock() async throws {
         for starterIsPhone in [true, false] {
             let clock = WalkSyncTestClock(date: serverDate)
@@ -604,19 +552,7 @@ import XCTest
     }
 }
 
-private enum WalkTestFailure: Error { case timeout, activityDisabled }
-
-@MainActor private final class RecordingWalkActivityDriver: WalkActivityDriving {
-    var states: [WalkActivityState] = []
-    var failNext = false
-    func reconcile(_ state: WalkActivityState) async throws {
-        states.append(state)
-        if failNext {
-            failNext = false
-            throw WalkTestFailure.activityDisabled
-        }
-    }
-}
+private enum WalkTestFailure: Error { case timeout }
 
 private actor WalkProviderTransport: PanelTransport {
     enum Reply: Sendable {

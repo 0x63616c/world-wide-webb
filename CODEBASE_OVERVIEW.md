@@ -11,7 +11,7 @@ Calendar, camera capture, notifications and system alarms use Apple frameworks w
 - `apple/App/Apps`: launcher, app catalog UI, clock presentation, timer and connection settings.
 - `apple/App/Live`: shared feature providers; `Platform` connects native capabilities and live transport.
 - `apple/Packages/PanelKit`: typed versioned REST transport, models, synchronization and package tests.
-- `apple/Extensions`: alarm widget and retained walk activity source. `apple/project.yml` defines build targets.
+- `apple/Extensions`: shipped alarm widget. `apple/project.yml` defines build targets.
 - `apple/Tests`: production unit/UI tests. `apple/Resources`: actual shared asset catalogs.
 - `server/src/features`: retained domain behavior and explicit SQL. `integrations`: Home Assistant transport.
 - `server/src/runtime.rs`: supervised scheduled work. `server/migrations`: ordered SQLite schema.
@@ -39,8 +39,8 @@ after cutover; unrelated Hindsight/Bambuddy/HA services and their backups are in
 The mini hosts OrbStack and the app on loopback port 4202, published privately by Tailscale Serve on HTTPS443. The shared Cloudflare tunnel serves only independent
 HA/Hindsight/Bambuddy/DSM routes after cutover; public app/API DNS, Access and ingress are retired.
 OpenTofu state is encrypted and locked on the mini outside app storage; tested-main automation runs there over SSH.
-Migration and actual deployment status must be read from `docs/plans/native-rust-progress.md`: code presence is not
-proof that production has cut over.
+Completed migration acceptance is recorded in `docs/plans/native-rust-progress.md`. For current production
+state, inspect the live `/healthz` revision and workflow receipts; historical evidence is not a live health check.
 
 ## Checks
 
