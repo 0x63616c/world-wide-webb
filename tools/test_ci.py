@@ -19,12 +19,24 @@ class CITests(unittest.TestCase):
         self.assertEqual(
             classify(["infra/cloudflare/main.tf"]), dict(apple=False, image=False, infra=True, publish_apple=False)
         )
-        for path in [".github/workflows/ci.yml", "tools/infra_apply.py"]:
+        for path in [".github/workflows/ci.yml"]:
             selected = classify([path])
             self.assertTrue(all(selected[k] for k in ["apple", "image", "infra"]))
             self.assertFalse(selected["publish_apple"])
         self.assertTrue(classify([".swift-format"])["apple"])
         self.assertTrue(all(classify([], True).values()))
+
+    def test_cloudflare_deployment_changes_only_select_infrastructure(self):
+        paths = [".github/workflows/cloudflare.yml", "tools/infra_apply.py", "infra/cloudflare/main.tf"]
+        expected = dict(apple=False, image=False, infra=True, publish_apple=False)
+        for path in paths:
+            self.assertEqual(classify([path]), expected, path)
+        self.assertEqual(classify(paths + ["tools/ci_changes.py", "tools/test_ci.py"]), expected)
+        self.assertEqual(
+            classify(paths + ["server/src/main.rs"]),
+            dict(apple=True, image=True, infra=True, publish_apple=False),
+        )
+        self.assertTrue(all(classify(paths, True).values()))
 
     def test_native_publication_tracks_shipping_inputs_without_republishing_backend_or_tests(self):
         for path in [
