@@ -1459,9 +1459,6 @@ private struct LeaderboardScreen: View {
                 defaultValue: "More folds than \(percentile)% of participants")
             )
             .font(.caption).foregroundStyle(.secondary)
-          } else {
-            Text(String(localized: "results.building", defaultValue: "Building a comparison"))
-              .font(.caption).foregroundStyle(.secondary)
           }
           if value.pendingFolds > 0 {
             Text(
