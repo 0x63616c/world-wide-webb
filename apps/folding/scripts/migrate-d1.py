@@ -37,7 +37,8 @@ def run(args, *, checked=True, environment=None):
 
 
 def git(*args):
-    return run(["git", *args]).stdout.strip()
+    repository = run(["git", "rev-parse", "--show-toplevel"]).stdout.strip()
+    return run(["git", "-C", repository, *args]).stdout.strip()
 
 
 def sha(data):
@@ -52,6 +53,8 @@ def write_json(path, value):
 
 
 def sources(require_committed, migrations=MIGRATIONS):
+    repository = pathlib.Path(git("rev-parse", "--show-toplevel")).resolve() if require_committed else ROOT.resolve()
+    migrations = migrations.resolve()
     rows = []
     files = sorted(migrations.glob("*.sql"))
     if not files:
@@ -63,7 +66,7 @@ def sources(require_committed, migrations=MIGRATIONS):
             raise RuntimeError("Migration symlinks are not allowed")
         raw = file.read_bytes()
         if require_committed:
-            committed = subprocess.run(["git", "show", f"HEAD:{file.relative_to(ROOT)}"], cwd=ROOT,
+            committed = subprocess.run(["git", "show", f"HEAD:{file.relative_to(repository)}"], cwd=ROOT,
                                        capture_output=True, check=False)
             if committed.returncode or committed.stdout != raw:
                 raise RuntimeError(f"Commit exact migration source before apply: {file.name}")
@@ -100,7 +103,7 @@ def prepare(configuration, target, output, require_committed, database_kind="app
     if database_kind not in ("application", "watchdog"):
         raise RuntimeError("Invalid database kind")
     watchdog = database_kind == "watchdog"
-    migrations = ROOT / ("backend/watchdog/migrations" if watchdog else "backend/migrations")
+    migrations = (ROOT / ("backend/watchdog/migrations" if watchdog else "backend/migrations")).resolve()
     expected_binding = "MONITOR_DB" if watchdog else "DB"
     expected_name = f"folding-watchdog-{target}" if watchdog else f"folding-{target}"
     config = json.loads(pathlib.Path(configuration).read_text())
@@ -128,8 +131,9 @@ def prepare(configuration, target, output, require_committed, database_kind="app
         raise RuntimeError("Install pinned Wrangler before migration operations")
     rows = sources(require_committed, migrations)
     if require_committed:
-        tracked = set(git("ls-tree", "-r", "--name-only", "HEAD", str(migrations.relative_to(ROOT))).splitlines())
-        present = {str((migrations / row["name"]).relative_to(ROOT)) for row in rows}
+        repository = pathlib.Path(git("rev-parse", "--show-toplevel")).resolve()
+        tracked = set(git("ls-tree", "-r", "--name-only", "HEAD", str(migrations.relative_to(repository))).splitlines())
+        present = {str((migrations / row["name"]).relative_to(repository)) for row in rows}
         if tracked != present:
             raise RuntimeError("Migration files were added/deleted outside the committed history")
     output = pathlib.Path(output).resolve()

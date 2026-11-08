@@ -165,7 +165,7 @@ test("actual Worker issues bounded challenges and rotates encrypted sessions wit
   const {createHash}=await import("node:crypto");
   const hash=bytes=>createHash("sha256").update(bytes).digest();
   const db=await authenticatedRuntime.getD1Database("DB");
-  for (const migration of ["0001_mutation_fences.sql","0002_sessions.sql","0003_auth_operations.sql","0004_sign_in.sql","0005_attestation_enrollment.sql","0006_competition.sql","0007_community_reads.sql","0008_privacy_lifecycle.sql","0009_period_finalization.sql","0010_moderation.sql","0011_avatars.sql","0012_notifications.sql", "0013_operations.sql", "0014_corrections.sql", "0015_moderation_cases.sql", "0016_monitoring.sql", "0017_external_retries.sql", "0018_entry_deletions.sql", "0019_resource_protection.sql", "0020_admin_minimum_build.sql", "0021_profile_milestones.sql", "0022_badge_notifications.sql"]) {
+  for (const migration of ["0001_mutation_fences.sql","0002_sessions.sql","0003_auth_operations.sql","0004_sign_in.sql","0005_attestation_enrollment.sql","0006_competition.sql","0007_community_reads.sql","0008_privacy_lifecycle.sql","0009_period_finalization.sql","0010_moderation.sql","0011_avatars.sql","0012_notifications.sql", "0013_operations.sql", "0014_corrections.sql", "0015_moderation_cases.sql", "0016_monitoring.sql", "0017_external_retries.sql", "0018_entry_deletions.sql", "0019_resource_protection.sql", "0020_admin_minimum_build.sql", "0021_profile_milestones.sql", "0022_badge_notifications.sql", "0023_published_ios_builds.sql"]) {
     const source=await readFile(`${root}migrations/${migration}`,"utf8");
     for(const sql of source.split(";").filter(s=>s.trim())) await db.prepare(sql).run();
   }
@@ -650,4 +650,51 @@ test('admin quarantine and reinstatement reconcile awards without replaying ackn
   assert.equal(own.grants.length,index?2:0);assert.ok(own.grants.every(g=>g.acknowledged));
  }
  const capability=await authenticatedRuntime.dispatchFetch('https://api.example/v1/capabilities');assert.deepEqual((await capability.json()).capabilities,['profiles.milestones']);
+});
+
+test("published build policy authorizes exact signed versions without a Worker reconfiguration", async () => {
+  const db = await authenticatedRuntime.getD1Database("DB");
+  const id = n => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
+  const hash = value => createHash("sha256").update(value).digest();
+  const cases = [
+    {header:"2",signed:"2",registered:true,status:200},
+    {header:"3",signed:"3",status:401},
+    {header:"4",signed:"4",registered:true,deployment:"production",status:401},
+    {header:"5",signed:"5",registered:true,appID:"TEAM123456.app.other",status:401},
+    {header:"6",signed:"7",registered:true,status:401},
+    {signed:"2",status:401},
+    {header:"bad",signed:"1",status:422},
+    {header:"1",signed:"1",status:200},
+  ];
+  for (const [index, scenario] of cases.entries()) {
+    const n=9000+index*10, participant=id(n),device=id(n+1),session=`release-policy-${n}`,token=Buffer.alloc(32,index+90),time=Date.now();
+    const pair=generateKeyPairSync("ec",{namedCurve:"prime256v1"}),jwk=pair.publicKey.export({format:"jwk"});
+    const publicKey=Buffer.concat([Buffer.from([4]),Buffer.from(jwk.x,"base64url"),Buffer.from(jwk.y,"base64url")]),keyID=hash(publicKey).toString("base64");
+    await db.batch([
+      db.prepare("INSERT INTO participants(participant_id,subject_hmac,membership,restriction,generation_revision,generation_id) VALUES (?,?,'not_joined','none',0,'00000000-0000-0000-0000-000000000000')").bind(participant,session),
+      db.prepare("INSERT INTO participant_revisions VALUES (?,0)").bind(participant),
+      db.prepare("INSERT INTO profiles VALUES (?,'Folder',NULL,'approved','none')").bind(participant),
+      db.prepare("INSERT INTO sessions VALUES (?,?,?,'staging',?,?,?,?,0)").bind(session,participant,device,time,time,time+900000,time+900000),
+      db.prepare("INSERT INTO access_tokens VALUES (?,?,?)").bind(hash(token),session,time+900000),
+      db.prepare("INSERT INTO attestation_keys(key_id,participant_id,device_id,deployment,public_key_sec1,counter,revoked,attestation_environment) VALUES (?,?,?,'staging',?,0,0,'development')").bind(keyID,participant,device,publicKey),
+    ]);
+    if(scenario.registered) await db.prepare("INSERT INTO published_ios_builds VALUES (?,?,?,?,?)")
+      .bind(scenario.deployment??"staging",scenario.appID??"TEAM123456.app.test.Folding",Number(scenario.header),"a".repeat(40),time).run();
+    const headers={Authorization:"Bearer "+token.toString("base64url"),"Content-Type":"application/json",...(scenario.header===undefined?{}:{"X-Folding-Build":scenario.header})};
+    const issued=await authenticatedRuntime.dispatchFetch("https://api.example/v1/attestation/challenges",{method:"POST",headers,body:JSON.stringify({purpose:"join",device_id:device,key_id:keyID})});
+    assert.equal(issued.status,200);const challenge=await issued.json();
+    const path="/v1/enrollment/join",body=JSON.stringify({operation_id:id(n+2),device_id:device,generation:{revision:0,reset_id:"00000000-0000-0000-0000-000000000000"},nickname:"Release Tester"});
+    const binding=hash(Buffer.from(["Folding-v1","staging","POST",path,challenge.challenge_id,challenge.nonce,hash(body).toString("hex")].join("\n")));
+    const length=(major,n)=>Buffer.from(n<24?[(major<<5)|n]:[(major<<5)|24,n]);
+    const bytes=value=>Buffer.concat([length(2,value.length),value]);
+    const text=value=>{const b=Buffer.from(value);return Buffer.concat([length(3,b.length),b]);};
+    const category=Buffer.alloc(4);category.writeUInt32LE(3);
+    const extensions=Buffer.concat([Buffer.from([0xa2]),text("validationCategory"),bytes(category),text("bundleVersion"),text(scenario.signed)]);
+    const auth=Buffer.concat([hash("TEAM123456.app.test.Folding"),Buffer.from([0x80,0,0,0,1]),extensions]);
+    const signature=sign("sha256",hash(Buffer.concat([auth,binding])),pair.privateKey);
+    const assertion=Buffer.concat([Buffer.from([0xa2]),text("signature"),bytes(signature),text("authenticatorData"),bytes(auth)]);
+    const response=await authenticatedRuntime.dispatchFetch("https://api.example"+path,{method:"POST",headers:{...headers,"X-Folding-Key-ID":keyID,"X-Folding-Challenge-ID":challenge.challenge_id,"X-Folding-Assertion":assertion.toString("base64url")},body});
+    assert.equal(response.status,scenario.status,JSON.stringify({scenario,body:await response.clone().json()}));
+    assert.equal(await db.prepare("SELECT counter FROM attestation_keys WHERE key_id=?").bind(keyID).first("counter"),scenario.status===200?1:0);
+  }
 });

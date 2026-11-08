@@ -8,17 +8,19 @@ class CodingRegressionsTest < Minitest::Test
     def save(values); data.merge!(values); end
     def advance(state, values = {}); save(values.merge("state" => state)); end
   end
-  def test_preview_requires_the_complete_milestone_capability_and_exact_worker_source
+  def test_preview_requires_complete_capabilities_and_verified_compatible_backend
     source = "a" * 40
     record = Record.new({"commit_sha" => source, "archive_configuration" => {"api_origin" => "https://api.example"}})
     accepted = {"contract_version" => 1, "worker_version" => source, "capabilities" => ["profiles.milestones", "events.history_import", "notifications.badges"]}
-    [{"capabilities" => []}, {"capabilities" => ["profiles.milestones"]}, {"worker_version" => "b" * 40}, {"contract_version" => 2}].each do |change|
+    [{"capabilities" => []}, {"capabilities" => ["profiles.milestones"]}, {"contract_version" => 2}].each do |change|
       FoldingRelease.stub(:fetch_json, accepted.merge(change)) do
         assert_raises(RuntimeError) { FoldingRelease.preview_prerequisites!(record) }
       end
     end
     FoldingRelease.stub(:fetch_json, accepted) do
-      assert_equal source, FoldingRelease.preview_prerequisites!(record)
+      FoldingRelease.stub(:verified_backend!, ->(_record, backend) { backend.fetch("worker_version") }) do
+        assert_equal source, FoldingRelease.preview_prerequisites!(record)
+      end
     end
     assert_equal ["profiles.milestones", "events.history_import", "notifications.badges"], record.data.fetch("preview_backend_verification").fetch("capabilities")
   end
@@ -92,9 +94,9 @@ class CodingRegressionsTest < Minitest::Test
   end
 
   def test_unrelated_successful_ci_run_cannot_satisfy_named_job
-    run = {"head_sha" => "source", "path" => ".github/workflows/checks.yml", "status" => "completed", "conclusion" => "success", "run_attempt" => 1}
+    run = {"head_sha" => "source", "path" => ".github/workflows/folding-ci.yml", "status" => "completed", "conclusion" => "success", "run_attempt" => 1, "event" => "push", "head_branch" => "main", "head_repository" => {"full_name" => "0x63616c/world-wide-webb"}}
     FoldingRelease.stub(:run, ->(*args) { args.last.include?("jobs?") ? JSON.generate([{"jobs" => [{"name" => "Other", "head_sha" => "source", "status" => "completed", "conclusion" => "success"}]}]) : JSON.generate(run) }) do
-      check = {"name" => "contracts", "commit_sha" => "source", "conclusion" => "success", "run_url" => "https://github.com/0x63616c/folding/actions/runs/1"}
+      check = {"kind" => "ci", "name" => "contracts", "commit_sha" => "source", "conclusion" => "success", "run_url" => "https://github.com/0x63616c/world-wide-webb/actions/runs/1"}
       assert_raises(RuntimeError) { FoldingRelease::CheckEvidence.validate!(check, source: "source", base: ".") }
     end
   end

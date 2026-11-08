@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "repository": "0x63616c/folding",
+  "repository": "0x63616c/world-wide-webb",
   "apple_team_id": "X9E4HG27NK",
   "reservation_tag": "folding-build-reservations",
   "scheme": "Folding",
@@ -65,5 +65,6 @@
     "last_name": "FOLDING_REVIEW_LAST_NAME",
     "phone_number": "FOLDING_REVIEW_PHONE",
     "email_address": "FOLDING_REVIEW_EMAIL"
-  }
+  },
+  "historical_repository": "0x63616c/folding"
 }

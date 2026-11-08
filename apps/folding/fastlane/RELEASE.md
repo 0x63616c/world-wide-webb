@@ -19,13 +19,14 @@ Each release record revision is a new immutable GitHub release asset. Metadata, 
 ## Stages
 
 ```sh
-bundle exec fastlane ios reserve tag:v1.0.0 version:1.0.0 environment:production
-bundle exec fastlane ios release_preflight tag:v1.0.0 evidence:/absolute/path/evidence.json
-bundle exec fastlane ios release_assets tag:v1.0.0
-bundle exec fastlane ios archive tag:v1.0.0
-bundle exec fastlane ios beta tag:v1.0.0
-bundle exec fastlane ios release_preflight tag:v1.0.0 evidence:/absolute/path/evidence.json final:true
-bundle exec fastlane ios submit tag:v1.0.0 evidence:/absolute/path/evidence.json
+bundle exec fastlane ios reserve version:1.0.0 environment:production
+# Use its returned immutable folding/build-N tag below; marketing versions can have multiple betas.
+bundle exec fastlane ios release_preflight tag:folding/build-N evidence:/absolute/path/evidence.json
+bundle exec fastlane ios release_assets tag:folding/build-N
+bundle exec fastlane ios archive tag:folding/build-N
+bundle exec fastlane ios beta tag:folding/build-N
+bundle exec fastlane ios release_preflight tag:folding/build-N evidence:/absolute/path/evidence.json final:true
+bundle exec fastlane ios submit tag:folding/build-N evidence:/absolute/path/evidence.json
 ```
 
 The initial preflight checks named local or CI evidence, backend capability/version readback, public pages and recorded account prerequisites. Final preflight additionally requires screenshot/final-review runs, reviewed metadata/screenshots, product-readiness evidence, completed privacy/age-rating answers, exact processed Apple build and every artifact hash. The final review gate must complete before submission. Device checks remain explicitly deferred to F13, never represented as passing.
@@ -66,7 +67,7 @@ Fastlane runs direct hosted XCTest renders of production views for each locale/d
 
 Current-source native capture/visual review, draft listing upload/readback and Apple privacy/age/review setup are recorded in the November 8 preparation evidence. These do not establish a signed production 1.0 archive/profile match, full backend capability acceptance, full release rehearsal, final submission/readback or GitHub release workflow activation. Earlier internal TestFlight distribution is separately evidenced and is not the new App Store candidate. Run those in the final validation/release phase. The app now validates the full registered runtime configuration and refuses development storage in Release. Signed archive/entitlement and live account behavior still need final integration evidence.
 
-Tip review assets are included in the sealed asset archive and have their own manifest/map hashes in the release record. The single native Tip jar PNG maps to all three consumables, remains outside the storefront image directory and is never captioned or replaced with a simulated Apple checkout. `tip_review_screenshots` captures just that reviewer scene without credentials; `setup_tip_review_assets [tag:v1.0.0]` explicitly associates verified images with Apple products and records association IDs when using a release tag. See [tip packaging](TIPS.md#reproducible-review-image-packaging). Final visual review remains required for the full matrix and this reviewer image.
+Tip review assets are included in the sealed asset archive and have their own manifest/map hashes in the release record. The single native Tip jar PNG maps to all three consumables, remains outside the storefront image directory and is never captioned or replaced with a simulated Apple checkout. `tip_review_screenshots` captures just that reviewer scene without credentials; `setup_tip_review_assets [tag:folding/build-N]` explicitly associates verified images with Apple products and records association IDs when using a release tag. See [tip packaging](TIPS.md#reproducible-review-image-packaging). Final visual review remains required for the full matrix and this reviewer image.
 
 ## Local checks while CI is deferred
 
@@ -78,7 +79,7 @@ For `final-review`, use `kind: review`, `name: final-review`, the source commit,
 
 ## Signing recovery and tip submission
 
-Signing preparation attempts are audited separately from archive attempts. A keychain/match failure can retry the same unbuilt reservation. Once `build_app` might have run, use `bundle exec fastlane ios recover_archive tag:v1.0.0 reason:"…"` under the same distribution lock. It verifies the old build is absent from Apple, reserves a strictly newer global build number, records actor/reason/replacement, and retires old local outputs. Sealed candidate archives are published/reconciled instead of rebuilt. An interrupted replacement reuses its durable ledger reservation.
+Signing preparation attempts are audited separately from archive attempts. A keychain/match failure can retry the same unbuilt reservation. Once `build_app` might have run, use `bundle exec fastlane ios recover_archive tag:folding/build-N reason:"…"` under the same distribution lock. It verifies the old build is absent from Apple, reserves a strictly newer global build number, records actor/reason/replacement, and keeps the old record and outputs under the burned build tag. The replacement receives a new tag and starts preparation again; ordinary reservation retries follow its durable replacement link. Sealed candidate archives are published/reconciled instead of rebuilt. An interrupted replacement reuses its durable ledger reservation.
 
 Submission prepares one Apple review submission containing the exact app version and all three `inAppPurchaseVersions`, then reads back every item and its purchase ownership. Retry preparation reconciles existing draft items; unrelated or ambiguous drafts fail closed. The irreversible submit marker is saved before requesting review. A lost submission response is observed, never blindly repeated. Live Apple acceptance of these newer public review resources remains a shipping check.
 
@@ -113,7 +114,7 @@ After sealing/reviewing all release assets and completing final preflight, uploa
 the listing without requesting App Review:
 
 ```sh
-bundle exec fastlane ios storefront tag:v1.0.0 evidence:/absolute/path/evidence.json
+bundle exec fastlane ios storefront tag:folding/build-N evidence:/absolute/path/evidence.json
 ```
 
 The lane uses the same guarded upload path as `submit`. It verifies the exact
@@ -155,3 +156,36 @@ on all eight existing non-staging App Store review records across the owner's ap
 
 See [preparation evidence](../docs/experiments/app-store-preparation-2026-11-08.md)
 for exact source, artifact/readback identities and remaining shipping gates.
+
+## Monorepo delivery adapter
+
+New records use an immutable `folding/build-N` identity. A single append-only reservation
+ledger allocates global build numbers across environments, channels and local/CI publishers.
+Its asset revision is a compare-and-set; a race reloads the winner, and the same source/version/
+configuration intent reuses its build. Historical `v…` records remain readable. WWW must be
+private, and the historical ledger/build maxima must be migrated before its new writer starts.
+
+Internal TestFlight builds may use the app's current marketing version independently of the
+first App Store launch acceptance. Full storefront/submission checks and recorded device/provider
+deferrals remain required; a beta does not satisfy them.
+
+Backend compatibility uses normalized runtime/build inputs plus an immutable verified deployment
+receipt, rather than requiring the Worker and iOS app to share the whole-repository commit.
+Set `FOLDING_BACKEND_DEPLOYMENT_RECEIPT` to the downloaded source-bound receipt.
+It must name the live Worker source, environment, Cloudflare version and successful exact-source
+backend job. Changes to app views, documentation or Xcode pins do not change backend inputs.
+
+Migration 0023 adds `published_ios_builds`. After a signed archive is verified, release automation
+registers its exact app/environment/build/source in D1 and verifies readback before distribution.
+`scripts/register-published-build.py` uses a dedicated D1-write/Worker-deployment-read release credential; it does not deploy
+Worker code, modify bindings or manage user data. A duplicate build cannot be rebound to a
+different source. Lost write responses are reconciled by reading, without retrying the mutation.
+The existing `X-Folding-Build` header only selects the policy row: Apple's signed metadata,
+certificate/receipt, request binding and counter validation remain mandatory. Legacy binding
+allowlists remain intact. Do not roll the Worker back below this policy support once newer builds
+are distributed; retain a tested compatible immutable rollback artifact.
+
+The backend receipt is checked against Cloudflare's current single-version, 100% traffic
+deployment and the uploaded version's public source/environment/app and D1 bindings. A receipt
+for another database cannot authorize builds for the live Worker. Distribution retries only
+confirm an already-recorded build-policy row; they do not recreate revoked authorization.

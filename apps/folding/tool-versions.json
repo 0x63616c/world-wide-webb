@@ -1,6 +1,9 @@
 {
   "schema_version": 1,
-  "xcode": {"version": "27.2", "build": "27B52"},
+  "xcode": {
+    "version": "27.2",
+    "build": "27B52"
+  },
   "swift": "6.4.2",
   "iphonesimulator_sdk": "27.2",
   "simulator": {
@@ -15,5 +18,7 @@
   "rust": "1.99.1",
   "node": "26.13.0",
   "opentofu": "1.13.9",
-  "python": "3.15.2"
+  "python": "3.15.2",
+  "worker_build": "0.8.7",
+  "bun": "1.4.4"
 }

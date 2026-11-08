@@ -57,7 +57,8 @@ pub(crate) async fn verify(
         return Err(Failure::malformed());
     }
     let session = community_session(request, db, config).await?;
-    let policy = AttestationConfiguration::load(env)?;
+    let mut policy = AttestationConfiguration::load(env)?;
+    policy.allow_published_build(request, db, config).await?;
     let key_id = header(request, "X-Folding-Key-ID")?;
     let challenge_id = header(request, "X-Folding-Challenge-ID")?;
     let id = Id::parse(&challenge_id).map_err(|_| Failure::malformed())?;

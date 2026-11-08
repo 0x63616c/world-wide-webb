@@ -114,7 +114,6 @@ module FoldingRelease
       return %w[archive ipa dsym].each { |kind| record.artifact(kind) } if STATES.index(record.data.fetch("state")) >= STATES.index("archived")
       if preview
         require_state!(record, "planned")
-        raise "TestFlight preview requires a 0.x version" unless record.data.fetch("marketing_version").start_with?("0.")
         FoldingRelease.preview_prerequisites!(record)
       else
         require_state!(record, "assets_ready")
@@ -183,12 +182,12 @@ module FoldingRelease
     # An ambiguous build attempt burns its number. Signing-only failures can retry
     # normally because archive_attempt_started_at is set immediately before build_app.
     def self.replace_interrupted_archive(record, reason:)
+      return FoldingRelease.follow_replacement(record.data.fetch("tag")) if record.data["replacement_tag"]
       require_state!(record, "assets_ready")
       record.verify_identity!
       raise "Recovery needs an audit reason" if reason.to_s.strip.empty?
       raise "No interrupted archive" unless record.data["archive_attempt_started_at"]
       raise "Publish sealed artifacts instead" if record.data["archive_candidates"]
-      source = record.data.fetch("commit_sha")
       old_number = record.data.fetch("build_number")
       actor = JSON.parse(FoldingRelease.run("gh", "api", "user")).fetch("login")
       builds = %w[production staging].flat_map do |environment|
@@ -198,34 +197,18 @@ module FoldingRelease
         app.get_builds(client: FoldingRelease.client).map { |build| Integer(build.version, 10) }
       end
       raise "Old build exists on Apple; reconcile it instead" if builds.include?(old_number)
-      ledger_store = GitHubArtifacts.new(CONFIG.fetch("reservation_tag"))
-      ledger = ledger_store.latest("reservations") or raise "Missing reservation ledger"
-      key = "replacement:#{record.data.fetch('release_id')}:#{old_number}"
-      reservation = ledger.fetch("reservations").find { |entry| entry["idempotency_key"] == key }
-      unless reservation
-        number = ([0] + builds + ledger.fetch("reservations").map { |entry| entry.fetch("build_number") }).max + 1
-        reservation = {"idempotency_key" => key, "tag" => record.data.fetch("tag"), "commit_sha" => source,
-          "build_number" => number, "replaces_build_number" => old_number, "actor" => actor,
-          "reason" => reason, "created_at" => Time.now.utc.iso8601}
-        ledger["reservations"] << reservation
-        ledger["revision"] += 1
-        Dir.mktmpdir("folding-reservation") do |directory|
-          file = File.join(directory, format("reservations-r%08d.json", ledger.fetch("revision")))
-          FoldingRelease.atomic_json(file, ledger)
-          ledger_store.upload(file)
-        end
+      replacement = FoldingRelease.reserve(environment: record.data.fetch("environment"),
+        version: record.data.fetch("marketing_version"), replacement_for: record.data.fetch("release_id"))
+      audit = {"actor" => actor, "reason" => reason, "replaced_tag" => record.data.fetch("tag"),
+        "replaced_build_number" => old_number, "created_at" => Time.now.utc.iso8601}
+      unless replacement.data["archive_replacement"]
+        replacement.save("archive_replacement" => audit)
       end
-      # Keep old local outputs for inspection, outside the new build's fixed paths.
-      retired = File.join(record.directory, "retired-build-#{old_number}")
-      FileUtils.mkdir_p(retired)
-      %w[Folding.xcarchive Folding.ipa Folding.xcarchive.zip Folding.dSYMs.zip].each do |name|
-        path = File.join(record.directory, name)
-        next unless File.exist?(path)
-        raise "Retired output already exists; reconcile manually" if File.exist?(File.join(retired, name))
-        FileUtils.mv(path, retired)
-      end
-      record.save("build_number" => reservation.fetch("build_number"), "archive_attempt_started_at" => nil,
-        "archive_recoveries" => record.data.fetch("archive_recoveries", []) + [reservation])
+      record.save("cancelled" => true, "replacement_tag" => replacement.data.fetch("tag"),
+        "archive_recovery" => audit)
+      # Old files and every historical manifest stay under the burned build tag.
+      # The replacement starts at planned and repeats preparation for its own identity.
+      replacement
     end
 
     def self.publish_archive(record)
@@ -250,10 +233,43 @@ module FoldingRelease
       build
     end
 
+    def self.register_build_policy(record)
+      deployment = FoldingRelease.read_json(ENV.fetch("FOLDING_BACKEND_DEPLOYMENT_RECEIPT"))
+      config = deployment.fetch("runtime_configuration")
+      directory = record.directory
+      receipt = File.join(directory, "published-build-receipt.json")
+      recorded = record.data["build_policy_receipt_sha256"]
+      name = "published-build-#{record.data.fetch('build_number')}.json"
+      if recorded && !File.exist?(receipt)
+        record.remote.download(name, directory)
+        FileUtils.mv(File.join(directory, name), receipt)
+      end
+      raise "Published build receipt changed" if recorded && FoldingRelease.sha(receipt) != recorded
+      Dir.mktmpdir("folding-release-policy") do |scratch|
+        configuration = File.join(scratch, "configuration.json")
+        FoldingRelease.atomic_json(configuration, config)
+        arguments = ["python3", File.join(ROOT, "scripts/register-published-build.py"), "--record", record.path,
+          "--configuration", configuration, "--receipt", receipt]
+        arguments << "--read-only" if recorded
+        FoldingRelease.run(*arguments)
+      end
+      unless recorded
+        artifact = File.join(directory, name)
+        FileUtils.cp(receipt, artifact)
+        record.remote.upload_artifact(artifact)
+        record.save("build_policy_receipt_sha256" => FoldingRelease.sha(receipt), "build_policy_receipt_name" => name)
+      end
+    end
+
     def self.beta(context, record)
       record.verify_identity!
-      FoldingRelease.preview_prerequisites!(record) if record.data.fetch("marketing_version").start_with?("0.")
+      if record.data["preview_backend_verification"]
+        FoldingRelease.preview_prerequisites!(record)
+      else
+        FoldingRelease.live_prerequisites!(record)
+      end
       raise "Archive required" if STATES.index(record.data.fetch("state")) < STATES.index("archived")
+      register_build_policy(record)
       build = FoldingRelease.exact_build(record.data)
       unless build
         raise "Previous upload outcome is ambiguous; inspect Apple before explicit retry" if record.data["upload_attempt_started_at"]

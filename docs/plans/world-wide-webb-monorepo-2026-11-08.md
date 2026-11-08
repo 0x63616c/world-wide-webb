@@ -288,6 +288,24 @@ Folding needs these specific adaptations:
 6. After one-time launch acceptance, routine automation produces source-bound checks, captures, metadata validation and independent automated final review for substantial releases. Store the review/fix evidence automatically; do not retain a hidden manual approval Boolean on every nominally automatic build. Unchanged copy/visual inputs may reuse their reviewed fingerprint with explicit provenance; changed substantive listing/privacy facts require real review. Existing device/provider deferrals remain distinct.
 7. Recommend Tendr's owned-waiting policy: prepare replacement bytes/captures first, replace only pipeline-owned Waiting for Review app/purchase bundles, preserve In Review/unknown/unrelated states, coalesce later updates, never silently drop tips. Apple's review/cancellation race remains documented. Submission must not create products or change prices.
 
+### App Attest releases without Worker redeployment
+
+Execution uncovered another existing dependency: Folding's allowed Apple build versions are
+currently Worker bindings, so each beta changes Worker configuration. Retain the existing
+allowlist and strict signed metadata checks; add an explicit durable published-build policy in
+the existing isolated D1 databases. After a verified signed archive, the trusted release handler
+registers exactly its environment/app/build/source and confirms readback before distribution.
+The app already sends its build header; that header selects a policy row and never replaces
+cryptographic attestation/assertion validation. Unknown, cross-environment/app and mismatched
+signed versions remain rejected, and a build cannot be rebound to another source.
+
+This needs one schema/Worker rollout before new automation, then a small policy write for each
+new native build. No new Worker endpoint, storage resource, app library or per-beta Worker
+deployment is needed. Preserve legacy clients and a compatible Worker rollback floor. This is
+necessary to meet changed-only delivery, rather than an optional backend rewrite. Cloudflare
+tracks bindings with Worker versions, while D1 state changes are independent of versions.
+[Cloudflare versions and deployments](https://developers.cloudflare.com/workers/versions-and-deployments/).
+
 ### Screenshots
 
 Three modes: fast PR preview, focused visual regression/component render, full localized App Store export. Share setup/transport/artifact/export validation; scenes, fixtures, styling and captions stay app-owned.

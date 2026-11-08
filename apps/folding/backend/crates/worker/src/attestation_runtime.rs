@@ -23,6 +23,47 @@ pub(crate) struct AttestationConfiguration {
     pub versions: Vec<String>,
 }
 impl AttestationConfiguration {
+    /// The header only selects a durable release-policy row. Apple's signed
+    /// attestation/assertion metadata must still match an allowed version below.
+    pub(crate) async fn allow_published_build(
+        &mut self,
+        request: &Request,
+        db: &D1Database,
+        config: &Configuration,
+    ) -> std::result::Result<(), Failure> {
+        let Some(value) = request
+            .headers()
+            .get("X-Folding-Build")
+            .map_err(|_| Failure::malformed())?
+        else {
+            return Ok(());
+        };
+        let build = crate::client_policy::parse_build(&value).ok_or_else(Failure::malformed)?;
+        let version = build.to_string();
+        if self.versions.contains(&version) {
+            return Ok(());
+        }
+        #[derive(Deserialize)]
+        struct Published {
+            source_commit: String,
+        }
+        let row = statement(db,
+            "SELECT source_commit FROM published_ios_builds WHERE deployment=?1 AND app_id=?2 AND bundle_version=?3",
+            &[text(&config.deployment), text(&self.app_id), number(i64::from(build))],
+        )?.first::<Published>(None).await.map_err(|_| Failure::unavailable())?
+            .ok_or_else(Failure::unauthorized)?;
+        if row.source_commit.len() != 40
+            || !row
+                .source_commit
+                .bytes()
+                .all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())
+        {
+            return Err(Failure::unavailable());
+        }
+        self.versions.push(version);
+        Ok(())
+    }
+
     pub(crate) fn load(env: &Env) -> std::result::Result<Self, Failure> {
         let app_id = env
             .var("APP_ATTEST_APP_ID")
@@ -212,11 +253,12 @@ pub(crate) async fn enroll(
     if !input.validate() {
         return Err(Failure::malformed());
     }
-    let attest = AttestationConfiguration::load(env)?;
+    let mut attest = AttestationConfiguration::load(env)?;
     let session = community_session(request, db, config).await?;
     if input.device_id.as_str() != session.device_id {
         return Err(Failure::unauthorized());
     }
+    attest.allow_published_build(request, db, config).await?;
     let normalized=Sha256::digest(serde_json::to_vec(&serde_json::json!({"operation_id":input.operation_id,"device_id":input.device_id,"key_id":input.key_id,"challenge_id":input.challenge_id})).map_err(|_|Failure::unavailable())?);
     let timestamp = now();
     if let Some(receipt)=statement(db,"SELECT normalized_hash,response_json FROM attestation_operations WHERE participant_id=?1 AND operation_id=?2",&[text(&session.participant_id),text(input.operation_id.as_str())])?.first::<Operation>(None).await.map_err(|_|Failure::unavailable())? {

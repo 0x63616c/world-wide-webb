@@ -98,7 +98,7 @@ module FoldingRelease
   class GitHubArtifacts
     attr_reader :tag
     def initialize(tag)
-      raise "Invalid release tag" unless tag.match?(/\A(?:v\d+\.\d+\.\d+(?:-[A-Za-z0-9.-]+)?|folding-build-reservations)\z/)
+      raise "Invalid release tag" unless tag.match?(/\A(?:v\d+\.\d+\.\d+(?:-[A-Za-z0-9.-]+)?|folding\/build-[1-9]\d*|folding-build-reservations)\z/)
       @tag = tag
     end
 
@@ -209,20 +209,78 @@ module FoldingRelease
     end
   end
 
-  def self.reserve(tag:, environment:, version:)
+  def self.allocate_build(source:, version:, environment:, identity:, maximum:, requested_tag:, replacement_for: nil)
+    store = GitHubArtifacts.new(CONFIG.fetch("reservation_tag"))
+    begin
+      store.ensure_exists(source)
+    rescue StandardError
+      # A concurrent first allocator may have created the ledger successfully.
+      raise unless store.info
+    end
+    key = [source, version, configuration_hash(environment)].join(":")
+    key += ":replacement:#{replacement_for}" if replacement_for
+    5.times do
+      ledger = store.latest("reservations") || {"schema_version" => 1, "revision" => 0, "reservations" => []}
+      existing = ledger.fetch("reservations").find { |entry| entry.fetch("idempotency_key") == key }
+      if existing
+        raise "Reservation belongs to another release tag" if requested_tag && existing.fetch("tag") != requested_tag
+        return existing
+      end
+      build = [maximum, ledger.fetch("reservations").map { |entry| entry.fetch("build_number") }.max || 0].max + 1
+      tag = "folding/build-#{build}"
+      raise "New releases use the allocated build tag #{tag}" if requested_tag && requested_tag != tag
+      reservation = {"idempotency_key" => key, "tag" => tag, "commit_sha" => source, "marketing_version" => version,
+        "configuration_hash" => configuration_hash(environment), "bundle_id" => identity.fetch("bundle_id"),
+        "build_number" => build, "created_at" => Time.now.utc.iso8601}
+      ledger["reservations"] << reservation
+      ledger["revision"] += 1
+      begin
+        Dir.mktmpdir("folding-reservation") do |directory|
+          file = File.join(directory, format("reservations-r%08d.json", ledger.fetch("revision")))
+          atomic_json(file, ledger)
+          # GitHub rejects an existing asset name. This append-only CAS is shared
+          # by staging/production, beta/store and local/CI publishers alike.
+          store.upload(file)
+        end
+        return reservation
+      rescue StandardError
+        # Re-read after a collision or ambiguous response; the same intent reuses
+        # a successful reservation rather than allocating twice.
+        next
+      end
+    end
+    raise "Build allocation could not be confirmed; retry without changing the release intent"
+  end
+
+  def self.follow_replacement(tag)
+    visited = []
+    loop do
+      raise "Cyclic release replacement history" if visited.include?(tag)
+      visited << tag
+      record = Record.new(tag)
+      replacement = record.data["replacement_tag"]
+      unless replacement
+        record.verify_identity!
+        return record
+      end
+      raise "Invalid release replacement history" unless record.data["cancelled"] && record.data.fetch("commit_sha") == commit
+      tag = replacement
+    end
+  end
+
+  def self.reserve(tag: nil, environment:, version:, replacement_for: nil)
     source = clean_commit!
     raise "Wrong Apple team override" if ENV["APPLE_TEAM_ID"] && ENV["APPLE_TEAM_ID"] != CONFIG.fetch("apple_team_id")
     raise "Invalid marketing version" unless version.match?(/\A\d+\.\d+\.\d+\z/)
-    raise "Production tag must match marketing version" if environment == "production" && tag != "v#{version}"
     visibility = JSON.parse(run("gh", "repo", "view", CONFIG.fetch("repository"), "--json", "visibility")).fetch("visibility")
     raise "Distribution artifacts require a private repository" unless visibility == "PRIVATE"
-    remote = GitHubArtifacts.new(tag)
-    existing = remote.latest("manifest")
-    if existing
-      record = Record.new(tag)
-      record.verify_identity!
-      raise "Version/environment changed" unless existing.fetch("marketing_version") == version && existing.fetch("environment") == environment
-      return record
+    if tag
+      prior = GitHubArtifacts.new(tag).latest("manifest")
+      if prior
+        record = follow_replacement(tag)
+        raise "Version/environment changed" unless prior.fetch("marketing_version") == version && prior.fetch("environment") == environment
+        return record
+      end
     end
     ancestry = JSON.parse(run("gh", "api", "repos/#{CONFIG.fetch('repository')}/compare/#{source}...main"))
     raise "Release commit must be on trusted main history" unless %w[ahead identical].include?(ancestry["status"])
@@ -239,24 +297,13 @@ module FoldingRelease
         build.version.to_i
       end
     end.max || 0
-    ledger_store = GitHubArtifacts.new(CONFIG.fetch("reservation_tag"))
-    ledger_store.ensure_exists(source)
-    ledger = ledger_store.latest("reservations") || {"schema_version" => 1, "revision" => 0, "reservations" => []}
-    key = [source, version, configuration_hash(environment)].join(":")
-    reservation = ledger.fetch("reservations").find { |entry| entry.fetch("idempotency_key") == key }
-    raise "Reservation already belongs to another release tag" if reservation && reservation["tag"] != tag
-    unless reservation
-      maximum = [maximum, ledger.fetch("reservations").map { |entry| entry.fetch("build_number") }.max || 0].max
-      reservation = {"idempotency_key" => key, "tag" => tag, "commit_sha" => source, "marketing_version" => version,
-        "configuration_hash" => configuration_hash(environment), "bundle_id" => identity.fetch("bundle_id"),
-        "build_number" => maximum + 1, "created_at" => Time.now.utc.iso8601}
-      ledger["reservations"] << reservation
-      ledger["revision"] += 1
-      Dir.mktmpdir("folding-reservation") do |directory|
-        file = File.join(directory, format("reservations-r%08d.json", ledger.fetch("revision")))
-        atomic_json(file, ledger)
-        ledger_store.upload(file)
-      end
+    reservation = allocate_build(source: source, version: version, environment: environment,
+      identity: identity, maximum: maximum, requested_tag: tag, replacement_for: replacement_for)
+    tag = reservation.fetch("tag")
+    remote = GitHubArtifacts.new(tag)
+    existing = remote.latest("manifest")
+    if existing
+      return follow_replacement(tag)
     end
     remote.ensure_exists(source)
     locks = ["Gemfile.lock", "backend/Cargo.lock", "backend/bun.lock"] + Dir.glob(File.join(ROOT, "apps/ios/**/Package.resolved")).map { |file| file.delete_prefix(ROOT + "/") }
@@ -321,6 +368,7 @@ module FoldingRelease
     missing = CONFIG.fetch("minimum_backend_capabilities") - backend.fetch("capabilities")
     raise "Required backend capabilities missing: #{missing.join(',')}" unless missing.empty?
     raise "Missing deployed Worker identity" if backend["worker_version"].to_s.empty?
+    verified_backend!(record, backend)
     CONFIG.fetch("public_urls").each do |url|
       uri = URI(url)
       response = Net::HTTP.start(uri.host, uri.port, use_ssl: true, open_timeout: 15, read_timeout: 30) { |http| http.get(uri.request_uri) }
@@ -329,15 +377,71 @@ module FoldingRelease
     backend.fetch("worker_version")
   end
 
-  # Internal previews can retain the recorded broader shipping deferrals, but
-  # this feature must ship against the exact compatible, accepted service.
+  def self.backend_input_hash(source)
+    raise "Invalid backend source" unless source.match?(/\A[0-9a-f]{40}\z/)
+    repository = run("git", "rev-parse", "--show-toplevel")
+    prefix = run("git", "-C", repository, "ls-tree", "-r", "--name-only", source, "--", "apps/folding/backend/Cargo.toml").empty? ? "" : "apps/folding/"
+    paths = %w[backend/Cargo.toml backend/Cargo.lock backend/package.json backend/bun.lock backend/package-lock.json backend/crates backend/migrations scripts/generate-worker-config.py]
+    entries = run("git", "-C", repository, "ls-tree", "-r", source, "--", *paths.map { |path| prefix + path }).lines.map do |line|
+      metadata, path = line.chomp.split("\t", 2)
+      [path.delete_prefix(prefix), metadata]
+    end.reject { |path, _| path.end_with?(".md") || path.include?("/tests/") }
+    raise "Backend input tree is incomplete" unless entries.any? { |path, _| path == "backend/Cargo.toml" }
+    pins = JSON.parse(run("git", "show", "#{source}:#{prefix}tool-versions.json"))
+    Digest::SHA256.hexdigest(JSON.generate({"files" => entries.sort, "rust" => pins.fetch("rust"), "worker_build" => pins.fetch("worker_build", "0.8.7")}))
+  end
+
+  def self.verified_backend!(record, backend)
+    worker_source = backend.fetch("worker_version")
+    input_hash = backend_input_hash(record.data.fetch("commit_sha"))
+    raise "Deployed backend inputs differ from this candidate" unless backend_input_hash(worker_source) == input_hash
+    path = ENV.fetch("FOLDING_BACKEND_DEPLOYMENT_RECEIPT") { raise "Supply the immutable verified backend deployment receipt" }
+    receipt = read_json(path)
+    raise "Wrong backend deployment receipt" unless receipt["schema_version"] == 1 && receipt["environment"] == record.data.fetch("environment") &&
+      receipt["worker_source_sha"] == worker_source && receipt["backend_input_hash"] == input_hash &&
+      receipt["cloudflare_version_id"].to_s.match?(/\A[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\z/)
+    check = receipt.fetch("backend_check")
+    raise "Deployment receipt requires the backend CI check" unless check["name"] == "backend" && check["kind"] == "ci"
+    CheckEvidence.validate!(check, source: worker_source, base: File.dirname(File.expand_path(path)))
+    account = receipt.fetch("account_id")
+    script = receipt.fetch("worker_script")
+    raise "Wrong Cloudflare deployment owner" unless account.match?(/\A[0-9a-f]{32}\z/) && script == "folding-api-#{record.data.fetch('environment')}"
+    provider = fetch_json("https://api.cloudflare.com/client/v4/accounts/#{account}/workers/scripts/#{script}/deployments",
+      {"Authorization" => "Bearer #{ENV.fetch('FOLDING_RELEASE_POLICY_TOKEN')}"})
+    versions = provider.dig("result", "deployments", 0, "versions")
+    raise "The verified Worker version is not the current complete deployment" unless provider["success"] == true && versions.is_a?(Array) && versions.length == 1 &&
+      versions.first["version_id"] == receipt.fetch("cloudflare_version_id") && versions.first["percentage"] == 100
+    uploaded = fetch_json("https://api.cloudflare.com/client/v4/accounts/#{account}/workers/scripts/#{script}/versions/#{receipt.fetch('cloudflare_version_id')}",
+      {"Authorization" => "Bearer #{ENV.fetch('FOLDING_RELEASE_POLICY_TOKEN')}"})
+    bindings = uploaded.dig("result", "resources", "bindings")
+    raise "Cannot confirm the deployed Worker bindings" unless uploaded["success"] == true && uploaded.dig("result", "id") == receipt.fetch("cloudflare_version_id") && bindings.is_a?(Array)
+    runtime = receipt.fetch("runtime_configuration")
+    expected_app = "#{record.data.fetch('apple_team_id')}.#{record.data.fetch('bundle_id')}"
+    expected_vars = {"WORKER_VERSION" => worker_source, "DEPLOYMENT" => record.data.fetch("environment"), "APP_ATTEST_APP_ID" => expected_app}
+    raise "Deployment configuration belongs to another app/account" unless runtime.fetch("account_id") == account &&
+      expected_vars.all? { |name, value| runtime.fetch("vars")[name] == value }
+    expected_vars.each do |name, value|
+      matching = bindings.select { |binding| binding["name"] == name }
+      raise "Deployed Worker configuration differs from its receipt" unless matching.length == 1 && matching.first["type"] == "plain_text" && matching.first["text"] == value
+    end
+    databases = runtime.fetch("d1_databases")
+    database = bindings.select { |binding| binding["name"] == "DB" }
+    raise "Release policy database is not bound to the deployed Worker" unless databases.length == 1 && databases.first["binding"] == "DB" &&
+      database.length == 1 && database.first["type"] == "d1" && database.first["id"] == databases.first["database_id"] &&
+      databases.first["database_id"].to_s.match?(/\A[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\z/)
+    record.save("backend_deployment_receipt_sha256" => sha(path), "backend_input_hash" => input_hash)
+    worker_source
+  end
+
+  # Internal TestFlight retains the broader shipping deferrals. The exact deployed
+  # backend must have verified matching inputs, independent of unrelated app commits.
   def self.preview_prerequisites!(record)
     origin = record.data.fetch("archive_configuration").fetch("api_origin")
     backend = fetch_json("#{origin}/v1/capabilities")
     raise "Backend contract mismatch" unless backend["contract_version"] == CONFIG.fetch("backend_contract_version")
     missing = CONFIG.fetch("preview_backend_capabilities") - backend.fetch("capabilities")
     raise "Preview feature capabilities missing: #{missing.join(',')}" unless missing.empty?
-    raise "Preview Worker differs from the app source" unless backend["worker_version"] == record.data.fetch("commit_sha")
+    verified_backend!(record, backend)
     record.save("preview_backend_verification" => {
       "worker_version" => backend.fetch("worker_version"),
       "capabilities" => CONFIG.fetch("preview_backend_capabilities"),

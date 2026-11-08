@@ -118,3 +118,46 @@ proof, not a signed release of the current migration source or a private GitHub 
 
 Astra's foundation report is retained outside Git at `/tmp/monorepo-foundation-astra-review.md`.
 The complete migration still requires its final independent review before publication.
+
+## Folding delivery invariants — approximately 29% overall
+
+Repeated same-marketing-version betas now use unique `folding/build-N` records with a shared
+append-only allocator across staging/production and beta/store/local/CI. Four complete reservation
+tests cover idempotent retries, shared monotonic numbering, CAS races and historical tag readers.
+The complete pre-existing release suite plus these changes passes (15 tests / 505 assertions
+before adding backend-input tests). All 113 core/storage tests pass.
+
+Found and addressed a hidden source dependency: Apple build allowlists were Worker bindings.
+A new explicit D1 published-build policy preserves the legacy allowlist and all cryptographic
+checks, using the already-existing build header only to select a registered version. No new
+HTTP admin endpoint or secret binding is added. The actual compiled Worker passes all 30 runtime
+tests, including exact registered versions, wrong environment/app, unknown builds, forged signed
+version/header mismatch and replay/body/counter protection. Three SQLite-backed registration
+tests cover immutable identities, lost-response reconciliation and scoped keys.
+
+Backend runtime-input hashes normalize original/imported paths and separate iOS/Xcode/docs
+changes from actual Worker changes. Compatibility now requires the immutable verified deployment
+receipt. CI evidence is tied to the named workflow/job, trusted main push and exact attempt.
+Two real-Git/evidence tests pass. New policy/schema/deployment and the updated ledger destination
+are local only: original release writers, records and services are unchanged.
+
+GitHub settings discovery confirms current WWW has active required checks. The private Folding
+ruleset API returns the explicit GitHub Pro upgrade requirement. Resolve private ruleset support
+at the final cutover gate; no billing or visibility change has been made. Existing apps Pages
+is live at its legacy URL, served from its `gh-pages` branch.
+
+### Folding invariant review fixes
+
+Both nested-product Git source fences now run tree enumeration from the repository root.
+Backend receipts require the named trusted backend CI job, live 100% provider version and
+matching app/environment/source/D1 bindings. Preview compatibility is rechecked for 1.x too.
+The full release suite passes: 19 tests / 532 assertions. Four SQLite registration tests and
+the real nested-Git migration fixture pass. Archive recovery now burns the old immutable build
+tag and creates a separate replacement; retries follow the durable link. No live writer changed.
+
+Received an outage report from the independent Control Center repair chat: installed devices
+still use the retired `homelab` Tailnet identity; the rebuilt Mini has a different name and lacks
+private HTTPS Serve. That chat owns the immediate endpoint repair. This migration must import
+its resulting commit/route contract before cutover and must not overlap identity/Serve changes.
+Linux runner work is still active; its latest report proves four overlapping Linux builds passed
+with mixed Apple/Linux load validation remaining. Homelab authority handover remains pending.

@@ -93,7 +93,7 @@ platform :ios do
 
   desc "Reserve a globally monotonic build and immutable draft release record"
   lane :reserve do |options|
-    FoldingRelease.reserve(tag: options.fetch(:tag), environment: options[:environment] || "production", version: options.fetch(:version))
+    FoldingRelease.reserve(tag: options[:tag], environment: options[:environment] || "production", version: options.fetch(:version))
   end
 
   desc "Check current evidence/backend/pages; final:true also checks processed release assets"
@@ -115,7 +115,7 @@ platform :ios do
     FoldingRelease::Operations.archive(self, FoldingRelease::Record.new(options.fetch(:tag)))
   end
 
-  desc "Archive a 0.x TestFlight preview with distribution signing, before storefront assets"
+  desc "Archive an internal TestFlight build with distribution signing, before storefront assets"
   lane :archive_beta_preview do |options|
     apple_destination
     generate_project

@@ -11,7 +11,14 @@ module FoldingRelease
       "screenshots" => [["bundle", "exec", "fastlane", "ios", "screenshots", "environment:production"]]
     }.freeze
     # Exact workflow path + job display name; an unrelated green job cannot satisfy a gate.
-    CI_JOBS = {"contracts" => [".github/workflows/checks.yml", "Contract schemas and fixtures"]}.freeze
+    CI_JOBS = {
+      "contracts" => [".github/workflows/folding-ci.yml", "Folding contracts"],
+      "domain-storage" => [".github/workflows/folding-ci.yml", "Folding domain and storage"],
+      "backend" => [".github/workflows/folding-ci.yml", "Folding backend"],
+      "simulator" => [".github/workflows/folding-ci.yml", "Folding native"],
+      "localization" => [".github/workflows/folding-ci.yml", "Folding localization"],
+      "screenshots" => [".github/workflows/folding-store-checks.yml", "Folding App Store screenshots"]
+    }.freeze
 
     def self.capture(name:, directory:)
       commands = COMMANDS.fetch(name) { raise "No executable local check: #{name}" }
@@ -63,12 +70,15 @@ module FoldingRelease
         review = FoldingRelease.read_json(path)
         raise "Review not approved for this source" unless review["commit_sha"] == source && review["state"] == "approved" && !review["reviewer"].to_s.strip.empty? && review["findings"] == []
       else
+        raise "Unknown check evidence kind" unless check["kind"] == "ci"
         workflow, job_name = CI_JOBS.fetch(name) { raise "No trusted CI job configured for #{name}; use local evidence" }
-        match = check.fetch("run_url").match(%r{\Ahttps://github\.com/#{Regexp.escape(CONFIG.fetch("repository"))}/actions/runs/(\d+)(?:/attempts/\d+)?/?\z})
+        match = check.fetch("run_url").match(%r{\Ahttps://github\.com/#{Regexp.escape(CONFIG.fetch("repository"))}/actions/runs/(\d+)(?:/attempts/(\d+))?/?\z})
         raise "Expected exact Actions run URL" unless match
         prefix = "repos/#{CONFIG.fetch('repository')}/actions/runs/#{match[1]}"
         run = JSON.parse(FoldingRelease.run("gh", "api", prefix))
-        raise "Wrong workflow/source or unsuccessful run" unless run["head_sha"] == source && run["path"] == workflow && run["status"] == "completed" && run["conclusion"] == "success"
+        raise "Wrong workflow/source or unsuccessful run" unless run["head_sha"] == source && run["path"] == workflow && run["status"] == "completed" && run["conclusion"] == "success" &&
+          run["event"] == "push" && run["head_branch"] == "main" && run.dig("head_repository", "full_name") == CONFIG.fetch("repository") &&
+          run["run_attempt"].is_a?(Integer) && run["run_attempt"] > 0 && (!match[2] || match[2].to_i == run["run_attempt"])
         pages = JSON.parse(FoldingRelease.run("gh", "api", "--paginate", "--slurp", "#{prefix}/attempts/#{run.fetch('run_attempt')}/jobs?per_page=100"))
         jobs = pages.flat_map { |page| page.fetch("jobs") }.select { |job| job["name"] == job_name }
         raise "Named job missing, ambiguous or failed" unless jobs.length == 1 && jobs.first["head_sha"] == source && jobs.first["status"] == "completed" && jobs.first["conclusion"] == "success"
