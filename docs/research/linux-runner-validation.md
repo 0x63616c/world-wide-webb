@@ -14,8 +14,8 @@ activation and its verification are recorded separately from the canary evidence
   replacement Linux job, two already-starting macOS attempts, unaudited routes,
   v2 fleet migration, Linux JIT labels, systemd guest preparation and idle rollback.
 - Clippy with warnings denied and Rust formatting pass.
-- Python tests pass, including the workflow route audit. Current `world-wide-webb`
-  main `242eb8f4a` passes the static routing check.
+- Python tests pass, including the workflow route audit. At the initial check, `world-wide-webb`
+  main `242eb8f4a` passed the static routing check.
 - The target MacBook built the updated runner package and full MacBook Nix host
   generation without activation, including tests and the Darwin portable-helper
   library check. The separate global/macOS capacity option limits evaluated.
@@ -207,10 +207,10 @@ data or controller journal was reset. See [update recovery proof](evidence/linux
 PR31 activated the permanent pool. One real recovery job per platform reached
 `executing` under its production daemon and v3 journal; see
 [production bootstrap proof](evidence/linux-production-bootstrap-proof.json).
-Cancellation and drain were requested for both. The initial bootstrap receipt
-does not record their terminal cleanup; the subsequent deployment independently
-verified the idle fleet before handoff. A subsequent independent idle check found a
-maintenance acknowledgement race before any unsafe update handoff occurred.
+Both initial jobs were cancelled; the bootstrap receipt now includes their
+terminal GitHub status and the subsequent independently verified idle-fleet
+checkpoint with their registrations absent. An independent idle check then found
+a maintenance acknowledgement race before any unsafe update handoff occurred.
 
 PR34 prevents a hold arriving after discovery from acknowledging idle while
 still allowing admission in the same observation. Its regression failed before
@@ -218,22 +218,49 @@ the fix and passes afterward, including malformed late holds; all 159 Rust tests
 Clippy and native host/fixture/concurrency/process-survival builds pass.
 Independent review found no blockers. The idle old controller was unloaded under
 the host operation lock, then the automatic updater applied merged PR34 through
-its offline drain path. At the deployment checkpoint, the live controller matched the reviewed native
-build, boot/live generations agreed, no transaction or runner hold remained,
+its offline drain path. At that checkpoint, the live controller matched the
+reviewed native build, boot/live generations agreed, no transaction or runner hold remained,
 and the updater was running. See [deployment proof](evidence/linux-maintenance-fix-deployment.json).
 The five stopped prototype test startup entries were removed before reboot testing.
 
 The permanent patched controller also ran recovery attempt 3 with both platforms.
 Stopping the Linux guest agent made RPC unavailable; a guest-owned timer restored
-it and the same helper attempt still reported `executing`, with the same helper attempt ID. A digest-pinned Alpine Docker image built and ran natively as ARM64
+it and the same helper attempt still reported `executing`. A digest-pinned Alpine
+Docker image built and ran natively as ARM64
 inside that Linux guest. Stopping only that owned Linux VM left the Mac helper
-executing. See [fault proof](evidence/linux-fault-proof.json); cancellation and
-fleet cleanup are checked separately from the successful fault injection.
+executing. See [fault proof](evidence/linux-fault-proof.json). Normal cancellation stalled
+while GitHub retained the stopped Linux runner as offline/busy, so the initial
+120-second drain timed out and kept its hold. After force cancellation, both jobs
+became cancelled, both registrations disappeared, and an independent empty-journal
+and empty-VM check passed before releasing the hold and reopening admission.
+
+A guarded host reboot interrupted only recovery attempt 4's two owned jobs. After
+a different `kern.boottime`, `/dev/console` was owned by root (no GUI login), the
+permanent daemon was running with four/two limits and its v3 journal retained both
+identities in `Cleaning`. The local VM inventory was empty and fresh post-boot
+controller decisions contained no `CreateJit`/`StartRunner` replay for either
+attempt. The pre-reboot hold remained active. Both jobs subsequently became
+cancelled, both registrations disappeared, and independent journal/VM idle checks
+passed before the hold was released. See [reboot proof](evidence/linux-reboot-proof.json).
+Recovery attempt 5 then bootstrapped a fresh job per platform before GUI login
+(console UID0). While both were executing, a guarded live-policy test disabled
+admission and removed the Linux profile. The controller completed at least two
+fresh decisions with that policy; both helpers remained executing with unchanged
+attempt/runner/job identities. The original Nix configuration symlink was restored
+and at least two further decisions were observed. Both journal attempts still
+reported `Running` afterward. The policy file was validated before replacement;
+restoration was protected by the host operation lock and a durable recovery
+receipt. See [configuration proof](evidence/linux-config-proof.json).
+Both final jobs completed successfully without cancellation. Their registrations
+were absent and an independent final checkpoint confirmed an idle v3 journal,
+empty VM inventory, no hold/activation transaction, the restored Nix symlink,
+normal admission, four/two limits, and both daemon/updater processes running.
+The console was still UID0. The private image cache was fully reverified with a
+cleared registry environment; its disk digest matches the promoted image receipt.
+The final runtime and cache receipts are included in the configuration proof.
 
 ## Remaining rollout gates
 
-- Finish native mixed-platform cleanup, reboot before GUI login, and
-  configuration-change recovery checks against the permanent pool.
 - Application PR958 passes its required CI, including Linux typecheck/unit tests
   and the full Apple job. Its main merge must coordinate with the separate app
   deployment migration: the existing enabled legacy Mini workflow still targets

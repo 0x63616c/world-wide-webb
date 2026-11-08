@@ -56,5 +56,31 @@
       "exit_code": null,
       "reason": null
     }
+  },
+  "terminal_jobs": [
+    {
+      "id": 128886913273,
+      "status": "completed",
+      "conclusion": "cancelled",
+      "run_attempt": 2
+    },
+    {
+      "id": 128886913547,
+      "status": "completed",
+      "conclusion": "cancelled",
+      "run_attempt": 2
+    }
+  ],
+  "registrations_absent_at_subsequent_checkpoint": [
+    66,
+    67
+  ],
+  "subsequent_idle_checkpoint": {
+    "journal_idle": true,
+    "local_vms": [],
+    "hold_released": true,
+    "admission_enabled": true,
+    "max_total": 4,
+    "max_mac": 2
   }
 }

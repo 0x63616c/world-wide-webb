@@ -1,0 +1,190 @@
+{
+  "schema": 1,
+  "observed_at": "2026-11-08T23:39:06.921668+00:00",
+  "run_id": 42528327661,
+  "run_attempt": 5,
+  "console_owner_before": 0,
+  "owned_before": [
+    {
+      "nonce": "255064994ce04ef8827666752824722b",
+      "platform": "macos-arm64",
+      "runner_id": 75,
+      "assigned": {
+        "repository": "0x63616c/world-wide-webb",
+        "run_id": 42528327661,
+        "run_attempt": 5,
+        "job_id": 128900487735
+      }
+    },
+    {
+      "nonce": "9f86b72882cf4a9e9921f92fff89ad5a",
+      "platform": "linux-arm64",
+      "runner_id": 76,
+      "assigned": {
+        "repository": "0x63616c/world-wide-webb",
+        "run_id": 42528327661,
+        "run_attempt": 5,
+        "job_id": 128900487461
+      }
+    }
+  ],
+  "guest_before": {
+    "macos-arm64": {
+      "schema": 1,
+      "attempt_id": "255064994ce04ef8827666752824722b",
+      "phase": "executing",
+      "updated_at": 1794181089,
+      "exit_code": null,
+      "reason": null
+    },
+    "linux-arm64": {
+      "schema": 1,
+      "attempt_id": "9f86b72882cf4a9e9921f92fff89ad5a",
+      "phase": "executing",
+      "updated_at": 1794181112,
+      "exit_code": null,
+      "reason": null
+    }
+  },
+  "guest_with_linux_profile_removed": {
+    "macos-arm64": {
+      "schema": 1,
+      "attempt_id": "255064994ce04ef8827666752824722b",
+      "phase": "executing",
+      "updated_at": 1794181089,
+      "exit_code": null,
+      "reason": null
+    },
+    "linux-arm64": {
+      "schema": 1,
+      "attempt_id": "9f86b72882cf4a9e9921f92fff89ad5a",
+      "phase": "executing",
+      "updated_at": 1794181112,
+      "exit_code": null,
+      "reason": null
+    }
+  },
+  "fresh_decisions_with_changed_policy": 2,
+  "owned_after": [
+    {
+      "nonce": "255064994ce04ef8827666752824722b",
+      "platform": "macos-arm64",
+      "runner_id": 75,
+      "assigned": {
+        "repository": "0x63616c/world-wide-webb",
+        "run_id": 42528327661,
+        "run_attempt": 5,
+        "job_id": 128900487735
+      }
+    },
+    {
+      "nonce": "9f86b72882cf4a9e9921f92fff89ad5a",
+      "platform": "linux-arm64",
+      "runner_id": 76,
+      "assigned": {
+        "repository": "0x63616c/world-wide-webb",
+        "run_id": 42528327661,
+        "run_attempt": 5,
+        "job_id": 128900487461
+      }
+    }
+  ],
+  "fresh_decisions_after_restoration": 2,
+  "original_nix_config_restored": true,
+  "linux_profile_temporarily_removed": true,
+  "admission_temporarily_disabled": true,
+  "owned_after_restoration": [
+    {
+      "nonce": "255064994ce04ef8827666752824722b",
+      "platform": "macos-arm64",
+      "phase": "Running",
+      "candidate": {
+        "repository": "0x63616c/world-wide-webb",
+        "run_id": 42528327661,
+        "run_attempt": 5,
+        "job_id": 128900487735
+      },
+      "assigned": {
+        "repository": "0x63616c/world-wide-webb",
+        "run_id": 42528327661,
+        "run_attempt": 5,
+        "job_id": 128900487735
+      },
+      "runner_id": 75
+    },
+    {
+      "nonce": "9f86b72882cf4a9e9921f92fff89ad5a",
+      "platform": "linux-arm64",
+      "phase": "Running",
+      "candidate": {
+        "repository": "0x63616c/world-wide-webb",
+        "run_id": 42528327661,
+        "run_attempt": 5,
+        "job_id": 128900487461
+      },
+      "assigned": {
+        "repository": "0x63616c/world-wide-webb",
+        "run_id": 42528327661,
+        "run_attempt": 5,
+        "job_id": 128900487461
+      },
+      "runner_id": 76
+    }
+  ],
+  "normal_completion": [
+    {
+      "id": 128900487461,
+      "name": "Linux recovery",
+      "status": "completed",
+      "conclusion": "success",
+      "run_attempt": 5
+    },
+    {
+      "id": 128900487735,
+      "name": "macOS recovery",
+      "status": "completed",
+      "conclusion": "success",
+      "run_attempt": 5
+    }
+  ],
+  "registrations_absent": [
+    75,
+    76
+  ],
+  "final_runtime": {
+    "observed_at": "2026-11-08T23:43:55.487376+00:00",
+    "current": "/nix/store/c3j7lwrbif2yjygbqx4l4r12z7p58wzq-darwin-system-26.11.ff0e21a",
+    "profile": "/nix/store/c3j7lwrbif2yjygbqx4l4r12z7p58wzq-darwin-system-26.11.ff0e21a",
+    "controller_binary": "/nix/store/4mlaqaky54iym4jxxarpyjp5bsd4qy0i-homelab-runner-0.1.0/bin/homelab-runner",
+    "services_running": {
+      "org.nixos.homelab-runner": 632,
+      "com.github.nlewo.comin": 331
+    },
+    "admission_enabled": true,
+    "max_total": 4,
+    "max_mac": 2,
+    "cpu_budget": 12,
+    "memory_budget_mib": 24576,
+    "linux_image": "ghcr.io/0x63616c/homelab-linux-runner@sha256:c1d4c31b2576eda6adff0889e350efddda73e38a0153743f1972b5c994bcd78c",
+    "original_nix_config_restored": true,
+    "recovery_receipt_absent": true,
+    "hold_absent": true,
+    "transaction_absent": true,
+    "console_uid": 0,
+    "journal_version": 3,
+    "journal_idle": true,
+    "local_vms": [],
+    "test_startup_entries_absent": true
+  },
+  "final_cache_verification": {
+    "schema": 1,
+    "image": "ghcr.io/0x63616c/homelab-linux-runner@sha256:c1d4c31b2576eda6adff0889e350efddda73e38a0153743f1972b5c994bcd78c",
+    "disk_sha256": "734c48bbb378617ea91c8f5c6596004591b5e67bc6cea9a9f02f9db086cef165",
+    "sizes": {
+      "config.json": 211,
+      "disk.img": 24000000000,
+      "nvram.bin": 131072,
+      "manifest.json": 16364
+    }
+  }
+}

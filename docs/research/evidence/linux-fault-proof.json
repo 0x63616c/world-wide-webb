@@ -73,5 +73,25 @@
     "updated_at": 1794179994,
     "exit_code": null,
     "reason": null
-  }
+  },
+  "initial_drain_timed_out": true,
+  "normal_cancel_requested": true,
+  "force_cancel_requested_after_stall": true,
+  "post_smoke_cleanup": {
+    "journal_idle": true,
+    "local_vms": [],
+    "hold_released": true,
+    "admission_enabled": true,
+    "max_total": 4,
+    "max_mac": 2
+  },
+  "post_smoke_cancelled_jobs": [
+    128895947535,
+    128895947770
+  ],
+  "post_smoke_registrations_absent": [
+    71,
+    72
+  ],
+  "cleanup_observed_at": "2026-11-08T23:28:14.014288+00:00"
 }
