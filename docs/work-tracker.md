@@ -283,10 +283,10 @@ November 8 follow-up: omit the misleading “Building a comparison” fallback f
 
 ## Profiles and milestones implementation — November 8
 
-- [ ] [#71](https://github.com/0x63616c/folding/issues/71), **In progress**, under F07/#8: implement the [single-release plan](technical/profiles-and-milestones.md). All profile, progress, collection, featuring and celebration behavior ships together.
+- [ ] [#71](https://github.com/0x63616c/folding/issues/71), **Deferred formal acceptance**, under F07/#8: implementation/internal 0.1.13 (14) complete; retain the two unchecked formal criteria in the [single-release plan](technical/profiles-and-milestones.md). All profile, progress, collection, featuring and celebration behavior ships together.
 - [x] Implement and verify the six stable catalog IDs, next-target reveal, accumulated awards, distinct UTC days, correction thresholds, safe-count validation and contribution-delta cancellation. The Rust workspace passes 44 tests (six domain units, seven contracts, 31 Worker units), including ten new milestone/projection/schema tests.
 - [x] Add an unapplied additive migration defining bounded projection/backfill state, counted-event/day indexes, grants, optional featuring and durable acknowledgments. Local schema test rejects unearned featuring, clears the feature on grant revocation and cascades account deletion while retaining acknowledgment across revocation.
-- [ ] Implement guarded service routes, bounded backfill and scoring/lifecycle projection integration, typed client models, full profile/milestone UI, artwork/localization, privacy/accessibility and integrated release evidence. The HTTP amendment defines intended operations; no new route or migration is deployed.
+- [x] Implement guarded service routes, bounded backfill and scoring/lifecycle projection integration, typed client models, full profile/milestone UI, artwork/localization, privacy/accessibility and integrated release evidence. The HTTP amendment defines intended operations; no new route or migration is deployed.
 
 This is an internal implementation checkpoint, not a feature release or broad acceptance. No simulator, credential lookup or deployment was used. Existing CI/storefront/visual/submission/device deferrals remain.
 
@@ -294,7 +294,7 @@ This is an internal implementation checkpoint, not a feature release or broad ac
 
 - [x] Implement locally verified owner/member profile and milestone routes, featured-badge/acknowledgment commands, generation/revision/visibility guards, bounded resumable backfill and scoring/deletion/moderation/reset integration. Shared Rust/Swift fixture, typed client models/API, optional leaderboard badge field and migration 0021 are present.
 - [x] Pass 46 Rust host tests, optimized Wasm build and 21 compiled Worker/D1 tests. Unsigned device build and generic-simulator build-for-testing pass; actual Swift model validation/encoding passes a native harness. No simulator boot or app-hosted execution is claimed.
-- [ ] Complete UI navigation/progress/collection/featuring/celebrations, account-scoped caches, badge artwork, localization/privacy/accessibility, broader lifecycle/load checks and staged integrated release verification.
+- [x] Complete UI navigation/progress/collection/featuring/celebrations, account-scoped caches, badge artwork, localization/privacy/accessibility, broader lifecycle/load checks and staged integrated release verification.
 
 [Detailed evidence and remaining requirements](experiments/profile-milestones-implementation-2026-11-08.md). #71 remains **In progress** and all product parts remain one release; nothing was deployed or distributed by this checkpoint.
 
@@ -303,7 +303,7 @@ This is an internal implementation checkpoint, not a feature release or broad ac
 - [x] Implement profile summaries/member browsing and Settings/podium/tie-group navigation; next-only progress, complete earned collection, badge detail/featuring and grouped safe unlocks. Add six reproducible template vector artworks, account/generation/revision-fenced caches, durable feature/ack retry identity, offline save behavior and pending reset/deletion guards.
 - [x] Pass 65 app-hosted tests and direct production-view renders; retain 46 Rust/21 Worker checks from the service checkpoint. Verify 237 keys × ten locales, ten localization regressions, Swift formatting and website build. Initial unsigned Keychain test configuration was corrected; final signed tests pass. Preserve existing simulators and verify shutdown/deletion of every task-created test device.
 - [x] Add six unchecked, explicitly owner-deferred physical feature checks to #47/F13. Update join/reset and privacy/deletion source copy, including badge retention and competition-data access.
-- [ ] Finish realistic large-history/lifecycle/race checks, release capability gating, integrated staging verification and the single combined internal release. No provider deployment or distribution at this checkpoint; formal visual/native-language/accessibility/CI/submission/device deferrals are not passes.
+- [x] Finish realistic large-history/lifecycle/race checks, release capability gating, integrated staging verification and the single combined internal release. No provider deployment or distribution at this checkpoint; formal visual/native-language/accessibility/CI/submission/device deferrals are not passes.
 
 See [UI evidence and exact limits](experiments/profile-milestones-implementation-2026-11-08.md#app-interface-and-cache-checkpoint). #71 stays **In progress** under F07.
 
@@ -312,9 +312,17 @@ See [UI evidence and exact limits](experiments/profile-milestones-implementation
 - [x] Verify compound-keyset backfill with 100,000 folds, 391 pages, hidden partial awards and retained valid featured choice across bounded correction; earned dates reconcile to corrected history. Local resource measurements are not provider acceptance.
 - [x] Verify phone transfer/old-epoch rejection, reset during backfill, account deletion of ready/partial projections and protected admin quarantine/reinstatement with no repeated acknowledged unlock. 47 Rust checks, ten milestone and 17 general/admin runtime cases pass.
 - [x] Gate internal preview archive/distribution on accepted `profiles.milestones`, contract 1 and matching source; seven release regressions / 20 assertions pass.
-- [ ] Complete staging acceptance and one integrated TestFlight release; reconcile exact provider/Apple evidence. #71 remains In progress; all recorded broader shipping deferrals remain open.
+- [x] Complete staging acceptance and one integrated TestFlight release; reconcile exact provider/Apple evidence. #71 remains In progress; all recorded broader shipping deferrals remain open.
 November 8 crown/results follow-up: selected cartoon crowns now sit clockwise at the top right with a closed brim. Podium medals have matching rings; gold alone shimmers/emits small particles, respecting Reduce Motion. Percentile displays and unused client fields are removed. All 57 app-hosted checks and 201-key × ten-locale validation pass; direct native previews and a verified 48-frame animation are exported. [Evidence](experiments/leaderboard-crowns-2026-11-08.md). This component is locally verified; internal distribution and broader #25/#34/#47 acceptance remain open.
 
 November 8 follow-up: the owner removed crowns after preview review. Crown artwork, fitting/mask/rotation components and all avatar/result/share crown renderers are removed. Keep podium rings and gold-only motion; renamed the direct-render snapshot to cover the leaderboard. This supersedes the crown appearance choice above; no new TestFlight distribution is claimed.
 
 - [x] Verify #71 staging schema (21 checksums), exact service source, unchanged bindings/limits/policy and isolated live owner/member/feature/ack/correction/restriction behavior; actual Swift models validate returned payloads and fixture cleanup is confirmed. Production and Apple distribution remain unchanged at this checkpoint. See [staging evidence](experiments/profile-milestones-implementation-2026-11-08.md#staging-acceptance-checkpoint).
+
+### Profiles and milestones delivered internally
+
+- [x] Merge #74 at `091b09f`; ship the entire feature in **0.1.13 (14)**. Apple VALID build `08771b6f-1dcf-451e-8a4e-03fd5ac0efd1` is independently confirmed in **Folding Internal**; immutable archive/IPA/dSYM and feature/Apple proof hashes are sealed and read back.
+- [x] Verify both API environments at the same source, all 21 checksum migrations, scoped milestone capability, preserved bindings/limits/preview flags and minimum 0; publish/read back badge policy copy. Live staging Queue finishes backfill without owner-read polling; fixtures are removed.
+- [ ] #71 remains **Deferred formal acceptance** for its two original unchecked visual/accessibility/native-language criteria, preserved in #25 and #47. Implementation/internal release is complete; broader shipping, CI, submission and physical acceptance remain open.
+
+[Exact release evidence and limits](experiments/profile-milestones-implementation-2026-11-08.md#single-integrated-internal-release).
