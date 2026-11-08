@@ -115,6 +115,14 @@ Xcode selection and XcodeGen setup as ordinary Apple CI. Both workflow revisions
 the explicit route audit; their changes passed independent final review and local
 lint, Rust/operations checks and iPad/iPhone build/unit-policy checks.
 
+The initial [job artifacts](evidence/linux-github-smoke-proof.json) establish
+successful Linux/macOS job lifecycles, but only two Linux build workloads overlapped.
+Linux and macOS measured workloads did not overlap in this short smoke run.
+
+The corrected host controller and enabled host generation then built natively at
+`d540db8`; see [native build proof](evidence/linux-final-nix-proof.json). Production
+activation is still pending.
+
 Ten-second host samples independently record journal ownership, CPU/RAM
 reservations, VM processes, free space, pressure, swap and thermal status. Assess
 actual overlap and throughput from these samples and per-job timing artifacts;
@@ -128,8 +136,10 @@ per-platform demand, preserves raw queued identities for coverage, and suspends
 admission for a fresh discovery when selected cached demand has become stale.
 The helper-to-scheduler regression covers older Linux demand, duplicate Mac jobs,
 Linux disabled, and one Mac listener with a second queued Mac job. Full Rust tests
-and Clippy pass. The heavier canary is held between its completed Linux baseline
-and later cohorts while this controller fix is built and installed.
+and Clippy pass. The heavier canary was held after its completed Linux baseline while the fix
+was built and installed. The new controller acknowledged the idle hold, then
+resumed later cohorts. The Linux baseline used the earlier controller; both
+versions use the same guest image, resources and Linux-only admission behavior.
 
 ## Remaining acceptance gates
 
