@@ -29,6 +29,20 @@
             buildForAnalyzing = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
+               BlueprintIdentifier = "0CEFD0FAE508A81E555CD0BE"
+               BuildableName = "StillSnapshots.xctest"
+               BlueprintName = "StillSnapshots"
+               ReferencedContainer = "container:Still.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "NO"
+            buildForProfiling = "NO"
+            buildForArchiving = "NO"
+            buildForAnalyzing = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
                BlueprintIdentifier = "144A3C16EA6959F7E8FDA9CD"
                BuildableName = "StillUITests.xctest"
                BlueprintName = "StillUITests"
@@ -61,6 +75,17 @@
                BlueprintIdentifier = "144A3C16EA6959F7E8FDA9CD"
                BuildableName = "StillUITests.xctest"
                BlueprintName = "StillUITests"
+               ReferencedContainer = "container:Still.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
+         <TestableReference
+            skipped = "NO"
+            parallelizable = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "0CEFD0FAE508A81E555CD0BE"
+               BuildableName = "StillSnapshots.xctest"
+               BlueprintName = "StillSnapshots"
                ReferencedContainer = "container:Still.xcodeproj">
             </BuildableReference>
          </TestableReference>

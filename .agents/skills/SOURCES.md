@@ -28,3 +28,10 @@ Liquid Glass skills rather than `animation-patterns`.
 `liquid-glass` and `swiftui-patterns` mention sibling skills from the same
 upstream plugin (`appkit-interop`, `build-run-debug`, `view-refactor`,
 `window-management`) that are not vendored here; skip those pointers.
+
+## Matt Pocock engineering skills
+
+The 27 engineering/workflow skill directories imported from the apps branch are copied verbatim
+from `mattpocock/skills` at `4ae2317ddb22b046e26455e4f9c9b3aaaf62212d`.
+Their upstream manifest and license are retained at `../matt-pocock-README.md` and
+`../matt-pocock-LICENSE`. Existing Apple skill provenance above is unchanged.

@@ -70,7 +70,7 @@
 		193593C1E058E2D289F796C2 /* Still.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Still.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		2087DBA256BFFEE06713F93D /* Editors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Editors.swift; sourceTree = "<group>"; };
 		25CCB5F8523EE87381CD1978 /* MedicationLevel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MedicationLevel.swift; sourceTree = "<group>"; };
-		2871F4D499D82E6785C9A096 /* RDesign */ = {isa = PBXFileReference; lastKnownFileType = folder; name = RDesign; path = ../../packages/RDesign; sourceTree = SOURCE_ROOT; };
+		2871F4D499D82E6785C9A096 /* RDesign */ = {isa = PBXFileReference; lastKnownFileType = folder; name = RDesign; path = Packages/RDesign; sourceTree = SOURCE_ROOT; };
 		323ADF87AE41C667CBFCBFD1 /* JournalDoseRowSnapshots.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JournalDoseRowSnapshots.swift; sourceTree = "<group>"; };
 		3B5DF07AF9BACBF2DFAEE064 /* StillApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StillApp.swift; sourceTree = "<group>"; };
 		40EB9A059C63CE10B59BAC86 /* ScreenshotFixture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotFixture.swift; sourceTree = "<group>"; };
@@ -121,7 +121,7 @@
 			children = (
 				2871F4D499D82E6785C9A096 /* RDesign */,
 			);
-			name = Packages;
+			path = Packages;
 			sourceTree = "<group>";
 		};
 		01FD8AD78A9B70EB2FD086BF = {
@@ -349,7 +349,7 @@
 			mainGroup = 01FD8AD78A9B70EB2FD086BF;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				C15E9CAFB642D845979591F4 /* XCLocalSwiftPackageReference "../../packages/RDesign" */,
+				3A82C7E245E5CF319ED2D0BD /* XCLocalSwiftPackageReference "Packages/RDesign" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 840A35E61B17558FC8F6BA24 /* Products */;
@@ -739,9 +739,9 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		C15E9CAFB642D845979591F4 /* XCLocalSwiftPackageReference "../../packages/RDesign" */ = {
+		3A82C7E245E5CF319ED2D0BD /* XCLocalSwiftPackageReference "Packages/RDesign" */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = ../../packages/RDesign;
+			relativePath = Packages/RDesign;
 		};
 /* End XCLocalSwiftPackageReference section */
 
