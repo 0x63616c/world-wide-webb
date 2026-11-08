@@ -2,6 +2,7 @@
 
 import io
 import json
+import os
 import sqlite3
 import sys
 import tempfile
@@ -73,6 +74,20 @@ class VolumeTests(unittest.TestCase):
             with self.assertRaises(RuntimeError):
                 preflight.main()
             run.assert_not_called()
+
+    def test_release_retention_preserves_incident_and_manual_archives(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            for i in range(12):
+                p = root / f"before-release-{i}-{'a' * 40}-20261108T010000Z-{i}.sqlite"
+                p.write_bytes(b"snapshot")
+                os.utime(p, (i, i))
+            (root / "incident-20261108").mkdir()
+            (root / "before-release-manual.sqlite").write_bytes(b"manual")
+            volume.prune_release_snapshots(root)
+            self.assertEqual(len(list(root.glob("before-release-*.sqlite"))), 8)
+            self.assertTrue((root / "incident-20261108").is_dir())
+            self.assertTrue((root / "before-release-manual.sqlite").is_file())
 
     def test_stopped_copy_includes_wal_and_does_not_touch_the_source(self):
         with tempfile.TemporaryDirectory() as temp:

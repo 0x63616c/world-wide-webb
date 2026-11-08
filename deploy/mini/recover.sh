@@ -49,4 +49,5 @@ python3 "$code/tailscale_serve.py"
 cp "$release" "$root/current.env.tmp"
 mv "$root/current.env.tmp" "$root/current.env"
 # Keep the highest accepted CI generation so delayed old jobs stay rejected.
+python3 "$code/sqlite_snapshot.py" --prune "$root/backups"
 echo "Verified recovery to $revision; CI generation unchanged."

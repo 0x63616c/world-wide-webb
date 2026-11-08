@@ -69,10 +69,12 @@ if [[ "$code" != "$root" ]]; then
     cp "$code/$name" "$backup_root/$name.tmp"
     mv "$backup_root/$name.tmp" "$backup_root/$name"
   done
+  python3 "$backup_root/backup.py" --install-hourly
 fi
 if [[ -n "$legacy_pg_id" ]]; then docker stop "$legacy_pg_id" >/dev/null; fi
 cp "$release" "$root/current.env.tmp"
 mv "$root/current.env.tmp" "$root/current.env"
 printf '%s\n' "$generation" > "$root/generation.tmp"
 mv "$root/generation.tmp" "$root/generation"
+python3 "$code/sqlite_snapshot.py" --prune "$root/backups"
 echo "Verified release $revision"

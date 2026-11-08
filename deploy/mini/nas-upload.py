@@ -41,9 +41,10 @@ class Nas:
             self.config["host"],
             self.config.get("port", 5001),
             context=context,
-            timeout=300,
+            timeout=10,
         )
         connection.connect()
+        connection.sock.settimeout(300)
         actual = hashlib.sha256(connection.sock.getpeercert(binary_form=True)).hexdigest()
         if actual != self.config["certificate_sha256"]:
             connection.close()

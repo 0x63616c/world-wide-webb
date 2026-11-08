@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 import sqlite3
 import subprocess
 import tempfile
@@ -70,15 +71,44 @@ def snapshot_container(name, destination):
         sqlite_snapshot(Path(temp) / "control-center.sqlite", Path(destination))
 
 
+def prune_release_snapshots(root):
+    """Bound automatic release copies; never touch incident or migration archives."""
+    for prefix, count in [("before-release-", 7), ("before-recovery-", 3)]:
+        pattern = (
+            r"before-release-\d+-[0-9a-f]{40}-\d{8}T\d{6}Z-\d+\.sqlite"
+            if prefix == "before-release-"
+            else r"before-recovery-\d{8}T\d{6}Z-\d+\.sqlite"
+        )
+        copies = sorted(
+            (
+                p
+                for p in root.glob(prefix + "*.sqlite")
+                if p.is_file() and not p.is_symlink() and re.fullmatch(pattern, p.name)
+            ),
+            key=lambda p: p.stat().st_mtime,
+        )
+        for old in copies[:-count]:
+            old.unlink()
+            for suffix in ["-wal", "-shm"]:
+                Path(str(old) + suffix).unlink(missing_ok=True)
+
+
 if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--container", action="store_true", help="Copy a stopped Linux-volume writer")
+    parser.add_argument("--prune", action="store_true")
     parser.add_argument("source", type=Path)
-    parser.add_argument("destination", type=Path)
+    parser.add_argument("destination", type=Path, nargs="?")
     args = parser.parse_args()
-    if args.container:
+    if args.prune:
+        if args.destination is not None or args.container:
+            parser.error("--prune accepts only the backup directory")
+        prune_release_snapshots(args.source)
+    elif args.destination is None:
+        parser.error("Snapshot destination required")
+    elif args.container:
         snapshot_container(str(args.source), args.destination)
     else:
         sqlite_snapshot(args.source, args.destination)

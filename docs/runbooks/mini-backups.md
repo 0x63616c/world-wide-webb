@@ -37,6 +37,9 @@ Linux container, restore UID/GID 501:20 and owner-only permissions, and verify
 integrity, foreign keys, media references and health before returning to service.
 Never seed an empty volume automatically or open the live volume from macOS.
 
+Hourly database-and-photo history has separate 24-hour/7-day/indefinite-weekly retention; see
+[Control Center history](control-center-history.md).
+
 ## Contents
 
 - Control Center: consistent SQLite backup (PostgreSQL only for explicit legacy archive mode), complete media directory, secrets,
@@ -72,8 +75,8 @@ Each file is streamed to a new NAS directory, downloaded again, and compared
 by size and SHA-256. Existing files are not overwritten. `COMPLETE.json` is
 uploaded last and lists all verified payloads. A directory without that marker
 is incomplete. A local `NAS_VERIFIED` marker is written only after the remote
-completion marker itself passes read-back verification. Keep seven completed
-local sets; incomplete sets remain for investigation. NAS sets are not purged.
+completion marker itself passes read-back verification. Keep seven locally verified
+sets and the two latest incomplete attempts, even during NAS failure. NAS sets are not purged.
 The job refuses to start below 5 GiB free disk. Review NAS capacity and retention
 as backup volume grows.
 

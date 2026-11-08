@@ -12,7 +12,7 @@ matched and 321 differed. The original logs discarded SQLite's underlying error 
 The database was a macOS SSD file at `~/www-control-center/data/sqlite`, mounted
 into Linux via VirtioFS. It was not on NFS/SMB, a symlink to the NAS or a NAS mount;
 33 GiB of SSD space remained. Both the macOS and Linux permission checks passed.
-The NAS remained unreachable during successful recovery.
+The NAS HTTPS endpoint timed out within the short HTTP probe during recovery; this was not proof that the host was powered off.
 
 The writer was stopped and the complete damaged directory retained under
 `~/www-control-center/backups/incident-20261108T043336Z`. Its database SHA-256 is
@@ -26,7 +26,7 @@ under `~/www-control-center/backups/before-linux-volume-20261108T043821Z`. The d
 was copied to the external local-driver volume `www-control-center-sqlite`, with
 UID/GID 501:20 and owner-only permissions. The existing accepted immutable image was
 recreated against that volume. Health returned HTTP 200 and all six workers had zero
-consecutive failures while the NAS was still unreachable. Original host data, backups,
+consecutive failures while the NAS HTTPS probe was timing out. Original host data, backups,
 old PostgreSQL and media remain retained.
 
 ## Reproduced defect and limits
@@ -44,7 +44,7 @@ that causal link as established. The old design exposed the same WAL/SHM to inde
 macOS and Linux SQLite users; closing a host connection and shared-memory cleanup can
 interfere with the guest's memory mappings. Moving storage and all live database access
 inside Linux removes that demonstrated hazard. The specific production writer, syscall
-and NAS-trigger relationship remain unproven. No production NAS shutdown or service-wide
+and NAS-trigger relationship remain unproven. A later check found ping/TCP reachability and an API response after 9.18 seconds, longer than the earlier 8-second timeout. No production NAS shutdown or service-wide
 network disruption was performed for testing.
 
 SQLite documents the requirement that WAL clients share locks and memory on one host:
@@ -79,3 +79,13 @@ found a rollback issue with old images lacking the new validator command; it was
 fixed and re-reviewed. Capability probing runs read-only without data mounts,
 and rollback uses the current accepted image for validation rather than the old
 target. Unsupported validators fail before obtaining production storage.
+
+The requested hourly/daily/indefinite weekly backup plan and worker recovery behavior are documented in [Control Center history](control-center-history.md).
+
+The expanded candidate passed 30 Rust tests, 81 Python operations/policy tests and the
+real Swift/Rust round trip. Production iPad unit tests and iPhone platform/layout
+policy passed. An isolated real-Docker online backup captured and restored an
+indexed synthetic photo with a verified manifest, without stopping or restarting
+its server. Final review's stalled-NAS concern was resolved with a 900-second
+wall-clock publication budget after local acceptance. The NAS is online; its
+File Station authentication succeeded after the slow first HTTP response.
