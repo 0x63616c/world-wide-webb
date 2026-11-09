@@ -16,20 +16,6 @@ resource "cloudflare_account_token" "deployment" {
     {
       effect = "allow"
       permission_groups = [
-        { id = "ad7a6f88896d498f98eb30592abfbbf4" }, # Access: Apps Write
-        { id = "b219cc392cc843cfab473cf3abd06c5b" }, # Access: Organizations Read (JWT issuer discovery)
-        { id = "e9e3e5ccdebf43dbb1c9576fe74dfaab" }, # Access: Policies Write
-        { id = "09b2857d1c31407795e75e3fed8617a1" }, # D1 Write
-        { id = "366f57075ffc42689627bcf8242a1b6d" }, # Queues Write
-        { id = "bf7481a1826f439697cb59a20b22293e" }, # Workers R2 Storage Write
-        { id = "e086da7e2179491d91ee5f35b3ca210a" }, # Workers Scripts Write
-        { id = "5df633d6b41c42bcaf5b4a62b9d14b64" }, # Email Sending Write (onboard alerts sender)
-      ]
-      resources = jsonencode({ "com.cloudflare.api.account.${var.account_id}" = "*" })
-    },
-    {
-      effect = "allow"
-      permission_groups = [
         { id = "4755a26eedb94da69e1066d98aa820be" }, # DNS Write
         { id = "79b3ec0d10ce4148a8f8bdc0cc5f97f2" }, # Email Routing Rules Write
         { id = "28f4b596e7d643029c524985477ae49a" }, # Workers Routes Write
@@ -38,6 +24,20 @@ resource "cloudflare_account_token" "deployment" {
         { id = "3030687196b94b638145a3953da2b699" }, # Zone Settings Write
       ]
       resources = jsonencode({ "com.cloudflare.api.account.zone.${var.zone_id}" = "*" })
+    },
+    {
+      effect = "allow"
+      permission_groups = [
+        { id = "09b2857d1c31407795e75e3fed8617a1" }, # D1 Write
+        { id = "366f57075ffc42689627bcf8242a1b6d" }, # Queues Write
+        { id = "5df633d6b41c42bcaf5b4a62b9d14b64" }, # Email Sending Write (onboard alerts sender)
+        { id = "ad7a6f88896d498f98eb30592abfbbf4" }, # Access: Apps Write
+        { id = "b219cc392cc843cfab473cf3abd06c5b" }, # Access: Organizations Read (JWT issuer discovery)
+        { id = "bf7481a1826f439697cb59a20b22293e" }, # Workers R2 Storage Write
+        { id = "e086da7e2179491d91ee5f35b3ca210a" }, # Workers Scripts Write
+        { id = "e9e3e5ccdebf43dbb1c9576fe74dfaab" }, # Access: Policies Write
+      ]
+      resources = jsonencode({ "com.cloudflare.api.account.${var.account_id}" = "*" })
     },
   ]
   lifecycle { prevent_destroy = true }
