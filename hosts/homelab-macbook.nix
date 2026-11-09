@@ -37,8 +37,8 @@
       runnerGroupId = 1;
       trustApproved = true;
     };
-    # Xcode 26.4.1; ordinary Apple CI requires at least Xcode 26.4.
-    image = "ghcr.io/cirruslabs/macos-tahoe-xcode@sha256:e329b2ea9634c3e72e20b0c3e5a75b8591de899638c4720a466a0fb55dec5b71";
+    # Xcode 27.2 candidate; promote only after the held-pool runtime canary.
+    image = "ghcr.io/cirruslabs/macos-tahoe-xcode@sha256:f8315a2f627daf64ab2c4e11d29a4d267953902a16151ee28fcdd7185927c317";
     cpu = 4;
     memoryMiB = 8192;
     # Measured after caching the image: 171 GiB free on this test host.
