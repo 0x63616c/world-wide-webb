@@ -259,9 +259,30 @@ The console was still UID0. The private image cache was fully reverified with a
 cleared registry environment; its disk digest matches the promoted image receipt.
 The final runtime and cache receipts are included in the configuration proof.
 
-## Remaining rollout gates
+## Main CI routing and final state
 
-- Application PR958 passes its required CI, including Linux typecheck/unit tests
-  and the full Apple job. Its main merge must coordinate with the separate app
-  deployment migration: the existing enabled legacy Mini workflow still targets
-  the retired SSH identity.
+Application [PR958](https://github.com/0x63616c/world-wide-webb/pull/958) merged as
+`4af50b39b30c637fbe647c1a5361621e84604470`.
+[Main CI 42536990147](https://github.com/0x63616c/world-wide-webb/actions/runs/42536990147)
+passed all seven jobs, including Linux typecheck/unit tests, full Apple validation,
+image and infrastructure checks, and the final gate. Both Linux job runner IDs/names
+match Linux attempts in the production journal; their logs identify the native
+`1.99.1-aarch64-unknown-linux-gnu` toolchain. The earlier journal checkpoint captured
+one Linux job running and the second listening; final GitHub outcomes prove both
+subsequently executed successfully. No simultaneous-running checkpoint is claimed
+for these two short main jobs.
+
+CodeQL and the downstream Cloudflare apply succeeded. The legacy Mini deployment
+was skipped with its enable variable already false; TestFlight selection passed
+and upload was skipped. The application endpoint remained healthy on its existing
+`72f9533c84cc9362b9a3df9a5fe3f079411c638d` build, with database status okay and zero
+worker failures. This CI-only change does not claim an application image rollout.
+
+After main CI, all three runner registrations were absent and an independent
+checkpoint confirmed an idle v3 journal, empty local VM inventory, restored Nix
+configuration, four total/max two macOS policy, enabled admission, both controller
+and updater running, matching live/boot profiles, and no hold or transaction. The
+console remained UID0. The deployed controller's retained Nix build log also
+confirms all 159 Rust tests passed. Four VM tests are ignored in that automated
+suite; native lifecycle, network and recovery checks are recorded separately above.
+See [main CI proof](evidence/linux-main-ci-proof.json).
