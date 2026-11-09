@@ -410,7 +410,7 @@ wait for background upload or replay.
 The shared metric value uses larger Dynamic Type-aware text, and empty leaderboards
 retain all three podium placeholders. [PR #983](https://github.com/0x63616c/world-wide-webb/pull/983)
 merged at `6b56a75a181001f4601aa13cd06c1522f11493aa` after required gates and
-Folding build/tests passed. Apple delivery is pending. The separate optional
+Folding build/tests passed. Feature delivery is verified below. The separate optional
 screenshot target initially omitted the new Diagnostics screen; the follow-up
 adds that shared view to its explicit source list. Local validation passed 116 package tests, 75 app-hosted
 tests on the pinned Duo runtime, 48 backend Rust tests and 30 actual Worker/D1
@@ -418,3 +418,31 @@ runtime tests, strict Swift formatting and localization (236 keys across ten
 locales plus ten regression checks). Direct production-view renders verified the
 large value and empty podium; the owned simulator was shut down and deleted.
 Existing App Store and physical-device acceptance deferrals remain open.
+
+
+### Diagnostics delivered internally — November 9
+
+[PR #983](https://github.com/0x63616c/world-wide-webb/pull/983) shipped the upload,
+diagnostics and UI changes at `6b56a75a181001f4601aa13cd06c1522f11493aa`.
+[Main CI](https://github.com/0x63616c/world-wide-webb/actions/runs/42702812655)
+passed every Folding check. [Delivery attempt 2](https://github.com/0x63616c/world-wide-webb/actions/runs/42705246215/attempts/2)
+archived and uploaded **1.0.0 (17)** once. Its immutable manifest records Apple
+processing `VALID`, build `6acbb8fb-8fc9-4af2-94e3-d1eaba7be056`, and verified
+Folding Internal assignment at `2026-11-09T22:06:44Z`. The release remains an
+authenticated draft. [PR #985](https://github.com/0x63616c/world-wide-webb/pull/985)
+also merged the separate screenshot target's source-list fix; its actual
+FoldingStorefront test build passed locally.
+
+The first delivery attempt stopped before deployment because its reviewed runtime
+configuration still approved the previous backend inputs. The existing readiness
+generator and source-bound validator passed after reviewing the logging-only
+Worker diff and refreshing the approved source. Existing resource bindings,
+runtime flags, capability claims and acceptance hashes were preserved. The failed
+publishing job was then retried. Production health now returns `ok` at `6b56a75`;
+the normal delivery validator also verified the new immutable backend receipt.
+
+The owner has been directed to install build 17 and refresh the leaderboard, then
+copy Settings → Diagnostics if it remains stale. The original background stopping
+point and the owner's post-update totals remain unverified; fixture success and
+Apple distribution do not establish private-device reconciliation. Existing App
+Store and physical-device acceptance deferrals remain open.
