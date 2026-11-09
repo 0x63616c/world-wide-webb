@@ -3,7 +3,7 @@ terraform {
   required_providers {
     cloudflare = {
       source  = "cloudflare/cloudflare"
-      version = "5.24.0"
+      version = "5.28.1"
     }
   }
   # CI executes on the mini; all runs share this backend's OS-level lock.
