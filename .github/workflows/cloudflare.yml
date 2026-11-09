@@ -58,7 +58,7 @@ jobs:
   apply:
     name: Cloudflare apply
     needs: source
-    if: needs.source.outputs.infra == 'true'
+    if: github.event_name == 'workflow_dispatch' || needs.source.outputs.infra == 'true'
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 20
     environment: production
@@ -71,7 +71,7 @@ jobs:
         with:
           oauth-client-id: ${{ secrets.HOMELAB_OPS_TS_CLIENT_ID }}
           oauth-secret: ${{ secrets.HOMELAB_OPS_TS_CLIENT_SECRET }}
-          tags: tag:homelab-operations
+          tags: tag:homelab
       - name: Apply tested configuration on the state owner
         env:
           MINI_KNOWN_HOSTS: ${{ vars.HOMELAB_OPS_KNOWN_HOSTS }}
