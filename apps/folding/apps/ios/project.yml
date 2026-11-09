@@ -124,6 +124,7 @@ targets:
     sources:
       - path: Screenshots
       - path: App/FoldingScreens.swift
+      - path: App/DiagnosticsScreen.swift
       - path: App/PatternsScreen.swift
       - path: App/FoldingPresentation.swift
       - path: App/CompetitionScreens.swift
