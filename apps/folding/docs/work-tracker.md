@@ -408,8 +408,11 @@ clears the logs; repeated reset markers preserve them. Diagnostics reads do not
 wait for background upload or replay.
 
 The shared metric value uses larger Dynamic Type-aware text, and empty leaderboards
-retain all three podium placeholders. Publication and Apple delivery of this
-follow-up are pending. Local validation passed 116 package tests, 75 app-hosted
+retain all three podium placeholders. [PR #983](https://github.com/0x63616c/world-wide-webb/pull/983)
+merged at `6b56a75a181001f4601aa13cd06c1522f11493aa` after required gates and
+Folding build/tests passed. Apple delivery is pending. The separate optional
+screenshot target initially omitted the new Diagnostics screen; the follow-up
+adds that shared view to its explicit source list. Local validation passed 116 package tests, 75 app-hosted
 tests on the pinned Duo runtime, 48 backend Rust tests and 30 actual Worker/D1
 runtime tests, strict Swift formatting and localization (236 keys across ten
 locales plus ten regression checks). Direct production-view renders verified the
