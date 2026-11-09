@@ -1277,3 +1277,26 @@ Host automation selects no standard app work; mapped backend-template tooling se
 checks without building existing apps. Existing shipping policy is unchanged. The regression failed
 before the correction; all19 selection/gate tests and the independent legacy impact fixtures pass.
 This correction remains local with the release follow-up; no baseline PR checks were restarted.
+
+### Enrollment promotion coordination restored and completed locally
+
+The separately preserved enrollment candidate was restored into the local follow-up without
+changing original checkouts, deleting its stash/backup branch or publishing it. The saved code
+already contained fixes to the earlier independent review: UI-side cancellable polling instead
+of a20-minute opaque worker wait; same-thread pinned SSH for recovery; a renewed activating fence
+before verification of an expired prepared hold; and confirmed descendant progress after release.
+Additional finish-enrollment cancellation checkpoints prevent starting verification after stop.
+The existing reservation supplies the source/host/attempt identity; no additional user command or
+new provider credential is introduced.
+
+Ten protocol tests cover ownership, expiry, immutable source binding, lost responses, historical
+manifests, recovery and release after concurrent promotion/new enrollment. The new descendant
+regression reproduces Unconfirmed with the former strict readback guard and passes with the saved
+correction. Negative cases retain strict acquire/activate ownership and ancestry checks. A stopped
+wizard finish test passes. The full Rust CLI suite and all-target Clippy/fmt pass; opt-in physical/
+VM enrollment and live provider checks remain unexecuted. The same-thread SSH/presentation paths
+remain in the wizard, with no delegated vault access or new secret store.
+
+Actual source-authority/key/profile/reboot/recovery acceptance is still required. This coherent
+follow-up remains local pending final independent review and the app-baseline merge. Production
+promotion flags, host identities, data and installed processes remain unchanged.

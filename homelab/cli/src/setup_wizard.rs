@@ -1539,8 +1539,9 @@ fn enroll(
                 || {
                     finish_enrollment(
                         profile,
-                        host_name,
                         &installed,
+                        &package.directory.join("homelab-host"),
+                        &attempt,
                         tools,
                         dependencies,
                         &mut checklist,
@@ -1779,24 +1780,108 @@ fn enroll(
         if checklist.stop_requested()? {
             return Ok(cancelled());
         }
-        let prepared = match checklist.background(|| {
-            remote_setup::prepare(
-                Request {
-                    attempt: attempt.id.clone(),
-                    repository: approved.repository.clone(),
-                    profile: profile.clone(),
-                    configuration_host: host_name.into(),
-                    revision: approved.revision.clone(),
-                    artifact_directory: package.directory.clone(),
-                    age_key: credentials.host_key_path,
-                    deploy_key: identity.path,
-                    resume: true,
-                    repair_from,
-                    repair_previous,
-                },
-                &tools.remote_setup,
-            )
+        checklist.message("Waiting for the exact checked host revision");
+        match wait_for_deployment(&mut checklist, &api, &approved, host_name, &attempt.id)? {
+            Ok(_) => {}
+            Err(crate::deployment_lease::Error::Expired) => {
+                let observed = match crate::terminal_process::within_checklist(
+                    "Checking saved setup",
+                    host_name,
+                    checklist.rows(),
+                    || {
+                        remote_setup::prepare_git_identity(
+                            profile,
+                            &attempt,
+                            &package.directory.join("homelab-host"),
+                            &tools.remote_setup,
+                        )
+                    },
+                ) {
+                    Ok(observed)
+                        if observed.public_key == identity.public_key
+                            && observed.path == identity.path =>
+                    {
+                        observed
+                    }
+                    Ok(_) => {
+                        return Ok(enrollment_failure(crate::deployment_lease::Error::Invalid));
+                    }
+                    Err(error) => return Ok(remote_setup_failure(error)),
+                };
+                if let Some(revision) = &observed.activated_revision {
+                    if revision != &approved.revision {
+                        return Ok(enrollment_failure(
+                            crate::deployment_lease::Error::Superseded,
+                        ));
+                    }
+                    return Ok(crate::terminal_process::within_checklist(
+                        "Setting up your Mac",
+                        host_name,
+                        checklist.rows(),
+                        || {
+                            finish_enrollment(
+                                profile,
+                                &approved,
+                                &package.directory.join("homelab-host"),
+                                &attempt,
+                                tools,
+                                dependencies,
+                                &mut checklist,
+                            )
+                        },
+                    ));
+                }
+                if let Err(error) = checklist.background(|| {
+                    crate::deployment_lease::recover_resume(
+                        &api,
+                        &approved,
+                        host_name,
+                        &attempt.id,
+                        &observed,
+                    )
+                })? {
+                    return Ok(enrollment_failure(error));
+                }
+            }
+            Err(error) => return Ok(enrollment_failure(error)),
+        }
+        if checklist.stop_requested()? {
+            let _ = checklist.background(|| {
+                crate::deployment_lease::cancel_prepared(&api, &approved, host_name, &attempt.id)
+            })?;
+            return Ok(cancelled());
+        }
+        if let Err(error) = checklist.background(|| {
+            crate::deployment_lease::activate(&api, &approved, host_name, &attempt.id)
         })? {
+            return Ok(enrollment_failure(error));
+        }
+        if checklist.stop_requested()? {
+            return Ok(cancelled());
+        }
+        let prepared = match crate::terminal_process::within_checklist(
+            "Preparing saved setup",
+            host_name,
+            checklist.rows(),
+            || {
+                remote_setup::prepare(
+                    Request {
+                        attempt: attempt.id.clone(),
+                        repository: approved.repository.clone(),
+                        profile: profile.clone(),
+                        configuration_host: host_name.into(),
+                        revision: approved.revision.clone(),
+                        artifact_directory: package.directory.clone(),
+                        age_key: credentials.host_key_path,
+                        deploy_key: identity.path,
+                        resume: true,
+                        repair_from,
+                        repair_previous,
+                    },
+                    &tools.remote_setup,
+                )
+            },
+        ) {
             Ok(prepared) => prepared,
             Err(error) => return Ok(remote_setup_failure(error)),
         };
@@ -1809,6 +1894,11 @@ fn enroll(
                 &tools.remote_setup,
                 identity.bootstrap_started,
             ));
+        }
+        if let Err(error) = checklist.background(|| {
+            crate::deployment_lease::renew(&api, &approved, host_name, &attempt.id)
+        })? {
+            return Ok(enrollment_failure(error));
         }
         match crate::terminal_process::within_checklist(
             "Setting up your Mac",
@@ -1826,8 +1916,9 @@ fn enroll(
                     || {
                         finish_enrollment(
                             profile,
-                            host_name,
                             &approved,
+                            &package.directory.join("homelab-host"),
+                            &attempt,
                             tools,
                             dependencies,
                             &mut checklist,
@@ -1851,14 +1942,89 @@ fn enroll(
     }
 }
 
+fn wait_for_deployment(
+    checklist: &mut Checklist,
+    api: &crate::configuration_pr::GitHub,
+    workspace: &config::Workspace,
+    host: &str,
+    attempt: &str,
+) -> io::Result<Result<bool, crate::deployment_lease::Error>> {
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(1200);
+    loop {
+        if checklist.stop_requested()? {
+            return Ok(Err(crate::deployment_lease::Error::Cancelled));
+        }
+        let result = checklist
+            .background(|| crate::deployment_lease::acquire(api, workspace, host, attempt))?;
+        if checklist.stop_requested()? {
+            let _ = checklist.background(|| {
+                crate::deployment_lease::cancel_prepared(api, workspace, host, attempt)
+            })?;
+            return Ok(Err(crate::deployment_lease::Error::Cancelled));
+        }
+        if !matches!(result, Err(crate::deployment_lease::Error::NotPromoted))
+            || std::time::Instant::now() >= deadline
+        {
+            return Ok(result);
+        }
+        for _ in 0..50 {
+            if checklist.stop_requested()? {
+                return Ok(Err(crate::deployment_lease::Error::Cancelled));
+            }
+            std::thread::sleep(std::time::Duration::from_millis(100));
+        }
+    }
+}
+
 fn finish_enrollment(
     profile: &HostProfile,
-    host: &str,
     workspace: &config::Workspace,
+    helper: &Path,
+    reservation: &crate::enrollment_reservation::Attempt,
     tools: &WizardTools,
     dependencies: &EnrollmentDependencies,
     checklist: &mut Checklist,
 ) -> Outcome {
+    if checklist.stop_requested().unwrap_or(true) {
+        return enrollment_failure(crate::deployment_lease::Error::Cancelled);
+    }
+    if reservation.repository != workspace.repository {
+        return enrollment_failure(crate::deployment_lease::Error::Invalid);
+    }
+    let host = reservation.host.as_str();
+    let attempt = reservation.id.as_str();
+    let api = crate::configuration_pr::GitHub {
+        executable: "gh".into(),
+    };
+    match crate::deployment_lease::acquire(&api, workspace, host, attempt)
+        .and_then(|_| crate::deployment_lease::activate(&api, workspace, host, attempt))
+    {
+        Ok(_) => {}
+        Err(crate::deployment_lease::Error::Expired) => {
+            let proof = match remote_setup::prepare_git_identity(
+                profile,
+                reservation,
+                helper,
+                &tools.remote_setup,
+            ) {
+                Ok(proof) => proof,
+                Err(error) => return remote_setup_failure(error),
+            };
+            if let Err(error) = crate::deployment_lease::recover_verification(
+                &api, workspace, host, attempt, &proof,
+            ) {
+                return enrollment_failure(error);
+            }
+        }
+        Err(error) => return enrollment_failure(error),
+    }
+    // Recovery first fences the exact inspected source; only its verified report
+    // can release it. Verification never reinstalls an already activated source.
+
+    if checklist.stop_requested().unwrap_or(true) {
+        return enrollment_failure(crate::deployment_lease::Error::Cancelled);
+    }
+
     let Some(tailscale) = workspace.manifest.tailscale.as_ref() else {
         return enrollment_failure("The approved configuration is missing its Tailscale tag.");
     };
@@ -1893,17 +2059,24 @@ fn finish_enrollment(
             }
         },
     ) {
-        Ok(report) => Outcome {
-            completed: true,
-            lines: completed_lines(
-                host,
-                report
-                    .reconciled_revision
-                    .as_deref()
-                    .unwrap_or(&workspace.revision),
-                &report.tailscale.dns_name,
-            ),
-        },
+        Ok(report) => {
+            if let Err(error) =
+                crate::deployment_lease::release_verified(&api, workspace, host, attempt, &report)
+            {
+                return enrollment_failure(error);
+            }
+            Outcome {
+                completed: true,
+                lines: completed_lines(
+                    host,
+                    report
+                        .reconciled_revision
+                        .as_deref()
+                        .unwrap_or(&workspace.revision),
+                    &report.tailscale.dns_name,
+                ),
+            }
+        }
         Err(error) => enrollment_failure(error),
     }
 }
@@ -2077,6 +2250,34 @@ mod tests {
             identity: None,
             configuration_host: None,
         }
+    }
+
+    #[test]
+    fn stopped_setup_cannot_start_finish_enrollment() {
+        let mut checklist = Checklist::new("build-mac");
+        checklist.cancelled = true;
+        // Historical fixtures have no provider or remote activation path. This
+        // catches a missing cancellation checkpoint without network access.
+        let outcome = finish_enrollment(
+            &profile(),
+            &workspace(),
+            Path::new("/unused/helper"),
+            &crate::enrollment_reservation::Attempt {
+                id: "e".repeat(64),
+                repository: "example/config".into(),
+                host: "build-mac".into(),
+            },
+            &native_tools(),
+            &EnrollmentDependencies::default(),
+            &mut checklist,
+        );
+        assert!(!outcome.completed);
+        assert!(
+            outcome
+                .lines
+                .join("\n")
+                .contains("Setup stopped; saved progress is retained.")
+        );
     }
 
     #[test]

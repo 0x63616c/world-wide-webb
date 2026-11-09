@@ -172,3 +172,21 @@ the app no longer polls the retired public GitHub release endpoint or reads its 
 Existing profiles, installation receipts and the old cache remain preserved. Private Homebrew
 publication and preserve-state repository rebind are pending migration acceptance; moving this
 source alone does not change an installed client's repository or host Git identity.
+
+
+### Checked revision during setup
+
+For schema3 configurations using `deploy/homelab`, setup waits for the approved revision to pass
+checks and reach that branch. It then records a bounded enrollment hold in `control/homelab`.
+Concurrent valid host updates are queued while installation and verification use that revision.
+After exact-source verification, setup releases the hold and requests fresh checked promotion of
+queued work. The promotion schedule also provides recovery if that request cannot be confirmed.
+
+Stopping at a checkpoint retains saved progress. Reopening the same host resumes its own attempt;
+it cannot take another attempt's hold or silently install an older source. An expired interrupted
+attempt first inspects the same pinned SSH peer and fences that source again before verification.
+Legacy configurations keep their original behavior and do not contact the new promotion API.
+
+This migration candidate is verified with isolated protocol, UI and CLI tests. Actual preserved
+profile/repository rebind, scoped Git access, reboot and off-host recovery remain acceptance work;
+a source move or successful package build alone does not prove them.

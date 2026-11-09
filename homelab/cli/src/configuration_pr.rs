@@ -84,6 +84,10 @@ impl GitHub {
                 "{ref,object:{sha:.object.sha}}"
             } else if path.contains("/compare/") {
                 "{status}"
+            } else if method == "POST"
+                && path.ends_with("/actions/workflows/homelab-delivery.yml/dispatches")
+            {
+                "."
             } else if path.contains("/pulls?") {
                 "map({number,html_url,state,merged_at,merge_commit_sha})"
             } else if path.contains("/pulls") {
@@ -127,7 +131,14 @@ impl GitHub {
 }
 impl Api for GitHub {
     fn json(&self, method: &str, path: &str, body: Option<Value>) -> Result<Value, Error> {
-        serde_json::from_slice(&self.request(method, path, body, false)?).map_err(|_| {
+        let bytes = self.request(method, path, body, false)?;
+        if bytes.is_empty()
+            && method == "POST"
+            && path.ends_with("/actions/workflows/homelab-delivery.yml/dispatches")
+        {
+            return Ok(Value::Null);
+        }
+        serde_json::from_slice(&bytes).map_err(|_| {
             crate::provider_diagnostics::invalid_response(if method == "GET" {
                 crate::provider_diagnostics::Operation::GitHubRead
             } else {
