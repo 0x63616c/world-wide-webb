@@ -1,10 +1,11 @@
 import importlib.util
-import os
 import json
-from pathlib import Path
+import os
 import subprocess
+import sys
 import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 spec = importlib.util.spec_from_file_location('reconcile', Path(__file__).parents[1] / 'scripts/reconcile-service.py')
@@ -27,6 +28,19 @@ class DeliveryTests(unittest.TestCase):
     def run_reconcile(self):
         reconcile.reconcile('cloudflared', self.source, self.runtime,
                             self.root / 'compose', self.root / 'compose.env')
+
+    def test_pre_pull_accepts_cached_private_images_without_registry_access(self):
+        def registry(command, **kwargs):
+            if command[-3:] != ['pull', '--policy', 'missing']:
+                raise subprocess.CalledProcessError(1, command, stderr='registry unauthorized')
+        with patch.object(sys, 'argv', ['reconcile', 'control-center', '--pull']), patch.object(reconcile.os, 'geteuid', return_value=450), patch.object(reconcile, 'compose_environment', return_value={}), patch.object(reconcile.subprocess, 'run', side_effect=registry):
+            reconcile.main()
+
+    def test_pre_pull_still_propagates_missing_image_registry_failure(self):
+        error = subprocess.CalledProcessError(1, 'compose', stderr='registry unauthorized')
+        with patch.object(sys, 'argv', ['reconcile', 'control-center', '--pull']), patch.object(reconcile.os, 'geteuid', return_value=450), patch.object(reconcile, 'compose_environment', return_value={}), patch.object(reconcile.subprocess, 'run', side_effect=error):
+            with self.assertRaises(subprocess.CalledProcessError):
+                reconcile.main()
 
     @patch.object(reconcile.subprocess, 'run')
     def test_projection_is_private_and_rotation_recreates_once(self, run):

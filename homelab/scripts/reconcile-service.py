@@ -171,6 +171,8 @@ def main():
                 "-f",
                 str(args.compose_root / args.service / "compose.yaml"),
                 "pull",
+                "--policy",
+                "missing",
             ],
             env=env,
             check=True,
