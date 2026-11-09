@@ -1207,3 +1207,35 @@ availability is not a cryptographic/signing verification. The required Cloudflar
 vault session, token creation, plaintext logging or live delivery activation occurred. CI
 continues independently. Folding infrastructure READMEs now describe their actual existing
 owner-operated token and relocated generator paths accurately.
+
+### Confirmed Folding preview and legacy build inventory
+
+Folding preview run42568875617 completed successfully. Its downloaded private artifact contains
+five outer-display preview PNGs for Today, History, Patterns, Leaderboard and Milestones. Each
+PNG is1398x2034; all five byte hashes match the manifest and every entry has the same recorded
+PR capture revisionc4003699a6437bfd2e4a0ed4fe1abb5d7f945163. The Today composition was visually
+inspected. External receipt: `/tmp/monorepo-folding-preview-42568875617-verified.json`.
+This proves the PR preview path, not the full multi-device/storefront screenshot matrix or
+App Store publication. The replacement18b15907b PR checks remain pending.
+
+Read-only reconciliation downloaded the latest immutable manifest for every historical version
+and the original reservation ledger revision14. Both describe reserved builds1 through14;
+the latest version is processed build14. Unuploaded/archived numbers remain burned. Preserve
+the full append-only ledger and historical artifacts; recheck/drain original writers and copy
+verified immutable ledger history into WWW before enabling a new allocator. This snapshot is
+not a writer drain or Apple provider readback. No ledger, counter or old writer was mutated.
+
+### Scoped Cloudflare consumer and minimal-guest scaffold preparation
+
+The local follow-up is rebased onto baseline18b15907b, preserving both branches' progress records.
+The generated Cloudflare-backend CI job now prepares ZIP extraction before Bun, matching the
+minimal Linux guest prerequisite discovered in actual Folding CI. Cloudflare apply now uses
+its controller-allowlisted source/apply names, ordinary Linux verification, the operations
+profile and scoped OAuth/SSH credentials instead of decrypting the legacy application vault.
+Its existing state-owner apply, encrypted backup/locking and positive result checks remain.
+
+Four tests execute the actual workflow shell with fake SSH and verify private temporary files,
+pinned transport, cleanup on failures and refusal to use an invalid staging path. An explicit
+refusal fixes the reproduced Bash3 conditional/errexit behavior. All four and the15 existing CI
+policy tests pass, with workflow lint/diff checks. The apply flag remains off; actual restricted
+network canary, state-owner/restore acceptance and source ordering remain unverified.

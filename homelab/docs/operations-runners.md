@@ -11,7 +11,8 @@ The controller creates this capacity only for an allowlisted main workflow/job a
 normal-Linux source job succeeds at the same workflow SHA/run/attempt. It checks that evidence
 again during job observation. Pull-request workflows and unknown paths do not authorize capacity.
 The initial allowlist names the Control Center release, Cloudflare apply and operations canary;
-release/apply consumers remain on their existing disabled migration paths until adapted and proven.
+the Control Center consumer remains on its disabled legacy path. The local Cloudflare consumer
+now uses the named source/apply jobs and operations credentials; it remains disabled until proven.
 
 This admission check is not exclusive job affinity. GitHub may assign another matching job to
 an authorized runner before controller revalidation. The label therefore must never itself grant
@@ -46,3 +47,18 @@ so its source check is fresh in the current attempt; no application artifact is 
 Keep production release/apply flags off until this probe and provider policy pass. Use the
 existing stateful operation locks, backups, source ordering and private Serve ownership for the
 subsequent deployment adaptation. Do not restore the retired-user SSH deployment as a shortcut.
+
+## Cloudflare consumer preparation
+
+`Apply Cloudflare` now matches the controller's named source/apply admission pair. Its source
+check runs on ordinary Linux and accepts only successful trusted-main CI; the apply job requests
+operations capacity. It uses only the scoped operations OAuth/SSH identity and public host pin,
+without decrypting the legacy application vault. Main-only execution, existing checked HCL,
+state-owner encryption/locking, backup checks and positive apply confirmation remain enforced.
+Temporary local key/pin files are removed on success and failure. Remote staging is validated
+before use and must be removed before reporting success. The real shell is exercised with fake
+SSH for success, missing confirmation, cleanup failure and an invalid returned staging path.
+
+This is local preparation. The enable flag remains off. Actual Tailnet policy/transport canary,
+state-owner and encrypted restore acceptance, and source ordering remain prerequisites to live
+activation. The operations label itself does not grant any capability.

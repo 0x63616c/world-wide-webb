@@ -21,16 +21,18 @@ concurrency:
   cancel-in-progress: false
 jobs:
   source:
+    name: Cloudflare source
     if: >-
-      vars.OPEN_TOFU_DEPLOY_ENABLED == 'true' &&
+      github.ref == 'refs/heads/main' && vars.OPEN_TOFU_DEPLOY_ENABLED == 'true' &&
       (github.event_name == 'workflow_dispatch' ||
        (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'))
     runs-on: [self-hosted, Linux, ARM64, homelab-linux]
+    timeout-minutes: 5
     outputs:
       sha: ${{ steps.source.outputs.sha }}
       infra: ${{ steps.selection.outputs.infra }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
       - uses: ./.github/actions/github-cli
@@ -54,41 +56,54 @@ jobs:
           with open(os.environ['GITHUB_OUTPUT'],'a') as out:out.write('infra='+str(value).lower()+'\n')
           PY
   apply:
+    name: Cloudflare apply
     needs: source
     if: needs.source.outputs.infra == 'true'
-    runs-on: [self-hosted, Linux, ARM64, homelab-linux]
+    runs-on: [self-hosted, Linux, ARM64, homelab-operations]
     timeout-minutes: 20
     environment: production
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           ref: ${{ needs.source.outputs.sha }}
           persist-credentials: false
-      - uses: ./.github/actions/install-sops
-      - name: Load deployment credentials once
-        env:
-          SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
-        run: sops exec-env ../../secrets/vault.yaml 'python3 tools/ci_deploy_env.py'
       - uses: tailscale/github-action@v4
         with:
-          oauth-client-id: ${{ env.TS_CLIENT_ID }}
-          oauth-secret: ${{ env.TS_CLIENT_SECRET }}
-          tags: tag:ci
+          oauth-client-id: ${{ secrets.HOMELAB_OPS_TS_CLIENT_ID }}
+          oauth-secret: ${{ secrets.HOMELAB_OPS_TS_CLIENT_SECRET }}
+          tags: tag:homelab-operations
       - name: Apply tested configuration on the state owner
         env:
-          MINI_KNOWN_HOSTS: ${{ vars.MINI_KNOWN_HOSTS }}
+          MINI_KNOWN_HOSTS: ${{ vars.HOMELAB_OPS_KNOWN_HOSTS }}
+          SSH_KEY: ${{ secrets.HOMELAB_OPS_SSH_PRIVATE_KEY }}
         run: |
           set -euo pipefail
+          umask 077
           test -n "$MINI_KNOWN_HOSTS"
-          printf '%s\n' "$MINI_KNOWN_HOSTS" > "$RUNNER_TEMP/mini-known-hosts"
-          remote=admin@homelab-mac-mini.tail8c014d.ts.net
-          options=(-i "$RUNNER_TEMP/mini-key" -o BatchMode=yes -o IdentitiesOnly=yes
-            -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$RUNNER_TEMP/mini-known-hosts")
-          stage=$(ssh "${options[@]}" "$remote" 'mktemp -d /Users/admin/homelab-infra/candidate.XXXXXX')
-          [[ "$stage" =~ ^/Users/admin/homelab-infra/candidate\.[[:alnum:]]+$ ]]
-          # shellcheck disable=SC2029 # The validated staging path must expand locally.
-          cleanup() { ssh "${options[@]}" "$remote" "rm -rf -- '$stage'"; }
+          test -n "$SSH_KEY"
+          key="$RUNNER_TEMP/homelab-operations-key"
+          hosts="$RUNNER_TEMP/homelab-operations-known-hosts"
+          stage=''
+          cleanup() {
+            if [[ -n "$stage" ]]; then
+              # shellcheck disable=SC2029 # The validated staging path expands locally.
+              ssh "${options[@]}" "$remote" "rm -rf -- '$stage'" || true
+            fi
+            rm -f -- "$key" "$hosts"
+          }
           trap cleanup EXIT
+          printf '%s\n' "$MINI_KNOWN_HOSTS" > "$hosts"
+          printf '%s\n' "$SSH_KEY" > "$key"
+          remote=admin@homelab-mac-mini.tail8c014d.ts.net
+          options=(-i "$key" -o BatchMode=yes -o IdentitiesOnly=yes
+            -o IdentityAgent=none -o ForwardAgent=no -o ControlMaster=no -o ControlPath=none
+            -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$hosts")
+          candidate_stage=$(ssh "${options[@]}" "$remote" 'mktemp -d /Users/admin/homelab-infra/candidate.XXXXXX')
+          if [[ ! "$candidate_stage" =~ ^/Users/admin/homelab-infra/candidate\.[[:alnum:]]+$ ]]; then
+            echo 'State owner returned an invalid staging path.' >&2
+            exit 1
+          fi
+          stage=$candidate_stage
           scp "${options[@]}" ../../infra/cloudflare/home/*.tf ../../infra/cloudflare/home/.terraform.lock.hcl \
             ../../.opentofu-version tools/infra_apply.py "$remote:$stage/"
           # shellcheck disable=SC2029 # Pass locally validated paths and release identity.
@@ -99,4 +114,7 @@ jobs:
             echo 'Cloudflare apply was not confirmed; inspect the state-owner error above.' >&2
             exit 1
           fi
+          # shellcheck disable=SC2029 # The validated staging path expands locally.
+          ssh "${options[@]}" "$remote" "rm -rf -- '$stage'"
+          stage=''
           printf '%s\n' "$expected"

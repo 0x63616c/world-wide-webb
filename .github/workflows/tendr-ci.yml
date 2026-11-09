@@ -50,6 +50,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: ./.github/actions/archive-tools
       - uses: actions/setup-node@v4
         with:
           node-version: '26.13.0'
