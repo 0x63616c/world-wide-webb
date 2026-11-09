@@ -160,3 +160,50 @@ private func historyDirectory() throws -> URL {
   let remaining = try #require(await store.leaseCompetitionUpload(nowMS: 61_101))
   #expect(Set(remaining.eventIDs).isDisjoint(with: Set(deletion.eventIDs)))
 }
+
+@Test func confirmedExistingEnrollmentResumesStoppedHistoryAndLiveUploads() async throws {
+  let directory = try historyDirectory()
+  defer { try? FileManager.default.removeItem(at: directory) }
+  let installation = UUID()
+  let epoch = UUID()
+  let store = try TrackingStore(directory: directory, installationID: installation)
+  for index in 0..<32 {
+    _ = try await store.record(
+      Observation(
+        id: UUID(), generation: .initial,
+        transition: index.isMultiple(of: 2) ? .open : .close,
+        observedAtMS: Int64(index + 1), timezoneID: "UTC"), nowMS: Int64(index + 1))
+  }
+  try await store.setCompetitionEpoch(epoch)
+  for index in 0..<55 {
+    _ = try await store.record(
+      Observation(
+        id: UUID(), generation: .initial,
+        transition: index.isMultiple(of: 2) ? .open : .close,
+        observedAtMS: Int64(101 + index), timezoneID: "UTC", competitionEpochID: epoch),
+      nowMS: Int64(101 + index))
+    if index == 20 {
+      let accepted = try #require(await store.leaseCompetitionUpload(nowMS: 1000))
+      try await store.acknowledgeCompetitionUpload(
+        accepted, dispositions: Array(repeating: "accepted", count: 21))
+    }
+  }
+  let pending = try #require(await store.leaseCompetitionUpload(nowMS: 61_000))
+  #expect(pending.isHistory != true && pending.eventIDs.count == 34)
+  try await store.stopCompetitionUpload(pending, reason: "identity_conflict")
+  let reopened = try TrackingStore(directory: directory, installationID: installation)
+  #expect(try await reopened.leaseCompetitionUpload(nowMS: 121_000) == nil)
+  // /me confirms the same enrollment and enables history import after the app update.
+  try await reopened.setCompetitionEpoch(epoch)
+  try await reopened.configureCompetitionHistory(beforeJoinedAtMS: 100)
+  let resumed = try #require(await reopened.leaseCompetitionUpload(nowMS: 121_000))
+  #expect(resumed.operationID == pending.operationID && resumed.body == pending.body)
+  try await reopened.acknowledgeCompetitionUpload(
+    resumed, dispositions: Array(repeating: "accepted", count: 34))
+  let history = try #require(await reopened.leaseCompetitionUpload(nowMS: 181_000))
+  #expect(history.isHistory == true && history.eventIDs.count == 32)
+  try await reopened.acknowledgeCompetitionUpload(
+    history, dispositions: Array(repeating: "accepted", count: 32))
+  #expect(try await reopened.summary().folds == 87)
+  #expect(try await reopened.pendingCompetitionEventCount() == 0)
+}

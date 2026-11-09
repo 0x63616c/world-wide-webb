@@ -517,7 +517,7 @@ import XCTest
 
   private func leaderboard(_ title: String) -> LeaderboardPresentation {
     LeaderboardPresentation(
-      periodTitle: title, entries: [], currentUser: nil, pendingFolds: 0, updatedAt: Date())
+      periodTitle: title, entries: [], currentUser: nil, updatedAt: Date())
   }
 
   private func waitFor(_ condition: () -> Bool) async throws {

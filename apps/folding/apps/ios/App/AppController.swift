@@ -696,7 +696,7 @@ import struct FoldingData.SetupProgress
     return LeaderboardPresentation(
       periodTitle: period.title, entries: board.page.items.map(entry),
       currentUser: board.you.map(entry),
-      pendingFolds: try await runtime.store().pendingCompetitionEventCount(), updatedAt: Date(),
+      updatedAt: Date(),
       population: board.population,
       nextCursor: board.page.next_cursor, snapshotVersion: board.page.snapshot_version,
       periodID: board.period.id)
