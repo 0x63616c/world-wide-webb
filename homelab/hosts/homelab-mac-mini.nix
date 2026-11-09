@@ -14,6 +14,7 @@
   homelab.homeassistant.lanIPv4 = "192.168.0.130/24";
   homelab.homeassistant.lanIPv4Gateway = "192.168.0.1";
   homelab.containers.controlCenter.workersEnabled = true;
+  homelab.containers.controlCenter.bedroomSwitchInput = "binary_sensor.shelly_bedroom_input_0";
   homelab.backups.enable = true;
   homelab.monitoring.agent = {
     enable = true;
