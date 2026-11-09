@@ -26,7 +26,7 @@ jobs:
       github.ref == 'refs/heads/main' && vars.OPEN_TOFU_DEPLOY_ENABLED == 'true' &&
       (github.event_name == 'workflow_dispatch' ||
        (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'))
-    runs-on: [self-hosted, Linux, ARM64, homelab-linux]
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 5
     outputs:
       sha: ${{ steps.source.outputs.sha }}
@@ -59,7 +59,7 @@ jobs:
     name: Cloudflare apply
     needs: source
     if: needs.source.outputs.infra == 'true'
-    runs-on: [self-hosted, Linux, ARM64, homelab-operations]
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 20
     environment: production
     steps:

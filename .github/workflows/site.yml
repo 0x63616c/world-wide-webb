@@ -11,7 +11,7 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   selection:
-    runs-on: [self-hosted, Linux, ARM64, homelab-linux]
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 5
     outputs:
       verify: ${{ steps.select.outputs.verify }}
@@ -30,7 +30,7 @@ jobs:
     name: Public Pages assets
     needs: selection
     if: contains(fromJSON(needs.selection.outputs.verify), 'sites.pages')
-    runs-on: [self-hosted, Linux, ARM64, homelab-linux]
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -49,7 +49,7 @@ jobs:
     name: Folding public assets
     needs: selection
     if: contains(fromJSON(needs.selection.outputs.verify), 'sites.folding')
-    runs-on: [self-hosted, Linux, ARM64, homelab-linux]
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -71,7 +71,7 @@ jobs:
     name: Site checks
     if: always() && !cancelled()
     needs: [selection, pages, folding]
-    runs-on: [self-hosted, Linux, ARM64, homelab-linux]
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 5
     steps:
       - env:
@@ -93,7 +93,7 @@ jobs:
       github.event_name == 'push' && github.ref == 'refs/heads/main' &&
       vars.LEGACY_SITE_DELIVERY_ENABLED == 'true' &&
       contains(fromJSON(needs.selection.outputs.delivery), 'sites.pages')
-    runs-on: [self-hosted, Linux, ARM64, homelab-linux]
+    runs-on: ubuntu-24.04-arm
     environment: production
     timeout-minutes: 10
     concurrency:

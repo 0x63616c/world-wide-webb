@@ -16,7 +16,7 @@ concurrency:
 jobs:
   selection:
     if: vars.PANEL_DELIVERY_ENABLED == 'true' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
-    runs-on: [self-hosted, Linux, ARM64, homelab-linux]
+    runs-on: ubuntu-24.04-arm
     outputs:
       apple: ${{ steps.selection.outputs.apple }}
     steps:
@@ -37,7 +37,7 @@ jobs:
   upload:
     needs: selection
     if: needs.selection.outputs.apple == 'true'
-    runs-on: [self-hosted, macOS, ARM64, homelab-tart]
+    runs-on: macos-26
     timeout-minutes: 45
     environment: production
     steps:
