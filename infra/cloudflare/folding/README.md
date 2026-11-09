@@ -5,17 +5,17 @@ OpenTofu owns durable Cloudflare resources. Wrangler owns Worker code versions, 
 | Resource | Owner | State |
 | --- | --- | --- |
 | Private `folding-infrastructure-state` R2 bucket | `bootstrap/` OpenTofu root | Encrypted bootstrap state, recovery copy in Folding 1Password vault |
-| Production Email Routing DNS and `support@getfolding.app` rule | `environments/production/` using `modules/support-email/` | Encrypted remote production state; applied November 7, 2026 |
+| Production Email Routing DNS and `support@getfolding.app` rule | `production/` using `modules/support-email/` | Encrypted remote production state; applied November 7, 2026 |
 | Application D1, private avatar R2, jobs/dead queues | Each environment root using `modules/application/` | Applied in both environments November 7; issue #32 records evidence |
 | Admin Access application and email allowlist | Same application module | Applied in both environments; explicit allowlist, one-hour sessions |
 | API/admin DNS and Worker routes | Same application module | Disabled until compatible Worker code exists |
 | Existing verified forwarding destination | Account owner | Referenced only; not created or deleted by this project |
 
-Credentials come from the persistent authorized shell, never committed files. Bootstrap creates only the private state bucket. Shared infrastructure applies require demonstrated remote locking and encrypted-backup restoration first. See `docs/technical/release-and-operations.md` for the full contract.
+Credentials come from the persistent authorized shell, never committed files. Bootstrap owns the private state bucket and the owner-operated deployment identity. Shared infrastructure applies require demonstrated remote locking and encrypted-backup restoration first. See [release and operations](../../../apps/folding/docs/technical/release-and-operations.md) for the full contract.
 
 Provider lockfiles are committed. Plans, state, local backend metadata and credentials are ignored. Never disable state encryption, locking or `prevent_destroy` to work around an error.
 
-Generate code bindings after a successful apply with `tofu output -json application_bindings | python3 scripts/generate-worker-config.py --configuration /path/to/public-runtime-config.json --output /path/to/wrangler.json`. The generator requires the exact Git commit and explicit Apple build allowlist, includes no credentials, disables public preview URLs, and initializes accepted capabilities to empty. Install runtime secrets separately. The jobs queue is bound to the Rust queue handler with ten-message batches, concurrency two and bounded retries and its separate dead-letter queue. The dead-letter queue has no ordinary consumer.
+Generate code bindings after a successful apply with `tofu -chdir=infra/cloudflare/folding/production output -json application_bindings | python3 apps/folding/scripts/generate-worker-config.py --configuration /path/to/public-runtime-config.json --output /path/to/wrangler.json`. The generator requires the exact Git commit and explicit Apple build allowlist, includes no credentials, disables public preview URLs, and initializes accepted capabilities to empty. Install runtime secrets separately. The jobs queue is bound to the Rust queue handler with ten-message batches, concurrency two and bounded retries and its separate dead-letter queue. The dead-letter queue has no ordinary consumer.
 
 The public runtime input contains exactly `APPLE_SIGN_IN_TEAM_ID`, `APPLE_SIGN_IN_KEY_ID`, `APP_ATTEST_ENVIRONMENT`, `APP_ATTEST_BUNDLE_VERSIONS` (a JSON array encoded as a string), `ACCESS_TEAM_DOMAIN`, `WORKER_VERSION`, `ADMIN_EMAIL_ALLOWLIST` (a JSON array encoded as a string), and `APNS_KEY_ID`. Both environments use Production APNs for distribution/TestFlight builds, with the topic derived from the environment's bundle identifier. Notification delivery, avatar uploads and optional admin email start disabled pending their acceptance checks. Apple key IDs and vault recovery references are recorded in `docs/experiments/apple-account-bootstrap.md`; private keys are installed as secret bindings, never included in this input.
 

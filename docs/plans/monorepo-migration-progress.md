@@ -1187,3 +1187,23 @@ confirming the fresh-guest XcodeGen correction. Preview completion and the remai
 are still pending. The combined local follow-up candidate received independent final approval,
 including historical artifact routing and native release preparation; it remains unpublished so
 these changes do not restart the baseline PR's captures.
+
+### Local native preflight and release credential inventory
+
+The exact current baseline's production Folding app/widget and native test bundle compile.
+An initial unsigned simulator invocation was unsuitable for its real Keychain tests: eight
+cases failed without entitlements. Rebuilding/running with the existing CI simulator signing
+settings passed all71 native tests, zero failures/skips, on a fresh task-owned pinned Duo
+runtime. The simulator was cleaned up. Receipt: the external
+`/tmp/monorepo-folding-native-signed-local-0cd.xcresult`; this does not claim physical-device,
+live CloudKit, signed distribution or Apple processing acceptance.
+
+Read-only GitHub metadata confirms all eight Tendr and seven Callkeep referenced secret names
+are present. The production environment only overrides AGE_PRIVATE_KEY, avoiding an Apple-key
+shadowing conflict. Folding's four signing/Apple names are present; FOLDING_DEPLOY_TOKEN,
+FOLDING_RELEASE_POLICY_TOKEN and FOLDING_PRODUCTION_WORKER_CONFIG remain absent. Secret-name
+availability is not a cryptographic/signing verification. The required Cloudflare lookup hit a
+1Password authorization timeout; the owner has a pending retry/unlock request. No additional
+vault session, token creation, plaintext logging or live delivery activation occurred. CI
+continues independently. Folding infrastructure READMEs now describe their actual existing
+owner-operated token and relocated generator paths accurately.
