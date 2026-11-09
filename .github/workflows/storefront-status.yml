@@ -22,14 +22,15 @@ concurrency:
 jobs:
   public-availability:
     if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, ARM64, homelab-linux]
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - uses: ruby/setup-ruby@v1
+      - uses: ./.github/actions/ruby-tools
         with:
           ruby-version: '3.4'
           bundler-cache: true
+      - uses: ./.github/actions/github-cli
       - name: Verify Apple state and public storefronts
         id: store
         env:

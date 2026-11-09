@@ -36,10 +36,10 @@ with tempfile.TemporaryDirectory(prefix="affected-") as directory:
         return json.loads(subprocess.check_output(
             ["scripts/affected", base, "--intent", intent], cwd=root, text=True))
 
-    def expect(base, verify=(), ship=(), rdesign=False, template=False):
+    def expect(base, verify=(), ship=(), rdesign=False, template=False, tooling=False):
         for intent, apps in [("verify", verify), ("ship", ship)]:
             actual = selected(base, intent)
-            expected = {"apps": list(apps), "rdesign": intent == "verify" and rdesign,
+            expected = {"apps": list(apps), "tooling": intent == "verify" and tooling, "rdesign": intent == "verify" and rdesign,
                         "template": intent == "verify" and template}
             assert actual == expected, (base, intent, actual, expected)
 
@@ -68,7 +68,7 @@ with tempfile.TemporaryDirectory(prefix="affected-") as directory:
     expect(base, ["tendr"], ["tendr"], True, True)
     for path in ["fastlane/Fastfile", "fastlane/Appfile", "Gemfile", "Gemfile.lock",
                  ".github/workflows/ci.yml", "scripts/build.sh"]:
-        expect(change(path), ["samplr", "tendr"], rdesign=True, template=True)
+        expect(change(path), ["samplr", "tendr"], rdesign=True, template=True, tooling=True)
     for path in ["README.md", "AGENTS.md", "docs/guide.md", "scripts/README.md",
                  "apps/tendr/docs/guide.md", "apps/samplr/README.md", "apps/samplr/notes.md",
                  "apps/samplr/fastlane/metadata/en-US/description.txt",
@@ -111,5 +111,11 @@ with tempfile.TemporaryDirectory(prefix="affected-") as directory:
     git("rm", "-qr", "apps/samplr")
     git("commit", "-qm", "Remove synthetic app")
     expect(base)
-    expect(change("scripts/build.sh"), ["tendr"], rdesign=True, template=True)
+    expect(change("scripts/build.sh"), ["tendr"], rdesign=True, template=True, tooling=True)
+    forced = json.loads(subprocess.check_output(
+        ['scripts/affected', 'HEAD', '--intent', 'verify', '--force'], cwd=root, text=True))
+    assert forced == {'apps': ['tendr'], 'tooling': True, 'rdesign': True, 'template': True}
+    rejected = subprocess.run(['scripts/affected', 'HEAD', '--intent', 'ship', '--force'],
+                              cwd=root, capture_output=True, text=True)
+    assert rejected.returncode != 0 and 'verification-only' in rejected.stderr
 print("Impact fixtures passed (both intents, dependencies, tooling, docs, metadata, globs, renames and base fallbacks).")

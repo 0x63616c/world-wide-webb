@@ -15,8 +15,8 @@ concurrency:
   cancel-in-progress: false
 jobs:
   selection:
-    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
-    runs-on: ubuntu-latest
+    if: vars.PANEL_DELIVERY_ENABLED == 'true' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
+    runs-on: [self-hosted, Linux, ARM64, homelab-linux]
     outputs:
       apple: ${{ steps.selection.outputs.apple }}
     steps:
@@ -37,7 +37,7 @@ jobs:
   upload:
     needs: selection
     if: needs.selection.outputs.apple == 'true'
-    runs-on: macos-26
+    runs-on: [self-hosted, macOS, ARM64, homelab-tart]
     timeout-minutes: 45
     environment: production
     steps:
@@ -67,7 +67,7 @@ jobs:
         env:
           SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
         run: sops exec-env ../../secrets/vault.yaml 'python3 tools/ci_deploy_env.py'
-      - uses: ruby/setup-ruby@v1
+      - uses: ./.github/actions/ruby-tools
         if: steps.receipt.outputs.uploaded != 'true'
         with:
           ruby-version: '3.4'

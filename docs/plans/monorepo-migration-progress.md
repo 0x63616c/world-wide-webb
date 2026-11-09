@@ -482,3 +482,29 @@ directly to SOPS instead; no new authentication or persisted secret was needed.
 The site batch also passed final independent Astra review after fixing source-authority advance
 for identical newer output and refusing an unconfirmed ahead checkout after a failed push. The
 full report is outside Git at `/tmp/monorepo-sites-astra-review.md`. Public endpoints remain unchanged.
+
+
+## Homelab CI routing and lifecycle documentation — approximately 42% overall
+
+All active root workflow jobs now request explicit disposable homelab Linux or Mac profiles;
+the imported routing audit and actionlint pass. Standard Ruby jobs provision the upstream
+writable Linux toolcache/runtime libraries, and source/wait/resume jobs install their GitHub
+client. The image publisher extracts only its scoped encrypted field directly into Docker
+stdin using the source-root vault path; no decrypted vault content is logged. A synthetic
+client handoff test passes. Live guest/tool/network canaries remain pending.
+
+The standard iOS aggregate gate checks selected job success and required unselected skips.
+Shared tooling no longer runs on every unrelated app change. Forced selection verifies all
+standard products without enabling publication, while shared/unknown paths conservatively
+verify. Real Git impact/source fixtures, fifteen shared tests, fifteen Control Center CI tests,
+release-lane/state tests and workflow-route checks pass. Astra independently cleared this
+batch after the storefront-resume GitHub client dependency was fixed. The additional activation
+flags are awaiting final fix recheck: `STANDARD_IOS_DELIVERY_ENABLED` and
+`PANEL_DELIVERY_ENABLED` hold new automatic writers until old writers/credentials/canaries hand over.
+
+Root development/contributing, release and new-app guides now describe the actual independent
+product layout and supported commands, product-specific Fastlane handlers, test/tool choices,
+explicit channel ownership, optional backend, low-touch onboarding and actual acceptance.
+Unimplemented wrapper/backend-preset/rebind/distribution capabilities are labeled pending.
+Historical docs remain historical, with their stale layout/runner claims explicitly superseded.
+No new framework or shared UI package was introduced.

@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   changes:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, ARM64, homelab-linux]
     timeout-minutes: 5
     outputs:
       apps: ${{ steps.detect.outputs.apps }}

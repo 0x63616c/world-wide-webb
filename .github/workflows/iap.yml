@@ -38,7 +38,7 @@ jobs:
             [[ -n "${!name}" ]] || { echo "::error::Missing repository secret $name; see docs/RELEASE.md"; missing=1; }
           done
           exit "$missing"
-      - uses: ruby/setup-ruby@v1
+      - uses: ./.github/actions/ruby-tools
         with:
           ruby-version: '3.4'
           bundler-cache: true

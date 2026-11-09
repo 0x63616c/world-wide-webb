@@ -24,7 +24,7 @@ concurrency:
 
 jobs:
   changes:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, ARM64, homelab-linux]
     timeout-minutes: 5
     outputs:
       apps: ${{ steps.apps.outputs.apps }}
@@ -40,6 +40,8 @@ jobs:
           base: ${{ github.event.pull_request.base.sha }}
           intent: verify
           only: pr_screenshot_test
+      - uses: ./.github/actions/ruby-tools
+        if: github.event_name == 'workflow_dispatch'
       - name: Pick apps
         id: apps
         env:

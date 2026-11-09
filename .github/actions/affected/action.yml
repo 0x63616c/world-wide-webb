@@ -14,6 +14,9 @@ outputs:
   apps:
     description: JSON app array
     value: ${{ steps.detect.outputs.apps }}
+  tooling:
+    description: Whether to verify shared delivery tooling
+    value: ${{ steps.detect.outputs.tooling }}
   rdesign:
     description: Whether to verify RDesign
     value: ${{ steps.detect.outputs.rdesign }}
@@ -23,6 +26,7 @@ outputs:
 runs:
   using: composite
   steps:
+    - uses: ./.github/actions/ruby-tools
     - uses: actions/setup-python@v5
       with:
         python-version: '3.12'
@@ -37,6 +41,7 @@ runs:
       run: |
         options=()
         if [[ -n "$ONLY" ]]; then options+=(--only "$ONLY"); fi
+        if [[ "$GITHUB_EVENT_NAME" == workflow_dispatch && "$INTENT" == verify ]]; then options+=(--force); fi
         result=$(scripts/affected "$BASE" --intent "$INTENT" "${options[@]}")
         echo "$result"
         python3 - "$result" <<'PYTHON' >> "$GITHUB_OUTPUT"

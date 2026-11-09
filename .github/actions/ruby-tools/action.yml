@@ -1,0 +1,34 @@
+name: Standard Ruby tools
+description: Prepare Ruby for disposable homelab Linux and macOS jobs
+inputs:
+  ruby-version:
+    description: Ruby version required by the product
+    default: '3.4'
+  bundler-cache:
+    description: Install the locked bundle and cache gems
+    default: 'false'
+  working-directory:
+    description: Product Gemfile directory
+    default: '.'
+runs:
+  using: composite
+  steps:
+    - if: runner.os == 'Linux'
+      shell: bash
+      run: |
+        set -euo pipefail
+        # Upstream prebuilt Rubies embed these paths. Only the disposable guest is modified.
+        sudo install -d -m 0755 -o "$(id -u)" -g "$(id -g)" /opt/hostedtoolcache /home/runner
+        missing=()
+        for package in libyaml-0-2 libgmp10; do
+          dpkg-query -W -f='${Status}' "$package" 2>/dev/null | grep -q 'install ok installed' || missing+=("$package")
+        done
+        if ((${#missing[@]})); then
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends "${missing[@]}"
+        fi
+    - uses: ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199 # v1
+      with:
+        ruby-version: ${{ inputs.ruby-version }}
+        bundler-cache: ${{ inputs.bundler-cache }}
+        working-directory: ${{ inputs.working-directory }}

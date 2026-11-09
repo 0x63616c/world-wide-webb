@@ -6,7 +6,7 @@
 # Creates the XcodeGen project (native SwiftUI, launch screen, placeholder icon, Home and Settings with
 # privacy and support links, a screenshot UI test), apps/<app>/app.yml for fastlane and CI,
 # a metadata skeleton, screenshot frames and site pages. CI picks the app up automatically.
-# What still needs a person is printed at the end (and listed in docs/NEW-APP.md).
+# Remaining product/account setup is printed at the end; see docs/NEW-APP.md.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -55,9 +55,9 @@ Created $name ($bundle) in $dest and sites/$slug. $generated
 Done for you: native SwiftUI, launch screen, placeholder icon, Settings with privacy and support links,
 screenshot UI test, app.yml (fastlane + CI), metadata skeleton, screenshots.json and site pages.
 
-Still needs a person:
-  1. App Store Connect: New App ($name, bundle ID $bundle). This needs a web sign-in.
-     The bundle ID is registered there too (or under Certificates, Identifiers & Profiles).
+Remaining setup (the agent can complete supported account/API steps):
+  1. Register/verify App Store Connect and the bundle ID ($name, $bundle).
+     Request owner input only for unavoidable account/2FA/legal facts.
   2. Put the new app's numeric Apple ID in $dest/app.yml (apple_id) and set testflight: true.
   3. Create the "Owner Preview" internal TestFlight group for the app (or change testflight_group).
   4. Replace the placeholder icon and launch glyph in $dest/App/Assets.xcassets.

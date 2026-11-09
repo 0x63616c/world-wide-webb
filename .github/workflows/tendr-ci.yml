@@ -1,8 +1,7 @@
 name: Tendr CI
 
-# Builds and tests only what changed: each affected app (apps/<app>/), RDesign when packages/
-# changes, and the new-app template when it or its script changes. macOS jobs run on GitHub-hosted
-# xcode-27 with Xcode 27.1 (see README).
+# Verify affected standard iOS apps, Tendr-local RDesign and the new-app template
+# on disposable homelab guests. Publication is handled by the product delivery workflow.
 on:
   push:
     branches: [main]
@@ -19,12 +18,13 @@ concurrency:
 jobs:
   changes:
     name: Standard iOS selection
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, ARM64, homelab-linux]
     timeout-minutes: 5
     outputs:
       apps: ${{ steps.detect.outputs.apps }}
       rdesign: ${{ steps.detect.outputs.rdesign }}
       template: ${{ steps.detect.outputs.template }}
+      tooling: ${{ steps.detect.outputs.tooling }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
@@ -38,10 +38,16 @@ jobs:
           only: standard_ios
 
   tooling:
-    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.tooling == 'true'
+    runs-on: [self-hosted, Linux, ARM64, homelab-linux]
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: ./.github/actions/ruby-tools
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.15.2'
       - name: Validate app configuration
         run: ruby scripts/app-config.rb --list
       - name: Release lane checks (no Apple access)
@@ -55,9 +61,12 @@ jobs:
           python3 scripts/test-wait-release-ci.py
       - name: Install impact resolver dependencies
         run: python3 -m pip install -r scripts/requirements.txt
+      - name: Scoped container credential handoff
+        run: python3 .github/actions/ghcr-login/test_login.py
       - name: Path filter regression checks
         run: |
           python3 scripts/test-changed-apps.py
+          python3 -m unittest discover -s scripts/ci -p 'test_*.py'
           python3 scripts/test-release-source.py
       - name: Duo capture and Xcode selection checks
         run: python3 scripts/test-duo-screenshots.py
@@ -78,6 +87,7 @@ jobs:
           "$(go env GOPATH)/bin/actionlint"
       - name: Shell scripts
         run: |
+          command -v shellcheck >/dev/null || { sudo apt-get update && sudo apt-get install -y shellcheck; }
           shopt -s nullglob
           scripts=(scripts/*.sh apps/*/scripts/*.sh)
           shellcheck "${scripts[@]}"
@@ -152,3 +162,28 @@ jobs:
       - name: Build it for the simulator
         timeout-minutes: 20
         run: xcodebuild -project apps/samplr/Samplr.xcodeproj -scheme Samplr -destination 'generic/platform=iOS Simulator' -sdk iphonesimulator -configuration Debug CODE_SIGNING_ALLOWED=NO build -quiet
+
+  gate:
+    name: Standard iOS checks
+    if: always()
+    needs: [changes, tooling, rdesign, app, template]
+    runs-on: [self-hosted, Linux, ARM64, homelab-linux]
+    timeout-minutes: 5
+    steps:
+      - env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          python3 - <<'PYTHON'
+          import json, os
+          results = json.loads(os.environ['RESULTS'])
+          assert results['changes']['result'] == 'success', 'App selection failed'
+          selection = results['changes']['outputs']
+          for job, selected in (
+              ('tooling', selection['tooling'] == 'true'),
+              ('rdesign', selection['rdesign'] == 'true'),
+              ('template', selection['template'] == 'true'),
+              ('app', bool(json.loads(selection['apps']))),
+          ):
+              expected = 'success' if selected else 'skipped'
+              assert results[job]['result'] == expected, f'{job}: expected {expected}'
+          PYTHON

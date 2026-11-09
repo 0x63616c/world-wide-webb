@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Imports an existing app repository into apps/<slug> with its full history (docs/IMPORT.md).
+# Imports an existing app repository into apps/<slug> with its full history (docs/legacy-apps/IMPORT.md).
 #   scripts/import-app.sh <owner/repo> <slug> [--branch main] [--move <path>=<dest>]...
 #   scripts/import-app.sh 0x63616c/tendr tendr
 #   scripts/import-app.sh owner/repo samplr --move admin=web/samplr-admin
@@ -59,4 +59,4 @@ if ((${#moves[@]})); then
   git commit --quiet -m "Move parts of $repo out of apps/$slug [skip ci]"
 fi
 
-echo "Imported $repo into apps/$slug. Next steps for wiring it into the monorepo: docs/IMPORT.md."
+echo "Imported $repo into apps/$slug. Next steps for wiring it into the monorepo: docs/legacy-apps/IMPORT.md."

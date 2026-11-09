@@ -1,9 +1,15 @@
 # Contributing
 
-Read `CODEBASE_OVERVIEW.md` and `AGENTS.md`. Work in a task-named worktree, preserve the shared
-Swift components, and keep Rust feature modules responsible for their behavior and SQL.
+Start with `CODEBASE_OVERVIEW.md`, `AGENTS.md` and the product's local instructions.
+[Development](docs/DEVELOPMENT.md) describes the shared lifecycle; product code, components,
+fixtures and design stay with their owning app. Control Center's Rust/SQLite rules apply inside
+its product; they are not an architecture requirement for every app.
 
-Run relevant `tools/check` areas and native build/tests before publication. PR titles use Conventional
-Commits; descriptions include validation; optional visual evidence stays outside Git.
-Production merges require green checks and deployment verification. During the reset, all work stays local
-until the complete candidate and final independent review are finished.
+Use a task-named worktree and substantial coherent implementation batches. Run the relevant
+checks, fix independent review findings locally and use Conventional Commits. During this
+migration the complete candidate stays local until final review; then publish, pass required
+checks, merge and verify the actual outcome. Keep private visual evidence outside Git.
+
+[Release guidance](docs/RELEASE.md) distinguishes product handlers and verification from
+publication. Update documentation after the behavior works. Preserve existing identities,
+user data, approved host state and active work throughout a move.

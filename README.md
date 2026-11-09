@@ -32,6 +32,9 @@ python3 -m unittest discover -s scripts/ci -p 'test_*.py'
 Tendr uses the root locked Ruby/Fastlane bundle. Folding keeps its own release bundle and
 existing internal layout. Root `tools/check` and `tools/setup` preserve Control Center entrypoints.
 
+[Development](docs/DEVELOPMENT.md), [new apps](docs/NEW-APP.md) and [releases](docs/RELEASE.md)
+describe the shared lifecycle and current handler boundaries.
+
 ## Delivery and migration
 
 The [accepted plan](docs/plans/world-wide-webb-monorepo-2026-11-08.md) defines selective CI,

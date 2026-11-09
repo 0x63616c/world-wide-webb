@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Generates the static site for a small redirect repository that keeps an app's old GitHub Pages
-# URLs working after this repository is renamed (docs/RENAME.md). For Tendr:
+# URLs working after this repository is renamed (docs/legacy-apps/RENAME.md). For Tendr:
 #   scripts/make-redirect-site.sh tendr https://0x63616c.github.io/apps/tendr ../tendr-redirect
 # serves https://0x63616c.github.io/tendr/, /tendr/privacy/ and /tendr/support/ as redirects to
 # the same pages under /apps/tendr/. Any other old path redirects through 404.html.

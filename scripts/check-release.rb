@@ -261,4 +261,4 @@ require "yaml"
 release_jobs = YAML.safe_load_file(File.expand_path("../.github/workflows/testflight.yml", __dir__), aliases: true).fetch("jobs")
 raise "publisher must depend on source verification" unless release_jobs.fetch("beta").fetch("needs").include?("verify")
 gate = release_jobs.fetch("verify")
-raise "source verification must wait outside the Mac pool" unless gate.fetch("runs-on") == "ubuntu-latest" && gate.fetch("steps").any? { |step| step["run"] == "python3 scripts/wait-release-ci.py" }
+raise "source verification must wait outside the Mac pool" unless gate.fetch("runs-on") == ["self-hosted", "Linux", "ARM64", "homelab-linux"] && gate.fetch("steps").any? { |step| step["run"] == "python3 scripts/wait-release-ci.py" }

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Run once after this repository is renamed from `tendr` to `apps` (docs/RENAME.md, step 3).
+# Run once after this repository is renamed from `tendr` to `apps` (docs/legacy-apps/RENAME.md, step 3).
 # Points Tendr's in-app links and App Store listing at the new Pages URLs and stops mirroring
 # Tendr at the site root. Old URLs keep working through the redirect repository.
 # Usage: scripts/post-rename.sh [new-repo-name, default apps]
