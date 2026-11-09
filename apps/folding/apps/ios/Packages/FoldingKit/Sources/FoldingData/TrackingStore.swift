@@ -1232,8 +1232,11 @@ public actor TrackingStore {
     }
     try database.execute("DELETE FROM settings WHERE key='competition_epoch'")
     if let epoch {
+      // A fresh server confirmation can restore the same enrollment after a failure.
+      // Keep its immutable pending operation for a safe retry rather than leaving
+      // this installation permanently paused until a transfer or history reset.
       try database.execute(
-        "DELETE FROM settings WHERE key='competition_upload_suspended' AND value='restricted'")
+        "DELETE FROM settings WHERE key='competition_upload_suspended'")
       try database.execute(
         "INSERT INTO settings(key,value) VALUES ('competition_epoch',?)", [.text(epoch.canonical)]
       )
