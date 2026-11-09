@@ -103,9 +103,10 @@ existing bundle/signing and iCloud identities are preserved.
 
 After relevant changes pass `callkeep-ci.yml` on main, `callkeep-release.yml` reserves
 `callkeep/v1.0.N`, builds both Mac architectures, signs with Developer ID and notarizes.
-It retains the ZIP, symbols and acceptance receipt, downloads the public ZIP again and
+It retains the ZIP, symbols and acceptance receipt in the immutable public release, downloads the ZIP again and
 checks its checksum, signature and source identity before updating only Callkeep's tap cask.
-Retries reuse sealed artifacts; interrupted unsealed builds receive a new counter.
+Operational receipts stay in a version-scoped draft ledger, so completion does not mutate a
+published immutable release. Retries reuse sealed artifacts; interrupted unsealed builds receive a new counter.
 The tap uses a standard ZIP URL and SHA-256, without custom Git download strategies or
 migration enable switches. Intel slices are built and checked; this does not prove Intel runtime behavior.
 

@@ -142,9 +142,7 @@
         "apps/callkeep/Packages/*/Sources/**",
         "apps/callkeep/Packages/*/Package.swift",
         "apps/callkeep/Packages/*/Package.resolved",
-        "apps/callkeep/project.yml",
-        "apps/callkeep/Scripts/release.py",
-        "apps/callkeep/Scripts/homebrew-cask.py"
+        "apps/callkeep/project.yml"
       ],
       "delivery_exclude": [
         "**/Tests/**",
@@ -349,8 +347,7 @@
         "homelab/cli/Cargo.toml",
         "homelab/cli/Cargo.lock",
         "homelab/cli/build.rs",
-        "homelab/cli/schema/**",
-        "scripts/distribution/homelab.py"
+        "homelab/cli/schema/**"
       ]
     },
     "templates": {

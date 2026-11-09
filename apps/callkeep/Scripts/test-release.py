@@ -246,5 +246,46 @@ class ReleaseTests(unittest.TestCase):
                     release.trusted_source()
 
 
+class ImmutableReleaseTests(unittest.TestCase):
+    def test_post_publication_progress_is_uploaded_to_the_draft_ledger(self):
+        product = REAL_RELEASE("callkeep/v1.0.26")
+        ledger = REAL_RELEASE("callkeep-delivery")
+        source = "a" * 40
+        previous = {"revision": 5, "source_sha": source, "state": "artifact_published"}
+        uploads = []
+        def upload(*args, **_kwargs):
+            self.assertEqual(args[:3], ("gh", "release", "upload"))
+            uploads.append((args[3], Path(args[4]).name, json.loads(Path(args[4]).read_text())))
+            return ""
+        with patch.object(product, "latest", return_value=previous), \
+             patch.object(ledger, "ensure") as ensure, \
+             patch.object(release, "Release", return_value=ledger), \
+             patch.object(release.prepare, "run", side_effect=upload):
+            saved = product.save(dict(previous, state="complete"))
+        ensure.assert_called_once_with(source)
+        self.assertEqual(uploads, [("callkeep-delivery", "callkeep-v1.0.26-manifest-r00000006.json", saved)])
+        self.assertEqual(saved["state"], "complete")
+
+    def test_legacy_immutable_record_is_read_until_a_ledger_record_exists(self):
+        product = REAL_RELEASE("callkeep/v1.0.26")
+        ledger = REAL_RELEASE("callkeep-delivery")
+        old, new = {"revision": 5}, {"revision": 6}
+        with patch.object(release, "Release", return_value=ledger), \
+             patch.object(product, "_latest", return_value=old) as fallback, \
+             patch.object(ledger, "_latest", return_value=None) as scoped:
+            self.assertEqual(product.latest(), old)
+            scoped.assert_called_once_with("callkeep-v1.0.26-manifest")
+            fallback.assert_called_once_with("manifest")
+            scoped.return_value = new
+            self.assertEqual(product.latest(), new)
+            self.assertEqual(fallback.call_count, 1)
+
+    def test_operational_ledger_must_never_be_published(self):
+        ledger = REAL_RELEASE("callkeep-delivery")
+        with patch.object(ledger, "info", return_value={"isDraft": False}):
+            with self.assertRaisesRegex(RuntimeError, "remain a draft"):
+                ledger.ensure("a" * 40)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -24,10 +24,10 @@ class SelectionTests(unittest.TestCase):
                 self.assertTrue(result["verify"])
                 self.assertEqual(result["delivery_candidates"], [])
 
-    def test_distribution_tooling_only_releases_the_changed_product_publisher(self):
+    def test_distribution_tooling_checks_its_consumers_without_releasing_apps(self):
         result = selection.select(["scripts/distribution/homelab.py"], CONFIG)
         self.assertEqual(result["verify"], ["callkeep.native", "homelab.cli", "homelab.config"])
-        self.assertEqual(result["delivery_candidates"], ["homelab.cli"])
+        self.assertEqual(result["delivery_candidates"], [])
         result = selection.select(["homelab/cli/README.md"], CONFIG)
         self.assertEqual(result["delivery_candidates"], [])
 
