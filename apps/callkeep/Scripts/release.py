@@ -107,7 +107,10 @@ class Release:
         return json.loads(result.stdout)
 
     def ensure(self, source):
-        if self.info():
+        info = self.info()
+        if info:
+            if self.tag == "callkeep-delivery" and not info["isDraft"]:
+                raise RuntimeError("The operational release ledger must remain a draft")
             return
         try:
             prepare.run(
@@ -140,6 +143,14 @@ class Release:
         return path
 
     def latest(self, prefix="manifest"):
+        if self.tag != "callkeep-delivery":
+            record = Release("callkeep-delivery")._latest(self.tag.replace("/", "-") + "-" + prefix)
+            if record is not None:
+                return record
+        # Published v1.0.26 predates the ledger. Read its immutable record for recovery.
+        return self._latest(prefix)
+
+    def _latest(self, prefix):
         info = self.info()
         names = [] if info is None else [asset["name"] for asset in info["assets"]]
         names = [name for name in names if re.fullmatch(re.escape(prefix) + r"-r\d{8}\.json", name)]
@@ -156,8 +167,15 @@ class Release:
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / f"{prefix}-r{value['revision']:08d}.json"
             atomic_json(path, value)
-            # Exclusive asset names are the state compare-and-set; never clobber.
-            prepare.run("gh", "release", "upload", self.tag, str(path), "--repo", REPOSITORY)
+            # Public releases freeze their assets. Mutable operational progress belongs
+            # in the draft ledger, with version-scoped, append-only receipt names.
+            ledger = Release("callkeep-delivery")
+            ledger.ensure(value["source_sha"])
+            if self.tag != ledger.tag:
+                renamed = path.with_name(self.tag.replace("/", "-") + "-" + path.name)
+                path.rename(renamed)
+                path = renamed
+            prepare.run("gh", "release", "upload", ledger.tag, str(path), "--repo", REPOSITORY)
         return value
 
     def upload(self, path):
@@ -376,6 +394,8 @@ def promote(release, record):
     record = release.save(
         dict(record, state="artifact_published", archive_sha256=record["candidates"]["archive"]["sha256"])
     )
+    if not release.info()["isDraft"]:
+        return record
     from release_notes import release_notes
 
     previous = Release("callkeep-delivery").latest("delivery")
