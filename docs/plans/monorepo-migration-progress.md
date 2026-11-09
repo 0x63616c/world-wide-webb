@@ -961,3 +961,36 @@ handling remain unchanged. Native Nix parsing/evaluation against the pinned nixp
 passes and confirms unchanged fixed-output source and final package paths for both tools.
 This is a download-route correction,
 not a host update or a successful replacement full configuration check; actual CI remains required.
+
+### Change-selection checkout overhead
+
+Homelab selection job129001398418 spent05:53:47–05:58:25UTC in full worktree checkout
+and was cancelled at its five-minute job limit before the selector ran. The initial history
+fetch had completed in about19s. Change-selection jobs do not need to materialize product
+binaries/assets: six shared-unit selectors now check out only their action and scripts/ci;
+the Control Center adapter additionally includes its tools directory. Full commit history
+and path selection remain; build/test jobs retain their ordinary product checkouts. Explicit
+filter inputs were removed because checkout documents that they override sparse-checkout.
+
+A real fresh private sparse clone of the published baseline and its real selector completed
+in3s in the operator environment, materializing132 files/501503bytes versus the47.2MiB full
+tracked tree. Full and sparse selectors returned identical results for all19 verification
+units; the real Control Center adapter also ran with absent production sources. This is
+not a controlled cross-machine timing guarantee. Regression tests run actual selectors
+against every workflow's sparse paths and retain cross-product move/deletion/edit results.
+All17 CI tests, actionlint and diff checks pass. Runner-side replacement CI remains required.
+
+Tendr tooling job129005094657 then reached a test-fixture failure: the scoped GHCR handoff
+test replaced its child's entire environment and dropped setup-python's LD_LIBRARY_PATH.
+The Linux shared Python interpreter consequently exited127 before the synthetic executables
+could run. The fixture now retains only that required loader setting in addition to its
+explicit PATH/workspace; no credential environment is inherited. A simulated loader requirement
+reproduces127 with the old environment, then passes through the full synthetic SOPS-to-Docker
+handoff after the correction. Both handoff tests pass; production login code is unchanged.
+All remaining local tooling checks also pass: impact/source resolution,34 Duo regressions,
+release/retirement/site checks, eight prebuilt-distribution tests and ShellCheck.
+
+The current0cd Duo job also completed successfully: capture05:44:28–06:07:09UTC took22m41s.
+That confirms the optimized path still works under the mixed runner load; the previous21m11s
+was not a guaranteed duration. The sparse-checkout/fixture correction remains the next reviewed
+baseline batch; neither this successful capture nor local tests make the currently red PR mergeable.
