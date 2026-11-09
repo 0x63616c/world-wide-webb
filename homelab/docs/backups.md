@@ -1,117 +1,102 @@
-# Backup migration status
+# Backups and recovery
 
-The existing mini backup remains authoritative and has not been changed or run
-by this repository work. Its schedule, snapshots and NAS verification must stay
-in place until the replacement completes an isolated restore test.
+Homelab owns shared backup scheduling, operation locks, service snapshots and NAS
+publication. Control Center owns its SQLite/media format. Application image
+publication must not reinstall or replace the shared backup jobs.
 
-## Preserved NAS uploader
+## Installed authority and evidence
 
-`scripts/nas-upload.py` is imported from `world-wide-webb` at
-`3368a603cd162caac37e558f4fe88bcafe115b37`. GitHub main was rechecked at
-`a53015e758e347cc1c664e258e89c99679a43204`; the backup, upload and test scripts
-are unchanged between those revisions. The homelab adaptation adds separate
-`homelab-macbook` and `homelab-mac-mini` destination namespaces while retaining
-legacy `mac-mini` compatibility.
+On November 9, read-only inspection of the mini's installed launchd definitions
+confirmed these `_containers` jobs:
 
-It pins the NAS certificate before sending credentials, uploads without allowing
-overwrite, downloads each uploaded file to compare SHA-256 and byte count, and
-refreshes an expired session once only for the explicit authentication rejection.
-It does not replay ambiguous transport failures, delete remote files, purge old
-NAS snapshots or send alerts. Credentials are read from a private JSON file.
+- `org.nixos.homelab-backup`: full assigned-service snapshot at 04:15.
+- `org.nixos.homelab-control-center-hourly-backup`: Control Center at minute 0.
+- `org.nixos.homelab-penpot-backup`: Penpot at 05:15.
 
-Tests cover certificate rejection before authentication, bounded session refresh,
-non-replayed upload errors, destination validation, read-back checksum/size
-mismatches and omission of overwrite. No test contacts the real NAS.
+These are local host times. The mini configuration enables `homelab.backups`;
+the old description of this module as disabled is obsolete. Installed job
+definitions prove scheduling, not a recent successful backup or restore. This
+inspection could not read the private service backup directory without another
+privileged authorization. Do not infer new NAS evidence from historical logs.
 
-## Disabled nightly job
+`homelab-backup-now` runs as `_containers` beneath `homelab-operation`. The
+installed lock serializes snapshots with stateful host operations. The default
+private root is `/var/lib/_containers/backups`; hourly and Penpot sets have their
+own subdirectories. A 30 GiB admission floor is configurable, not a measured
+maximum snapshot size. Existing recovery markers block subsequent snapshots
+until interrupted stop/snapshot operations have been inspected.
 
-The existing script stops the Control Center app while dumping PostgreSQL and
-copying media, cold-copies HA configuration and Bambuddy data/studio/Tailscale
-state, and invokes Hindsight's existing online PostgreSQL backup. It records
-image identities, verifies restarted services, uploads every payload with
-read-back verification, then uploads a completion manifest. Only verified local
-sets are eligible for retention cleanup; incomplete sets remain for diagnosis.
+## Snapshot and publication behavior
 
-The disabled `homelab.backups.enable` module runs as `_containers` at 04:15,
-selects services assigned to the host and holds `homelab-operation` for the
-whole snapshot/upload cycle. It retains seven verified local sets and preserves
-failed sets. A 30 GiB free-space admission gate is configurable; this is not a
-measured upper bound on snapshot size and does not guarantee against disk
-exhaustion. Capacity measurement and an in-progress storage limit remain needed. The data and secret
-archives are sensitive: local directories require owner-only permissions and
-NAS destinations must remain on the existing encrypted share.
+The current scripts save native Control Center SQLite and media, not a new
+PostgreSQL dump. Full snapshots stop the app while copying consistent state.
+Hourly snapshots use its online SQLite backup interface, including committed
+WAL data, with separate media capture. Keep the original legacy database
+archives; their historical format does not change the current snapshot format.
 
-`scripts/snapshot.py` now implements host-service selection, image identity
-capture, Control Center dump plus media snapshot, cold HA and Bambuddy copies,
-and a verified Hindsight logical dump. Hindsight database credentials are read
-inside its container from the same pg0 metadata used by the live backup script;
-they are not passed to the host or placed in command arguments.
+Other assigned services have their own snapshots: cold Home Assistant and
+Bambuddy data/identity copies; a verified logical Hindsight dump plus a brief
+stop for its Codex directory; Penpot PostgreSQL/assets/Valkey; and Beszel's
+database and private identity. Sunday Hindsight exports provide an additional
+portable recovery path. Preserve actual image digests and service assignments.
 
-The draft takes a cold copy of Hindsight's ancillary Codex directory, adding a
-brief Hindsight restart that the old online dump alone did not require. That
-outage must be reviewed before enabling this schedule. Weekly portable bank exports are now ported: Sunday backups query bank IDs
-through the existing embedded PostgreSQL metadata and use `hindsight-admin
-export-bank` inside the container. Credentials remain there. Hashed filenames
-and a private index preserve IDs without allowing them to become filesystem
-paths. A failed export fails the backup set, and temporary container files are
-removed even on failure. Eight verified weekly export archives are retained
-separately from seven full snapshot sets, keeping the first verified export per
-local ISO calendar week. Repeated Sunday deployments cannot displace older
-weeks. This avoids eight weeks of full database copies. The live export job
-still remains authoritative until target validation.
+The recovery archive includes Compose/configuration, image identities and
+plaintext runtime credentials. Local sets require owner-only permissions and
+must stay on the existing private NAS share. Never put payloads, archive
+contents, credentials or database rows in Git or CI artifacts.
 
-Before stopping a running service, a restart-required marker is written into
-the snapshot set. Snapshot failures still attempt restart and health checks;
-failed recovery or uncertain stop completion retains the marker. A client-side
-stop timeout can leave a daemon-side request pending even after a successful
-start and health probe, so it requires inspection. An already-stopped service is left untouched
-and causes the snapshot to fail. The top-level driver detects old
-restart markers before starting another backup and requires recovery inspection.
-Five synthetic tests cover these failure paths and Hindsight command arguments.
-The driver bundles Compose definitions, per-service runtime credentials and
-image identities for recovery, uploads payloads with verification, then uploads
-the completion manifest. Only a verified manifest permits local retention
-cleanup. Six further tests cover completion ordering/failures and retention.
+The NAS uploader pins the certificate before authentication, omits overwrite,
+and downloads each uploaded payload to compare its SHA-256 and byte count. It
+refreshes authentication once only for the explicit expired-session response;
+ambiguous transport failures are not replayed automatically. After all payloads
+verify, the driver validates set completeness and service health, then publishes
+`COMPLETE.json` and marks the local set `NAS_VERIFIED`. Incomplete sets remain
+for diagnosis. The code retains seven verified full sets, scoped hourly history
+and eight first-of-week portable export archives; it never treats an incomplete
+set as eligible for normal pruning.
 
-Immediately before publishing the completion manifest, the backup invokes the
-shared Rust service health gate. Failed application, tunnel or Tailscale
-readiness leaves the uploaded payloads incomplete and omits `NAS_VERIFIED`.
-Per-container restart checks also reject missing mandatory Docker health.
+## Cloudflare state is a separate recovery requirement
 
-Do not enable a backup daemon merely because the uploader tests pass. NAS credential provisioning, verified restore procedures, on-target Hindsight
-export checks, host-wide updater recovery and on-target capacity checks remain
-unfinished. The compiled scheduled job has not been activated or run. A Nix generation rollback cannot undo an application database
-migration; application data recovery needs its own tested procedure.
+The home OpenTofu state owner is `admin`, under
+`/Users/admin/homelab-infra/cloudflare`, outside application storage. The service
+backup code above does **not** include that directory. Do not give `_containers`
+access to its passphrase or API token to bridge this gap. Local `state-backups`
+made before applies are not an off-host backup.
+
+The November 9 candidate passed a read-only plan against the existing encrypted
+state: all 15 managed resources were no-ops. An independent encrypted file copy
+also initialized as an isolated backend, rejected a deliberately wrong
+passphrase and produced a no-change plan using the correct owner credentials.
+The production state hash stayed unchanged. This proves the copied state is
+usable; it is **not** a NAS download/restore or off-host key recovery test.
+
+Before enabling the relocated automatic writer or retiring old recovery paths,
+add an owner-scoped encrypted state/configuration NAS backup, verify the actual
+download, and repeat isolated restoration with separately recovered credentials.
+Keep resource addresses, remote IDs and retained routes unchanged. Never upload
+plaintext state, plans, decrypted provider output or passphrases.
 
 ## Read-only verification before restore
 
-Download an entire set, including `COMPLETE.json`, into a private operator-owned
-directory. Obtain it through the pinned NAS connection or another authenticated
-channel; a hash manifest verifies integrity, not authenticity against someone
-who can replace both the data and its manifest.
-
-Run from the reviewed repository on a machine with Python 3:
+Obtain a complete set through the pinned NAS connection or another authenticated
+recovery channel, including `COMPLETE.json`, into a private operator-owned
+directory. A hash manifest proves integrity, not authenticity against someone
+who can replace both payload and manifest. From the repository root:
 
 ```sh
-python3 scripts/verify-backup.py /absolute/path/to/downloaded-set
+python3 homelab/scripts/verify-backup.py /absolute/path/to/downloaded-set
 ```
 
-The verifier reads files only. It requires the declared payload sizes and hashes,
-rejects duplicate/unlisted payloads, reads host/service metadata without
-extracting the recovery archive, and checks required files for every recorded
-service. It rejects empty payloads, requires image records for the assigned
-containers and checks that saved Compose/configuration and credential files are
-present. It does not parse credentials or establish that they are valid.
-Recovery-bundle traversal entries, links and duplicate paths are rejected. A local
-`NAS_VERIFIED` marker is not required when checking a downloaded set and is never
-trusted as a substitute for hashing. Backup creation now also runs this check
-before uploading the completion manifest.
+The verifier reads only. It checks declared hashes/sizes, expected service
+payloads, image identities and required recovery members; it rejects unsafe
+archive headers, links, duplicate/unlisted payloads and incomplete configuration.
+It does not extract credentials, validate their current authorization or start
+services. `NAS_VERIFIED` alone is never a substitute for hashing the downloaded
+files.
 
-Passing this command does not prove that PostgreSQL can restore, SQLite is
-healthy, credentials are still valid, or applications work. The next stage is
-an isolated restore into fresh volumes/VMs with no production Tailscale identity,
-LAN automations or tunnel enabled. Check database integrity and service behavior
-there, then document the exact evidence before approving a production cutover.
-Automated restore/extraction and that on-target rehearsal remain unfinished.
-See the [service-by-service rehearsal](restore-rehearsal.md) for the actual
-snapshot formats, isolation requirements and Hindsight initialization gap.
+Next execute the [isolated restore rehearsal](restore-rehearsal.md) on fresh
+storage with no production tailnet identity, device access or tunnel. Verify
+database integrity, retained records/media and service behavior before retiring
+an authority. A Nix rollback cannot undo an application database migration.
+Record actual downloaded-set/restore evidence separately from synthetic tests
+and installed schedules.

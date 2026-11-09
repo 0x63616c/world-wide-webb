@@ -24,7 +24,7 @@ execution, including where they are stricter than the stored goal wording:
   current stage. Completion requires actual delivery, retained integrations/data/media and
   applicable restore evidence; local wiring or successful uploads alone do not prove it.
 
-Overall estimate is approximately 50%; current stage is private publication and real CI for the usable app-development repository.
+Overall estimate is approximately 51%; current stage is private publication and real CI for the usable app-development repository.
 Live release channels, infrastructure/host handovers and retirement remain separate acceptance work.
 
 ## Current candidate
@@ -1300,3 +1300,48 @@ remain in the wizard, with no delegated vault access or new secret store.
 Actual source-authority/key/profile/reboot/recovery acceptance is still required. This coherent
 follow-up remains local pending final independent review and the app-baseline merge. Production
 promotion flags, host identities, data and installed processes remain unchanged.
+
+### Home Cloudflare plan, isolated encrypted restore and recovery ownership
+
+The published usable-source candidate is `803d334e12b2acce3d6c91fa9181a8169d16bf9b`.
+The reviewed delivery follow-up was rebased onto it; range-diff confirms the 13 logical commits
+retain their implementation changes, with only progress-document append placement resolved.
+The rebased shared CI suite passes 20 tests, host-promotion/operations suite 25 and distribution
+suite 11. The earlier invocation accidentally selected Apple's Python 3.9 without the configured
+requirements; rerunning with the existing tooling environment resolved those environment errors.
+
+On November 9, the mini's existing OpenTofu 1.13.9 read the relocated home configuration and the
+existing encrypted owner backend. Its plan returned 0: all 15 resource actions were no-ops.
+A byte-identical encrypted state copy was then initialized as a separate local backend. A
+wrong passphrase was rejected; the correct owner passphrase produced another no-change plan.
+The production state SHA256 stayed
+`6a135440b7b66b0833f9bcdff759a3c4599c0b103392f394e049dde3f158b521` throughout both checks.
+No apply, resource import, vault lookup or service restart occurred. Private plans/logs and
+state copies stayed on the mini outside Git. Redacted external receipts are
+`/tmp/monorepo-home-infra-readonly-plan-receipt.json` and
+`/tmp/monorepo-home-infra-restore-receipt.json`. This is not a NAS restore or off-host key proof.
+
+Installed mini launchd metadata confirms nightly/full, hourly Control Center and Penpot backup
+jobs run as `_containers`. Their source and the admin-owned infrastructure state have separate
+ownership: the new service recovery bundle does not include Cloudflare state. Local before-apply
+copies alone cannot satisfy off-host recovery. Keep the automatic Cloudflare writer disabled
+until owner-scoped NAS state/configuration backup and actual downloaded restore/key recovery
+are proved. Private set recency could not be checked with noninteractive mini sudo, so no fresh
+service backup success is claimed. Backup docs now describe actual native SQLite/schedules and
+explicitly retain this acceptance gap instead of calling the installed module disabled.
+
+The old opt-in Hindsight synthetic recovery workflow was imported under `homelab/.github`,
+where GitHub does not execute it. Its adapted root workflow restores that operator entrypoint
+on a disposable homelab Linux guest, uses relocated source paths and the shared 1.99.0 Rust pin,
+and preserves the pinned image, offline non-root container and synthetic-only inputs. Actionlint
+passes. Its historical hosted result is not replacement-run acceptance; the new workflow still
+needs publication and a real homelab run. No extra production data or credentials are supplied.
+
+The new recovery build exposed an independent lockfile mismatch: the reviewed CLI version is
+0.4.2, but the host helper still locked its local dependency to 0.4.1. A real `--locked` test
+build refused that mismatch. An offline Cargo refresh changed only that package version,
+without upgrading registry dependencies. The exact `--locked` release helper build and host
+suite pass; the synthetic Linux-container restore remains explicitly ignored locally and must
+run through the relocated workflow. Independent Astra final review approved this complete batch.
+Private temporary plans and the copied state were removed after retaining redacted receipts in
+the owner evidence directory; the original encrypted state and credentials stayed in place.

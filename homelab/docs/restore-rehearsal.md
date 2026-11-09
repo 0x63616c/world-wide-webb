@@ -23,7 +23,7 @@ in a PR or CI artifact.
 
 | Service | Saved state | Rehearsal and evidence |
 | --- | --- | --- |
-| Control Center | PostgreSQL custom-format dump and media archive | Initialize fresh PostgreSQL using the recorded image. With the app stopped, restore into a fresh `control_center` database using `pg_restore --exit-on-error`, then restore media. Start the recorded app with workers off and external networking blocked. Check database health, source revision, representative records and a referenced media file. |
+| Control Center | Native `control-center.sqlite` and media archive | Restore into a fresh local SQLite volume and media directory with the recorded app stopped. Check `PRAGMA integrity_check`, foreign keys, schema, row counts and representative values/media against the source evidence. Start the exact recorded image with workers off and external networking blocked; check revision, health and local application reads. Keep historical PostgreSQL archives separate and unchanged. |
 | Home Assistant | Cold `/config` archive | Preserve `.storage`, SQLite files and their sidecars. Check database integrity before startup. Use an isolated rehearsal definition with the image's normal startup, without production host networking or the `ha0` bridge wait. Check configuration loading, local UI, entities and history. Restored automations must have no path to real devices. |
 | Bambuddy | App data, studio API data and separate Tailscale state | Restore app/studio data into fresh volumes with original ownership. Start only the app and studio API, with no path to the printer. Check database integrity, archived prints/files and slicer readiness; the slicer requires amd64 support (emulation on ARM). Keep the production Tailscale archive offline and never start its sidecar during rehearsal. |
 | Hindsight | Logical PostgreSQL dump and separate Codex directory | Initialize and restore the embedded database as described below before starting the application. Check banks and representative memories through local read-only operations. Keep provider access blocked. Weekly bank exports are an additional recovery path, not proof that the full dump restores. |
@@ -89,12 +89,13 @@ Run the disposable container with Docker's `--init`: pg0 starts PostgreSQL as
 a detached process and requires it to disappear after shutdown. An ordinary
 test/helper process running as PID 1 does not reap those orphaned children.
 
-The targeted [Hindsight recovery workflow](../.github/workflows/hindsight-recovery.yml)
-builds the Linux helper and runs a real synthetic database test in the pinned
-ARM64 image. The container has no external network, receives only read-only test
+The opt-in [Hindsight recovery workflow](../../.github/workflows/homelab-hindsight-recovery.yml)
+now lives in the root workflow directory, uses a disposable homelab Linux guest,
+and builds the relocated helper before running the real synthetic database test
+in the pinned ARM64 image. The container has no external network, receives only read-only test
 binaries, and has CPU, memory and process limits. It receives no host credentials
-or real backup data. Standard Linux ARM64 hosted runners are
-[available to private repositories](https://github.blog/changelog/2026-01-29-arm64-standard-runners-are-now-available-in-private-repositories/).
+or real backup data. The relocated workflow has not yet run; its historical hosted-runner result below
+does not prove replacement homelab execution.
 
 The test covers dump/restore, Unicode rows, sequence state, pgvector data,
 persistence after restart, existing-state refusal and corrupt dumps.
