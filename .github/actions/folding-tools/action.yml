@@ -52,6 +52,16 @@ runs:
         cd apps/folding/backend
         bun install --frozen-lockfile
     - if: inputs.target == 'apple' || inputs.target == 'deploy'
+      name: Use UTF-8 for release metadata
+      shell: bash
+      run: |
+        if [[ "$RUNNER_OS" == macOS ]]; then
+          folding_locale=en_US.UTF-8
+        else
+          folding_locale=C.UTF-8
+        fi
+        printf 'LANG=%s\nLC_ALL=%s\n' "$folding_locale" "$folding_locale" >> "$GITHUB_ENV"
+    - if: inputs.target == 'apple' || inputs.target == 'deploy'
       uses: ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199 # v1
       with:
         ruby-version: ${{ steps.pins.outputs.ruby }}

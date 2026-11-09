@@ -562,6 +562,11 @@ mod tests {
         // Model the pinned official wrapper's 2/3/4 retry and optional 7 contract.
         // The helper must launch it once, without a new Rust retry loop or run arg.
         fs::write(dir.path().join("listener-exits"), b"2\n3\n4\n7\n").unwrap();
+        let cargo_prefix = if cfg!(target_os = "linux") {
+            "/home/admin/.cargo/bin"
+        } else {
+            "/Users/admin/.cargo/bin"
+        };
         fs::write(
             &runner,
             concat!(
@@ -569,7 +574,7 @@ mod tests {
                 "test \"$#\" = 0 || exit 71\n",
                 "test \"$PWD\" = \"$HOME/actions-runner\" || exit 72\n",
                 "test \"$USER\" = admin && test \"$LOGNAME\" = admin || exit 75\n",
-                "case \"$PATH\" in /Users/admin/.cargo/bin:*) ;; *) exit 73 ;; esac\n",
+                "case \"$PATH\" in __CARGO_PREFIX__:*) ;; *) exit 73 ;; esac\n",
                 "test -n \"$ACTIONS_RUNNER_INPUT_JITCONFIG\" || exit 74\n",
                 "echo JOB_OUTPUT_SENTINEL\necho PRIVATE_STDERR_SENTINEL >&2\n",
                 "while read -r code; do\n",
@@ -578,7 +583,7 @@ mod tests {
                 "2|3|4) continue ;;\n",
                 "7) if [ \"$ACTIONS_RUNNER_RETURN_VERSION_DEPRECATED_EXIT_CODE\" = 1 ]; then exit 7; else exit 0; fi ;;\n",
                 "*) exit 0 ;;\nesac\ndone < \"$HOME/listener-exits\"\n"
-            ),
+            ).replace("__CARGO_PREFIX__", cargo_prefix),
         )
         .unwrap();
         fs::set_permissions(&runner, fs::Permissions::from_mode(0o700)).unwrap();

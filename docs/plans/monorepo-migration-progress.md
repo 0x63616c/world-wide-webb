@@ -1019,3 +1019,34 @@ Folding native and the light/dark Duo capture; its capture step took23m03s. Thos
 jobs are evidence for their current revision, not a green aggregate. Replacement tooling and
 remaining real checks still need acceptance. The Folding backend additionally lost its runner
 without a final build log; host diagnostics are being examined before deciding the retry.
+
+### Remaining fresh-guest compatibility corrections
+
+The same CI batch exposed three additional preparation/fixture issues. Control Center's30 Rust
+checks completed before the dependency-tool browser download returned504. The bootstrap now
+resolves exact cargo-deny assets through the upstream release API, retaining browser fallback,
+the original SHA256 verification and the required dependency scan. A real cold-cache macOS run
+installed the unchanged0.20.2 tool and passed advisories/bans/licenses/sources. The actual Linux
+ARM64 archive downloaded via API also matched its upstream checksum
+`995c82be0defc7a025cae49a2aa2644ce8245c9a3318fc4103907c6a285e8c7d`.
+Three isolated real-bootstrap transport tests cover API success, unavailable-API fallback and
+refusal to install/execute corrupt-checksum bytes. All40 Control Center tools tests pass.
+
+Homelab Linux passed112 runner tests; its remaining official-wrapper fixture incorrectly demanded
+the macOS cargo path. The fixture now keeps that strict check with the platform's expected prefix,
+matching the existing production platform policy. Production runner behavior is unchanged. Its
+real wrapper test passes locally and Rust formatting passes; replacement Linux CI is still needed.
+
+Folding's real domain/storage job passed all113 Swift tests, strict Swift formatting and generated
+icons, then its release metadata suite failed under an ASCII locale. Shared Folding Ruby setup
+now establishes the platform's UTF-8 locale before Ruby/metadata processing. The exact33-test/
+656-assertion release suite reproduces the encoding failure underC and passes underUTF-8, without
+provider access, skipped assertions or gem/version changes. Workflow lint and ShellCheck pass.
+
+The lost Folding backend VM is separate from these source corrections. GitHub records terminal
+runner communication loss; the owned VM was already stopped before controller deletion. Its last
+public guest status was executing, and no completed build log is available. Host memory is32GiB
+with the unchanged24GiB guest budget. The current runner policy/timeouts are unchanged; no unsafe
+budget adjustment or guessed product workaround was made. GitHub rejected a targeted retry while
+the parent Folding workflow was still running; retry is pending its terminal state or the next
+reviewed exact-source batch. This is not backend runtime acceptance.
