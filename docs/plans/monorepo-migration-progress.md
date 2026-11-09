@@ -909,3 +909,15 @@ scan also found no missing literal action version/dependency input paths after r
 Independent Astra final review accepted this three-file correction batch. These are local/source
 proofs, not a claim that the pending replacement CI is green. Production writers remain disabled;
 the reviewed private CLI and operations follow-ups remain separate from the baseline PR.
+
+### Control Center image readiness correction
+
+The first consolidated image build succeeded, but the initial health request failed in
+under one second with a connection reset before the listener was ready. The isolated
+image check now retries that transport failure only inside its existing 30-second
+readiness deadline. Revision/worker assertions and all post-readiness requests retain
+immediate failure behavior; application mutations are not retried. A reproduction through
+the real checker entry point failed before the change and passed after it. Four regression
+tests cover recovery, deadline, revision mismatch and post-readiness failure; the Control
+Center operations checks pass (70 tools and 37 deployment tests). Independent final review
+found no actionable issues. Replacement real-image CI remains required before acceptance.

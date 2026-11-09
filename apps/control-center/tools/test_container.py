@@ -55,7 +55,7 @@ def main(image, revision):
                         assert health["build"] == revision
                         assert health["cycles"]["enabled"] is False
                         return
-                    except (urllib.error.URLError, TimeoutError):
+                    except (urllib.error.URLError, TimeoutError, ConnectionResetError):
                         if time.monotonic() > deadline:
                             subprocess.run(["docker", "logs", "--tail", "30", container], check=False)
                             raise RuntimeError("image did not become ready") from None
