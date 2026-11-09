@@ -47,7 +47,7 @@ jobs:
     runs-on: [self-hosted, macOS, ARM64, homelab-tart]
     timeout-minutes: 60
     env:
-      DEVELOPER_DIR: /Applications/Xcode.app/Contents/Developer
+      DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
       APP: ${{ inputs.app || 'tendr' }}
       TEST_ID: ${{ inputs.test }}
     steps:

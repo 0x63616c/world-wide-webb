@@ -55,7 +55,7 @@ jobs:
       run:
         working-directory: apps/folding
     env:
-      DEVELOPER_DIR: /Applications/Xcode.app/Contents/Developer
+      DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
       LANG: en_US.UTF-8
       LC_ALL: en_US.UTF-8
       FOLDING_SOURCE_CI_RUN_URL: ${{ github.event.workflow_run.html_url }}/attempts/${{ github.event.workflow_run.run_attempt }}

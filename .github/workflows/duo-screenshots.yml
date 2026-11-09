@@ -22,7 +22,7 @@ on:
       developer_dir:
         description: 'Xcode developer directory containing the Duo simulator'
         type: string
-        default: '/Applications/Xcode_27.1.app/Contents/Developer'
+        default: '/Applications/Xcode_27.2.app/Contents/Developer'
         required: true
 
 permissions:
@@ -37,10 +37,10 @@ jobs:
     runs-on: [self-hosted, macOS, ARM64, homelab-tart]
     timeout-minutes: 120
     env:
-      DEVELOPER_DIR: /Applications/Xcode.app/Contents/Developer
+      DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
       APP: ${{ inputs.app || 'tendr' }}
       DUO_HOST_CONTROL: '1'
-      REQUESTED_DEVELOPER_DIR: ${{ inputs.developer_dir || '/Applications/Xcode_27.1.app/Contents/Developer' }}
+      REQUESTED_DEVELOPER_DIR: ${{ inputs.developer_dir || '/Applications/Xcode_27.2.app/Contents/Developer' }}
     steps:
       - uses: actions/checkout@v4
       - name: Select Xcode

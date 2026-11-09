@@ -56,7 +56,7 @@ jobs:
     runs-on: [self-hosted, macOS, ARM64, homelab-tart]
     timeout-minutes: 120
     env:
-      DEVELOPER_DIR: /Applications/Xcode.app/Contents/Developer
+      DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
       DUO_HOST_CONTROL: '1'
       APP: ${{ needs.resolve.outputs.app }}
       RELEASE_VERSION: ${{ needs.resolve.outputs.version }}
@@ -70,7 +70,7 @@ jobs:
         run: python3 -m pip install -r scripts/requirements-screenshots.txt
       - name: Select Duo-capable Xcode when the app has Duo captures
         env:
-          REQUESTED_DEVELOPER_DIR: ${{ vars.DUO_DEVELOPER_DIR || '/Applications/Xcode-27.1.app/Contents/Developer' }}
+          REQUESTED_DEVELOPER_DIR: ${{ vars.DUO_DEVELOPER_DIR || '/Applications/Xcode_27.2.app/Contents/Developer' }}
         run: |
           if ruby scripts/app-config.rb "$APP" duo_screenshot_test >/dev/null 2>&1; then
             selected=$(python3 scripts/select-duo-xcode.py "$REQUESTED_DEVELOPER_DIR")
@@ -119,7 +119,7 @@ jobs:
       group: app-store-${{ needs.resolve.outputs.app }}
       cancel-in-progress: false
     env:
-      DEVELOPER_DIR: /Applications/Xcode.app/Contents/Developer
+      DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
       FASTLANE_SKIP_UPDATE_CHECK: '1'
       FASTLANE_HIDE_CHANGELOG: '1'
       FASTLANE_SKIP_DOCS: '1'

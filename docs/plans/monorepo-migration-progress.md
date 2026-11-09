@@ -711,3 +711,21 @@ recovery is stored in 1Password. No Apple certificate was created or revoked. St
 Callkeep and Folding Match/contact inputs are prepared, but no signed archive, notarization,
 Apple upload, tap update or production release is claimed by credential preparation. Folding
 runtime/deploy/signing Git access and immutable legacy-ledger transfer remain channel work.
+
+### Image canary and workflow bundle compatibility
+
+The immutable Xcode27.2 candidate is cached under the existing runner identity with the old
+Mac and Linux caches retained. An isolated guest under the existing Softnet policy verified
+Xcode27.2/27B52, Swift6.4.2, the available Duo runtime27.2/24B91016s and Duo device type.
+The owned guest was stopped/deleted. Fresh inventory/process/cache checks confirmed its absence
+and the retained candidate; free storage was243266625536 bytes against the unchanged
+150323855360-byte admission reserve. The exact-token temporary hold was released through the
+supported controller command before existing Comin activation can take its own hold.
+
+The image has `/Applications/Xcode_27.2.app`, with no `Xcode.app` alias. Eighteen root workflows
+now use that installed bundle, including the Duo requested default. The33 existing Duo-tool
+tests, actionlint and route audit pass. The narrowly scoped image-pin/CI compatibility review
+accepted this operation; it does not reopen the accepted layout/release design. Old-authority
+homelab commit6a9424e is a two-line pin/comment change, builds the host closure and preserves
+all other generated runner settings. Installed revision/image, new-source private CI and
+actual application capture remain unverified at this point.

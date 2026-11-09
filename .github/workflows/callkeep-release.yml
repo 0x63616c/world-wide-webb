@@ -52,7 +52,7 @@ jobs:
       run:
         working-directory: apps/callkeep
     env:
-      DEVELOPER_DIR: /Applications/Xcode.app/Contents/Developer
+      DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
       CALLKEEP_SOURCE_CI_RUN_URL: ${{ github.event.workflow_run.html_url }}/attempts/${{ github.event.workflow_run.run_attempt }}
       SOURCE: ${{ github.event.workflow_run.head_sha }}
     steps:
