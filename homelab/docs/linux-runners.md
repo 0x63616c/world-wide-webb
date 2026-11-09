@@ -175,7 +175,7 @@ emergency reserves intact; do not use global image GC as an unscoped cleanup sho
 
 ## Linux guest control-connection correction — November 9
 
-The currently deployed `c1d4c31b…` image contains guest agent 0.15.0. Long-running
+The previous `c1d4c31b…` image contained guest agent 0.15.0. Long-running
 CI exposed [upstream issue 81](https://github.com/openai/tart-guest-agent/issues/81):
 completed control RPCs leave Linux virtual sockets open until the VM service
 asserts at roughly 248 connections. Two production crash reports match the
@@ -198,6 +198,14 @@ separate trusted unit, can restart the control agent, and retries status reads
 without replaying provisioning. A private Go cache is removed before success;
 the upstream license is retained in the image.
 
-The corrected image still needs reviewed publication, cache verification, a
-normal host image-pin activation and real replacement CI. Do not mark the old
-image fixed or retire its recovery cache based on these local tests.
+The corrected private image is
+`ghcr.io/0x63616c/homelab-linux-runner@sha256:3c7defd1a13e63560c36523dbdbe25a3ef11e1f264390447c27d5c474e7ca6a2`.
+Its fresh registry download passed cache verification on the MacBook (disk SHA256
+`59d3a2f1ed3dd99facb7b1795d1585d4ebabe6617a203e705017e9bb397ff815`).
+Homelab PR #39 merged the reviewed correction as `dd8ef99d584f4fb3a0ff4533c757fc87fc904432`
+after exact-source full Nix validation. Normal Comin adoption installed that revision;
+current and boot systems agree, with the corrected pin and unchanged resource/network policy.
+The replacement Folding backend job stayed healthy through its Rust/Wasm build and runtime tests;
+its remaining fixture timeout is corrected separately in WWW and needs replacement CI.
+Keep the old image recovery cache until migration acceptance. Builder source:
+`4089dcd44e5144ce140cf0cb6da45d209426697c`.
