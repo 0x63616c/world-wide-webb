@@ -319,6 +319,7 @@ struct AttemptResources {
 struct BackgroundEffect {
     ticket: u64,
     operation: Operation,
+    started: std::time::Instant,
     handle: tokio::task::JoinHandle<Result<(), crate::tart::TartError>>,
 }
 
@@ -467,6 +468,8 @@ impl LiveBackend {
         if now < self.next_github_poll {
             return;
         }
+        let started = std::time::Instant::now();
+        let requests_before = self.github.request_count();
         self.snapshot_complete = false;
         self.snapshots.clear();
         let mut complete = true;
@@ -512,9 +515,27 @@ impl LiveBackend {
             );
         }
         self.snapshot_complete = complete;
+        self.github.finish_discovery(requests_before);
+        let poll_seconds = self.github.poll_interval_seconds();
         self.next_github_poll = now
-            .saturating_add(self.github.poll_interval_seconds().max(30))
+            .saturating_add(poll_seconds)
             .max(self.github.retry_not_before());
+        tracing::info!(
+            elapsed_ms = started.elapsed().as_millis() as u64,
+            requests = self.github.request_count().saturating_sub(requests_before),
+            complete,
+            poll_seconds,
+            poll_budget = %self.github.poll_diagnostics(),
+            next_poll_at = self.next_github_poll,
+            retry_not_before = self.github.retry_not_before(),
+            queued_jobs = self
+                .snapshots
+                .values()
+                .flat_map(|s| &s.jobs)
+                .filter(|j| j.status == "queued")
+                .count(),
+            "GitHub discovery completed"
+        );
     }
     fn pending_clone_finished(&self, journal: &Journal) -> bool {
         journal
@@ -598,6 +619,16 @@ impl LiveBackend {
             .as_ref()
             .is_some_and(|task| task.ticket == pending.ticket)
         {
+            return Some(EffectResult {
+                ticket: pending.ticket,
+                outcome: Outcome::Unknown,
+            });
+        }
+        if self.fleet_mode
+            && !self.fleet_inventory_permitted
+            && matches!(pending.operation, Operation::StopVm | Operation::DeleteVm)
+        {
+            // Startup safety gates defer this existing intent; they are not failed operations.
             return Some(EffectResult {
                 ticket: pending.ticket,
                 outcome: Outcome::Unknown,
@@ -829,6 +860,31 @@ impl LiveBackend {
             std::fs::symlink_metadata(&self.runtime.control_directory).is_ok_and(|metadata| {
                 metadata.is_dir() && metadata.uid() == 0 && metadata.mode() & 0o7777 == 0o755
             });
+        for (blocked, reason) in [
+            (!config.admission_enabled, "admission_disabled"),
+            (!self.fleet_inventory_permitted, "startup_inventory_gate"),
+            (
+                inventory.as_ref().is_none_or(|v| v.is_err()),
+                "vm_inventory_unavailable",
+            ),
+            (!self.snapshot_complete, "github_inventory_incomplete"),
+            (vm_orphan, "unowned_vm"),
+            (runner_orphan, "unowned_runner"),
+            (!root_control, "control_directory_invalid"),
+            (
+                !matches!(hold, Ok(None)),
+                "maintenance_hold_or_invalid_hold",
+            ),
+            (now < self.github.retry_not_before(), "github_retry_backoff"),
+            (
+                !self.snapshots.values().all(|s| s.admission_safe),
+                "repository_admission_unsafe",
+            ),
+        ] {
+            if blocked {
+                observed.admission_blockers.push(reason);
+            }
+        }
         observed.admission_safe = inventory_safe
             && self
                 .snapshots
@@ -876,12 +932,22 @@ impl LiveBackend {
                         Ok(_) => {
                             self.next_github_poll = 0;
                             observed.admission_safe = false;
+                            observed.admission_blockers.push("queued_candidate_changed");
                         }
                         Err(error) if error.category == ErrorCategory::NotFound => {
                             self.next_github_poll = 0;
                             observed.admission_safe = false;
+                            observed.admission_blockers.push("queued_candidate_missing");
                         }
-                        Err(_) => observed.admission_safe = false,
+                        Err(error) => {
+                            tracing::warn!(operation=error.operation, category=?error.category,
+                                retry_after_seconds=error.retry_after_seconds,
+                                job_url=%oldest.job.url(), "queued job revalidation failed");
+                            observed.admission_safe = false;
+                            observed
+                                .admission_blockers
+                                .push("queued_candidate_revalidation_failed");
+                        }
                     }
                 }
             }
@@ -1023,9 +1089,17 @@ impl LiveBackend {
         // Capture the last validated guest status before stop/delete destroys it.
         // A diagnostic I/O failure must not prevent emergency-space cleanup.
         self.save_diagnostic();
+        let started = std::time::Instant::now();
         let outcome = self.execute_effect(effect).await;
+        tracing::info!(operation=?effect.operation, attempt=%effect.attempt.nonce,
+            ticket=effect.ticket, elapsed_ms=started.elapsed().as_millis() as u64,
+            outcome=?outcome, background=self.task.is_some(), "operation dispatch completed");
         if matches!(outcome, Outcome::Failed | Outcome::Unknown)
             && self.task.is_none()
+            && unix_now() >= self.effect_not_before
+            && !(self.fleet_mode
+                && !self.fleet_inventory_permitted
+                && matches!(effect.operation, Operation::StopVm | Operation::DeleteVm))
             && self.diagnostic.as_ref().is_none_or(|summary| {
                 summary
                     .latest_failure
@@ -1060,8 +1134,9 @@ impl LiveBackend {
 impl LiveBackend {
     async fn execute_effect(&mut self, effect: &Effect) -> Outcome {
         let attempt = &effect.attempt;
-        tracing::info!(operation=?effect.operation,attempt=%attempt.nonce,repository=%attempt.repository.key(),ticket=effect.ticket,"executing durable intent");
         if unix_now() < self.effect_not_before {
+            tracing::info!(operation=?effect.operation, attempt=%attempt.nonce, ticket=effect.ticket,
+                retry_at=self.effect_not_before, "operation deferred by retry backoff");
             return Outcome::Unknown;
         }
         let Ok(name) = OwnedVmName::parse(&attempt.vm_name) else {
@@ -1071,8 +1146,17 @@ impl LiveBackend {
             && ((!self.fleet_inventory_permitted && self.fleet_mode)
                 || !self.startup_cleanup_quiescent(attempt).await)
         {
+            tracing::info!(operation=?effect.operation, attempt=%attempt.nonce, ticket=effect.ticket,
+                "operation deferred by startup inventory gate");
             return Outcome::Unknown;
         }
+        if self.task.is_some() {
+            tracing::info!(operation=?effect.operation, attempt=%attempt.nonce, ticket=effect.ticket,
+                "operation deferred while previous task completes");
+            return Outcome::Unknown;
+        }
+        tracing::info!(operation=?effect.operation,attempt=%attempt.nonce,
+            repository=%attempt.repository.key(),ticket=effect.ticket,"dispatching durable intent");
         if self.fleet_mode {
             let tart = self.tart.clone();
             let attempt = attempt.clone();
@@ -1118,6 +1202,7 @@ impl LiveBackend {
                 self.task = Some(BackgroundEffect {
                     ticket: effect.ticket,
                     operation,
+                    started: std::time::Instant::now(),
                     handle,
                 });
                 return Outcome::Unknown;
@@ -1241,7 +1326,16 @@ impl LiveBackend {
                     .await
                 {
                     Ok(Some(runner)) if runner.id == id => {}
-                    Ok(None) => return Outcome::Succeeded { runner_id: None },
+                    Ok(None) => {
+                        // This exact-name lookup is newer than the periodic snapshot.
+                        // Do not repeatedly reconcile a registration proven absent.
+                        if let Some(snapshot) = self.snapshots.get_mut(&attempt.repository.key()) {
+                            snapshot
+                                .runners
+                                .retain(|runner| runner.name != attempt.runner_name);
+                        }
+                        return Outcome::Succeeded { runner_id: None };
+                    }
                     _ => return Outcome::Unknown,
                 }
                 self.next_github_poll = 0;
@@ -1328,6 +1422,7 @@ impl LiveBackend {
             return;
         }
         let task = self.task.take().expect("finished task exists");
+        let elapsed_ms = task.started.elapsed().as_millis() as u64;
         let outcome = match task.handle.await {
             Ok(Ok(())) => {
                 if task.operation == Operation::CloneVm {
@@ -1348,6 +1443,8 @@ impl LiveBackend {
             }
             Err(_) => Outcome::Unknown,
         };
+        tracing::info!(operation=?task.operation, attempt=%attempt.nonce, ticket=task.ticket,
+            elapsed_ms, outcome=?outcome, "background operation completed");
         self.diagnostic_for(attempt, task.operation).last_outcome = match outcome {
             Outcome::Succeeded { .. } => EffectState::Succeeded,
             Outcome::Failed => EffectState::Failed,
@@ -1398,6 +1495,22 @@ impl EngineBackend for LiveBackend {
             .await;
         let inventory_safe = self.last_inventory_safe;
         observed.admission_safe &= admission.admission_enabled && pressure_safe;
+        if config.admission_enabled {
+            observed
+                .admission_blockers
+                .retain(|reason| *reason != "admission_disabled");
+        }
+        if journal.attempts().count() >= config.max_concurrent_jobs {
+            observed.admission_blockers.push("job_capacity_occupied");
+        }
+        if busy_inventory {
+            observed.admission_blockers.push("vm_cleanup_in_progress");
+        }
+        if !pressure_safe {
+            observed
+                .admission_blockers
+                .push("host_memory_pressure_or_telemetry");
+        }
         if !pressure_safe {
             tracing::warn!(
                 operation = "host_resource_gate",
@@ -1427,6 +1540,7 @@ impl EngineBackend for LiveBackend {
                 "diagnostic retention unavailable"
             );
         }
+        let admission_was_safe = observed.admission_safe;
         acknowledge_fleet_hold(
             &self.gate,
             journal,
@@ -1434,6 +1548,9 @@ impl EngineBackend for LiveBackend {
             inventory_safe,
             busy_inventory,
         );
+        if admission_was_safe && !observed.admission_safe {
+            observed.admission_blockers.push("maintenance_hold_changed");
+        }
         observed
     }
     async fn execute(&mut self, effect: &Effect) -> Outcome {
@@ -1470,6 +1587,17 @@ pub async fn run(config_path: &Path) -> Result<(), ServiceError> {
             .map_err(|_| ServiceError::State)?;
         tracing::info!(
             reason = report.reason,
+            admission = %report.admission,
+            next_github_poll_at = engine.backend.next_github_poll,
+            github_retry_at = engine.backend.github.retry_not_before(),
+            attempts = %serde_json::Value::Array(engine.journal().attempts().map(|attempt| serde_json::json!({
+                "nonce": attempt.nonce, "platform": attempt.platform, "phase": attempt.phase,
+                "candidate_url": attempt.candidate.url(),
+                "assigned_url": attempt.assigned.as_ref().map(JobIdentity::url),
+                "pending": attempt.pending, "boot_deadline": attempt.boot_deadline,
+                "unassigned_deadline": attempt.unassigned_deadline,
+                "running_deadline": attempt.running_deadline,
+            })).collect()),
             active = engine.journal().attempts().count(),
             sequence = engine.journal().sequence,
             runner = engine
@@ -1494,7 +1622,7 @@ pub async fn run(config_path: &Path) -> Result<(), ServiceError> {
         } else if !engine.journal().is_idle() {
             Duration::from_secs(2)
         } else {
-            Duration::from_secs(30)
+            Duration::from_secs(crate::github::MIN_POLL_SECONDS)
         };
         tokio::select! {
             _=tokio::time::sleep(pause)=>{},
@@ -1813,6 +1941,7 @@ mod tests {
         let release = std::sync::Arc::new(tokio::sync::Notify::new());
         let wait = release.clone();
         backend.task = Some(BackgroundEffect {
+            started: std::time::Instant::now(),
             ticket: 1,
             operation: Operation::CloneVm,
             handle: tokio::spawn(async move {
@@ -1866,6 +1995,102 @@ mod tests {
         backend.select_attempt(Some(&nonce));
         assert_eq!(backend.completed.as_ref().unwrap().ticket, 1);
     }
+    #[tokio::test]
+    async fn deferred_cleanup_preserves_its_intent_until_startup_is_safe() {
+        let directory = tempfile::tempdir().unwrap();
+        let (mut backend, _, _) = fleet_fixture(directory.path());
+        let journal = pending(Operation::StopVm);
+        backend.fleet_inventory_permitted = false;
+        let observed = Observation {
+            vm: VmObservation::Running,
+            ..Observation::default()
+        };
+        let result = backend
+            .pending_outcome(&journal, &observed, 100, true)
+            .unwrap();
+        assert_eq!(result.outcome, Outcome::Unknown);
+        let decision = crate::scheduler::decide(
+            &runtime().policy,
+            &journal,
+            &Observation {
+                effect_result: Some(result),
+                ..observed
+            },
+            100,
+        );
+        assert_eq!(decision.next.active.unwrap().pending.unwrap().ticket, 1);
+        assert!(decision.effect.is_none());
+    }
+
+    #[tokio::test]
+    async fn missing_registration_updates_cached_inventory_without_repeated_cleanup() {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            let (mut socket, _) = listener.accept().await.unwrap();
+            let mut bytes = [0; 4096];
+            let read = socket.read(&mut bytes).await.unwrap();
+            assert!(
+                std::str::from_utf8(&bytes[..read])
+                    .unwrap()
+                    .starts_with("GET /repos/test/repo/actions/runners?")
+            );
+            let body = r#"{"total_count":0,"runners":[]}"#;
+            socket
+                .write_all(
+                    format!(
+                        "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                        body.len()
+                    )
+                    .as_bytes(),
+                )
+                .await
+                .unwrap();
+        });
+        let directory = tempfile::tempdir().unwrap();
+        let (mut backend, config, _) = fleet_fixture(directory.path());
+        let attempt = peer_attempt();
+        backend.github.test_endpoint(
+            format!("http://{address}"),
+            &repository(&attempt.repository),
+        );
+        backend.snapshots.get_mut(&attempt.repository.key()).unwrap().runners.push(
+            serde_json::from_value(serde_json::json!({"id":9,"name":attempt.runner_name,"status":"offline","busy":false})).unwrap()
+        );
+        let effect = Effect {
+            ticket: 2,
+            operation: Operation::DeleteRunner,
+            attempt: attempt.clone(),
+        };
+        assert_eq!(
+            backend.execute_effect(&effect).await,
+            Outcome::Succeeded { runner_id: None }
+        );
+        server.await.unwrap();
+        let snapshot = &backend.snapshots[&attempt.repository.key()];
+        assert_eq!(
+            runner_observation(&attempt, snapshot),
+            RunnerObservation::Absent
+        );
+        let mut cleaned = attempt;
+        cleaned.phase = Phase::Cleaning;
+        let journal = Journal {
+            active: Some(cleaned),
+            ..Journal::default()
+        };
+        let observed = Observation {
+            vm: VmObservation::Absent,
+            runner: RunnerObservation::Absent,
+            ..Observation::default()
+        };
+        assert!(
+            crate::scheduler::decide(&config.policy, &journal, &observed, 10)
+                .next
+                .is_idle()
+        );
+    }
+
     #[tokio::test]
     async fn fleet_cleanup_and_orphan_checks_recognize_every_owned_vm() {
         let directory = tempfile::tempdir().unwrap();

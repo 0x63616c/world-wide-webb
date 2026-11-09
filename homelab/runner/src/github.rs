@@ -11,6 +11,7 @@ use std::{
 use zeroize::Zeroizing;
 
 pub const API_VERSION: &str = "2026-03-10";
+pub const MIN_POLL_SECONDS: u64 = 5;
 const PAGE_SIZE: usize = 100;
 const MAX_PAGES: usize = 100;
 const MAX_RESPONSE_BYTES: usize = 4 * 1024 * 1024;
@@ -192,6 +193,10 @@ pub struct GithubApi {
     tokens: BTreeMap<(u64, u64), CachedToken>,
     not_before: u64,
     poll_interval_seconds: u64,
+    requests: u64,
+    discovery_requests: u64,
+    rate_remaining: Option<u64>,
+    rate_reset: Option<u64>,
 }
 impl fmt::Debug for GithubApi {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -213,11 +218,60 @@ impl GithubApi {
             credentials,
             tokens: BTreeMap::new(),
             not_before: 0,
-            poll_interval_seconds: 30,
+            poll_interval_seconds: MIN_POLL_SECONDS,
+            requests: 0,
+            discovery_requests: 1,
+            rate_remaining: None,
+            rate_reset: None,
         })
     }
     pub fn poll_interval_seconds(&self) -> u64 {
         self.poll_interval_seconds
+            .max(self.quota_poll_seconds(now()))
+    }
+    fn quota_poll_seconds(&self, now: u64) -> u64 {
+        match (self.rate_remaining, self.rate_reset) {
+            (Some(remaining), Some(reset)) if reset > now => {
+                // Leave a quarter of the observed budget for JIT, revalidation and cleanup.
+                let budget = remaining.saturating_mul(3) / 4;
+                reset
+                    .saturating_sub(now)
+                    .saturating_mul(self.discovery_requests.max(1))
+                    .div_ceil(budget.max(1))
+                    .min(reset.saturating_sub(now))
+            }
+            _ => 0,
+        }
+    }
+    pub fn poll_diagnostics(&self) -> serde_json::Value {
+        serde_json::json!({ "minimum_seconds": MIN_POLL_SECONDS,
+            "server_minimum_seconds": self.poll_interval_seconds,
+            "effective_seconds": self.poll_interval_seconds(),
+            "discovery_requests": self.discovery_requests,
+            "rate_remaining": self.rate_remaining, "rate_reset": self.rate_reset,
+            "retry_not_before": self.not_before })
+    }
+    pub fn request_count(&self) -> u64 {
+        self.requests
+    }
+    pub fn finish_discovery(&mut self, started_at_request: u64) {
+        self.discovery_requests = self.requests.saturating_sub(started_at_request).max(1);
+    }
+    #[cfg(test)]
+    pub(crate) fn test_endpoint(&mut self, url: String, repo: &Repository) {
+        self.base_url = url;
+        self.client = Client::builder()
+            .no_proxy()
+            .timeout(Duration::from_secs(2))
+            .build()
+            .unwrap();
+        self.tokens.insert(
+            (repo.installation_id, repo.repository_id),
+            CachedToken {
+                value: Zeroizing::new("fixture-only-token".into()),
+                expires_at: now() + 3600,
+            },
+        );
     }
     pub fn retry_not_before(&self) -> u64 {
         self.not_before
@@ -324,7 +378,15 @@ impl GithubApi {
         if let Some(body) = body {
             request = request.json(&body);
         }
-        let response = request.send().await.map_err(|_| {
+        self.requests = self.requests.saturating_add(1);
+        let started = std::time::Instant::now();
+        let response = request.send().await.map_err(|error| {
+            tracing::warn!(
+                operation,
+                timeout = error.is_timeout(),
+                elapsed_ms = started.elapsed().as_millis() as u64,
+                "GitHub request transport failed"
+            );
             ApiError::new(
                 operation,
                 if mutation {
@@ -350,6 +412,8 @@ impl GithubApi {
                 .and_then(|v| v.to_str().ok())
                 .and_then(|v| v.parse::<u64>().ok())
         };
+        self.rate_remaining = header_u64("x-ratelimit-remaining").or(self.rate_remaining);
+        self.rate_reset = header_u64("x-ratelimit-reset").or(self.rate_reset);
         let rate_limited = status == StatusCode::TOO_MANY_REQUESTS
             || (status == StatusCode::FORBIDDEN
                 && (header_u64("x-ratelimit-remaining") == Some(0)
@@ -357,7 +421,7 @@ impl GithubApi {
         let retry = header_u64("retry-after")
             .or_else(|| header_u64("x-ratelimit-reset").map(|v| v.saturating_sub(now())));
         if let Some(poll) = header_u64("x-poll-interval") {
-            self.poll_interval_seconds = poll.max(30);
+            self.poll_interval_seconds = poll.max(MIN_POLL_SECONDS);
         }
         if rate_limited {
             self.not_before = now().saturating_add(retry.unwrap_or(60).max(1));
@@ -380,6 +444,10 @@ impl GithubApi {
             } else {
                 ErrorCategory::Rejected
             };
+            tracing::warn!(operation, category = ?category, status = status.as_u16(),
+                retry_after_seconds = retry, retry_not_before = self.not_before,
+                rate_remaining = self.rate_remaining, rate_reset = self.rate_reset,
+                "GitHub request rejected");
             return Err(ApiError {
                 operation,
                 category,
@@ -1069,6 +1137,38 @@ mod tests {
         );
         handle.join().unwrap();
     }
+    #[test]
+    fn fast_polling_paces_discovery_to_observed_quota_and_reset() {
+        let mut api = GithubApi::new(AppCredentials {
+            app_id: "test".into(),
+            private_key_path: "/never-read".into(),
+        })
+        .unwrap();
+        assert_eq!(api.poll_interval_seconds(), 5);
+        api.rate_remaining = Some(600);
+        api.rate_reset = Some(1000);
+        api.discovery_requests = 10;
+        assert_eq!(api.quota_poll_seconds(100), 20);
+        api.rate_remaining = Some(0);
+        assert_eq!(api.quota_poll_seconds(100), 900);
+        assert_eq!(api.quota_poll_seconds(1000), 0);
+    }
+    #[tokio::test]
+    async fn polling_honors_server_interval_above_the_five_second_minimum() {
+        let (mut api, handle) = fixture(vec![Reply {
+            path: "/jobs/1".into(),
+            status: 200,
+            headers: "X-Poll-Interval: 12\r\n",
+            body: job(1),
+        }]);
+        let before = api.request_count();
+        api.get_job(&repo(), 1).await.unwrap();
+        api.finish_discovery(before);
+        assert_eq!(api.poll_interval_seconds(), 12);
+        assert_eq!(api.discovery_requests, 1);
+        handle.join().unwrap();
+    }
+
     #[tokio::test]
     async fn rate_limit_headers_block_followup_without_parsing_secret_body() {
         let (mut api, handle) = fixture(vec![Reply {
@@ -1087,6 +1187,60 @@ mod tests {
         );
         handle.join().unwrap();
     }
+    #[tokio::test]
+    async fn rate_limit_log_explains_wait_without_credentials_or_response_body() {
+        // Isolate tracing's global callsite-interest cache from subscriber churn
+        // in parallel unit tests. The child runs this exact test with one subscriber.
+        if std::env::var_os("HOMELAB_LOG_TEST_CHILD").is_none() {
+            let output = std::process::Command::new(std::env::current_exe().unwrap())
+                .args(["--exact", "github::tests::rate_limit_log_explains_wait_without_credentials_or_response_body", "--nocapture"])
+                .env("HOMELAB_LOG_TEST_CHILD", "1")
+                .output().unwrap();
+            assert!(
+                output.status.success(),
+                "{}",
+                String::from_utf8_lossy(&output.stdout)
+            );
+            return;
+        }
+        use std::sync::{Arc, Mutex};
+        #[derive(Clone)]
+        struct Capture(Arc<Mutex<Vec<u8>>>);
+        impl std::io::Write for Capture {
+            fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+                self.0.lock().unwrap().extend_from_slice(bytes);
+                Ok(bytes.len())
+            }
+            fn flush(&mut self) -> std::io::Result<()> {
+                Ok(())
+            }
+        }
+        let capture = Capture(Arc::new(Mutex::new(Vec::new())));
+        let writer = capture.clone();
+        let subscriber = tracing_subscriber::fmt()
+            .json()
+            .with_writer(move || writer.clone())
+            .finish();
+        let (mut api, handle) = fixture(vec![Reply {
+            path: "/jobs/1".into(),
+            status: 429,
+            headers: "Retry-After: 90\r\nX-RateLimit-Remaining: 0\r\nX-RateLimit-Reset: 2000000000\r\n",
+            body: serde_json::json!({"message":"SECRET_RESPONSE"}),
+        }]);
+        tracing::subscriber::set_global_default(subscriber).unwrap();
+        let _ = api.get_job(&repo(), 1).await;
+        handle.join().unwrap();
+        let log = String::from_utf8(capture.0.lock().unwrap().clone()).unwrap();
+        assert!(!log.contains("SECRET_RESPONSE"));
+        assert!(!log.contains("fixture-only-token"));
+        let event: serde_json::Value = serde_json::from_str(log.trim()).unwrap();
+        assert_eq!(event["fields"]["status"], 429);
+        assert_eq!(event["fields"]["retry_after_seconds"], 90);
+        assert_eq!(event["fields"]["rate_remaining"], 0);
+        assert_eq!(event["fields"]["rate_reset"], 2000000000u64);
+        assert_eq!(event["fields"]["retry_not_before"], api.retry_not_before());
+    }
+
     #[tokio::test]
     async fn busy_runner_delete_rejection_is_not_absence_and_can_be_retried() {
         let (mut api, handle) = fixture(vec![

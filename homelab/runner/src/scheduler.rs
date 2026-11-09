@@ -50,6 +50,7 @@ pub struct EffectResult {
 pub struct Observation {
     /// False for stale/partial discovery, API backoff, or unknown orphan inventory.
     pub admission_safe: bool,
+    pub admission_blockers: Vec<&'static str>,
     pub attempts: std::collections::BTreeMap<String, Box<Observation>>,
     pub candidates: Vec<Candidate>,
     /// Freshly revalidated queued jobs, after full discovery and immediately before admission.
@@ -67,6 +68,7 @@ impl Default for Observation {
     fn default() -> Self {
         Self {
             admission_safe: false,
+            admission_blockers: Vec::new(),
             attempts: Default::default(),
             candidates: vec![],
             revalidated: vec![],
@@ -85,11 +87,23 @@ pub struct Effect {
     pub operation: Operation,
     pub attempt: Attempt,
 }
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize)]
+pub struct CapacityCheck {
+    pub job_url: String,
+    pub platform: crate::config::Platform,
+    pub required_slots: usize,
+    pub required_cpu: u64,
+    pub required_memory_mib: u64,
+    pub required_free_bytes: u64,
+    pub blockers: Vec<&'static str>,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Decision {
     pub next: Journal,
     pub effect: Option<Effect>,
     pub reason: &'static str,
+    pub capacity: Vec<CapacityCheck>,
 }
 
 fn stay(next: Journal, reason: &'static str) -> Decision {
@@ -97,6 +111,7 @@ fn stay(next: Journal, reason: &'static str) -> Decision {
         next,
         effect: None,
         reason,
+        capacity: Vec::new(),
     }
 }
 fn intent(mut next: Journal, operation: Operation) -> Decision {
@@ -121,6 +136,7 @@ fn intent(mut next: Journal, operation: Operation) -> Decision {
         next,
         effect: Some(effect),
         reason: "persist intent before effect",
+        capacity: Vec::new(),
     }
 }
 fn supported(candidate: &Candidate) -> bool {
@@ -146,6 +162,7 @@ fn decide_one(config: &Config, journal: &Journal, observed: &Observation, now: u
                 Outcome::Unknown => return stay(next, "effect outcome unknown; slot retained"),
                 Outcome::Failed => {
                     attempt.phase = Phase::Cleaning;
+                    next.retry_after = now.saturating_add(config.deadlines.retry_seconds);
                 }
                 Outcome::RecoveredJit { runner_id }
                     if pending.operation == Operation::CreateJit =>
@@ -261,7 +278,6 @@ fn decide_one(config: &Config, journal: &Journal, observed: &Observation, now: u
                     }
                     RunnerObservation::Absent => {
                         next.active = None;
-                        next.retry_after = now.saturating_add(config.deadlines.retry_seconds);
                         stay(next, "owned resources absent; slot released")
                     }
                 },
@@ -424,9 +440,7 @@ pub fn decide(config: &Config, journal: &Journal, observed: &Observation, now: u
         let mut next = journal.clone();
         next.sequence = decision.next.sequence;
         // Cleanup backoff must not stall healthy peers or unrelated free slots.
-        if attempts.is_empty() {
-            next.retry_after = decision.next.retry_after;
-        }
+        next.retry_after = next.retry_after.max(decision.next.retry_after);
         next.last_attempt = Some(nonce);
         next.active = attempts.first().cloned();
         next.additional = attempts.into_iter().skip(1).collect();
@@ -446,7 +460,10 @@ pub fn decide(config: &Config, journal: &Journal, observed: &Observation, now: u
     {
         return stay(journal.clone(), "attempt nonce already owned");
     }
-    let projected = journal.project(None);
+    let mut projected = journal.project(None);
+    if !attempts.is_empty() {
+        projected.retry_after = 0;
+    }
     let mut demand = observed.clone();
     filter_reserved(&mut demand.candidates, journal);
     // One shared host budget. Unknown outcomes continue owning their reservations.
@@ -524,6 +541,7 @@ pub fn decide(config: &Config, journal: &Journal, observed: &Observation, now: u
         .filter(|c| Platform::resolve(&c.labels) == Some(Platform::MacosArm64))
         .count()
         .min(config.max_macos_guests.saturating_sub(mac_count));
+    let mut capacity = Vec::new();
     demand.candidates.retain(|c| {
         let Some(platform) = Platform::resolve(&c.labels) else {
             return false;
@@ -541,26 +559,47 @@ pub fn decide(config: &Config, journal: &Journal, observed: &Observation, now: u
             _ => return false,
         };
         let reserve_macs = if platform.is_linux() { waiting_macs } else { 0 };
-        attempts
+        let required_slots = attempts
             .len()
             .saturating_add(1)
-            .saturating_add(reserve_macs)
-            <= config.max_concurrent_jobs
-            && used_cpu
-                .saturating_add(u64::from(cpu))
-                .saturating_add((reserve_macs as u64).saturating_mul(u64::from(config.cpu)))
-                <= u64::from(config.cpu_budget)
-            && used_memory
-                .saturating_add(u64::from(memory))
-                .saturating_add((reserve_macs as u64).saturating_mul(u64::from(config.memory_mib)))
-                <= u64::from(config.memory_budget_mib)
-            && observed.free_bytes.is_some_and(|free| {
-                free >= config
-                    .emergency_free_bytes
-                    .saturating_add(used_growth)
-                    .saturating_add(growth)
-                    .saturating_add((reserve_macs as u64).saturating_mul(legacy_growth))
-            })
+            .saturating_add(reserve_macs);
+        let required_cpu = used_cpu
+            .saturating_add(u64::from(cpu))
+            .saturating_add((reserve_macs as u64).saturating_mul(u64::from(config.cpu)));
+        let required_memory_mib = used_memory
+            .saturating_add(u64::from(memory))
+            .saturating_add((reserve_macs as u64).saturating_mul(u64::from(config.memory_mib)));
+        let required_free_bytes = config
+            .emergency_free_bytes
+            .saturating_add(used_growth)
+            .saturating_add(growth)
+            .saturating_add((reserve_macs as u64).saturating_mul(legacy_growth));
+        let mut blockers = Vec::new();
+        if required_slots > config.max_concurrent_jobs {
+            blockers.push("job_slots_reserved");
+        }
+        if required_cpu > u64::from(config.cpu_budget) {
+            blockers.push("cpu_reserved");
+        }
+        if required_memory_mib > u64::from(config.memory_budget_mib) {
+            blockers.push("memory_reserved");
+        }
+        match observed.free_bytes {
+            Some(free) if free < required_free_bytes => blockers.push("disk_growth_reserved"),
+            None => blockers.push("disk_telemetry_unavailable"),
+            _ => {}
+        }
+        let admitted = blockers.is_empty();
+        capacity.push(CapacityCheck {
+            job_url: c.job.url(),
+            platform,
+            required_slots,
+            required_cpu,
+            required_memory_mib,
+            required_free_bytes,
+            blockers,
+        });
+        admitted
     });
     // Prioritize uncovered macOS demand without preempting borrowed Linux slots.
     // Future reservations prevent resource fragmentation; macOS is not charged twice.
@@ -574,9 +613,14 @@ pub fn decide(config: &Config, journal: &Journal, observed: &Observation, now: u
             .retain(|c| Platform::resolve(&c.labels) == Some(Platform::MacosArm64));
     }
     let mut decision = decide_one(config, &projected, &demand, now);
+    if decision.reason == "no eligible demand" && !capacity.is_empty() {
+        decision.reason = "resource reservations block queued demand";
+    }
+    decision.capacity = capacity;
     if let Some(attempt) = decision.next.active.take() {
         attempts.push(attempt);
         let mut next = decision.next;
+        next.retry_after = next.retry_after.max(journal.retry_after);
         next.active = attempts.first().cloned();
         next.additional = attempts.into_iter().skip(1).collect();
         next.last_attempt = journal.last_attempt.clone();
@@ -584,9 +628,13 @@ pub fn decide(config: &Config, journal: &Journal, observed: &Observation, now: u
             next,
             effect: decision.effect,
             reason: decision.reason,
+            capacity: decision.capacity,
         }
     } else {
-        stay(journal.clone(), decision.reason)
+        Decision {
+            next: journal.clone(),
+            ..decision
+        }
     }
 }
 

@@ -7,6 +7,38 @@ borrow all capacity; eligible uncovered macOS demand takes the next suitable
 released slot without interrupting existing jobs. Starting and cleaning attempts
 retain their reservations.
 
+## Scheduling and diagnostics
+
+Queue discovery targets five seconds. GitHub's minimum polling hint, Retry-After
+and observed remaining quota/reset can lengthen it. Discovery pacing reserves a
+quarter of the observed quota for registration, revalidation and cleanup. The
+`GitHub discovery completed` event records request count, elapsed time, effective
+interval, quota and next poll time. The idle loop also wakes every five seconds;
+owned attempts continue reconciling every two seconds or after an operation.
+
+Successful cleanup releases its slot without a cooldown. Known failed effects
+retain the existing retry backoff, counted from the failure rather than a later
+successful cleanup. Exact-name confirmation that a registration is absent updates
+the cached inventory immediately. Startup inventory gates retain pending cleanup
+intents until safe, rather than repeatedly treating deferral as a failed effect.
+
+Private logs are `/var/lib/_runner/controller/controller.YYYY-MM-DD.jsonl`, rotated
+daily with seven files retained. Each `controller decision` includes `admission`
+and `attempts` as JSON strings. Admission lists blockers (maintenance, startup,
+cleanup, API/inventory, memory pressure), queue/revalidation counts, free bytes
+and budgets. Capacity checks identify the job, required slots/CPU/RAM/disk and
+which reservations block it. Attempts list every phase, pending ticket, candidate
+and actual job URL, and absolute deadlines. Correlate the nonce/ticket with
+`dispatching durable intent`, explicit deferrals, `operation dispatch completed`
+and `background operation completed` for elapsed times and outcomes. A pending
+ticket without completion and its deadline distinguish slow progress from idle.
+
+`GitHub request rejected` reports the safe operation/category, HTTP status,
+retry deadline and rate-limit metadata. Transport errors distinguish timeouts
+and report elapsed time. Logs never include credentials, response bodies or job
+output. An operation dispatch or wrapper exit is not evidence of job success;
+GitHub remains authoritative for job results.
+
 ## Image promotion
 
 Run the image builder on the physical Apple silicon Mac with a reviewed source

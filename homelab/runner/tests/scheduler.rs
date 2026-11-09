@@ -408,6 +408,17 @@ fn lost_jit_response_is_not_recreated_and_recovered_registration_is_retired() {
 }
 
 #[test]
+fn successful_cleanup_admits_waiting_work_without_a_cooldown() {
+    let mut journal = listening();
+    journal.active.as_mut().unwrap().phase = Phase::Cleaning;
+    let observed = observation();
+    let released = decide(&config(), &journal, &observed, 200);
+    assert!(released.next.is_idle());
+    let next = decide(&config(), &released.next, &observed, 200);
+    assert!(next.effect.is_some(), "{}", next.reason);
+}
+
+#[test]
 fn failed_clone_and_failed_cleanup_retain_slot_until_both_resources_absent() {
     let j = resolve(&reserved(), Outcome::Failed, 110);
     let mut o = observation();
@@ -423,7 +434,7 @@ fn failed_clone_and_failed_cleanup_retain_slot_until_both_resources_absent() {
     o.runner = RunnerObservation::Absent;
     let d = decide(&config(), &j, &o, 115);
     assert!(d.next.active.is_none());
-    assert_eq!(d.next.retry_after, 145);
+    assert_eq!(d.next.retry_after, 142);
 }
 
 #[test]
@@ -1279,4 +1290,15 @@ fn malformed_linux_runner_versions_are_rejected_before_a_slot_is_owned() {
                 .is_none()
         );
     }
+}
+
+#[test]
+fn admission_diagnostics_identify_disk_reservation_and_required_bytes() {
+    let mut observed = observation();
+    observed.free_bytes = Some(99);
+    let decision = decide(&config(), &Journal::default(), &observed, 100);
+    assert!(decision.effect.is_none());
+    assert_eq!(decision.reason, "resource reservations block queued demand");
+    assert_eq!(decision.capacity[0].required_free_bytes, 100);
+    assert_eq!(decision.capacity[0].blockers, vec!["disk_growth_reserved"]);
 }
