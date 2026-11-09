@@ -751,7 +751,8 @@ Credentials/cleanup steps retain their cancellation behavior; no active-source c
 
 After the new image activation and real native build passed, the exact stopped old OCI cache
 was removed after checking the installed image, generation agreement, absence of old-image
-attempts and retained new cache. No guest, current cache or Nix generation was removed. Recovery
+attempts and retained new cache. No guest or Nix generation was removed. Subsequent inspection found that Tart's global GC
+also removed the manually imported Linux digest cache; the correction below records its recovery. Recovery
 retains the old immutable image reference and previous generation, requiring a cache pull if
 selected again. Physical free space increased from241823813632 to242856464384 bytes; shared
 image storage meant this reclaimed only about1GB. Capacity/reserve settings were not relaxed.
@@ -782,3 +783,25 @@ plaintext credential was committed, source store overwritten, certificate revoke
 channel enabled. Readonly signed archives and consumer-reference handover remain acceptance work.
 Existing Control Center health still reports ok at build72f9533c84cc9362b9a3df9a5fe3f079411c638d,
 with no consecutive/storage worker failures; this does not replace the later data/restore audit.
+
+
+### Linux cache recovery and retention
+
+Deleting the unrelated old Mac cache invoked Tart's global OCI garbage collector, which also
+removed the untagged imported Linux cache. `TART_NO_AUTO_PRUNE` does not suppress this explicit
+GC. The importer now creates Tart's trusted `.explicitly-pulled` marker after manifest/chunk
+verification and before atomic installation. The archive allowlist is unchanged.
+
+All five cache tests passed on the actual runner host, including a regression that calls real
+`tart delete` against an isolated cache and proves the imported digest survives. Independent
+Astra final review found no actionable issues. The saved Linux image was restored successfully
+under `_runner`; its pinned manifest, 24GB disk and every authenticated chunk passed validation
+(disk SHA256 `734c48bbb378617ea91c8f5c6596004591b5e67bc6cea9a9f02f9db086cef165`).
+The first restoration attempts failed before import because shell input redirection conflicted
+with sudo authentication; separating the password input from the root-opened archive fixed it.
+No product data was affected. Installed old-authority importer backport remains to be published;
+this successful restore used the reviewed patched importer without changing host authority.
+
+The existing Duo job reached its native orientation-control loop on the real runner. This is
+progress beyond the earlier missing-testmanagerd failure, but complete screenshots and all
+selected app checks are still unverified. Overall migration remains approximately 50%.

@@ -4,6 +4,8 @@ import io
 import json
 import os
 import pathlib
+import shutil
+import subprocess
 import tarfile
 import tempfile
 import unittest
@@ -59,11 +61,34 @@ class ImageCacheTests(unittest.TestCase):
             verified = cache.install(target, image, str(bundle))
             self.assertEqual(receipt, verified)
             restored = cache.image_path(target, image)
-            self.assertEqual(set(p.name for p in restored.iterdir()), set(cache.FILES))
+            self.assertEqual(set(p.name for p in restored.iterdir()), {*cache.FILES, ".explicitly-pulled"})
             self.assertLess((restored / 'disk.img').stat().st_blocks * 512, 1024 * 1024)
             with self.assertRaises(ValueError):
                 cache.install(target, image, str(bundle))
             self.assertEqual((restored / 'config.json').read_bytes(), (original / 'config.json').read_bytes())
+
+    @unittest.skipIf(os.geteuid() == 0, 'cache installation intentionally refuses root')
+    @unittest.skipUnless(shutil.which('tart'), 'native Tart is required for its real cache GC')
+    def test_import_survives_deleting_an_unrelated_tart_cache(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = pathlib.Path(temp)
+            source, target = root / 'source', root / 'target'
+            source.mkdir()
+            target.mkdir()
+            image, original = fixture(source)
+            bundle = root / 'image.tar.gz'
+            cache.pack(source, image, bundle)
+            cache.install(target, image, str(bundle))
+            garbage = image.replace('/fixture/linux@', '/fixture/unused@')
+            garbage_path = cache.image_path(target, garbage)
+            garbage_path.parent.mkdir(parents=True)
+            shutil.copytree(original, garbage_path)
+            subprocess.run(['tart', 'delete', garbage],
+                           env=dict(os.environ, TART_HOME=str(target), TART_NO_AUTO_PRUNE='1'),
+                           capture_output=True, check=True)
+            self.assertTrue(cache.image_path(target, image).is_dir(), 'Tart GC removed the imported image')
+            self.assertFalse(garbage_path.exists())
+            cache.validate(cache.image_path(target, image), image)
 
     def test_changed_disk_and_wrong_manifest_are_rejected(self):
         with tempfile.TemporaryDirectory() as temp:
