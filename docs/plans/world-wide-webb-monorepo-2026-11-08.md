@@ -210,7 +210,7 @@ Examples of the intended contract:
 
 PR comparison uses merge-base-to-head with an explicit record of head versus test-merge source; main uses the real push range. Fetch sufficient history and inspect old/new paths of moves/deletions. Evaluate the head's manifests. Invalid configuration, unknown base or failed selection must fail rather than become an empty successful matrix. Initial imports use explicit verify-all with shipping disabled.
 
-Run a stable final required gate on every PR/main execution. Select inside it rather than making required workflows disappear through top-level path filters. The aggregate uses `always()` and rejects failed, cancelled or missing **selected** checks; expected unselected jobs may skip. Preserve the current title check. Install the new gate before updating rulesets and check plan support before making WWW private. [Required-check mechanics](https://docs.github.com/en/pull-requests/how-tos/merge-and-close-pull-requests/troubleshooting-required-status-checks).
+Run a stable final required gate on every PR/main execution. Select inside it rather than making required workflows disappear through top-level path filters. The aggregate uses `always()` and rejects failed, cancelled or missing **selected** checks; expected unselected jobs may skip. Preserve the current title check. Keep the aggregate gate and title check in CI; the owner explicitly chose automation-enforced checks without GitHub branch protections or a plan upgrade. [Required-check mechanics](https://docs.github.com/en/pull-requests/how-tos/merge-and-close-pull-requests/troubleshooting-required-status-checks).
 
 Regression cases: docs/tests-only, moved/deleted/added apps, both sides of renames, dependencies, shared tooling, manifest-only, empty selection, missing history, multi-commit pushes and large imports. GitHub path-filter file limits must not determine correctness. [Diff behavior](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#git-diff-comparisons).
 
@@ -230,7 +230,7 @@ Control Center deployment ordering currently uses workflow `run_number` and sile
 
 Main is the authoring branch. **`deploy/homelab` is the host-deployment ref.** A trusted successful homelab check promotes this ref to its exact tested main commit only when declared host inputs changed, or an explicit fully checked reconciliation is requested. No separate generated configuration tree.
 
-Protect `deploy/homelab` separately from main: ordinary writes, deletion and force pushes are prohibited; only the narrowly scoped promoter may advance it. Serialize promotion with expected-old-SHA and fast-forward checks, reject older candidates that finish late, and record source/run/attempt/input identity. A newer B promoted before older A completes must never be rewound by A. A rollback is a recorded forward corrective/revert candidate, not permission for a stale push.
+Owner update: proceed without GitHub branch protections or a GitHub Pro upgrade. GitHub will not enforce checks or restrict this ref against direct pushes. Our normal automation still advances `deploy/homelab` only through the scoped promoter after successful exact-source checks; agents follow the same checked publication process. Serialize promotion with expected-old-SHA and fast-forward checks, reject older candidates that finish late, and record source/run/attempt/input identity. A newer B promoted before older A completes must never be rewound by A. A rollback is a recorded forward corrective/revert candidate, not permission for a stale push.
 
 Comin watches `deploy/homelab`, not monorepo main. This is essential: current Nix embeds `self.rev` into the installed revision, and following main would activate hosts for unrelated app commits. Filter Nix build sources as well, so app files do not become implicit CLI/controller build inputs.
 
@@ -431,7 +431,7 @@ Resolve public site/Pages compatibility before changing visibility: Tendr's inst
 
 ### Pass 2 — get the monorepo working and resume app development
 
-Review private-repo ruleset/access support, make WWW private, then import private histories. Use explicit non-squashed subtree imports, preserving original SHAs/evidence; do not let installed filter-repo tooling silently choose a rewriting strategy. Bring existing product build roots across intact and make only required path/configuration changes.
+Make WWW private before publishing imported private histories; no GitHub Pro or branch-protection prerequisite. Use explicit non-squashed subtree imports, preserving original SHAs/evidence; do not let installed filter-repo tooling silently choose a rewriting strategy. Bring existing product build roots across intact and make only required path/configuration changes.
 
 Integrate Air Miles/skills/Tendr branch work against current apps main without reviving Blockr or reverting Tendr's newer release pipeline. Preserve the untracked Tendr requirements doc, Folding dirty/worktree/Penpot work and CLI recovery work. Use short final-refresh/publication pauses per source, not a days-long development freeze.
 
@@ -443,7 +443,7 @@ Build a candidate once and promote its immutable artifact through the applicable
 
 **Resume milestone acceptance:** ordinary product work starts in WWW; documented existing commands work; selected CI passes; normal configured beta/install/deploy channels work for migrated products; one product's changes do not publish another or activate homelab; essential README/AGENTS/CI/release instructions reflect the working state. Full helper unification, optional libraries, exhaustive formatting, scaffold enhancements and old-repo archival are not conditions of this milestone.
 
-After the homelab dependency lands, implement protected `deploy/homelab`, CLI rebind/key handover and filtered local Nix/CLI inputs. Canary exact-revision enrollment, restart and recovery. This is a separate coherent cutover and must not stop normal app work that can already run safely. Keep its old source authority temporarily until the replacement is verified.
+After the homelab dependency lands, implement ordered `deploy/homelab` promotion, CLI rebind/key handover and filtered local Nix/CLI inputs. Canary exact-revision enrollment, restart and recovery. This is a separate coherent cutover and must not stop normal app work that can already run safely. Keep its old source authority temporarily until the replacement is verified.
 
 ### Pass 3 — home ownership handover, retirement and useful cleanup
 
@@ -503,3 +503,13 @@ Specific discovery still required at execution is not an invitation to a large o
 
 No migration, visibility change, external publication, infrastructure apply, credential lookup, repo deletion or app release has been executed by this planning work.
 
+
+
+### Owner update: branch protections
+
+The owner explicitly declined GitHub branch protections and a GitHub Pro upgrade during execution.
+This supersedes earlier server-enforced protection prerequisites in this plan and its review history.
+Retain CI checks, reviewed publication, exact-source provenance, scoped credentials, compare-and-swap
+promotion, stale-source rejection and enrollment coordination in automation. Repository privacy remains
+mandatory before private history is published. Direct pushes can bypass the automation; GitHub will
+not enforce these gates on the selected account plan. This decision removes the account-upgrade blocker.

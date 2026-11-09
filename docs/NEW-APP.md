@@ -3,7 +3,7 @@
 From the repository root:
 
 ```sh
-scripts/new-app.sh Samplr samplr
+scripts/dev new Samplr samplr
 ```
 
 The display name determines the lowercase folder; the suffix creates `com.calumwebb.samplr`.
@@ -15,8 +15,9 @@ and generates the Xcode project when XcodeGen is installed. TestFlight starts di
 Implement the primary journey and replace placeholders. Review the app's actual data collection,
 privacy/support copy, accessibility and offline/error behavior. Preserve independent styling.
 Core tests, fixtures and hosted smoke tests belong with the app; add a backend only when the app
-needs one. An automated Cloudflare preset/onboarding command remains migration work; do not assume
-proposed flags or a generic `scripts/dev` command exist yet.
+needs one. Use `scripts/dev apps` to list products and `scripts/dev check <folder>` to run their local
+handler. `scripts/dev doctor` checks shared command availability without opening account sessions.
+The automated Cloudflare preset and account onboarding remain migration work.
 
 Before automatic distribution, the agent should register/verify the bundle and capabilities,
 resolve the App Store Connect record and internal group, configure signing, fill in the actual

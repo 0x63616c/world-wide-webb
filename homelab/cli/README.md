@@ -28,7 +28,7 @@ Nix runs on the target Mac. You do not need Nix on your personal laptop.
 The public CLI contains the installer and tests. **Your own repository contains
 hosts, services, Nix configuration and encrypted secrets.** This enrollment flow
 requires Comin for updates: checked host changes are promoted from authoring `main` to
-protected `deploy/homelab`; that ref authorizes the next deployment. Historical schema1/2
+`deploy/homelab`; that ref authorizes the next deployment. Historical schema1/2
 configurations retain their original main policy until explicitly migrated.
 The CLI finishes after enrollment.
 

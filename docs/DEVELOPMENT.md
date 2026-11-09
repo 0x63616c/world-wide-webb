@@ -19,6 +19,18 @@ Agents perform routine setup, fixes, checks, publication and verification within
 scope. Owner involvement is reserved for unavoidable account/2FA/legal/hardware facts or purchases.
 Prepare those concrete decisions together; a small code change needs no ticket ceremony.
 
+## Local entrypoint
+
+`scripts/dev apps` lists products, `scripts/dev new <Name> <bundle-suffix>` creates a standalone
+app, and `scripts/dev check <folder>` runs its existing checks. Standard iOS products run their
+core package tests when declared and an unsigned simulator build. Folding, Callkeep and Control
+Center keep their product-owned handlers. These commands neither publish nor activate hosts.
+`scripts/dev affected <base>` resolves committed app changes; `scripts/ci/select.py` provides the
+full multi-area selection. Activate a Python environment containing `scripts/requirements.txt`
+for affected selection; `scripts/dev doctor` reports a missing PyYAML installation.
+`scripts/dev doctor` checks shared tool availability; exact product pins,
+Apple runtime availability and credentials remain the relevant workflow's responsibility.
+
 ## Tool choices
 
 - Native SwiftUI and platform frameworks, SwiftPM and XcodeGen. Keep each app's OS floor and

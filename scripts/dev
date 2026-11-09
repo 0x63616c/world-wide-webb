@@ -1,0 +1,86 @@
+#!/usr/bin/env bash
+# Product-owned checks behind one local entrypoint. Never publishes or activates hosts.
+set -euo pipefail
+root=$(cd "$(dirname "$0")/.." && pwd)
+cd "$root"
+
+usage() {
+  cat <<'HELP'
+Usage: scripts/dev <command>
+  apps                         List app folders
+  new <Name> <bundle-suffix>    Create an independent SwiftUI app
+  check <app>                  Run the product's local checks
+  affected <base> [options]    Resolve affected apps (verification by default)
+  doctor                       Check shared local tools without signing in
+
+Checks use each product's existing handler. Standard iOS apps run core tests when
+present and an unsigned simulator build. These are local checks, not release proof.
+See docs/NEW-APP.md and docs/DEVELOPMENT.md for account setup and delivery.
+HELP
+}
+fail() { printf 'error: %s\n' "$*" >&2; exit 64; }
+command_name=${1:-help}
+if (($#)); then shift; fi
+case "$command_name" in
+  help|--help|-h) usage ;;
+  apps)
+    (($# == 0)) || fail 'apps takes no arguments'
+    exec ruby scripts/app-config.rb --list
+    ;;
+  new)
+    (($# == 2)) || fail 'new needs <Name> <bundle-suffix>'
+    exec bash scripts/new-app.sh "$@"
+    ;;
+  affected)
+    (($# > 0)) || fail 'affected needs a base revision'
+    exec scripts/affected --intent verify "$@"
+    ;;
+  doctor)
+    (($# == 0)) || fail 'doctor takes no arguments'
+    missing=0
+    for tool in git ruby bundle python3 bun cargo swift xcodegen xcrun; do
+      if command -v "$tool" >/dev/null 2>&1; then
+        printf 'Available: %s\n' "$tool"
+      else
+        printf 'Missing: %s\n' "$tool"
+        missing=1
+      fi
+    done
+    if python3 -c 'import yaml' >/dev/null 2>&1; then
+      printf 'Available: Python PyYAML\n'
+    else
+      printf 'Missing: Python PyYAML (activate an environment with scripts/requirements.txt)\n'
+      missing=1
+    fi
+    printf 'Product pins and runtime/account readiness are checked by their own workflows.\n' 
+    exit "$missing"
+    ;;
+  check)
+    (($# == 1)) || fail 'check needs exactly one app folder'
+    app=$1
+    [[ "$app" =~ ^[a-z][a-z0-9-]*$ ]] || fail 'use an app folder name from scripts/dev apps'
+    [[ -f "apps/$app/app.yml" && ! -L "apps/$app" ]] || fail "unknown app: $app"
+    handler=$(ruby scripts/app-config.rb "$app" delivery_handler)
+    case "$handler" in
+      standard_ios)
+        # Manifest values are command arguments, never shell fragments.
+        project=$(ruby scripts/app-config.rb "$app" project_path)
+        scheme=$(ruby scripts/app-config.rb "$app" scheme)
+        package_tests=$(ruby scripts/app-config.rb "$app" swift_package)
+        [[ "$package_tests" == true || "$package_tests" == false ]] || fail "$app: swift_package must be true or false"
+        if [[ "$package_tests" == true ]]; then
+          swift test --package-path "apps/$app"
+        fi
+        (cd "apps/$app" && xcodegen generate --quiet)
+        exec xcodebuild -project "$project" -scheme "$scheme" \
+          -destination 'generic/platform=iOS Simulator' \
+          -derivedDataPath "$root/build/local/$app" CODE_SIGNING_ALLOWED=NO build
+        ;;
+      folding) exec bash apps/folding/scripts/check ;;
+      callkeep) exec bash apps/callkeep/Scripts/test.sh ;;
+      control_center) exec bash apps/control-center/tools/check ;;
+      *) fail "no local check handler for $app ($handler)" ;;
+    esac
+    ;;
+  *) usage >&2; fail "unknown command: $command_name" ;;
+esac

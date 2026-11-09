@@ -42,7 +42,7 @@ Non-squashed local history imports:
 
 ## Work remaining
 
-- Implement protected `deploy/homelab` promotion, bounded enrollment/rebind coordination,
+- Implement ordered `deploy/homelab` promotion, bounded enrollment/rebind coordination,
   preserve-state repository migration and destination-scoped host Git-key handover.
 - Finish private CLI release/installation authority and source/update/schema/help references;
   prove existing-profile resume/reboot/recovery and retain an off-host recovery route.
@@ -54,8 +54,8 @@ Non-squashed local history imports:
   Cloudflare app/site/state ownership and no-unintended-change/backup/restore acceptance.
 - Finish new-app command/onboarding/backend preset and product/home documentation from working code;
   preserve all original active snapshots and refresh again immediately before handover.
-- Resolve private-repository protection support, perform integrated final Astra review, make WWW
-  private before publishing private history, then PR/green required checks/merge/live verification.
+- Perform integrated final Astra review, make WWW private before publishing private history,
+  then PR/green CI checks/merge/live verification. The owner declined branch protections and Pro.
 - Archive eligible old authorities only after proven handover. Retain old apps as a publication host
   while installed URLs need it; preserve excluded repos and separate deletion decisions.
 
@@ -174,8 +174,7 @@ Two real-Git/evidence tests pass. New policy/schema/deployment and the updated l
 are local only: original release writers, records and services are unchanged.
 
 GitHub settings discovery confirms current WWW has active required checks. The private Folding
-ruleset API returns the explicit GitHub Pro upgrade requirement. Resolve private ruleset support
-at the final cutover gate; no billing or visibility change has been made. Existing apps Pages
+ruleset API returns the explicit GitHub Pro upgrade requirement. This historical account prerequisite was removed by the owner’s later decision; no billing or visibility change has been made. Existing apps Pages
 is live at its legacy URL, served from its `gh-pages` branch.
 
 ### Folding invariant review fixes
@@ -557,7 +556,7 @@ The required capture canary remains on an isolated Mac guest with the new pinned
 
 ## Explicit host deployment policy — approximately 45% overall
 
-Schema3 now names the matching source repository and protected `deploy/homelab` branch.
+Schema3 now names the matching source repository and `deploy/homelab` branch.
 Authoring main discovers that policy; the CLI resolves an immutable deployment commit and
 rejects missing/stale/retargeted policy rather than installing main. Versions1/2 and old installed
 metadata retain their historical main behavior. Explicit recovery-vault handling accepts schema3;
@@ -566,7 +565,7 @@ configuration from the same root policy. Comin completion requires all three obs
 fields to match, alongside the existing source/system/fetch evidence.
 
 The obsolete public CLI release checker is removed. Homebrew will own upgrades; historical cache,
-profiles and approved receipts are preserved. Private CLI publication, repository rebind, protected
+profiles and approved receipts are preserved. Private CLI publication, repository rebind, ordered
 promotion and bounded enrollment coordination are still required before live activation.
 
 Evidence: 239 targeted CLI checks pass (one separately ignored); all-target clippy/fmt, schema
@@ -575,3 +574,23 @@ evaluation selects WWW and `deploy/homelab`, with matching Mini metadata. Its Gi
 has no revision, so this is configuration evaluation, not built-source or activation evidence.
 Astra independently cleared this complete local batch, including compiled fake-GitHub fetch cases;
 report `/tmp/monorepo-deployment-policy-astra-review.md`. No host source, keys or update ref changed.
+
+
+## Local app entrypoint and account decision
+
+`scripts/dev` now lists apps, creates an independent app, dispatches product checks, resolves
+committed affected apps (verification by default) and checks tool/PyYAML availability. Standard
+iOS checks require an explicit core-test declaration and run an unsigned simulator build;
+custom products keep their own handlers. Missing/invalid manifests and failed tests/generation
+stop before build. It adds no publication or host-activation command.
+
+A real throwaway MigrationProbe scaffold builds successfully through this entrypoint. ShellCheck,
+real-Git affected verify/ship selection, all16 shared selector/gate/input tests and independent
+failure-sequencing probes pass. Astra cleared both findings; report
+`/tmp/monorepo-dev-entrypoint-astra-review.md`. Build log `/tmp/monorepo-dev-scaffold-build.log`.
+Cloudflare backend preset and account onboarding automation remain outstanding.
+
+The owner explicitly declined GitHub branch protections/Pro. This removes that account prerequisite;
+CI checks, review, stale-source/CAS ordering and private-history protection remain required in normal
+automation. GitHub itself will not reject bypassing direct pushes. Repository is still public and
+no migration history has been published. Current stage remains local delivery/host handover.

@@ -150,14 +150,14 @@ remain shared. Profiles isolate local progress, not remote resources: enrolling
 from a profile still changes the selected Git repository and target Mac. A new
 profile can restore the same repository's recovery keys from its configured vault.
 
-## Protected deployment handover
+## Deployment handover
 
 Version 3 declares `deployment: {"repository": "0x63616c/world-wide-webb", "branch": "deploy/homelab"}`.
 Host metadata, Comin and the CLI use that same policy. All three observed Comin branch fields
 must match the installed branch; source revision, live system and fresh successful fetch remain
 required. Historical installed metadata without `branch` means main, never the new deployment ref.
 
-This source contract does not establish a live cutover. Protect and seed the deployment ref,
+This source contract does not establish a live cutover. Seed the deployment ref,
 install the scoped host Git identity, implement promotion/enrollment coordination and explicitly
 rebind preserved operator state before enabling the new writer. Enrollment proposals still target
 authoring main; they need successful checks and coordinated promotion before installation.

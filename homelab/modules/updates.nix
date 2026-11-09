@@ -9,7 +9,7 @@ let
   '';
 in {
   options.homelab.updates = {
-    enable = lib.mkEnableOption "Git reconciliation from the protected deployment branch";
+    enable = lib.mkEnableOption "Git reconciliation from the deployment branch";
     stateful.enable = lib.mkEnableOption "reviewed transactional stateful activation";
   };
 

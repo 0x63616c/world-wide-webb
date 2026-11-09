@@ -61,7 +61,8 @@ Required checks must be green for the exact source before delivery. Confirm Appl
 and group assignment, signed/notarized installation, current service revision/worker ownership,
 retained data and backup/restore as applicable. An archive/upload alone is insufficient.
 Independent final review precedes migration publication. WWW must be private before private
-history is pushed, with required private-repository protections supported and configured.
+history is pushed, with successful CI and reviewed publication. The owner chose no GitHub branch protections or Pro upgrade;
+GitHub does not enforce those automation gates against direct pushes.
 
 Tendr's installed privacy/support URLs remain under the old apps Pages endpoint. The scoped
 publisher sends generated static assets only; preserve that legacy host while those URLs are
