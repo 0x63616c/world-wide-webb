@@ -134,7 +134,7 @@ jobs:
           if-no-files-found: error
   gate:
     name: Homelab checks
-    if: always()
+    if: always() && !cancelled()
     needs: [selection, operations, linux, darwin, cli]
     runs-on: [self-hosted, Linux, ARM64, homelab-linux]
     timeout-minutes: 5

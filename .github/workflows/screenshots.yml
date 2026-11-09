@@ -31,7 +31,7 @@ jobs:
         run: |
           xcodebuild -version
           xcrun simctl list runtimes
-          xcrun simctl list runtimes available | grep -F 'com.apple.CoreSimulator.SimRuntime.iOS-27-0'
+          xcrun simctl list runtimes available | grep -F 'com.apple.CoreSimulator.SimRuntime.iOS-27-2'
       - name: Capture iPhone 18 Pro Max screens (light and dark)
         timeout-minutes: 25
         run: scripts/capture-screenshots.sh "$APP" "build/screenshots/$APP/raw" light dark

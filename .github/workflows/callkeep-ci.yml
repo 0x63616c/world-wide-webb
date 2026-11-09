@@ -63,7 +63,7 @@ jobs:
   gate:
     name: Callkeep checks
     needs: [selection, tooling, native]
-    if: always()
+    if: always() && !cancelled()
     runs-on: [self-hosted, Linux, ARM64, homelab-linux]
     timeout-minutes: 5
     steps:

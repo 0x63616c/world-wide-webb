@@ -142,7 +142,7 @@ elif name == "xcrun":
     if args[:2] == ["list", "devicetypes"]:
         print(json.dumps({"devicetypes": [] if mode == "missing" else [{"name":"iPhone Duo", "identifier":"mock.duo"}]}))
     elif args[:2] == ["list", "runtimes"]:
-        print(json.dumps({"runtimes":[{"platform":"iOS", "isAvailable":True,"version":"27.1","identifier":"com.apple.CoreSimulator.SimRuntime.iOS-27-1"}]}))
+        print(json.dumps({"runtimes":[{"platform":"iOS", "isAvailable":True,"version":"27.2","identifier":"com.apple.CoreSimulator.SimRuntime.iOS-27-2-iPhone19-4"}]}))
     elif args[:2] == ["list", "devices"]:
         print(os.environ["MOCK_SIMULATORS"])
     elif args == ["shutdown", "stale-shutdown"]:
@@ -468,7 +468,7 @@ class DuoCapabilitiesTests(unittest.TestCase):
             ["delete", "stale-booted"],
             ["shutdown", "stale-shutdown"],
             ["delete", "stale-shutdown"],
-            ["create", "Tendr Duo Screenshots", "mock.duo", "com.apple.CoreSimulator.SimRuntime.iOS-27-1"],
+            ["create", "Tendr Duo Screenshots", "mock.duo", "com.apple.CoreSimulator.SimRuntime.iOS-27-2-iPhone19-4"],
             ["boot", "mock-udid"],
             ["shutdown", "mock-udid"],
             ["delete", "mock-udid"],

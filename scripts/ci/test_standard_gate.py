@@ -28,7 +28,7 @@ class StandardGateTests(unittest.TestCase):
     def test_selected_jobs_must_succeed_and_unselected_jobs_must_skip(self):
         jobs = yaml.safe_load((ROOT / '.github/workflows/tendr-ci.yml').read_text())['jobs']
         gate = jobs['gate']
-        self.assertEqual(gate['if'], 'always()')
+        self.assertEqual(gate['if'], 'always() && !cancelled()')
         self.assertEqual(set(gate['needs']), {'changes', 'tooling', 'rdesign', 'app', 'template'})
         script = gate['steps'][0]['run']
         base = {

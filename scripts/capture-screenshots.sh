@@ -24,8 +24,8 @@ done <<< "$screenshot_settings"
 device_type=com.apple.CoreSimulator.SimDeviceType.iPhone-18-Pro-Max
 derived=build/screenshots/$app/DerivedData
 
-# Pin the hosted runtime: iOS 27.1 has Duo only; other iPhones use iOS 27.0.
-runtime=${R_SIM_RUNTIME:-com.apple.CoreSimulator.SimRuntime.iOS-27-0}
+# Match the validated Xcode 27.2 runner image; Duo uses its device-specific runtime.
+runtime=${R_SIM_RUNTIME:-com.apple.CoreSimulator.SimRuntime.iOS-27-2}
 echo "Using $runtime"
 
 udid=$(xcrun simctl create "$name Screenshots" "$device_type" "$runtime")

@@ -165,7 +165,7 @@ jobs:
 
   gate:
     name: Standard iOS checks
-    if: always()
+    if: always() && !cancelled()
     needs: [changes, tooling, rdesign, app, template]
     runs-on: [self-hosted, Linux, ARM64, homelab-linux]
     timeout-minutes: 5

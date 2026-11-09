@@ -24,7 +24,7 @@ execution, including where they are stricter than the stored goal wording:
   current stage. Completion requires actual delivery, retained integrations/data/media and
   applicable restore evidence; local wiring or successful uploads alone do not prove it.
 
-Overall estimate is approximately 49%; current stage is private publication and real CI for the usable app-development repository.
+Overall estimate is approximately 50%; current stage is private publication and real CI for the usable app-development repository.
 Live release channels, infrastructure/host handovers and retirement remain separate acceptance work.
 
 ## Current candidate
@@ -68,10 +68,11 @@ Non-squashed local history imports:
 
 ## Dependencies and preservation
 
-Homelab main is now `4fd1937e59a091e804c4ee941ea4777dcf4c7524`, including final Linux
-main-CI evidence; its history and two-file evidence delta are imported. Running controller readback
-confirms four total/two Mac slots and enabled admission. Its Mac image is still the older pinned
-Xcode26.4.1 base; Folding's Xcode27.2 runtime acceptance remains open.
+Homelab main is now `ad34038b10f432530ade78f844a88fa49bcd0c9a`, including the final Linux
+main-CI evidence and Xcode27.2 image pin; its non-squashed history is imported. Actual MacBook
+readback confirms that installed revision/image, matching boot/current generation and no hold.
+Four total/two Mac slots, admission and Linux isolation remain unchanged. Exact Xcode/Swift/Duo
+runtime canary passes; complete app builds/captures and the full mixed workload remain in CI.
 Folding has uncommitted product/design changes; apps has Air Miles branch work and an untracked
 Tendr requirements document. Do not silently discard or freeze these; refresh before handover.
 
@@ -729,3 +730,28 @@ accepted this operation; it does not reopen the accepted layout/release design. 
 homelab commit6a9424e is a two-line pin/comment change, builds the host closure and preserves
 all other generated runner settings. Installed revision/image, new-source private CI and
 actual application capture remain unverified at this point.
+
+### First real native build and CI corrections
+
+Homelab PR37 merged as ad34038b10f432530ade78f844a88fa49bcd0c9a and normal Comin installed it.
+The current system and boot profile agree; the controller uses the validated immutable image
+and has no leftover canary hold. WWW86b92b5d0 includes this exact non-squashed source and the
+reviewed Xcode bundle-path fixes. Tendr's actual private CI simulator build and icon validation
+passed on that image. Duo, component and launch-screen capture then exposed legacy explicit
+27.0/27.1 runtime names. These scripts/workflow checks now match installed27.2: the regular
+runtime for normal phones and the separate iPhone19-4 runtime for Duo. All33 existing Duo-tool
+checks pass, including task-owned simulator cleanup; shellcheck and actionlint pass.
+
+Superseded runs also exposed `always()` aggregate jobs that survived ordinary cancellation and
+blocked replacement workflow concurrency. Only those obsolete heads were force-cancelled via
+GitHub's supported endpoint. Aggregate jobs now run for failures but skip cancelled workflows;
+the selected-job policy still rejects failures/cancellations/unexpected skips. The16 shared
+selection/input/gate checks pass. Icon/tip workflows now cancel obsolete PR verification too.
+Credentials/cleanup steps retain their cancellation behavior; no active-source check is bypassed.
+
+After the new image activation and real native build passed, the exact stopped old OCI cache
+was removed after checking the installed image, generation agreement, absence of old-image
+attempts and retained new cache. No guest, current cache or Nix generation was removed. Recovery
+retains the old immutable image reference and previous generation, requiring a cache pull if
+selected again. Physical free space increased from241823813632 to242856464384 bytes; shared
+image storage meant this reclaimed only about1GB. Capacity/reserve settings were not relaxed.

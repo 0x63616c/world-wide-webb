@@ -7,6 +7,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: tip-jar-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   changes:
     runs-on: [self-hosted, Linux, ARM64, homelab-linux]
@@ -36,7 +40,7 @@ jobs:
       - name: Build for testing
         timeout-minutes: 15
         run: |
-          runtime=com.apple.CoreSimulator.SimRuntime.iOS-27-0
+          runtime=com.apple.CoreSimulator.SimRuntime.iOS-27-2
           udid=$(xcrun simctl create "Tip Jar" com.apple.CoreSimulator.SimDeviceType.iPhone-17 "$runtime")
           echo "UDID=$udid" >> "$GITHUB_ENV"
           scripts/boot-simulator.sh "$udid" 300

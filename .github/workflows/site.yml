@@ -67,7 +67,7 @@ jobs:
           if-no-files-found: error
   gate:
     name: Site checks
-    if: always()
+    if: always() && !cancelled()
     needs: [selection, pages, folding]
     runs-on: [self-hosted, Linux, ARM64, homelab-linux]
     timeout-minutes: 5

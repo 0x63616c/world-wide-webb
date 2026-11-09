@@ -200,7 +200,7 @@ jobs:
       - run: tofu -chdir=../../infra/cloudflare/home test
       - run: python3 tools/test_state_backend.py
   build-and-test:
-    if: always()
+    if: always() && !cancelled()
     needs: [changes, typecheck, test-unit, apple, image, infra]
     runs-on: [self-hosted, Linux, ARM64, homelab-linux]
     timeout-minutes: 5

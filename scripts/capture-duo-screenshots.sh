@@ -112,8 +112,8 @@ print(matches[0]["identifier"] if matches else "")
 PY
 )}
 [[ -n "$device_type" ]] || { echo "No iPhone Duo simulator device type found. Install Xcode 27.1+ with its iOS runtime, or set R_SIM_DEVICE_TYPE explicitly. See $work/devicetypes.json." >&2; exit 1; }
-# Pin the hosted runtime: iOS 27.1 has Duo only; other iPhones use iOS 27.0.
-runtime=${R_SIM_RUNTIME:-com.apple.CoreSimulator.SimRuntime.iOS-27-1}
+# Match the validated Xcode 27.2 runner image; Duo uses its device-specific runtime.
+runtime=${R_SIM_RUNTIME:-com.apple.CoreSimulator.SimRuntime.iOS-27-2-iPhone19-4}
 echo "Using $device_type on $runtime"
 simulator_name="$name Duo Screenshots"
 # Interrupted runs can leave simulators consuming resources on a persistent runner.

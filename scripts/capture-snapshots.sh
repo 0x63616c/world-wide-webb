@@ -19,8 +19,8 @@ if [[ -f "apps/$app/project.yml" ]]; then
   (cd "apps/$app" && xcodegen generate --quiet)
 fi
 
-# Pin the hosted runtime: iOS 27.1 has Duo only; other iPhones use iOS 27.0.
-runtime=${R_SIM_RUNTIME:-com.apple.CoreSimulator.SimRuntime.iOS-27-0}
+# Match the validated Xcode 27.2 runner image; Duo uses its device-specific runtime.
+runtime=${R_SIM_RUNTIME:-com.apple.CoreSimulator.SimRuntime.iOS-27-2}
 udid=$(xcrun simctl create "$name Snapshots" com.apple.CoreSimulator.SimDeviceType.iPhone-17 "$runtime")
 trap 'xcrun simctl shutdown "$udid" >/dev/null 2>&1 || true; xcrun simctl delete "$udid" >/dev/null 2>&1 || true' EXIT
 scripts/boot-simulator.sh "$udid" 300

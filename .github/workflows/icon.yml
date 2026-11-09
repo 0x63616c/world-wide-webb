@@ -7,6 +7,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: icon-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   changes:
     runs-on: [self-hosted, Linux, ARM64, homelab-linux]
@@ -79,7 +83,7 @@ jobs:
           plutil -extract CFBundleIcons json -o - "$app/Info.plist"
       - name: Photograph the launch screen
         run: |
-          runtime=com.apple.CoreSimulator.SimRuntime.iOS-27-0
+          runtime=com.apple.CoreSimulator.SimRuntime.iOS-27-2
           udid=$(xcrun simctl create "Launch" com.apple.CoreSimulator.SimDeviceType.iPhone-17 "$runtime")
           scripts/boot-simulator.sh "$udid" 300
           xcrun simctl status_bar "$udid" override --time "9:41" --dataNetwork wifi --wifiMode active --wifiBars 3 \
