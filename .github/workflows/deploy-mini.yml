@@ -23,7 +23,7 @@ jobs:
   source:
     name: Control Center source
     if: >-
-      github.ref == 'refs/heads/main' && vars.CONTROL_CENTER_PROMOTION_ENABLED == 'true' &&
+      github.ref == 'refs/heads/main' &&
       (github.event_name == 'workflow_dispatch' ||
        (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'))
     runs-on: ubuntu-24.04-arm
@@ -83,9 +83,12 @@ jobs:
           fetch-depth: 0
           ssh-key: ${{ secrets.CONTROL_CENTER_PROMOTION_DEPLOY_KEY }}
           persist-credentials: true
-      - name: Record the tested image in homelab desired state
+      - uses: ./.github/actions/github-cli
+      - uses: ./.github/actions/install-sops
+      - name: Propose the tested image in homelab desired state
         working-directory: .
         env:
+          SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
           IMAGE: ${{ needs.source.outputs.image_ref }}
           REVISION: ${{ needs.source.outputs.sha }}
           CI_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ needs.source.outputs.ci_run_id }}/attempts/${{ needs.source.outputs.ci_attempt }}

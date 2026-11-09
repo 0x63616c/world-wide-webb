@@ -92,7 +92,9 @@ jobs:
   apple:
     needs: changes
     if: needs.changes.outputs.apple == 'true'
-    runs-on: macos-26
+    runs-on: xcode-27
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -104,8 +106,8 @@ jobs:
       - name: Select supported Xcode
         id: xcode
         run: |
-          echo "DEVELOPER_DIR=$(python3 ../../.github/scripts/apple-toolchain.py)" >> "$GITHUB_ENV"
-          echo "cache-key=$(python3 ../../.github/scripts/apple-toolchain.py --cache-key)" >> "$GITHUB_OUTPUT"
+          xcodebuild -version
+          echo "cache-key=$(xcodebuild -version | shasum -a 256 | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
       - run: brew install xcodegen
       - id: apple-cache
         uses: actions/cache/restore@v4
@@ -162,12 +164,12 @@ jobs:
           cache-from: type=gha,scope=www-mini
           cache-to: type=gha,mode=max,scope=www-mini
       - uses: ./.github/actions/ghcr-login
-        if: vars.CONTROL_CENTER_IMAGE_DELIVERY_ENABLED == 'true' && github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.publish_image == 'true'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.publish_image == 'true'
         env:
           SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
       - name: Publish the built image without rebuilding
         id: image
-        if: vars.CONTROL_CENTER_IMAGE_DELIVERY_ENABLED == 'true' && github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.publish_image == 'true'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.publish_image == 'true'
         env:
           IMAGE: ghcr.io/0x63616c/www-control-center-mini:${{ github.sha }}
         run: |
@@ -179,7 +181,7 @@ jobs:
           IMAGE: ${{ steps.image.outputs.image || 'www-server:check' }}
         run: python3 tools/test_container.py "$IMAGE" "$GITHUB_SHA"
       - uses: actions/upload-artifact@v4
-        if: vars.CONTROL_CENTER_IMAGE_DELIVERY_ENABLED == 'true' && github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.publish_image == 'true'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.publish_image == 'true'
         with:
           name: ci-image
           path: apps/control-center/ci-image.json
