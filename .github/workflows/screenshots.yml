@@ -20,7 +20,7 @@ permissions:
 
 jobs:
   screenshots:
-    runs-on: macos-26
+    runs-on: [self-hosted, macOS, ARM64, homelab-tart]
     timeout-minutes: 60
     env:
       DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
