@@ -155,3 +155,20 @@ leaving Linux off does not permit a third macOS guest.
 The reviewed migration candidate adds a separately authorized `homelab-operations` route using
 the same Linux image and isolation. See [operations runners](operations-runners.md) for admission,
 queue-assignment limitations and the disabled staging canary. This route is not a live acceptance claim.
+
+## Retired validation cache cleanup
+
+On November 8, 2026, a root-level disk inventory found the retired canary's image cache
+and original Linux validation cache outside the permanent Tart home. The canary controller
+had been unloaded, its VM inventory was empty, and neither cache had open files. Both
+production pinned image caches and their explicit retention markers were verified separately.
+Only `/var/lib/_runner/linux-canary/tart/cache` and
+`/var/lib/_runner/linux-validation/cache` were removed directly; no Tart delete/GC was run.
+The stopped prepared validation VM, controller evidence, production caches and active guests
+were preserved. Observed physical free space rose from218.8GiB to305.6GiB, and the permanent
+controller then admitted a Linux guest alongside two running Mac guests without a policy change.
+
+When retiring future isolated validation inventories, check their lifecycle and the independent
+production cache before removing redundant caches. APFS clone sizes can overstate reclaimable
+bytes; measure actual free space before/after. Keep scheduled work, resource reservations and
+emergency reserves intact; do not use global image GC as an unscoped cleanup shortcut.

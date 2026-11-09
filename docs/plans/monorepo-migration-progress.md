@@ -1170,3 +1170,20 @@ floor. No original Apps or Callkeep workflow was in progress at inspection. Thes
 are not a writer drain or a ledger migration; recheck queued/running work and reconcile exact
 records when activating each replacement channel. This release-preparation/compatibility batch
 remains local pending its integrated final review and live acceptance.
+
+### Mixed-runner disk bottleneck removed
+
+A deeper privileged read-only inventory found retired test caches outside the production Tart
+home, missed by the earlier limited user inventory. The canary VM inventory was empty; neither
+cache had open files. Production Mac/Linux pinned cache files and explicit retention markers
+were verified before deleting only the unused canary/validation cache directories. No Tart GC,
+production cache deletion, host activation, runner hold or budget change occurred. The prepared
+validation VM and controller/test evidence remain. Observed physical free space rose from218.8
+to305.6GiB, above the224GiB two-Mac-plus-Linux admission threshold. The permanent controller
+subsequently showed both Mac attempts Running and an additional Linux attempt Starting.
+
+The current Folding preview job also completed the shared tool setup and entered actual capture,
+confirming the fresh-guest XcodeGen correction. Preview completion and the remaining PR checks
+are still pending. The combined local follow-up candidate received independent final approval,
+including historical artifact routing and native release preparation; it remains unpublished so
+these changes do not restart the baseline PR's captures.
