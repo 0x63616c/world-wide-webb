@@ -400,7 +400,7 @@ private struct TodayScreen: View {
   }
 }
 
-private struct SummaryCard<Content: View>: View {
+struct SummaryCard<Content: View>: View {
   @ViewBuilder var content: Content
   var body: some View {
     content
@@ -413,14 +413,24 @@ private struct SummaryCard<Content: View>: View {
   }
 }
 
-private struct MetricRow: View {
+struct MetricRow: View {
   let title: String
   let value: String
+  @ScaledMetric(relativeTo: .largeTitle) private var valueSize: CGFloat = 44
+
+  init(title: String, value: String) {
+    self.title = title
+    self.value = value
+  }
   var body: some View {
     VStack(alignment: .leading, spacing: 0) {
       Text(title).font(.subheadline).foregroundStyle(.secondary)
       Spacer(minLength: 8)
-      Text(value).font(.title2.weight(.semibold)).monospacedDigit()
+      Text(value)
+        .font(.system(size: valueSize, weight: .semibold, design: .rounded))
+        .monospacedDigit()
+        .lineLimit(1)
+        .minimumScaleFactor(0.6)
     }
     .frame(minHeight: 72, alignment: .leading)
     .accessibilityElement(children: .combine)
@@ -697,6 +707,14 @@ private struct SettingsScreen: View {
   @State private var resetConfirmation = false
   @State private var isTestFlight = false
 
+  private var diagnosticsVisible: Bool {
+    #if DEBUG
+      true
+    #else
+      isTestFlight
+    #endif
+  }
+
   private var versionDescription: String {
     let version =
       Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—"
@@ -809,6 +827,12 @@ private struct SettingsScreen: View {
           Link(
             String(localized: "support.privacy", defaultValue: "Privacy"),
             destination: URL(string: "https://getfolding.app/privacy")!)
+          if diagnosticsVisible, let load = actions.loadDiagnostics {
+            NavigationLink(String(localized: "diagnostics.title", defaultValue: "Diagnostics")) {
+              DiagnosticsScreen(
+                load: load, clear: actions.clearDiagnostics, check: actions.checkDiagnostics)
+            }
+          }
           LabeledContent(
             String(localized: "settings.version", defaultValue: "Version"),
             value: versionDescription
@@ -1397,7 +1421,7 @@ private struct LeaderboardScreen: View {
           grouping: value.entries.filter {
             (1...3).contains($0.rank) && !model.hiddenParticipantIDs.contains($0.id)
           }, by: \.rank)
-        if !podium.isEmpty {
+        Group {
           HStack(alignment: .bottom, spacing: 16) {
             ForEach([2, 1, 3], id: \.self) { rank in
               if let entries = podium[rank], let first = entries.first {

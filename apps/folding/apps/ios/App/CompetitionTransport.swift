@@ -1,5 +1,6 @@
 import CryptoKit
 import DeviceCheck
+import FoldingData
 import Foundation
 import Security
 
@@ -138,6 +139,8 @@ actor CompetitionTransport {
   private let credentials: CompetitionCredentialStore
   private let session: URLSession
   private let attestation: any CompetitionAttestation
+  private var diagnosticRecorder: (@Sendable (TrackingDiagnosticEntry) async -> Void)?
+  private var uploadDiagnostics: (worker: String, queue: String)?
   private var signing = false
   private var refreshing = false
   private var readRevision = UUID()
@@ -199,6 +202,51 @@ actor CompetitionTransport {
     try credentials.write(Self.encode(value), account: "session")
   }
   func sessionContext() -> UUID { sessionRevision }
+
+  func setUploadDiagnostics(worker: String, queue: String) {
+    uploadDiagnostics = (worker, queue)
+  }
+
+  func invalidateCommunityReads() { invalidateReads() }
+
+  func setDiagnosticRecorder(
+    _ recorder: @escaping @Sendable (TrackingDiagnosticEntry) async -> Void
+  ) {
+    diagnosticRecorder = recorder
+  }
+
+  func diagnosticCredentialSummary() -> String {
+    struct Expiry: Decodable {
+      let expiresAtMS: Int64
+      enum CodingKeys: String, CodingKey { case expiresAtMS = "expires_at_ms" }
+    }
+    let data = try? credentials.read("session")
+    let expiry = data.flatMap { try? JSONDecoder().decode(Expiry.self, from: $0) }
+    let enrolled = (try? credentials.read("attest-enrolled")) != nil
+    return
+      "session_present=\(data != nil)\nsession_expired=\(expiry.map { $0.expiresAtMS <= nowMS() } ?? true)\nattest_key_enrolled=\(enrolled)"
+  }
+
+  private func recordNetwork(
+    _ path: String, started: TimeInterval, data: Data? = nil, status: Int? = nil,
+    error: Error? = nil
+  ) {
+    guard let diagnosticRecorder else { return }
+    struct Correlation: Decodable {
+      let requestID: UUID?
+      enum CodingKeys: String, CodingKey { case requestID = "request_id" }
+    }
+    let correlation = data.flatMap {
+      $0.count <= 128 * 1024 ? try? JSONDecoder().decode(Correlation.self, from: $0) : nil
+    }
+    let failure = error.map(FoldingDiagnostics.errorInfo)
+    let entry = TrackingDiagnosticEntry(
+      atMS: nowMS(), event: .network, reason: failure?.0,
+      route: FoldingDiagnostics.route(path), status: status, detail: failure?.1,
+      durationMS: Int(max(0, ProcessInfo.processInfo.systemUptime - started) * 1000),
+      requestID: correlation?.requestID)
+    Task { await diagnosticRecorder(entry) }
+  }
 
   func replaceSession(_ value: CompetitionSession, context: UUID) throws {
     guard context == sessionRevision else { throw CancellationError() }
@@ -538,15 +586,26 @@ actor CompetitionTransport {
     request.httpBody = body
     request.setValue(contentType, forHTTPHeaderField: "Content-Type")
     request.setValue("application/json", forHTTPHeaderField: "Accept")
+    if let uploadDiagnostics {
+      request.setValue(uploadDiagnostics.worker, forHTTPHeaderField: "X-Folding-Upload-Worker")
+      request.setValue(uploadDiagnostics.queue, forHTTPHeaderField: "X-Folding-Upload-Queue")
+    }
     if let token {
       request.setValue("\(authorizationScheme) \(token)", forHTTPHeaderField: "Authorization")
     }
     for (name, value) in headers { request.setValue(value, forHTTPHeaderField: name) }
-    let (data, response) = try await session.data(for: request)
+    let started = ProcessInfo.processInfo.systemUptime
+    let data: Data
+    let response: URLResponse
+    do { (data, response) = try await session.data(for: request) } catch {
+      recordNetwork(path, started: started, error: error)
+      throw error
+    }
     guard revision == sessionRevision else { throw CancellationError() }
     guard let http = response as? HTTPURLResponse else {
       throw CompetitionTransportError.invalidResponse
     }
+    recordNetwork(path, started: started, data: data, status: http.statusCode)
     guard (200..<300).contains(http.statusCode) else {
       let failure = try? JSONDecoder().decode(CompetitionServiceFailure.self, from: data)
       if http.statusCode == 426, failure?.code == "app_update_required",

@@ -384,6 +384,34 @@ of the leaderboard pending count in every locale. Production health remains `ok`
 at the existing compatible backend revision `8ed02ee`; this app-only delivery
 reused its verified backend receipt and did not deploy another Worker.
 
-Actual phone totals after installing/reopening build 16 and the original error
-that paused its queue remain unverified. Existing App Store and physical-device
-acceptance deferrals remain open.
+The owner confirmed build 16 still shows 97 personal folds versus 21 on the
+leaderboard. Read-only production observations showed successful leaderboard reads
+but no event, history or attestation requests after reopening. The initial recovery
+change did not resolve the handset failure; its stopping point remains unverified.
+
+### Foreground upload and TestFlight diagnostics — November 9
+
+The follow-up runs the existing uploader before a first-page leaderboard refresh,
+then invalidates cached community reads. The actual controller/runtime/transport
+regression fixture first failed with only GET requests and 21 folds; with the
+change it preserves a pending operation, uploads 34 live observations, then imports
+32 original history observations across refreshes (55 then 87). This fixture proves
+the foreground path, not the owner's private device reconciliation.
+
+TestFlight/debug Settings adds a bounded, persistent local diagnostics report with
+Copy, Share, Clear logs and an explicit connection check. It records closed metadata
+for capture processing, upload queue/leases/retries, session and attestation state,
+HTTP outcomes and correlation IDs, iCloud, widgets, notifications, lifecycle,
+build/OS/layout and cached personal/leaderboard totals. Reports omit credentials,
+raw errors, names, photo data and captured event bodies. Genuine history reset
+clears the logs; repeated reset markers preserve them. Diagnostics reads do not
+wait for background upload or replay.
+
+The shared metric value uses larger Dynamic Type-aware text, and empty leaderboards
+retain all three podium placeholders. Publication and Apple delivery of this
+follow-up are pending. Local validation passed 116 package tests, 75 app-hosted
+tests on the pinned Duo runtime, 48 backend Rust tests and 30 actual Worker/D1
+runtime tests, strict Swift formatting and localization (236 keys across ten
+locales plus ten regression checks). Direct production-view renders verified the
+large value and empty podium; the owned simulator was shut down and deleted.
+Existing App Store and physical-device acceptance deferrals remain open.

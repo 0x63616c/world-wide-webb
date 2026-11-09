@@ -30,6 +30,7 @@ import struct FoldingData.SetupProgress
   private var accountChanging = false
   private var accountChangeRevision = UUID()
   private var didLoad = false
+  private var diagnosticServerRevision = "not_checked"
   private var flushingEntryDeletions = false
   private var deletionRetryAfter = Date.distantPast
   private let preferencesKey = "folding.preferences.v1"
@@ -37,9 +38,11 @@ import struct FoldingData.SetupProgress
 
   init(
     runtime: TrackingRuntime = .shared, preferencesStore: UserDefaults = .standard,
-    initialPreferences: FoldingPreferences = FoldingPreferences()
+    initialPreferences: FoldingPreferences = FoldingPreferences(),
+    competitionAPI: CompetitionAPI? = nil
   ) {
     self.runtime = runtime
+    self.competitionAPI = competitionAPI
     self.preferencesStore = preferencesStore
     self.notifications = NotificationSettingsStore(defaults: preferencesStore)
     presentation.preferences = initialPreferences
@@ -266,7 +269,10 @@ import struct FoldingData.SetupProgress
         await self.runtime.publishWidgets()
         await self.flushEntryDeletions()
         await self.runtime.synchronizePrivateHistory()
-      })
+      },
+      loadDiagnostics: { try await self.makeDiagnosticReport() },
+      clearDiagnostics: { try await self.runtime.clearDiagnostics() },
+      checkDiagnostics: { try await self.checkDiagnosticConnection() })
   }
 
   private func beginAccountDeletion() async throws {
@@ -354,6 +360,55 @@ import struct FoldingData.SetupProgress
     }
   }
 
+  func recordLifecycle(_ phase: ScenePhase) async {
+    await runtime.recordLifecycle(
+      phase == .active ? .foreground : phase == .background ? .background : .inactive)
+  }
+
+  private func makeDiagnosticReport() async throws -> String {
+    let identity = accountChangeRevision
+    let runtimeReport = await runtime.diagnosticReport()
+    let credentials =
+      await competitionAPI?.transport.diagnosticCredentialSummary() ?? "session_state=not_loaded"
+    guard identity == accountChangeRevision, !accountChanging else { throw CancellationError() }
+    var lines = [
+      runtimeReport, credentials,
+      "server_revision=\(diagnosticServerRevision)",
+      "notification_permission=\(String(describing: presentation.notificationAuthorization))",
+      "daily_notification_enabled=\(notifications.preferences.dailyLimit)",
+      "tracking_phone=\(presentation.publicTrackingPhone == .thisPhone ? "this_phone" : presentation.publicTrackingPhone == .anotherPhone ? "other_phone" : "none")",
+    ]
+    if let personal = presentation.analytics {
+      lines.append("personal_folds=\(personal.lifetime.folds)")
+    }
+    if let board = presentation.competition.previous {
+      lines.append("board_period=\(presentation.competitionPeriod.rawValue)")
+      lines.append("board_folds=\(board.currentUser?.folds ?? 0)")
+      lines.append("board_cached_at=\(board.updatedAt.ISO8601Format())")
+    }
+    return lines.joined(separator: "\n")
+  }
+
+  private func checkDiagnosticConnection() async throws {
+    struct Health: Decodable, Sendable {
+      let status: String
+      let workerVersion: String
+      enum CodingKeys: String, CodingKey {
+        case status
+        case workerVersion = "worker_version"
+      }
+    }
+    let api = try await competitionClient()
+    let health: Health = try await api.transport.send(
+      "GET", path: "/v1/health", authenticated: false)
+    guard health.status == "ok" else { throw CompetitionTransportError.unavailable }
+    diagnosticServerRevision =
+      health.workerVersion.count == 40
+        && health.workerVersion.utf8.allSatisfy {
+          (48...57).contains($0) || (97...102).contains($0)
+        } ? health.workerVersion : "unconfigured"
+  }
+
   private func competitionClient() async throws -> CompetitionAPI {
     guard !accountChanging else { throw CancellationError() }
     let identity = accountChangeRevision
@@ -367,6 +422,7 @@ import struct FoldingData.SetupProgress
       origin: origin, deployment: environment,
       deviceID: store.deviceID, bundleID: Bundle.main.bundleIdentifier ?? "app.getfolding.Folding")
     guard identity == accountChangeRevision, !accountChanging else { throw CancellationError() }
+    await FoldingDiagnostics.attach(to: transport, store: store)
     let api = CompetitionAPI(transport: transport, deviceID: store.deviceID)
     competitionAPI = api
     return api
@@ -667,6 +723,14 @@ import struct FoldingData.SetupProgress
     -> LeaderboardPresentation
   {
     let api = try await competitionClient()
+    if cursor == nil {
+      await runtime.uploadCompetition(using: api.transport)
+      await api.transport.invalidateCommunityReads()
+    }
+    if FoldingDiagnostics.enabled {
+      let diagnostics = await runtime.uploadDiagnostics()
+      await api.transport.setUploadDiagnostics(worker: diagnostics.worker, queue: diagnostics.queue)
+    }
     let board: CompetitionBoard
     do {
       board = try await api.leaderboard(kind: period.rawValue, cursor: cursor)
