@@ -99,7 +99,7 @@ jobs:
     name: Folding domain and storage
     needs: selection
     if: contains(fromJSON(needs.selection.outputs.verify), 'folding.native')
-    runs-on: [self-hosted, macOS, ARM64, homelab-tart]
+    runs-on: xcode-27
     timeout-minutes: 35
     env:
       DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
@@ -121,7 +121,7 @@ jobs:
     name: Folding native
     needs: selection
     if: contains(fromJSON(needs.selection.outputs.verify), 'folding.native')
-    runs-on: [self-hosted, macOS, ARM64, homelab-tart]
+    runs-on: xcode-27
     timeout-minutes: 60
     env:
       DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer

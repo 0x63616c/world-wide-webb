@@ -48,8 +48,8 @@ sealed binaries are reused. App Store submission retains its broader explicit ga
 
 GitHub's [hosted image inventory](https://github.com/actions/runner-images/blob/main/images/macos/xcode-27-arm64-Readme.md)
 includes Xcode 27.2 (27B52) and Duo/iOS 27.2 under `runs-on: xcode-27`. The earlier claim that
-hosted Macs could not supply Folding's toolchain was wrong. Current homelab routing is a workflow
-choice, not a GitHub availability constraint; this delivery checkpoint does not claim a hosted run.
+hosted Macs could not supply Folding's toolchain was wrong. Apple jobs now target `xcode-27`; this checkpoint’s build 15 itself was signed locally,
+with native CI on homelab before that runner-label correction.
 
 The original Folding repository still owns legacy read-only artifacts and shipping issues. Keep
 it available until those references/consumers are accounted for. The beta does not complete

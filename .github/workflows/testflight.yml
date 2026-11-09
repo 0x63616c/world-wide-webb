@@ -91,7 +91,7 @@ jobs:
     concurrency:
       group: app-store-${{ matrix.app }}
       cancel-in-progress: false
-    runs-on: [self-hosted, macOS, ARM64, homelab-tart]
+    runs-on: xcode-27
     timeout-minutes: 180
     env:
       DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer

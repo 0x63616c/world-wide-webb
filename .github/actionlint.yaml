@@ -3,3 +3,6 @@ self-hosted-runner:
     - homelab-tart
     - homelab-linux
     - homelab-operations
+    # GitHub-hosted label missing from actionlint 1.7.12's built-in inventory.
+    # This is only a lint allowlist; runs-on: xcode-27 selects GitHub's hosted image.
+    - xcode-27

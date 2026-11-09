@@ -1,7 +1,7 @@
 name: Tendr CI
 
 # Verify affected standard iOS apps, Tendr-local RDesign and the new-app template
-# on disposable homelab guests. Publication is handled by the product delivery workflow.
+# on GitHub-hosted runners. Publication is handled by the product delivery workflow.
 on:
   push:
     branches: [main]
@@ -127,7 +127,7 @@ jobs:
   rdesign:
     needs: changes
     if: needs.changes.outputs.rdesign == 'true'
-    runs-on: [self-hosted, macOS, ARM64, homelab-tart]
+    runs-on: xcode-27
     timeout-minutes: 60
     env:
       DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
@@ -145,7 +145,7 @@ jobs:
       fail-fast: false
       matrix:
         app: ${{ fromJSON(needs.changes.outputs.apps) }}
-    runs-on: [self-hosted, macOS, ARM64, homelab-tart]
+    runs-on: xcode-27
     timeout-minutes: 60
     env:
       DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
@@ -181,7 +181,7 @@ jobs:
   template:
     needs: changes
     if: needs.changes.outputs.template == 'true'
-    runs-on: [self-hosted, macOS, ARM64, homelab-tart]
+    runs-on: xcode-27
     timeout-minutes: 60
     env:
       DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer

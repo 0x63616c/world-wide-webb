@@ -39,7 +39,7 @@ jobs:
   publish:
     needs: selection
     if: needs.selection.outputs.publish == 'true'
-    runs-on: [self-hosted, macOS, ARM64, homelab-tart]
+    runs-on: xcode-27
     timeout-minutes: 120
     environment: production
     concurrency:

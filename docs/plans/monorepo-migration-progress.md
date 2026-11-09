@@ -26,7 +26,7 @@ provider-version receipt. Live staging history-import and badge queue checks use
 synthetic accounts, removed afterward; they do not establish Apple enrollment or APNs delivery.
 
 GitHub’s hosted `xcode-27` image supports Xcode 27.2 and Duo. Earlier claims that the toolchain
-required homelab were wrong; current 27.2 routing is configuration, not provider availability.
+required homelab were wrong. Xcode 27.2 jobs now target hosted `xcode-27`; other hosted routes remain intact.
 
 Normal relevant CI and checks of changed sites/infrastructure are sufficient for the remaining
 migration. Product releases happen when needed; extra release, screenshot, restore and review

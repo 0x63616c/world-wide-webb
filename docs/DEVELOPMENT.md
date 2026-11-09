@@ -47,7 +47,7 @@ Apple runtime availability and credentials remain the relevant workflow's respon
   Node for tools and suites that require it.
 - Python environments and pinned requirements, ShellCheck and actionlint. Use explicit hosted
   or homelab labels and product pins. GitHub’s `xcode-27` image includes Xcode 27.2 and Duo;
-  those requirements alone do not require a homelab guest. Runtime/client setup is part of
+  Apple jobs pinned to that toolchain use `runs-on: xcode-27`. Runtime/client setup is part of
   the job contract; do not assume an image’s default tool versions match the product pins.
 - OpenTofu owns durable Cloudflare resources; Wrangler owns Worker code/assets and explicit D1
   operations. Keep one owner for each resource/property. SOPS/age and 1Password retain their roles.
