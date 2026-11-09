@@ -8,14 +8,10 @@ export DEBIAN_FRONTEND=noninteractive
 sudo apt-get update
 sudo apt-get install -y --no-install-recommends \
   ca-certificates curl git build-essential pkg-config libssl-dev \
-  libicu74 libkrb5-3 zlib1g libunwind8 docker.io python3 python3-venv python3-yaml jq
+  libicu74 libkrb5-3 zlib1g libunwind8 docker.io python3 python3-venv python3-yaml jq patch
 sudo usermod -aG docker admin
 # The image's RPC service runs as admin; new sessions pick up the Docker group.
-curl -fL --retry 3 https://github.com/openai/tart-guest-agent/releases/download/v0.15.0/tart-guest-agent-linux-arm64.tar.gz -o /tmp/tart-agent.tar.gz
-printf '%s  %s\n' ec9d6111137f8a1e3c51b0df91fa7aaab9bb1af5fa155a370a8fc17f03c624e3 /tmp/tart-agent.tar.gz | sha256sum --check
-mkdir -p /tmp/tart-agent
-tar -xzf /tmp/tart-agent.tar.gz -C /tmp/tart-agent
-sudo install -m 0555 /tmp/tart-agent/tart-guest-agent /usr/local/bin/tart-guest-agent
+bash /home/admin/runner-source/images/linux/provision-guest-agent.sh
 sudo install -m 0644 /home/admin/runner-source/images/linux/tart-guest-agent.service /etc/systemd/system/tart-guest-agent.service
 # Pin the toolchain; Cargo.lock pins dependencies. The resulting ELF helper
 # lives in the image, never in a Darwin Nix closure.

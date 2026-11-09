@@ -1,0 +1,128 @@
+--- a/internal/rpc/rpc.go
++++ b/internal/rpc/rpc.go
+@@ -5,10 +5,12 @@
+ 	"net"
+ 	"os"
+ 	"slices"
++	"time"
+ 
+ 	"github.com/cirruslabs/tart-guest-agent/pkg/v1"
+ 	"github.com/puzpuzpuz/xsync/v4"
+ 	"google.golang.org/grpc"
++	"google.golang.org/grpc/keepalive"
+ )
+ 
+ type RPC struct {
+@@ -26,7 +28,11 @@
+ 	}
+ 
+ 	rpc := &RPC{
+-		grpcServer:  grpc.NewServer(),
++		// Linux vsock transports may remain open after the host exec client exits.
++		// Reclaim idle connections; active RPCs, including long execs, stay open.
++		grpcServer: grpc.NewServer(grpc.KeepaliveParams(keepalive.ServerParameters{
++			MaxConnectionIdle: time.Second,
++		})),
+ 		listener:    listener,
+ 		execs:       xsync.NewMap[string, *os.Process](),
+ 		execWrapper: slices.Clone(execWrapper),
+--- /dev/null
++++ b/internal/rpc/connection_idle_test.go
+@@ -0,0 +1,97 @@
++package rpc
++
++import (
++	"context"
++	"io"
++	"net"
++	"sync"
++	"sync/atomic"
++	"testing"
++	"time"
++
++	"github.com/cirruslabs/tart-guest-agent/pkg/v1"
++	"github.com/stretchr/testify/require"
++	"google.golang.org/grpc"
++	"google.golang.org/grpc/credentials/insecure"
++	"google.golang.org/grpc/test/bufconn"
++)
++
++type countedListener struct {
++	net.Listener
++	active atomic.Int64
++}
++type countedConnection struct {
++	net.Conn
++	listener *countedListener
++	once     sync.Once
++}
++
++func (l *countedListener) Accept() (net.Conn, error) {
++	c, err := l.Listener.Accept()
++	if err != nil {
++		return nil, err
++	}
++	l.active.Add(1)
++	return &countedConnection{Conn: c, listener: l}, nil
++}
++func (c *countedConnection) Close() error {
++	c.once.Do(func() { c.listener.active.Add(-1) })
++	return c.Conn.Close()
++}
++func connectionTest(t *testing.T) (*countedListener, v1.AgentClient) {
++	t.Helper()
++	pipe := bufconn.Listen(1024 * 1024)
++	listener := &countedListener{Listener: pipe}
++	agent, err := New(listener)
++	require.NoError(t, err)
++	go func() { _ = agent.grpcServer.Serve(listener) }()
++	t.Cleanup(agent.grpcServer.Stop)
++	conn, err := grpc.NewClient("passthrough:///idle-test", grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithContextDialer(func(ctx context.Context, _ string) (net.Conn, error) { return pipe.DialContext(ctx) }))
++	require.NoError(t, err)
++	t.Cleanup(func() { _ = conn.Close() })
++	return listener, v1.NewAgentClient(conn)
++}
++func TestCompletedExecReleasesIdleConnection(t *testing.T) {
++	listener, client := connectionTest(t)
++	ctx, cancel := context.WithTimeout(t.Context(), 8*time.Second)
++	defer cancel()
++	stream, err := client.Exec(ctx)
++	require.NoError(t, err)
++	require.NoError(t, stream.Send(&v1.ExecRequest{Type: &v1.ExecRequest_Command_{Command: &v1.ExecRequest_Command{Name: "/usr/bin/true"}}}))
++	for {
++		response, err := stream.Recv()
++		if err == io.EOF {
++			break
++		}
++		require.NoError(t, err)
++		if response.GetExit() != nil {
++			require.Zero(t, response.GetExit().GetCode())
++		}
++	}
++	// The host-side client intentionally remains open: the guest must reclaim idle
++	// transport resources without waiting for another process to dispose of them.
++	require.Eventually(t, func() bool { return listener.active.Load() == 0 }, 4*time.Second, 10*time.Millisecond, "completed exec retained its idle transport")
++}
++func TestActiveExecSurvivesIdleLimit(t *testing.T) {
++	listener, client := connectionTest(t)
++	ctx, cancel := context.WithTimeout(t.Context(), 8*time.Second)
++	defer cancel()
++	stream, err := client.Exec(ctx)
++	require.NoError(t, err)
++	require.NoError(t, stream.Send(&v1.ExecRequest{Type: &v1.ExecRequest_Command_{Command: &v1.ExecRequest_Command{Name: "/bin/sleep", Args: []string{"3"}}}}))
++	response, err := stream.Recv()
++	require.NoError(t, err)
++	require.NotNil(t, response.GetStarted())
++	time.Sleep(1500 * time.Millisecond)
++	require.Equal(t, int64(1), listener.active.Load(), "active command must keep its transport")
++	for {
++		response, err = stream.Recv()
++		if err == io.EOF {
++			break
++		}
++		require.NoError(t, err)
++		if response.GetExit() != nil {
++			require.Zero(t, response.GetExit().GetCode())
++		}
++	}
++}
