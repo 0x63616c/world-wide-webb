@@ -10,7 +10,6 @@ permissions:
 jobs:
   selection:
     if: >-
-      vars.CALLKEEP_DELIVERY_ENABLED == 'true' &&
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.event == 'push' &&
       github.event.workflow_run.head_repository.full_name == github.repository
@@ -62,7 +61,7 @@ jobs:
           fetch-depth: 0
           filter: blob:none
           persist-credentials: false
-      - name: Set the private release-state path
+      - name: Set the release-state path
         run: echo "CALLKEEP_RELEASE_STATE=$RUNNER_TEMP/callkeep-release.json" >> "$GITHUB_ENV"
       - id: reserve
         name: Reserve or resume this verified source
@@ -92,18 +91,18 @@ jobs:
           APPLE_API_KEY_ID: ${{ secrets.CALLKEEP_APPLE_API_KEY_ID }}
           APPLE_API_ISSUER_ID: ${{ secrets.CALLKEEP_APPLE_API_ISSUER_ID }}
         run: Scripts/notarize.sh build/Build/Products/Release/Callkeep.app "build/releases/$VERSION/Callkeep-$VERSION.zip"
-      - name: Seal private archive, symbols and notarization receipt
+      - name: Seal signed archive, symbols and notarization receipt
         if: steps.reserve.outputs.needed == 'true' && steps.reserve.outputs.build == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: python3 Scripts/release.py seal --state "$CALLKEEP_RELEASE_STATE"
       - id: artifact
-        name: Promote the same sealed app to its immutable private Git tag
+        name: Publish the same sealed app as a public release
         if: steps.reserve.outputs.needed == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: python3 Scripts/release.py promote --state "$CALLKEEP_RELEASE_STATE"
-      - name: Verify authenticated Homebrew staging and anonymous denial
+      - name: Verify the public archive download
         if: steps.reserve.outputs.needed == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
@@ -111,7 +110,6 @@ jobs:
           HOMEBREW_NO_AUTO_UPDATE: '1'
           HOMEBREW_NO_ANALYTICS: '1'
         run: |
-          git config --global credential.https://github.com.helper '!gh auth git-credential'
           python3 Scripts/release.py verify-download --state "$CALLKEEP_RELEASE_STATE"
       - name: Check out the installation recipe authority
         if: steps.reserve.outputs.needed == 'true'
@@ -141,7 +139,7 @@ jobs:
             done
           fi
           git fetch origin main
-      - name: Confirm the exact private install authority
+      - name: Confirm the exact Homebrew recipe
         if: steps.reserve.outputs.needed == 'true'
         env:
           GH_TOKEN: ${{ github.token }}

@@ -1,30 +1,24 @@
-# Private CLI releases
+# CLI releases
 
-Source lives in `homelab/cli`; installation remains `brew install 0x63616c/tap/homelab`.
-Homebrew uses authenticated HTTPS Git access to private WWW. Run `gh auth setup-git`
-after signing in with an account that can read WWW, then use `brew upgrade` for updates.
-The CLI does not query a public release endpoint.
+Source lives in `homelab/cli`. Install with `brew install 0x63616c/tap/homelab` and
+update with `brew upgrade homelab`. Release downloads are public and require no GitHub login.
+The CLI still uses GitHub authentication for managing your configuration repository.
 
-`Homelab CI` builds and tests the portable Apple silicon CLI and its matching host helper.
-`Homelab CLI delivery` consumes that exact main-source artifact; it never recompiles it.
-The publisher checks the CI attempt, named build, archive checksum, payload boundaries and
-both binary versions. It publishes a zero-parent immutable `dist/homelab/vVERSION` Git tag
-containing only binaries, packaged docs/schema and their source-bound receipt.
+`Homelab CI` builds and tests the portable Apple silicon CLI and matching host helper.
+`Homelab CLI delivery` publishes that exact main-source tarball as
+`homelab/vVERSION`, with asset `homelab-VERSION.tar.gz`; it never recompiles it.
+It checks the successful CI attempt and named build, archive checksum, safe payload and
+binary versions. The public download must match before it updates only `Formula/homelab.rb`.
+The formula pins the ordinary release URL and SHA-256 and installs binaries, docs and schema.
 
-Before the tap changes, the actual Homebrew downloader must fetch and stage the exact private
-commit. The publisher compares every payload byte, executable flag and symlink with its
-receipt, confirms anonymous download denial, and rejects an older or conflicting formula.
-Only `Formula/homelab.rb` is updated. CLI delivery uses the existing repository-scoped tap key;
-its current GitHub secret name is `CALLKEEP_HOMEBREW_TAP_DEPLOY_KEY` because Callkeep introduced it.
-It is shared installation infrastructure, with no access to other repositories.
+Bump the CLI package version in `Cargo.toml` and `Cargo.lock` for runtime/schema releases.
+A released version cannot be replaced; retrying publication uses the same checked artifact.
+Documentation/test-only changes verify without republishing or activating hosts.
+Host configuration promotion is independent of CLI publication.
 
-Bump the CLI package version in `Cargo.toml` and `Cargo.lock` with runtime/schema changes intended
-for release. The first private version is 0.4.2. A version's artifact cannot be replaced; retrying
-publication reuses the same checked artifact. Documentation/test-only changes verify without
-republishing a CLI or activating hosts. Host source promotion is a separate workflow and flag.
+There is no CLI delivery enable variable. The tap key retains its existing secret name,
+`CALLKEEP_HOMEBREW_TAP_DEPLOY_KEY`, shared with the Callkeep publisher. The publishers
+rebase their independent recipe updates before pushing to the tap.
 
-`HOMELAB_CLI_DELIVERY_ENABLED` remains off during migration. Acceptance still requires successful
-real main CI, authenticated fetch/staging, installation and `brew test`, matching CLI/helper
-versions, and preserved existing profiles/recovery state. The new workflow and local tests alone
-do not prove delivery. Keep the old repository and public releases until those checks pass.
-Historical schema IDs and pinned VM helper fixtures remain deliberately preserved.
+The old `homelab-cli` repository retains historical public downloads after archival.
+Historical schema IDs and pinned VM helper fixtures are intentionally preserved.

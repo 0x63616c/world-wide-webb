@@ -10,7 +10,6 @@ permissions:
 jobs:
   selection:
     if: >-
-      vars.HOMELAB_CLI_DELIVERY_ENABLED == 'true' &&
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.event == 'push' &&
       github.event.workflow_run.head_repository.full_name == github.repository
@@ -71,10 +70,8 @@ jobs:
       - name: Publish the tested immutable CLI payload
         run: |
           python3 scripts/distribution/homelab.py "$RUNNER_TEMP/homelab-tested-build" "$RUNNER_TEMP/homelab-distribution"
-      - name: Verify the actual private Homebrew transport
+      - name: Verify the public CLI archive
         run: |
-          git config --global credential.https://github.com.helper '!gh auth git-credential'
-          brew ruby scripts/distribution/verify-homelab-download.rb "$RUNNER_TEMP/homelab-distribution/release.json" "$RUNNER_TEMP/homelab-distribution"
           python3 scripts/distribution/homelab.py "$RUNNER_TEMP/homelab-tested-build" "$RUNNER_TEMP/homelab-distribution" --verify-download
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
@@ -90,7 +87,7 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add Formula/homelab.rb
           if ! git diff --cached --quiet; then
-            git commit -m 'chore(homelab): publish verified private CLI'
+            git commit -m 'chore(homelab): publish verified CLI'
             for attempt in 1 2 3; do
               git pull --rebase origin main
               if git push origin HEAD:main; then break; fi

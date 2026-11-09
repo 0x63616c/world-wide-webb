@@ -25,7 +25,7 @@ Nix runs on the target Mac. You do not need Nix on your personal laptop.
 
 ![Your laptop enrolls each Mac once. Each node runs SSH, Tailscale, Nix, nix-darwin and Comin. Comin pulls configuration from your private GitHub repo. Optional containers and runner VMs are configured separately.](docs/images/architecture.svg)
 
-The CLI and its tests live here in private WWW, beside the host configuration.
+The CLI and its tests live here in WWW, beside the host configuration.
 The setup interface can still attach another compatible configuration repository. This enrollment flow
 requires Comin for updates: checked host changes are promoted from authoring `main` to
 `deploy/homelab`; that ref authorizes the next deployment. Historical schema1/2
@@ -47,8 +47,7 @@ The target receives its own scoped credentials; it does not receive your
 
 ## Get started
 
-After the private distribution handover, install with GitHub access to WWW configured
-for HTTPS Git (for example, `gh auth setup-git` after signing in):
+Install the public release through Homebrew:
 
 ```sh
 brew install 0x63616c/tap/homelab
@@ -158,21 +157,18 @@ never belong in the manifest.
 - [Configuration contract](docs/configuration.md) — connect your private Nix repository.
 - [Example manifest](examples/homelab.json) — host facts and credential references, not a complete flake.
 - [Testing](docs/testing.md) — automated checks and disposable macOS rehearsals.
-- [Private releases](docs/releases.md) — tested artifacts, authenticated Homebrew and handover acceptance.
+- [Releases](docs/releases.md) — tested public artifacts and automatic Homebrew updates.
 - [Contributing](CONTRIBUTING.md) — build, test and propose changes.
 
 ## License
 
 [MIT](LICENSE).
 
-## Private distribution handover
+## Distribution
 
-The CLI source is now in private `world-wide-webb/homelab/cli`. Homebrew owns CLI upgrades;
-the app no longer polls the retired public GitHub release endpoint or reads its cached notices.
-Existing profiles, installation receipts and the old cache remain preserved. Private Homebrew
-publication and preserve-state repository rebind are pending migration acceptance; moving this
-source alone does not change an installed client's repository or host Git identity.
-
+CLI source and publication live in `world-wide-webb/homelab/cli`. Homebrew owns upgrades;
+the CLI no longer polls the old release endpoint. Existing profiles, installation receipts
+and cached notices are preserved. Installing a new CLI does not change a host's Git identity.
 
 ### Checked revision during setup
 
@@ -190,3 +186,13 @@ Legacy configurations keep their original behavior and do not contact the new pr
 This migration candidate is verified with isolated protocol, UI and CLI tests. Actual preserved
 profile/repository rebind, scoped Git access, reboot and off-host recovery remain acceptance work;
 a source move or successful package build alone does not prove them.
+
+## CLI releases
+
+`homelab-ci.yml` tests and packages portable Apple silicon binaries. After relevant main
+changes pass, `homelab-cli-release.yml` publishes that exact tarball as `homelab/vVERSION`,
+checks the public download and updates only `Formula/homelab.rb` in `homebrew-tap`.
+No migration enable switch or GitHub authentication is needed to download the CLI.
+Bump `homelab/cli/Cargo.toml` and its lockfile package version when releasing CLI changes;
+a released version cannot be overwritten. The formula installs both binaries and packaged docs.
+The archived `homelab-cli` repository retains old releases; new releases belong to WWW.

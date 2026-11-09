@@ -23,6 +23,15 @@ were checked. The old apps site writer is disabled; its Pages host remains for i
 [Home Cloudflare apply](https://github.com/0x63616c/world-wide-webb/actions/runs/42649263710/attempts/2)
 passed using the existing encrypted state and resources. No replacement state or infrastructure was created.
 
+## Callkeep and CLI publication
+
+The public publisher cutover removes both migration enable gates and replaces Git artifact
+transport with ordinary release archives and SHA-256 Homebrew recipes. Product tags are
+`callkeep/v1.0.N` and `homelab/vVERSION`. Each publisher updates only its own tap recipe after
+its selected main CI succeeds. Keep historical releases; archive the old source repositories
+after the first WWW releases and tap updates succeed. Current execution evidence belongs in
+`monorepo-migration-progress.md` once delivery completes.
+
 ## Finish remaining references and cleanup
 
 - Fix remaining app, CLI and Homebrew source/release references. Use the existing pipelines;

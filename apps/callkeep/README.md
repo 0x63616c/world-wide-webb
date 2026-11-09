@@ -76,8 +76,7 @@ brew tap 0x63616c/tap
 brew install --cask callkeep
 ```
 
-Updates use `brew upgrade --cask 0x63616c/tap/callkeep`. The private transition recipe
-requires GitHub Git access to WWW; its cutover is tracked below.
+Updates use `brew upgrade --cask 0x63616c/tap/callkeep`. Downloads are public; no GitHub login is needed.
 Requires macOS 15 or later on Apple silicon or Intel. New release builds are signed with Developer ID and notarized by Apple.
 Versions through 0.1.3 were ad-hoc signed and may require approval in **System Settings → Privacy & Security**.
 
@@ -97,26 +96,18 @@ Xcode resolves the pinned transcription packages through Swift Package Manager. 
 
 [Development and permissions](docs/DEVELOPMENT.md) · [Recording and storage](docs/RECORDING.md) · [Validation](docs/VALIDATION.md)
 
-## Private distribution migration
-
-The monorepo candidate uses Homebrew for updates. Sparkle, the public appcast and in-app
-update controls are removed. Keep the existing bundle/signing and iCloud identities.
-The replacement authenticated recipe and transition upgrade are still being verified; the
-production tap remains on its existing release until that cutover.
-
-Signed/notarized archives and receipts will be retained privately for recovery. Git access
-to the source repository is required for artifact downloads. A GitHub login used only for
-the tap does not automatically authorize a separate HTTP release URL.
-
 ## Release automation
 
-The monorepo's `callkeep-ci.yml` verifies this product independently. `callkeep-release.yml`
-reserves a product source tag, builds both Mac architectures, uses the existing Developer ID
-notarization scripts, and seals the app ZIP, symbols and Apple acceptance receipt privately.
-Retries reuse those exact sealed files. An interrupted unsealed build burns its counter.
+Homebrew owns updates. Sparkle, the old appcast and in-app update controls are removed;
+existing bundle/signing and iCloud identities are preserved.
 
-The producer fetches and stages the private payload through Homebrew, checks its signature,
-source/version identity and anonymous denial, then updates only this cask in the tap. It records
-completion after reading the exact recipe back from the real tap's main branch. Production
-activation remains off until the migration's signing/legacy-writer/private-install canaries pass.
-Intel slices are built and checked; this alone does not prove Intel runtime behavior.
+After relevant changes pass `callkeep-ci.yml` on main, `callkeep-release.yml` reserves
+`callkeep/v1.0.N`, builds both Mac architectures, signs with Developer ID and notarizes.
+It retains the ZIP, symbols and acceptance receipt, downloads the public ZIP again and
+checks its checksum, signature and source identity before updating only Callkeep's tap cask.
+Retries reuse sealed artifacts; interrupted unsealed builds receive a new counter.
+The tap uses a standard ZIP URL and SHA-256, without custom Git download strategies or
+migration enable switches. Intel slices are built and checked; this does not prove Intel runtime behavior.
+
+The old `callkeep` repository retains historical releases for existing downloads. New releases
+come from [WWW](https://github.com/0x63616c/world-wide-webb/releases).
