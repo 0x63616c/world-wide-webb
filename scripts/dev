@@ -10,6 +10,7 @@ Usage: scripts/dev <command>
   apps                         List app folders
   new <Name> <bundle-suffix> [--backend cloudflare]   Create an independent app
   check <app>                  Run the product's local checks
+  homelab [planner|activation|backup|all]...  Run focused local homelab tests
   affected <base> [options]    Resolve affected apps (verification by default)
   doctor                       Check shared local tools without signing in
 
@@ -26,6 +27,9 @@ case "$command_name" in
   apps)
     (($# == 0)) || fail 'apps takes no arguments'
     exec ruby scripts/app-config.rb --list
+    ;;
+  homelab)
+    exec python3 scripts/homelab/dev_check.py "$@"
     ;;
   new)
     (($# == 2 || $# == 4)) || fail 'new needs <Name> <bundle-suffix> [--backend cloudflare]'

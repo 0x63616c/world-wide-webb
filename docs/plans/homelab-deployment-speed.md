@@ -1,7 +1,7 @@
 # Faster homelab deployment
 
-Status: proposed implementation plan, November 9, 2026. No deployment behavior is
-changed by this document. Baseline source: `9fdbbe36cacdaf6ab50f553c06da5c9e298c6569`.
+Status: implementation started locally, November 9, 2026. No production deployment
+has occurred. Baseline source: `9fdbbe36cacdaf6ab50f553c06da5c9e298c6569`.
 Independent review and its disposition are recorded below.
 
 ## Outcome
@@ -67,6 +67,31 @@ do not wrap it in another updater. Record promotion time separately. A post-prom
 read-only observation should report accepted, pending or failed with the installed
 source, current/boot profile agreement and final transaction receipt. Do not run
 backups/restores merely to obtain a baseline; use normal scheduled/deployment work.
+
+## Development loop
+
+Implement the pure deployment planner and fixture harness before adding Nix input
+generation. Most scope decisions should be verifiable locally without Nix, SSH,
+Docker or NAS access. Keep I/O in the existing transaction and service handlers.
+
+Extend `scripts/dev` with a focused homelab test command. Explicit test selection is
+sufficient for the first slice; reuse existing repository selection for broad
+verification rather than building another changed-file classifier. Print a compact
+success result, fail with the useful test diagnostics, and retain verbose logs in
+private temporary storage. A narrow local pass is not a substitute for required CI.
+
+Run planner/activation tests while editing those decisions; run backup/verifier tests
+when touching capture/publication. At a coherent batch boundary run relevant existing
+integration, lint and Nix checks. Reuse passing checks until affected inputs change
+or a concrete failure calls them into question. Reserve live verification for rollout
+and isolated restores for changes to the recovery mechanism.
+
+Use the progress section below as the short working note. Read only the source and
+instructions needed for the next slice; keep long logs and raw results outside chat.
+If another review is requested, provide the coherent diff and affected invariants,
+then resolve specific findings without repeating the entire repository investigation.
+Measure local iteration duration/output and host deployment duration separately. The
+10x token reduction is a target, not an established result or reason to skip checks.
 
 ## 2. Generate effective service metadata and compute one deployment plan
 
@@ -260,7 +285,8 @@ execution. No new CI capacity/runner resource changes are part of this plan.
 
 ## Delivery order and verification
 
-Implement coherent slices in this order: timing; descriptors/planner; scoped capture
+Implement coherent slices in this order: fast fixture harness and planner with timing;
+Nix descriptors and transaction wiring; scoped capture
 and reconcile; durable local acceptance/publisher; safe parallelism; cache/CI narrowing.
 Each slice stays compatible with the previous installed generation. Keep repository
 implementation/review/checks local until its candidate is reviewed, then use required
@@ -315,5 +341,32 @@ compatible with the existing architecture and requested three fixes:
    a regression for an unavailable source generation/unhealthy current service.
 
 The same reviewer checked the revisions, confirmed all three findings addressed and
-reported no remaining actionable plan gaps. Implementation has not started; these
-are reviewed design requirements, not verified production behavior.
+reported no remaining actionable plan gaps. That review covered the design before
+the development-loop addition; implementation remains subject to local verification.
+
+## Implementation working note
+
+- Implemented locally: pure generation planner and fixtures; evaluated per-service
+  inputs with filename/content identity; old-generation fallback; scoped local capture
+  and retention; independent NAS publisher; two-child reconciliation/probes/uploads;
+  sequential admitted image pre-pulls; transaction/capture/publication timings;
+  focused developer command and CI Nix caching/service-only build selection.
+- The fast entrypoint is `bash scripts/dev homelab [planner|activation|backup|all]`.
+  Full local homelab tests currently finish in under a second. Automation tests run
+  separately through existing `scripts/homelab` discovery. Full required CI remains.
+- Image pulls deliberately stay sequential with snapshots because combined peak disk
+  demand is not established; host and VM reserve checks run before each pull.
+- Nix caching is private GitHub Actions caching. It does not create a new host cache
+  service; hosts keep native local/upstream substitution and independent build recovery.
+  Service-only CI still evaluates the full flake and builds both actual host outputs
+  plus the descriptor isolation check. Shared changes build the full check set.
+- Independent final code review found a missing inherited descriptor on scoped capture
+  health and a filename omission in fingerprints. Both are fixed. A real subprocess
+  regression covers descriptor inheritance. Preflight failure timing and safe pin
+  cleanup were also addressed. The reviewer confirmed no actionable findings remain.
+- Local verification: complete homelab Python/automation suites, targeted Python lint,
+  workflow syntax, and a real Nix mini-system/descriptor build in private staging.
+  These are local/pre-publication observations, not production delivery evidence.
+- Next: pass required PR/main CI, merge the one complete PR, observe normal Comin
+  acceptance on both hosts, and verify new scoped capture/NAS recovery in isolation.
+  Keep application/infra writer flags unchanged and retain old recovery generations.

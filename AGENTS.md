@@ -39,6 +39,23 @@ retain runtimes required by actual product tools.
 - Keep essential protections for user data, secrets and duplicate physical actions. Simplicity does
   not authorize destructive shortcuts, hidden failures or competing deployment writers.
 
+## Tight development loop
+
+- Start from the source map and the current task's short working note: objective, relevant files,
+  decisions, passing checks and next step. Update the existing plan/tracker instead of duplicating
+  history. Read deeper documentation only for the affected area or an unresolved question.
+- Keep decisions testable with small local fixtures; exercise I/O through existing handlers.
+  During iteration run the affected tests, then relevant integration and required checks at the
+  completed-batch boundary. Measure execution and queue time separately before optimizing.
+- Extend existing developer entrypoints. Successful commands print compact results; failures name
+  the failing check and retain detailed diagnostics on disk. Search/read targeted sections and
+  summarize tool output rather than repeatedly loading whole files or successful logs.
+- Reuse valid source/input-bound evidence. When a review is requested, send the coherent diff,
+  affected interfaces and invariants; recheck fixes locally and request another review only for
+  unresolved findings or substantial new changes. Keep updates to decisions, blockers and results.
+- Optimize affected scope and remove repeated work before adding concurrency or infrastructure.
+  Preserve required checks, data recovery and single mutation ownership.
+
 These working rules supersede heavier review and verification procedures in historical migration plans.
 
 For SwiftUI changes consult the vendored SwiftUI expert, Apple HIG, animation and platform glass

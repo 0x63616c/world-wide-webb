@@ -21,12 +21,28 @@ let
         done
         docker info >/dev/null
         test -s /run/secrets/containers-env
-        ${lib.concatMapStringsSep "\n" (name: ''
-          /run/current-system/sw/bin/homelab-operation -- \
-            python3 ${../scripts}/reconcile-service.py ${name}
-        '') cfg.services}
-        exec /run/current-system/sw/bin/homelab-operation -- \
-          /run/current-system/sw/bin/homelab-health
+        pull=""
+        if [ "''${1:-}" = --pull ]; then pull=--pull; shift; fi
+        full=false
+        if [ "$#" -eq 0 ]; then
+          full=true
+          set -- ${lib.escapeShellArgs cfg.services}
+        fi
+        for service in "$@"; do
+          case "$service" in
+            ${lib.concatStringsSep "|" cfg.services}) ;;
+            *) echo 'Unassigned service' >&2; exit 64 ;;
+          esac
+          if [ "$pull" = --pull ]; then
+            python3 ${../scripts}/reconcile-service.py "$service" --pull --compose-root ${../services}
+          else
+            /run/current-system/sw/bin/homelab-operation -- \
+              python3 ${../scripts}/reconcile-service.py "$service"
+          fi
+        done
+        if [ "$full" = true ] && [ -z "$pull" ]; then
+          exec /run/current-system/sw/bin/homelab-operation -- /run/current-system/sw/bin/homelab-health
+        fi
   '';
 
 in {
@@ -80,7 +96,7 @@ in {
         HA_URL = cfg.controlCenter.homeAssistantURL;
       } // bedroomSwitchEnvironment;
       script = ''
-        exec ${reconcile}/bin/homelab-reconcile-containers
+        exec /run/current-system/sw/bin/homelab-operation -- ${reconcile}/bin/homelab-reconcile-containers
       '';
       serviceConfig = {
         UserName = "_containers"; GroupName = "_containers";

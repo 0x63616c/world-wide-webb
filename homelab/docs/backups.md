@@ -48,12 +48,44 @@ contents, credentials or database rows in Git or CI artifacts.
 The NAS uploader pins the certificate before authentication, omits overwrite,
 and downloads each uploaded payload to compare its SHA-256 and byte count. It
 refreshes authentication once only for the explicit expired-session response;
-ambiguous transport failures are not replayed automatically. After all payloads
-verify, the driver validates set completeness and service health, then publishes
-`COMPLETE.json` and marks the local set `NAS_VERIFIED`. Incomplete sets remain
+ambiguous transport failures are not replayed automatically. Before local acceptance, the driver validates set completeness and service recovery.
+After all uploaded payloads verify, the publisher sends `COMPLETE.json` and marks the
+local set `NAS_VERIFIED`. Incomplete sets remain
 for diagnosis. The code retains seven verified full sets, scoped hourly history
 and eight first-of-week portable export archives; it never treats an incomplete
 set as eligible for normal pruning.
+
+## Local acceptance and asynchronous publication
+
+Scheduled jobs and `homelab-backup-now` capture locally. `COMPLETE.json` lists
+payload checksums; `LOCAL_VERIFIED.json` is written only after local set validation,
+service recovery and fsync. Neither means NAS success. The separate
+`org.nixos.homelab-backup-publisher` retries every minute, with one publisher lock
+and a 15-minute process-group budget. It uploads/read-backs at most two payloads
+concurrently and publishes remote completion last. Only then is `NAS_VERIFIED`
+written. Ambiguous previous uploads are reconciled by checking existing remote
+bytes; differing bytes are never overwritten.
+
+Publication reads immutable accepted sets, not current release paths or live health.
+An unavailable NAS retains pending sets across reboot/generation changes and does
+not block ordinary application activation after local acceptance. Shared storage/VM
+changes still wait for their own transaction's off-host point. Independent sets can
+publish even if an older set fails. `publication-status.json` records pending count,
+oldest capture and last scan failures; inspect it alongside launchd exit status.
+
+Transaction-scoped sets live under `backups/deployment/` and the matching NAS
+`/Homelab/backups/<host>/deployment/` namespace. They do not displace the seven full
+sets or hourly/Penpot history. Keep seven verified local deployment sets plus all
+pending and `PINNED` sets. Remote deployment sets expire by seven-day capture age,
+with active recovery pins protected. Successful activation releases its pins;
+interrupted transaction recovery must explicitly inspect them before release.
+Full NAS sets remain append-only. Old completed archive formats remain readable.
+
+Use `homelab-backup-now --scope deployment --services control-center --local-only`
+for an explicit scoped local capture. Mutation commands run as `_containers` under
+`homelab-operation`; the publisher alone uses its separate lock during transfer.
+These sets declare their exact service coverage and cannot stand in for full-host
+recovery. The verifier can require full-host scope with `--require-full`.
 
 ## Cloudflare state is a separate recovery requirement
 

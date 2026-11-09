@@ -56,6 +56,20 @@ inputs@{ self, nixpkgs, darwin, ... }:
         homelab-mac-mini = mkHost "homelab-mac-mini";
       };
       checks.${system} = {
+        deployment-inputs = let
+          base = self.darwinConfigurations.homelab-mac-mini;
+          inputsFor = host: builtins.fromJSON host.config.environment.etc."homelab/deployment.json".text;
+          original = inputsFor base;
+          monitor = inputsFor (base.extendModules { modules = [({ lib, ... }: {
+            homelab.monitoring.agent.listenAddress = lib.mkForce "100.100.100.100";
+          })]; });
+          worker = inputsFor (base.extendModules { modules = [({ lib, ... }: {
+            homelab.containers.controlCenter.workersEnabled = lib.mkForce false;
+          })]; });
+        in assert original.inputs == monitor.inputs;
+           assert original.inputs.services.control-center.configuration != worker.inputs.services.control-center.configuration;
+           assert original.inputs.services.penpot == worker.inputs.services.penpot;
+           pkgs.runCommand "homelab-deployment-inputs-check" {} ''touch "$out"'';
         beszel-agent = self.packages.${system}.beszel-agent;
         beszel-agent-settings =
           let

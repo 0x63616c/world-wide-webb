@@ -90,6 +90,14 @@ class RestoreVerificationTests(unittest.TestCase):
         self.assertEqual(verify.verify(self.root), self.host)
         self.assertFalse((self.root / 'NAS_VERIFIED').exists())
 
+    def test_scoped_set_cannot_claim_full_host_restore(self):
+        self.host['scope'] = 'deployment'
+        self.archive()
+        self.manifest()
+        self.assertEqual(verify.verify(self.root)['scope'], 'deployment')
+        with self.assertRaisesRegex(ValueError, 'full host'):
+            verify.verify(self.root, require_full=True)
+
     def test_same_size_corruption_is_rejected(self):
         data = (self.root / 'images.json').read_bytes()
         (self.root / 'images.json').write_bytes(b'X' + data[1:])
