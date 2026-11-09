@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Commit one tested app image pin; homelab CI and activation own deployment.
+"""Propose one tested app image pin; required checks and homelab own deployment.
 
 The caller must first validate successful trusted-main CI and its immutable image
 artifact. A repository-scoped SSH deploy key makes this push trigger normal CI;
@@ -53,7 +53,7 @@ def main_source(root, remote):
     return git(root, "rev-parse", "FETCH_HEAD")
 
 
-def promote(root, source, image, ci_run_url, remote=REMOTE):
+def promote(root, source, image, ci_run_url, remote=REMOTE, branch="main"):
     if not re.fullmatch(
         r"https://github\.com/0x63616c/world-wide-webb/actions/runs/[1-9]\d*/attempts/[1-9]\d*", ci_run_url
     ):
@@ -68,6 +68,8 @@ def promote(root, source, image, ci_run_url, remote=REMOTE):
             "databaseEngine": "sqlite",
         }
     )
+    if not re.fullmatch(r"(?:main|codex/control-center-image-[a-f0-9]{40})", branch):
+        raise PromotionError("Unexpected promotion branch")
     for _ in range(5):
         before = main_source(root, remote)
         if not ancestor(root, source, before):
@@ -79,6 +81,15 @@ def promote(root, source, image, ci_run_url, remote=REMOTE):
             raise PromotionError("An immutable source cannot acquire a different image")
         if not ancestor(root, current["sourceRevision"], source):
             raise PromotionError("An older or divergent image cannot replace the current pin")
+        if branch != "main":
+            existing = git(root, "ls-remote", remote, "refs/heads/" + branch)
+            if existing:
+                git(root, "fetch", "--quiet", "--no-tags", remote, "refs/heads/" + branch)
+                existing_sha = git(root, "rev-parse", "FETCH_HEAD")
+                existing_pin = release.validate(json.loads(git(root, "show", existing_sha + ":" + MANIFEST)))
+                if existing_pin != candidate:
+                    raise PromotionError("Promotion branch has a different immutable image")
+                return {"status": "pin-proposed", "commit": existing_sha, "branch": branch}
         blob = git(root, "hash-object", "-w", "--stdin", data=json.dumps(candidate, indent=2) + "\n")
         with tempfile.TemporaryDirectory(prefix="control-center-promotion-") as scratch:
             env = dict(os.environ, GIT_INDEX_FILE=str(Path(scratch) / "index"))
@@ -102,10 +113,15 @@ def promote(root, source, image, ci_run_url, remote=REMOTE):
             env=identity,
         )
         result = subprocess.run(
-            ["git", "push", remote, commit + ":refs/heads/main"],
+            ["git", "push", remote, commit + ":refs/heads/" + branch],
             cwd=root,
             capture_output=True,
         )
+        if branch != "main":
+            published = git(root, "ls-remote", remote, "refs/heads/" + branch)
+            if published and published.split()[0] == commit:
+                return {"status": "pin-proposed", "commit": commit, "branch": branch}
+            raise PromotionError("Image proposal publication was not confirmed")
         after = main_source(root, remote)
         # Read back even on a lost push response. A later commit may already
         # contain this promotion; never rewind it merely to get an exact ref.
@@ -126,9 +142,62 @@ def main():
     args = parser.parse_args()
     if os.environ.get("GITHUB_REPOSITORY") != "0x63616c/world-wide-webb":
         raise PromotionError("Unexpected promotion repository")
-    result = promote(ROOT, args.source, args.image, args.ci_run_url)
+    branch = "codex/control-center-image-" + args.source
+    result = promote(ROOT, args.source, args.image, args.ci_run_url, branch=branch)
+    if result["status"] == "pin-proposed":
+        # The existing publication PAT creates a real PR event, unlike GITHUB_TOKEN.
+        # No bypass/admin merge: normal required checks control auto-merge.
+        token = (
+            subprocess.check_output(
+                [
+                    "sops",
+                    "--decrypt",
+                    "--extract",
+                    '["GITHUB_PERSONAL_ACCESS_TOKEN__TOKEN"]',
+                    str(ROOT / "secrets/vault.yaml"),
+                ],
+                stderr=subprocess.DEVNULL,
+            )
+            .decode()
+            .strip()
+        )
+        if not token:
+            raise PromotionError("Promotion API credential is unavailable")
+        env = dict(os.environ, GH_TOKEN=token)
+
+        def gh(*arguments):
+            response = subprocess.run(["gh", *arguments], cwd=ROOT, env=env, capture_output=True, text=True)
+            if response.returncode:
+                raise PromotionError("Promotion PR operation failed; retry the same tested source")
+            return response.stdout.strip()
+
+        existing = json.loads(
+            gh("pr", "list", "--repo", "0x63616c/world-wide-webb", "--head", branch, "--state", "open", "--json", "url")
+        )
+        url = (
+            existing[0]["url"]
+            if existing
+            else gh(
+                "pr",
+                "create",
+                "--repo",
+                "0x63616c/world-wide-webb",
+                "--base",
+                "main",
+                "--head",
+                branch,
+                "--title",
+                "chore(control-center): promote tested image " + args.source[:12],
+                "--body",
+                "Promote the immutable Control Center image from successful source CI: "
+                + args.ci_run_url
+                + "\n\nRequired PR checks and Homelab promotion control activation; no image is rebuilt.",
+            )
+        )
+        gh("pr", "merge", url, "--repo", "0x63616c/world-wide-webb", "--auto", "--squash")
+        result["pull_request"] = url
     print(json.dumps(result))
-    print("Image pin recorded; host deployment still requires Homelab CI, promotion and live health verification.")
+    print("Image proposal recorded; required PR checks and Homelab promotion own activation.")
 
 
 if __name__ == "__main__":

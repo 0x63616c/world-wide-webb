@@ -82,6 +82,21 @@ class ControlCenterPromotionTests(unittest.TestCase):
         self.assertEqual(self.promote(), {"status": "already-pinned", "commit": after})
         self.assertEqual(self.command(self.remote, "rev-parse", "main"), after)
 
+    def test_proposal_leaves_main_untouched_and_reuses_the_same_branch(self):
+        before = self.command(self.remote, "rev-parse", "main")
+        branch = "codex/control-center-image-" + self.a
+        result = promotion.promote(self.repo, self.a, self.image("1"), self.CI, str(self.remote), branch)
+        self.assertEqual(result["status"], "pin-proposed")
+        self.assertEqual(self.command(self.remote, "rev-parse", "main"), before)
+        proposed = json.loads(self.command(self.remote, "show", branch + ":" + promotion.MANIFEST))
+        self.assertEqual(proposed["sourceRevision"], self.a)
+        self.assertEqual(proposed["image"], self.image("1"))
+        self.assertEqual(
+            promotion.promote(self.repo, self.a, self.image("1"), self.CI, str(self.remote), branch), result
+        )
+        with self.assertRaisesRegex(promotion.PromotionError, "different immutable image"):
+            promotion.promote(self.repo, self.a, self.image("2"), self.CI, str(self.remote), branch)
+
     def test_same_source_cannot_get_different_bytes(self):
         self.promote()
         with self.assertRaisesRegex(promotion.PromotionError, "different image"):

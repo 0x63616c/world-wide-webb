@@ -70,9 +70,10 @@ as an assumed fix or break the existing iPad distribution policy.
    retry receipts and product-scoped selection. Remove the temporary `PANEL_DELIVERY_ENABLED`
    gate when ready. Deliver a real successor to build 173 and record its processed build/source.
 4. Finish the existing backend chain: successful source CI publishes the same tested immutable
-   image, `deploy-mini.yml` commits its digest to `homelab/services/control-center/release.json`,
+   image, `deploy-mini.yml` proposes its digest in `homelab/services/control-center/release.json`
+   through an automatically merging PR that respects required checks,
    then normal Homelab CI/promotion and the mini updater activate it. Confirm the promotion
-   deploy key exists; remove temporary image/promotion gates once connected. Remove stale
+   deploy key and existing publication PAT are available; remove temporary image/promotion gates once connected. Remove stale
    `MINI_DEPLOY_ENABLED`; do not restore the superseded direct-SSH deployment owner.
 5. Update Control Center release/runbook and migration tracking to match the working path.
    Run relevant existing checks and one final Astra review of the complete implementation PR.

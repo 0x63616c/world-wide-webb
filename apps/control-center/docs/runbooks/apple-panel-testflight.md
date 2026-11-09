@@ -29,9 +29,10 @@ certificates or regenerate profiles as routine cleanup. Keep uploaded receipts a
 remove only disposable local derived data and build caches when no process uses them.
 
 Backend releases use the existing homelab owner: CI publishes the tested immutable image,
-**Promote Control Center image** commits its digest to
+**Promote Control Center image** opens an automatically merging PR for its digest in
 `homelab/services/control-center/release.json`, and Homelab CI/promotion plus the mini updater
-activate it. A repository deploy key lets the pin commit trigger normal CI. Neither app
+activate it after required PR checks pass. A repository deploy key publishes the proposal branch;
+the existing vault publication PAT creates its PR so GitHub runs normal PR workflows. Neither app
 publication nor backend promotion requires a temporary migration enablement variable.
 
 Processed-build publication uses the existing scoped homelab operations Tailscale identity
