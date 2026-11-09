@@ -149,3 +149,23 @@ Implementation checks and native Linux image evidence are recorded in
 [Linux runner validation](research/linux-runner-validation.md). The candidate host profile pins the private image. Merge and activation remain
 gated on the recorded native job, recovery, network and load checks. The shared capacity and macOS ceiling are separately defined;
 leaving Linux off does not permit a third macOS guest.
+
+## Guest control connection correction — November 9
+
+The owner-reviewed agent correction addresses
+[upstream issue 81](https://github.com/openai/tart-guest-agent/issues/81): Linux
+control connections leaked until Apple's VM service asserted near 248 calls.
+An isolated developer VM reproduced the production failure, then survived 640
+calls after idle transport cleanup; active long-running RPCs remain connected.
+The source-built ARM64 agent hash is
+`62a4bf118b926a04f7f92d44c0343619bbe680e351879bb9540a46bdc28179fe`.
+
+The corrected private image is
+`ghcr.io/0x63616c/homelab-linux-runner@sha256:3c7defd1a13e63560c36523dbdbe25a3ef11e1f264390447c27d5c474e7ca6a2`.
+Its fresh registry download/cache bundle verified on the MacBook with disk hash
+`59d3a2f1ed3dd99facb7b1795d1585d4ebabe6617a203e705017e9bb397ff815`.
+The host pin is proposed here; installed revision, current/boot generation,
+normal dispatch and corrected-image job acceptance must still be verified.
+No service ownership, Mac image, resource budgets or network restrictions change.
+The same reviewed recipe is retained in the destination WWW repository; its
+builder source revision is `4089dcd44e5144ce140cf0cb6da45d209426697c`.
