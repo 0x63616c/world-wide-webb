@@ -49,6 +49,17 @@ class StandardDeliveryTests(unittest.TestCase):
                     [str(repo / "scripts/affected"), base, "--head", source, "--intent", "ship"], cwd=repo, text=True))
                 self.assertEqual(result["apps"], expected)
                 base = source
+            write("scripts/homelab/promote_control_center.py", "host automation")
+            source = commit()
+            result = json.loads(subprocess.check_output(
+                [str(repo / "scripts/affected"), base, "--head", source, "--intent", "verify"], cwd=repo, text=True))
+            self.assertEqual(result, {"apps": [], "tooling": False, "rdesign": False, "template": False})
+            base = source
+            write("scripts/check-app-backends.py", "backend template check")
+            source = commit()
+            result = json.loads(subprocess.check_output(
+                [str(repo / "scripts/affected"), base, "--head", source, "--intent", "verify"], cwd=repo, text=True))
+            self.assertEqual(result, {"apps": [], "tooling": False, "rdesign": False, "template": True})
 
 
 if __name__ == "__main__":

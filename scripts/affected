@@ -99,6 +99,7 @@ def main():
                     files.remove(path)
     build_tooling = args.force or any(tooling(path) for path in files)
     delivery_units = None
+    verification_units = []
     selector = ROOT / "scripts/ci/select_units.py"
     if selector.exists():
         spec = importlib.util.spec_from_file_location("unit_selection", selector)
@@ -108,8 +109,14 @@ def main():
                     json.loads(shared.CONFIG.read_text()))
         selected = shared.select(files, manifest, force=args.force)
         delivery_units = selected["delivery_candidates"]
-        if args.intent == "verify" and (selected["shared_tooling"] or selected["unmapped"]):
-            build_tooling = True
+        verification_units = selected["verify"]
+        if args.intent == "verify":
+            standard_units = {f"{app}.native" for app, config in configs.items()
+                              if config.get("delivery_handler", "standard_ios") == "standard_ios"}
+            # Known host/custom-product tooling has its own checks. Preserve the
+            # conservative fallback for unknown/shared inputs and legacy repos.
+            build_tooling = bool(args.force or selected["shared_tooling"] or selected["unmapped"] or
+                                 (build_tooling and standard_units.intersection(verification_units)))
     apps = []
     for app, config in configs.items():
         # This is the standard iOS handler's resolver. Other products use the
@@ -130,7 +137,7 @@ def main():
     verify = args.intent == "verify"
     rdesign = any(path.startswith(("apps/tendr/Packages/RDesign/", "packages/RDesign/")) for path in files)
     legacy_rdesign = any(path.startswith("packages/RDesign/") for path in files)
-    template = any(path.startswith("templates/") for path in files)
+    template = "templates" in verification_units or any(path.startswith("templates/") for path in files)
     print(json.dumps({"apps": apps, "tooling": verify and build_tooling, "rdesign": verify and (rdesign or build_tooling),
                       "template": verify and (template or legacy_rdesign or build_tooling)}, separators=(",", ":")))
 

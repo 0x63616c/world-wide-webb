@@ -1266,3 +1266,14 @@ existing pinned tooling environment passed. This is local acceptance only. Scope
 actual checked host source handover, live digest/worker/backup ownership and NAS restore still need
 proof. Preserve old generation records; the new source epoch uses ordered Git and Nix generations,
 never the old workflow counter. Independent final review is the next publication gate for this batch.
+
+### Standard iOS resolver respects known host ownership (local)
+
+A real committed-tree regression found that `scripts/affected` still overrode the shared selector:
+a known host-automation script selected Tendr, RDesign and template builds through its older generic
+scripts rule. The standard resolver now honors known ownership, retaining full verification for
+shared/unmapped changes and the original legacy-repository behavior when no unit manifest exists.
+Host automation selects no standard app work; mapped backend-template tooling selects its template
+checks without building existing apps. Existing shipping policy is unchanged. The regression failed
+before the correction; all19 selection/gate tests and the independent legacy impact fixtures pass.
+This correction remains local with the release follow-up; no baseline PR checks were restarted.

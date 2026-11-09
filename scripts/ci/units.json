@@ -353,7 +353,9 @@
     "templates": {
       "paths": [
         "templates/**",
-        "scripts/new-app.sh"
+        "scripts/new-app.sh",
+        "scripts/check-app-backends.py",
+        "scripts/test-new-app.sh"
       ],
       "delivery": null
     },
