@@ -884,3 +884,28 @@ Its SHA256 matched the retained original backup before unlinking. That recovered
 last physical free was220GiB. Both active Mac guests and both required image caches remain.
 No obsolete VM, large disposable user cache or Time Machine snapshot was found. No disk budget,
 rollback generation or active image was removed to increase concurrency.
+
+
+### Batched first-run CI corrections
+
+The generated Air Miles project now builds/launches in run42559317345. Its two journal cases
+failed only the five-second Cancel readiness assertion: recorded activities show FileProvider
+became available about ten seconds after Choose CSV, then cancellation and all later captures
+continued successfully. The shared case now waits at most15s without fixed sleep or removed
+assertions. The complete dark journal/search/import case passed on a fresh local iPhone18 Pro Max,
+iOS27.2/Xcode27.2 (51.6s test execution; receipt outside Git). Full light/dark CI remains required.
+
+Folding preview42559317422 stopped during frozen Bundler setup because Gemfile.lock contained
+empty CHECKSUMS entries. Bundler4.0.23 populated all103 SHA256 entries from its existing resolution;
+gem versions, platform list, Ruby and Bundler pins are byte-identical outside CHECKSUMS. A clean
+isolated frozen install of all103 gems and a frozen dependency check pass. No pin was upgraded.
+
+Tendr tooling job128980564240 then exposed the minimal Linux guest's missing UTF-8 locale:
+localized metadata raised invalid-byte-sequence US-ASCII errors. The common Linux Ruby bootstrap
+now sets LANG/LC_ALL=C.UTF-8 before Ruby setup and subsequent steps. The real release harness fails
+under C and passes under UTF-8; all seven root release-lane check commands pass locally. A static
+scan also found no missing literal action version/dependency input paths after relocation.
+
+Independent Astra final review accepted this three-file correction batch. These are local/source
+proofs, not a claim that the pending replacement CI is green. Production writers remain disabled;
+the reviewed private CLI and operations follow-ups remain separate from the baseline PR.

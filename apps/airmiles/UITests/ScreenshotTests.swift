@@ -38,7 +38,8 @@ import UIKit
         XCTAssertEqual(app.buttons["chooseCSV"].label, "Choose CSV")
         capture("\(appearance)-import")
         app.buttons["chooseCSV"].tap()
-        XCTAssertTrue(app.buttons["Cancel"].firstMatch.waitForExistence(timeout: 5))
+        // FileProvider starts lazily on a fresh simulator; wait for its picker.
+        XCTAssertTrue(app.buttons["Cancel"].firstMatch.waitForExistence(timeout: 15))
         app.buttons["Cancel"].firstMatch.tap()
         let motion = app.buttons["globeMotion"]
         XCTAssertTrue(motion.exists)

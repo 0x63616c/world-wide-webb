@@ -17,6 +17,9 @@ runs:
       shell: bash
       run: |
         set -euo pipefail
+        # The minimal guest service has no login-shell locale. Ruby must read
+        # localized metadata as UTF-8, like the standard hosted environment.
+        printf 'LANG=C.UTF-8\nLC_ALL=C.UTF-8\n' >> "$GITHUB_ENV"
         # Upstream prebuilt Rubies embed these paths. Only the disposable guest is modified.
         sudo install -d -m 0755 -o "$(id -u)" -g "$(id -g)" /opt/hostedtoolcache /home/runner
         missing=()
