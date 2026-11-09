@@ -30,13 +30,24 @@ fn child(mode: &str, fixture: &Path) {
                 input.write_all(b"fixture-public-key\n").unwrap();
                 homelab_client::terminal_process::status_with_input(&mut command, input.path())
             }
-            "capture" | "timeout" => {
+            "capture" | "timeout" | "timeout-startup" => {
                 let timeout = if mode == "timeout" {
-                    Duration::from_millis(300)
+                    // Exercise expiration at the prompt, even after slow child startup.
+                    Duration::from_secs(3)
+                } else if mode == "timeout-startup" {
+                    Duration::from_millis(50)
                 } else {
                     Duration::from_secs(5)
                 };
-                homelab_client::terminal_process::capture(&mut command, timeout)
+                let output = homelab_client::terminal_process::capture(&mut command, timeout);
+                if mode.starts_with("timeout") {
+                    assert!(matches!(
+                        &output,
+                        Err(homelab_client::process::ProcessError::Io(error))
+                            if error.kind() == std::io::ErrorKind::TimedOut
+                    ));
+                }
+                output
                     .map(|output| {
                         assert_eq!(output.stdout, b"{\"verified\":true}\n");
                         output.status
@@ -62,7 +73,7 @@ fn child(mode: &str, fixture: &Path) {
             _ => homelab_client::terminal_process::status(&mut command),
         },
     );
-    if mode == "cancel" || mode == "timeout" {
+    if mode == "cancel" || mode.starts_with("timeout") {
         assert!(result.is_err());
     } else {
         assert_eq!(result.unwrap().success(), !mode.starts_with("failure"));
@@ -151,7 +162,7 @@ fn scenario(mode: &str, fixture: &Path) {
                 writer.write_all(b"\x03").unwrap();
             } else if mode == "masked" {
                 writer.write_all(b"dR?fixture-password").unwrap();
-            } else if mode != "timeout" {
+            } else if !mode.starts_with("timeout") {
                 writer.write_all(b"dR?fixture-password\r").unwrap();
             }
         }
@@ -223,7 +234,11 @@ fn scenario(mode: &str, fixture: &Path) {
     assert_eq!(transcript.matches("\x1b[?1049l").count(), 1);
     assert!(mode != "masked" || mask_verified);
     assert!(mode != "retry" || (retried && build_verified));
-    assert!(answered, "native prompt wasn't displayed");
+    if mode == "timeout-startup" {
+        assert!(!answered, "startup timeout unexpectedly reached the prompt");
+    } else {
+        assert!(answered, "native prompt wasn't displayed");
+    }
 }
 
 fn main() {
@@ -260,6 +275,7 @@ fn main() {
         "failure-quit",
         "cancel",
         "timeout",
+        "timeout-startup",
         "background",
     ] {
         scenario(mode, &fixture);

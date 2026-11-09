@@ -9,6 +9,10 @@ fn main() {
         println!("background complete");
         return;
     }
+    if mode == "timeout" || mode == "timeout-startup" {
+        // Model a scheduled child that has not reached its native prompt yet.
+        std::thread::sleep(std::time::Duration::from_millis(600));
+    }
     let mut tty = OpenOptions::new().read(true).write(true).open("/dev/tty").unwrap();
     assert!(Command::new("/bin/stty").arg("-echo").stdin(tty.try_clone().unwrap()).status().unwrap().success());
     // Terminal control sequences must never escape the parser into the parent.

@@ -1494,3 +1494,21 @@ by this credential operation. The credential source batch is local pending its p
 Astra approved the complete SQLite correction and the independent credential source/plan batch.
 They are combined without implementation conflicts; this documentation conflict retained both
 acceptance sections. Replacement private CI and subsequent delivery acceptance remain required.
+
+### Real backend success and deterministic authentication test timing
+
+Folding backend job `129104370967` passed in the replacement homelab run: all 30 runtime
+tests passed. The 100k fixture seeded in 3,125 ms, both actual 391-page projections completed
+(14,989 ms backfill and 14,822 ms deletion/rebuild), and owner-read P95 was 23 ms. This is real
+Linux runner acceptance for the connection/fixture corrections, without weakening the workload.
+
+Darwin job `129104780192` passed the repaired journal/bootstrap tests and then exposed a
+different CLI integration harness assumption: a 300-ms capture deadline was also required to
+reach a native password prompt. A child scheduled after that deadline correctly times out
+without showing a prompt. A controlled 600-ms fixture startup reproduced the exact failure
+locally. The harness now separately exercises timeout while waiting at the prompt (three-second
+budget, prompt still mandatory) and timeout before startup reaches it (50-ms budget, no prompt).
+Both assert the actual `TimedOut` error; cancellation, secret masking, parser isolation and
+terminal restoration assertions remain. All 11 authentication modes pass, with all-target
+Clippy/fmt. Only synthetic test files change; production timeouts and transport code are unchanged.
+Replacement Darwin CI remains required after final review/publication.
