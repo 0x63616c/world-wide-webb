@@ -59,7 +59,7 @@ def main():
         assert not (root / 'apps/invalidr').exists()
         units = json.loads((root / 'scripts/ci/units.json').read_text())['units']
         assert set(units) == {'plainr.native', 'samplr.native'}
-        spec = importlib.util.spec_from_file_location('unit_selection', ROOT / 'scripts/ci/select.py')
+        spec = importlib.util.spec_from_file_location('unit_selection', ROOT / 'scripts/ci/select_units.py')
         selection = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(selection)
         configuration = {'version': 1, 'units': units}

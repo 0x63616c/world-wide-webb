@@ -355,7 +355,7 @@
         "templates/**",
         "scripts/new-app.sh",
         "scripts/check-app-backends.py",
-        "scripts/test-new-app.sh"
+        "scripts/test-new-app.py"
       ],
       "delivery": null
     },

@@ -54,12 +54,13 @@ class StandardDeliveryTests(unittest.TestCase):
             result = json.loads(subprocess.check_output(
                 [str(repo / "scripts/affected"), base, "--head", source, "--intent", "verify"], cwd=repo, text=True))
             self.assertEqual(result, {"apps": [], "tooling": False, "rdesign": False, "template": False})
-            base = source
-            write("scripts/check-app-backends.py", "backend template check")
-            source = commit()
-            result = json.loads(subprocess.check_output(
-                [str(repo / "scripts/affected"), base, "--head", source, "--intent", "verify"], cwd=repo, text=True))
-            self.assertEqual(result, {"apps": [], "tooling": False, "rdesign": False, "template": True})
+            for name in ("scripts/check-app-backends.py", "scripts/test-new-app.py"):
+                base = source
+                write(name, "backend template check")
+                source = commit()
+                result = json.loads(subprocess.check_output(
+                    [str(repo / "scripts/affected"), base, "--head", source, "--intent", "verify"], cwd=repo, text=True))
+                self.assertEqual(result, {"apps": [], "tooling": False, "rdesign": False, "template": True})
 
 
 if __name__ == "__main__":
