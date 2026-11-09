@@ -994,3 +994,10 @@ The current0cd Duo job also completed successfully: capture05:44:28–06:07:09UT
 That confirms the optimized path still works under the mixed runner load; the previous21m11s
 was not a guaranteed duration. The sparse-checkout/fixture correction remains the next reviewed
 baseline batch; neither this successful capture nor local tests make the currently red PR mergeable.
+
+Control Center infra job129004066455 then exposed a minimal-image bootstrap dependency:
+OpenTofu's ZIP installer could not find unzip. Shared archive-tool preparation now ensures
+that prerequisite on Linux before OpenTofu and Folding's ZIP-based Bun setup. Existing Mac
+tools remain in use. Workflow lint, ShellCheck of the bootstrap and diff checks pass. This
+changes guest tool preparation only; no image/host activation, live state operation, version
+or verification gate was changed. Actual installer/infra CI remains required.

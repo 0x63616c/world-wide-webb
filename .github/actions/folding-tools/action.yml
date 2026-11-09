@@ -32,6 +32,8 @@ runs:
       uses: actions/setup-node@v4
       with:
         node-version: ${{ steps.pins.outputs.node }}
+    - if: runner.os == 'Linux' && (inputs.target == 'backend' || inputs.target == 'deploy')
+      uses: ./.github/actions/archive-tools
     - if: inputs.target == 'backend' || inputs.target == 'deploy'
       uses: oven-sh/setup-bun@v2
       with:
