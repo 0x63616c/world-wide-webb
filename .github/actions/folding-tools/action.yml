@@ -51,6 +51,13 @@ runs:
         fi
         cd apps/folding/backend
         bun install --frozen-lockfile
+    - if: inputs.target == 'backend'
+      name: Prepare pinned WebAssembly helpers
+      shell: bash
+      working-directory: ${{ github.workspace }}
+      run: |
+        python3 apps/folding/scripts/test-worker-tools.py
+        python3 apps/folding/scripts/prepare-worker-tools.py --root "$RUNNER_TEMP/folding-worker-tools" --output "$GITHUB_ENV"
     - if: inputs.target == 'apple' || inputs.target == 'deploy'
       name: Use UTF-8 for release metadata
       shell: bash

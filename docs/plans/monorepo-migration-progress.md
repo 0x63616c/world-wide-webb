@@ -1050,3 +1050,28 @@ with the unchanged24GiB guest budget. The current runner policy/timeouts are unc
 budget adjustment or guessed product workaround was made. GitHub rejected a targeted retry while
 the parent Folding workflow was still running; retry is pending its terminal state or the next
 reviewed exact-source batch. This is not backend runtime acceptance.
+
+### Folding Wasm helper download correction
+
+The targeted fresh-guest backend retry stayed alive, passed its Rust tests and produced a complete
+failure log. It stopped when worker-build's internal browser URL for wasm-bindgen0.2.129 returned
+504 after five retries. The CLI retry passed its complete job on a fresh guest; the earlier journal
+error remains unreproduced, with the local30-test bootstrap suite and20 direct repair repetitions
+also passing. No recovery guard or runner resource limit was weakened.
+
+The backend bootstrap now prepares the same upstream WebAssembly helpers through release API
+assets, verifying their SHA256 identities and actual executable versions before publishing their
+paths. wasm-bindgen follows the one exact Cargo.lock version; wasm-opt132 explicitly matches the
+existing worker-build0.8.7 dependency. The pinned tool's supported WASM_BINDGEN_BIN/WASM_OPT_BIN
+overrides select those binaries; compilation, optimization and workerd tests remain required.
+No tool version is upgraded. Full extraction preserves sidecar libraries, with safe staged archive
+extraction and atomic installation. Four isolated tests cover exact tools/cache reuse, checksum
+failure before execution, wrong versions and path-escape refusal.
+
+A real native preparation downloaded both exact upstream artifacts through API, then the unchanged
+complete `scripts/check-backend` passed Rust tests, release Wasm compilation/optimization and all30
+compiled-Worker runtime tests. Its log confirms worker-build used both prepared overrides. This is
+native-host proof; the replacement Linux job remains required. External receipts are
+`/tmp/monorepo-worker-tools-native-prepare.log` and
+`/tmp/monorepo-folding-worker-overrides-check.log`. The old source's product build checks have now
+completed; this collected correction batch is ready for final review and replacement CI.

@@ -1,4 +1,5 @@
 {
   "rust": "1.99.1",
-  "worker_build": "0.8.7"
+  "worker_build": "0.8.7",
+  "wasm_opt": "132"
 }
