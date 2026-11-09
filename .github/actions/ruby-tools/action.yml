@@ -1,5 +1,5 @@
 name: Standard Ruby tools
-description: Prepare Ruby for disposable homelab Linux and macOS jobs
+description: Prepare pinned Ruby for Linux and macOS jobs
 inputs:
   ruby-version:
     description: Ruby version required by the product

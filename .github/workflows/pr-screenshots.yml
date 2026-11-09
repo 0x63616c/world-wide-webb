@@ -59,9 +59,9 @@ jobs:
 
   screenshots:
     needs: changes
-    # Capture only source from this repository on the private runner pool.
+    # Capture only source from this repository on the disposable hosted runner.
     if: needs.changes.outputs.apps != '' && (github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository)
-    runs-on: [self-hosted, macOS, ARM64, homelab-tart]
+    runs-on: xcode-27
     timeout-minutes: 60
     env:
       DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer

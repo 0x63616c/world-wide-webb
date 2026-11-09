@@ -6,8 +6,8 @@ and verification requirements in earlier migration documents.
 ## Already done
 
 - Source consolidation is merged into WWW. WWW is public.
-- Hosted runner changes are merged, with Xcode 27.2 jobs currently routed to homelab.
-  GitHub’s `xcode-27` image also includes Xcode 27.2 and Duo; homelab is not required for that toolchain.
+- CI uses hosted runners, including `xcode-27` for Xcode 27.2 jobs.
+  That image includes the pinned Xcode build and Duo runtime.
 - Both Macs follow WWW; the handover was verified at `0b046d9`. Subsequent host changes
   follow their normal updater. The bedroom-switch worker was verified live.
 - The old homelab repository is archived.
@@ -50,5 +50,5 @@ Encrypted signing review is tracked in #967. These are separate follow-ups.
 
 The earlier claim that GitHub cannot provide Xcode 27.2 was incorrect: `macos-26` was checked
 instead of the dedicated `xcode-27` label. The [current image inventory](https://github.com/actions/runner-images/blob/main/images/macos/xcode-27-arm64-Readme.md)
-lists Xcode 27.2 (27B52) and Duo on iOS 27.2. Current homelab routing is a workflow choice,
-not a GitHub toolchain limitation. Changing runner labels is separate from lightening CI.
+lists Xcode 27.2 (27B52) and Duo on iOS 27.2. Apple jobs use that hosted label.
+The homelab runner infrastructure remains available; CI selection and delivery gates are unchanged.
