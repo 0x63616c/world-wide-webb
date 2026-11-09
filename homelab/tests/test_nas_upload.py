@@ -1,9 +1,9 @@
 """NAS protocol safety tests imported from world-wide-webb, with host namespace checks."""
-import importlib.util
-from pathlib import Path
-import unittest
 import hashlib
+import importlib.util
 import tempfile
+import unittest
+from pathlib import Path
 from unittest.mock import Mock, patch
 
 
@@ -18,6 +18,35 @@ upload = load('nas_upload', 'nas-upload.py')
 
 
 class BackupSafety(unittest.TestCase):
+    def test_per_file_missing_response_uploads_instead_of_downloading(self):
+        nas = upload.Nas({})
+        path = Path('backup.dump')
+        # Actual DSM getinfo shape: outer success, per-file absence.
+        with patch.object(nas, 'call', return_value={'files': [{'path': '/destination/backup.dump', 'code': 408}]}), patch.object(nas, 'upload', return_value={'sha256': 'abc', 'bytes': 3}) as send, patch.object(nas, 'download_hash') as download:
+            nas.ensure_file(path, '/destination', 'abc', 3)
+        send.assert_called_once_with(path, '/destination')
+        download.assert_not_called()
+
+    def test_per_file_permission_error_does_not_upload_or_download(self):
+        nas = upload.Nas({})
+        with patch.object(nas, 'call', return_value={'files': [{'code': 407}]}), patch.object(nas, 'upload') as send, patch.object(nas, 'download_hash') as download:
+            with self.assertRaises(upload.NasApiError) as raised:
+                nas.ensure_file(Path('backup.dump'), '/destination', 'abc', 3)
+        self.assertEqual(raised.exception.code, 407)
+        send.assert_not_called()
+        download.assert_not_called()
+
+    def test_existing_file_requires_matching_bytes_without_overwrite(self):
+        nas = upload.Nas({})
+        for actual in [('abc', 3), ('different', 3), ('abc', 4)]:
+            with self.subTest(actual=actual), patch.object(nas, 'call', return_value={'files': [{'path': '/destination/backup.dump', 'isdir': False}]}), patch.object(nas, 'download_hash', return_value=actual), patch.object(nas, 'upload') as send:
+                if actual == ('abc', 3):
+                    nas.ensure_file(Path('backup.dump'), '/destination', 'abc', 3)
+                else:
+                    with self.assertRaisesRegex(RuntimeError, 'refusing overwrite'):
+                        nas.ensure_file(Path('backup.dump'), '/destination', 'abc', 3)
+                send.assert_not_called()
+
     def test_expired_upload_session_refreshes_once(self):
         nas = upload.Nas({})
         with patch.object(nas, '_upload', side_effect=[upload.NasApiError('upload', 119), {'verified': True}]) as send, patch.object(nas, 'login') as login:

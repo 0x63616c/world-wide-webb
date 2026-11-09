@@ -98,7 +98,14 @@ class Nas:
             if error.code not in (400, 408):
                 raise
             data = {'files': []}
-        if data.get('files'):
+        files = data.get('files', [])
+        # DSM can report per-file errors inside an otherwise successful getinfo.
+        # Only explicit absence permits a new upload; other errors must stop it.
+        for entry in files:
+            code = entry.get('code', 0)
+            if code and code != 408:
+                raise NasApiError('getinfo', code)
+        if any(not entry.get('code', 0) for entry in files):
             actual, count = self.download_hash(remote)
             if (actual, count) != (checksum, size):
                 raise RuntimeError('Existing NAS payload differs; refusing overwrite')
