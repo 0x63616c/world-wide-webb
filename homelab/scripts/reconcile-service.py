@@ -62,6 +62,14 @@ def reconcile(service, source, runtime, compose_root, compose_env):
         material = {name: read_private_file(source / key) for name, key in FILES[service].items()}
         if service == 'beszel':
             material['config.yml'] = (compose_root / service / 'config.yml').read_bytes()
+            if b'__BESZEL_OWNER_EMAIL__' in material['config.yml']:
+                owners = [line[len(b'USER_EMAIL='):] for line in material['environment'].splitlines()
+                          if line.startswith(b'USER_EMAIL=')]
+                if len(owners) != 1 or not owners[0]:
+                    raise RuntimeError('Beszel inventory requires one private USER_EMAIL')
+                # JSON strings are valid YAML scalars, including quotes and backslashes.
+                material['config.yml'] = material['config.yml'].replace(
+                    b'__BESZEL_OWNER_EMAIL__', json.dumps(owners[0].decode()).encode())
         if service == 'penpot':
             material['mcp-locations.conf.template'] = (compose_root / service / 'mcp-locations.conf.template').read_bytes()
         if service == 'bambuddy':

@@ -136,10 +136,17 @@ class DeliveryTests(unittest.TestCase):
         self.assertNotIn('synthetic-password', str(run.call_args))
         deliver()
         self.assertNotIn('--force-recreate', run.call_args.args[0])
-        config.write_text('systems: [{name: fixture}]\n')
+        config.write_text('systems: [{name: fixture, users: [__BESZEL_OWNER_EMAIL__]}]\n')
         deliver()
         self.assertIn('--force-recreate', run.call_args.args[0])
-        self.assertEqual((destination / 'config.yml').read_bytes(), config.read_bytes())
+        self.assertEqual((destination / 'config.yml').read_text(),
+                         'systems: [{name: fixture, users: ["fixture@example.test"]}]\n')
+        deliver()
+        self.assertNotIn('--force-recreate', run.call_args.args[0])
+        source.chmod(0o600)
+        source.write_bytes(b'USER_PASSWORD=synthetic-password$\n')
+        with self.assertRaisesRegex(RuntimeError, 'one private USER_EMAIL'):
+            deliver()
 
     @patch.object(reconcile.subprocess, 'run')
     def test_control_center_uses_git_release_images(self, run):
