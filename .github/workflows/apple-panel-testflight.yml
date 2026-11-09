@@ -101,4 +101,4 @@ jobs:
         env:
           SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
           WWW_RELEASE_ORIGIN: https://homelab.tail8c014d.ts.net
-        run: sops exec-env ../../secrets/vault.yaml 'python3 deploy/mini/publish-apple-release.py "$PANEL_UPLOADED_BUILD"'
+        run: sops exec-env ../../secrets/vault.yaml 'python3 deploy/mini/publish-apple-release.py'

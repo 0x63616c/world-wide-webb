@@ -9,7 +9,7 @@ from pathlib import Path
 
 
 def main():
-    build = int(sys.argv[1])
+    build = int(sys.argv[1] if len(sys.argv) > 1 else os.environ["PANEL_UPLOADED_BUILD"])
     if not 0 < build <= 2_147_483_647:
         raise ValueError("invalid Apple build number")
     root = Path(os.environ.get("WWW_ROOT", str(Path.home() / "www-control-center")))
