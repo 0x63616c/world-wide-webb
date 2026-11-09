@@ -143,6 +143,9 @@ def install(home, image, bundle):
         if receipt != verified:
             raise ValueError('bundle receipt differs from verified image contents')
         (extracted / 'receipt.json').unlink()
+        # Tart GC removes untagged digest caches unless explicitly retained.
+        # This is trusted local metadata, never an accepted archive member.
+        (extracted / '.explicitly-pulled').touch(mode=0o600, exist_ok=False)
         target.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
         os.rename(extracted, target)
     return verified
