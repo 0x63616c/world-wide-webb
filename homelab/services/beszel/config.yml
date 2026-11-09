@@ -1,11 +1,16 @@
 # Identity is name + host + port. Changing or omitting a system deletes its history.
 # Schema: henrygd/beszel v0.21.1 internal/hub/config/config.go.
+# The reconciler fills the owner from the private Beszel bootstrap environment.
 systems:
   - name: homelab-mac-mini
     host: homelab-mac-mini.tail8c014d.ts.net
     port: 45876
-    users: [calumpeterwebb@icloud.com]
+    users: [__BESZEL_OWNER_EMAIL__]
   - name: homelab-macbook
     host: homelab-macbook.tail8c014d.ts.net
     port: 45876
-    users: [calumpeterwebb@icloud.com]
+    users: [__BESZEL_OWNER_EMAIL__]
+  - name: HomeTB NAS
+    host: 100.100.180.12
+    port: 45876
+    users: [__BESZEL_OWNER_EMAIL__]

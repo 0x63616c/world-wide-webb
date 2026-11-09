@@ -142,7 +142,14 @@ See the [controller plan](docs/runner-controller-plan.md) and
 Beszel runs in the Mini's existing services VM; native non-admin agents report
 physical Mac metrics over Tailscale. Open `https://beszel.worldwidewebb.co` through
 Cloudflare Access and use the **Homelab Beszel** login in the homelab 1Password vault.
-Accounts and both system entries are provisioned automatically.
+Accounts and all three system entries (Mini, MacBook and HomeTB NAS) are
+provisioned automatically. The Synology NAS runs its own Beszel Agent package;
+its agent listens on localhost for Tailscale's userspace forwarding and monitors
+`/volume1` as `NAS Storage`. Keep its existing `HomeTB NAS` name, Tailscale IP
+`100.100.180.12` and port `45876` in `homelab/services/beszel/config.yml` so
+deployments retain the system instead of removing a dashboard-only entry.
+The reconciler fills the inventory owner from the existing private `USER_EMAIL`;
+the committed template contains no personal login email.
 
 The hub's public key lives in `lib/beszel-hub.pub`; its private identity and history
 stay in the backed-up data volume. System names, addresses and ports are stable
