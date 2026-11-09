@@ -20,7 +20,7 @@ def input_hash(unit_name, source, repository=ROOT, configuration=None):
         raise ValueError("Source must be a full commit SHA")
     config = configuration or json.loads(selection.CONFIG.read_text())
     unit = selection.validate(config)["units"][unit_name]
-    paths = subprocess.check_output(["git", "ls-tree", "-r", "-z", source], cwd=repository).decode().split("\0")
+    paths = subprocess.check_output(["git", "ls-tree", "-r", "-z", source], cwd=repository, stderr=subprocess.PIPE).decode().split("\0")
     entries = [entry.split("\t", 1) for entry in paths if entry]
     # Preserve pre-import Folding release readers while normalizing source paths.
     legacy = unit_name.startswith("folding.") and not any(path.startswith("apps/folding/") for _, path in entries)

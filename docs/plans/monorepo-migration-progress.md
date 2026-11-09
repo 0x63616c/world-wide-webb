@@ -24,7 +24,7 @@ execution, including where they are stricter than the stored goal wording:
   current stage. Completion requires actual delivery, retained integrations/data/media and
   applicable restore evidence; local wiring or successful uploads alone do not prove it.
 
-Overall estimate is approximately 45%; current stage is local host/CLI handover implementation
+Overall estimate is approximately 47%; current stage is local host/CLI handover implementation
 and runtime canary preparation. The complete candidate is not yet ready for publication or live cutover.
 
 ## Current candidate
@@ -42,7 +42,7 @@ Non-squashed local history imports:
 
 ## Work remaining
 
-- Implement ordered `deploy/homelab` promotion, bounded enrollment/rebind coordination,
+- Integrate and validate the implemented ordered `deploy/homelab` promoter and enrollment lease,
   preserve-state repository migration and destination-scoped host Git-key handover.
 - Finish private CLI release/installation authority and source/update/schema/help references;
   prove existing-profile resume/reboot/recovery and retain an off-host recovery route.
@@ -594,3 +594,32 @@ The owner explicitly declined GitHub branch protections/Pro. This removes that a
 CI checks, review, stale-source/CAS ordering and private-history protection remain required in normal
 automation. GitHub itself will not reject bypassing direct pushes. Repository is still public and
 no migration history has been published. Current stage remains local delivery/host handover.
+
+
+## Durable host promotion preparation — approximately 47% overall
+
+The local Homelab delivery workflow verifies exact successful named CI/run/attempt/source evidence,
+committed host input identity and schema3 destination authority. App-only completions skip promotion;
+manual reconciliation requires explicit checked source. An atomic Git transaction advances the direct
+source deployment ref and append-only control journal with expected-old identities and readback.
+Late older candidates cannot rewind a deployment or bypass a newer pending candidate. Ambiguous
+successful pushes reconcile exact remote state; mismatches fail closed.
+
+The journal includes a bounded, resumable enrollment lease primitive. New checked source coalesces
+while activation is held; no runner waits for enrollment. Prepared expiry allows forward movement
+before activation, while expired activation requires explicit recovery. CLI wiring, host observation
+before releasing holds, repository rebind and actual GitHub/provider/host acceptance remain outstanding.
+`HOMELAB_DELIVERY_ENABLED` stays unset/off. No refs were published and no host ownership changed.
+
+Independent review found and fixed pending-workflow replacement, uncaptured Git diagnostics and
+acceptance of historical sources without the new authority contract. Git CAS now serializes writers
+without a replaceable workflow concurrency slot; raw Git failures are captured/sanitized. The
+[handover runbook](../runbooks/monorepo-homelab-handover.md) records protocol and remaining live gates.
+
+
+This promotion batch passed final independent Astra review with all three findings resolved;
+report `/tmp/monorepo-promotion-astra-review.md`. Nine real-bare-Git transaction tests and eight
+current evidence/selection/privacy tests pass, alongside the16 shared selector/gate/hash tests,
+Ruff, workflow lint and runner-route audit. Exact-attempt API metadata shape was independently
+read from an existing WWW run without a provider write. Local Git atomic support does not prove
+GitHub acceptance; the runbook retains that explicit canary before activation.

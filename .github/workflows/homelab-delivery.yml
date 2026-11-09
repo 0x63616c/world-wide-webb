@@ -1,0 +1,55 @@
+name: Homelab delivery
+on:
+  workflow_run:
+    workflows: [Homelab CI]
+    types: [completed]
+    branches: [main]
+  schedule:
+    - cron: '17,47 * * * *'
+  workflow_dispatch:
+    inputs:
+      source:
+        description: Exact checked main source SHA
+        required: true
+        type: string
+      run_id:
+        description: Successful Homelab CI run ID
+        required: true
+        type: string
+      attempt:
+        description: Exact successful CI attempt
+        required: true
+        default: '1'
+        type: string
+      reconcile:
+        description: Explicitly reconcile this checked host source
+        required: true
+        default: false
+        type: boolean
+permissions:
+  contents: read
+  actions: read
+jobs:
+  promote:
+    if: >-
+      vars.HOMELAB_DELIVERY_ENABLED == 'true' &&
+      (github.event_name != 'workflow_run' ||
+       (github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.event == 'push' &&
+        github.event.workflow_run.head_repository.full_name == github.repository))
+    runs-on: [self-hosted, Linux, ARM64, homelab-linux]
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: main
+          fetch-depth: 0
+          filter: blob:none
+          persist-credentials: true
+      - uses: ./.github/actions/github-cli
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/homelab/deliver.py
