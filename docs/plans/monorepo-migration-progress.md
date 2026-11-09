@@ -1422,3 +1422,24 @@ The checked-in source recipe completed in a separate real Linux VM and produced 
 agent bytes; its build unit exited successfully and the VM was stopped/reaped. The first recipe
 attempt's Go read-only cache cleanup failure was corrected within the task-owned temporary cache.
 Publication and host activation have not yet occurred.
+
+### Linux image adopted; large runtime fixture corrected
+
+The private replacement Linux image was built from the reviewed recipe and published as
+`ghcr.io/0x63616c/homelab-linux-runner@sha256:3c7defd1a13e63560c36523dbdbe25a3ef11e1f264390447c27d5c474e7ca6a2`.
+Its clean registry download passed manifest/chunk verification before preloading the runner.
+The minimal byte-identical old-authority backport passed 131 operations tests (one explicit skip),
+shell checks and the full exact-source Nix flake check on the MacBook. Homelab PR #39 merged
+as `dd8ef99d584f4fb3a0ff4533c757fc87fc904432`; normal Comin adoption installed that revision.
+Installed and boot system agree, the new image pin is live, and admission/resource reserves are
+unchanged. No registry credentials entered a guest. Astra approved the recipe, artifact and pin.
+
+The replacement Folding backend job `129089939553` in run `42583245917` stayed healthy,
+completed Rust/Wasm builds and produced normal final logs. It passed 29 of 30 runtime tests;
+the 100k test spent 105,231 ms constructing its direct-database fixture and exhausted its
+120-second timeout after backfill. Bulk JSON insertion now seeds the identical 100,000 events
+without 100,000 prepared statements. Count, 391-page backfills, read/delete/rebuild assertions
+and timeout remain unchanged. On the same native host, fixture setup fell from 58,175 ms to
+1,059 ms; all 30 runtime tests pass in 10.38 seconds. Astra independently approved this delta.
+Replacement source CI remains required; neither this local result nor runner adoption is a green
+PR claim. Signing/delivery/infrastructure acceptance and old-repository retirement remain open.

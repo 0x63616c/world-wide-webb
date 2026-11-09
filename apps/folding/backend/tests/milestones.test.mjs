@@ -174,11 +174,14 @@ test('late insertion moves a counted transition between UTC days without inventi
 test('100k retained folds backfill in bounded pages and keep profile reads and entry deletion usable',{timeout:120000},async()=>{
  await setup();const count=100000,p=await person(60001,count),base=(Math.floor(Date.now()/86400000)-100)*86400000;
  const seedStart=performance.now();
- for(let offset=0;offset<count;offset+=100){
-  const rows=Array.from({length:Math.min(100,count-offset)},(_,i)=>{
+ // Seed the same retained events in bulk; per-row D1 RPC preparation dominated this test.
+ for(let offset=0;offset<count;offset+=1000){
+  const rows=Array.from({length:Math.min(1000,count-offset)},(_,i)=>{
    const index=offset+i;return event(p,index+1,base+Math.floor(index/2000)*86400000+(index%2000)*1000);
   });
-  await observations(p,rows);
+  await db.prepare(`INSERT INTO observations(participant_id,event_id,device_id,sequence,event_json,disposition,received_at_ms)
+   SELECT ?2,json_extract(value,'$.event_id'),?3,json_extract(value,'$.sequence'),value,'accepted',?4 FROM json_each(?1)`)
+   .bind(JSON.stringify(rows),p.participant,p.device,Date.now()).run();
  }
  const seedMS=performance.now()-seedStart,backfillStart=performance.now();let pages=0,own;
  while(pages<400){
