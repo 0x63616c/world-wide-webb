@@ -847,3 +847,25 @@ requires the updated real job; no faster duration is claimed yet.
 The host backport merge temporarily drained new admissions while the existing Duo job ran.
 That serialized otherwise available capacity. Avoid further host updates during the app CI batch;
 observe installed revision and updater-owned hold release rather than releasing its hold manually.
+
+
+### Fresh-checkout preview generation fix
+
+PR screenshot run42557074547 exposed a missing generated Air Miles project. Native app CI
+already generated it, but the shared phone capture entrypoint went directly to simulator boot
+and xcodebuild. That entrypoint now generates any app's declared `project.yml` first, following
+the existing component-capture behavior. Its actual-shell regression verifies generation before
+boot in the app directory and preserves the source release metadata. The targeted test and
+ShellCheck pass; independent Astra final review found no actionable issues.
+
+Keep this small baseline fix separate from the reviewed local CLI release batch3b7678922, which
+remains preserved on local `codex/monorepo-consolidation`. The baseline fix branch is
+`codex/migration-capture-generation`, based on published110fc2f2c; it will update PR959 without
+adding CLI delivery scope. No red PR is merged. After main establishes the consolidated baseline,
+ordinary diffs can select only their affected products instead of the entire import.
+
+Current MacBook admission also explains lower-than-configured concurrency: two active Mac guests
+reserve60GiB growth each. With216.8GiB physical free and80GiB emergency reserve, an additional
+24GiB-growth Linux guest needs224GiB. The configured four slots are a ceiling, not guaranteed
+mixed-workload throughput. The updater-owned hold is now absent, and the checked cache-fix
+revision3b442219 is installed. Preserve these bounds while avoiding repeated full-import CI.

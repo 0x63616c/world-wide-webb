@@ -91,6 +91,8 @@ class ReleaseTests(unittest.TestCase):
             scripts, binaries = root / "scripts", root / "bin"
             scripts.mkdir()
             binaries.mkdir()
+            (root / "apps/tendr").mkdir(parents=True)
+            (root / "apps/tendr/project.yml").write_text("fixture project spec\n")
             for name in ("capture-screenshots.sh", "boot-simulator.sh", "screenshot-build-settings.py"):
                 shutil.copy2(ROOT / "scripts" / name, scripts / name)
             tool = binaries / "tool"
@@ -99,20 +101,24 @@ import json, os, pathlib, sys
 name, args = pathlib.Path(sys.argv[0]).name, sys.argv[1:]
 if name == "ruby":
     print({"project_path":"fixture project.xcodeproj", "scheme":"Fixture", "screenshot_test":"FixtureTests", "name":"Fixture"}[args[-1]])
+elif name == "xcodegen":
+    pathlib.Path(os.environ["PROJECT_GENERATED_RECORD"]).write_text(str(pathlib.Path.cwd()))
 elif name == "xcrun" and args[:2] == ["simctl", "create"]:
+    assert pathlib.Path(os.environ["PROJECT_GENERATED_RECORD"]).exists(), "Generate before boot"
     print("fixture-simulator")
 elif name == "xcodebuild":
     pathlib.Path(os.environ["SCREENSHOT_BUILD_RECORD"]).write_text(json.dumps(args))
     sys.exit(42)
 ''')
             tool.chmod(0o755)
-            for name in ("ruby", "xcrun", "xcodebuild"):
+            for name in ("ruby", "xcrun", "xcodebuild", "xcodegen"):
                 (binaries / name).symlink_to(tool)
             record = root / "build.json"
             environment = {key: value for key, value in os.environ.items() if key not in ("RELEASE_MANIFEST", "RELEASE_VERSION", "RELEASE_BUILD")}
-            environment.update(PATH=f"{binaries}:{environment['PATH']}", RELEASE_VERSION="1.1.1", RELEASE_BUILD="1", SCREENSHOT_BUILD_RECORD=str(record))
+            environment.update(PATH=f"{binaries}:{environment['PATH']}", RELEASE_VERSION="1.1.1", RELEASE_BUILD="1", SCREENSHOT_BUILD_RECORD=str(record), PROJECT_GENERATED_RECORD=str(root / "generated-project"))
             result = subprocess.run(["bash", str(scripts / "capture-screenshots.sh"), "tendr"], env=environment, capture_output=True, text=True, timeout=15)
             self.assertEqual(result.returncode, 42, result.stdout + result.stderr)
+            self.assertEqual((root / "generated-project").read_text(), str((root / "apps/tendr").resolve()))
             arguments = json.loads(record.read_text())
             self.assertIn("MARKETING_VERSION=1.1.1", arguments)
             self.assertIn("CURRENT_PROJECT_VERSION=1", arguments)
