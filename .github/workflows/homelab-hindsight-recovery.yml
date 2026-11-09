@@ -17,7 +17,7 @@ concurrency:
 
 jobs:
   synthetic-restore:
-    runs-on: [self-hosted, Linux, ARM64, homelab-linux]
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 20
     env:
       HINDSIGHT_IMAGE: ghcr.io/vectorize-io/hindsight@sha256:a88678c038b0e4340822b02a5efc566c56d8176b5bffa731bc433fd37f978e4c

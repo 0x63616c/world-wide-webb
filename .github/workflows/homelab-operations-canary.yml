@@ -13,7 +13,7 @@ jobs:
   source:
     name: Operations source
     if: github.ref == 'refs/heads/main' && vars.HOMELAB_OPERATIONS_CANARY_ENABLED == 'true'
-    runs-on: [self-hosted, Linux, ARM64, homelab-linux]
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 5
     outputs:
       sha: ${{ steps.source.outputs.sha }}
@@ -30,7 +30,7 @@ jobs:
   canary:
     name: Operations canary
     needs: source
-    runs-on: [self-hosted, Linux, ARM64, homelab-operations]
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6

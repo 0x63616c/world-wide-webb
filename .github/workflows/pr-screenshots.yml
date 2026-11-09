@@ -24,7 +24,7 @@ concurrency:
 
 jobs:
   changes:
-    runs-on: [self-hosted, Linux, ARM64, homelab-linux]
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 5
     outputs:
       apps: ${{ steps.apps.outputs.apps }}
@@ -61,7 +61,7 @@ jobs:
     needs: changes
     # Capture only source from this repository on the private runner pool.
     if: needs.changes.outputs.apps != '' && (github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository)
-    runs-on: [self-hosted, macOS, ARM64, homelab-tart]
+    runs-on: macos-26
     timeout-minutes: 60
     env:
       DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer

@@ -14,7 +14,7 @@ jobs:
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.event == 'push' &&
       github.event.workflow_run.head_repository.full_name == github.repository
-    runs-on: [self-hosted, Linux, ARM64, homelab-linux]
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 5
     outputs:
       publish: ${{ steps.select.outputs.publish }}
@@ -39,7 +39,7 @@ jobs:
   publish:
     needs: selection
     if: needs.selection.outputs.publish == 'true'
-    runs-on: [self-hosted, macOS, ARM64, homelab-tart]
+    runs-on: macos-26
     timeout-minutes: 120
     environment: production
     concurrency:

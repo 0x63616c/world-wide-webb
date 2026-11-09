@@ -12,14 +12,14 @@ concurrency:
 jobs:
   linux:
     name: Linux recovery
-    runs-on: [self-hosted, Linux, ARM64, homelab-linux]
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 10
     steps:
       - name: Keep real job active for restart and cancellation validation
         run: python3 -u -c "import time; print('Recovery job is running', flush=True); time.sleep(300)"
   macos:
     name: macOS recovery
-    runs-on: [self-hosted, macOS, ARM64, homelab-tart]
+    runs-on: macos-26
     timeout-minutes: 10
     steps:
       - name: Keep real job active for restart and cancellation validation

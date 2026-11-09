@@ -18,7 +18,7 @@ concurrency:
 jobs:
   changes:
     name: Standard iOS selection
-    runs-on: [self-hosted, Linux, ARM64, homelab-linux]
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 5
     outputs:
       apps: ${{ steps.detect.outputs.apps }}
@@ -46,7 +46,7 @@ jobs:
   backends:
     needs: changes
     if: needs.changes.outputs.backends != '[]' || needs.changes.outputs.template == 'true'
-    runs-on: [self-hosted, Linux, ARM64, homelab-linux]
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -70,7 +70,7 @@ jobs:
   tooling:
     needs: changes
     if: needs.changes.outputs.tooling == 'true'
-    runs-on: [self-hosted, Linux, ARM64, homelab-linux]
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -127,7 +127,7 @@ jobs:
   rdesign:
     needs: changes
     if: needs.changes.outputs.rdesign == 'true'
-    runs-on: [self-hosted, macOS, ARM64, homelab-tart]
+    runs-on: macos-26
     timeout-minutes: 60
     env:
       DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
@@ -145,7 +145,7 @@ jobs:
       fail-fast: false
       matrix:
         app: ${{ fromJSON(needs.changes.outputs.apps) }}
-    runs-on: [self-hosted, macOS, ARM64, homelab-tart]
+    runs-on: macos-26
     timeout-minutes: 60
     env:
       DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
@@ -181,7 +181,7 @@ jobs:
   template:
     needs: changes
     if: needs.changes.outputs.template == 'true'
-    runs-on: [self-hosted, macOS, ARM64, homelab-tart]
+    runs-on: macos-26
     timeout-minutes: 60
     env:
       DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
@@ -199,7 +199,7 @@ jobs:
     name: Standard iOS checks
     if: always() && !cancelled()
     needs: [changes, tooling, rdesign, app, template, backends]
-    runs-on: [self-hosted, Linux, ARM64, homelab-linux]
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 5
     steps:
       - env:

@@ -31,7 +31,7 @@ concurrency:
 
 jobs:
   submit:
-    runs-on: [self-hosted, Linux, ARM64, homelab-linux]
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 15
     env:
       FASTLANE_SKIP_UPDATE_CHECK: '1'

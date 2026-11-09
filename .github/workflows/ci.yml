@@ -18,7 +18,7 @@ concurrency:
   cancel-in-progress: ${{ github.ref_name != 'main' }}
 jobs:
   changes:
-    runs-on: [self-hosted, Linux, ARM64, homelab-linux]
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 5
     outputs:
       publish_image: ${{ steps.select.outputs.publish_image }}
@@ -52,7 +52,7 @@ jobs:
   typecheck:
     needs: changes
     if: needs.changes.outputs.checks == 'true'
-    runs-on: [self-hosted, Linux, ARM64, homelab-linux]
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -73,7 +73,7 @@ jobs:
   test-unit:
     needs: changes
     if: needs.changes.outputs.checks == 'true'
-    runs-on: [self-hosted, Linux, ARM64, homelab-linux]
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -92,7 +92,7 @@ jobs:
   apple:
     needs: changes
     if: needs.changes.outputs.apple == 'true'
-    runs-on: [self-hosted, macOS, ARM64, homelab-tart]
+    runs-on: macos-26
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -148,7 +148,7 @@ jobs:
   image:
     needs: changes
     if: needs.changes.outputs.image == 'true'
-    runs-on: [self-hosted, Linux, ARM64, homelab-linux]
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -189,7 +189,7 @@ jobs:
       TF_VAR_state_passphrase: fixture-only-open-tofu-encryption-passphrase
     needs: changes
     if: needs.changes.outputs.infra == 'true'
-    runs-on: [self-hosted, Linux, ARM64, homelab-linux]
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -206,7 +206,7 @@ jobs:
   build-and-test:
     if: always() && !cancelled()
     needs: [changes, typecheck, test-unit, apple, image, infra]
-    runs-on: [self-hosted, Linux, ARM64, homelab-linux]
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6

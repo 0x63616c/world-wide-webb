@@ -12,7 +12,7 @@ concurrency:
 jobs:
   selection:
     name: Callkeep selection
-    runs-on: [self-hosted, Linux, ARM64, homelab-linux]
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 5
     outputs:
       verify: ${{ steps.select.outputs.verify }}
@@ -36,7 +36,7 @@ jobs:
     name: Callkeep release invariants
     needs: selection
     if: contains(fromJSON(needs.selection.outputs.verify), 'callkeep.native')
-    runs-on: [self-hosted, Linux, ARM64, homelab-linux]
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -50,7 +50,7 @@ jobs:
     name: Callkeep native
     needs: selection
     if: contains(fromJSON(needs.selection.outputs.verify), 'callkeep.native')
-    runs-on: [self-hosted, macOS, ARM64, homelab-tart]
+    runs-on: macos-26
     timeout-minutes: 60
     env:
       DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
@@ -66,7 +66,7 @@ jobs:
     name: Callkeep checks
     needs: [selection, tooling, native]
     if: always() && !cancelled()
-    runs-on: [self-hosted, Linux, ARM64, homelab-linux]
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 5
     steps:
       - env:
