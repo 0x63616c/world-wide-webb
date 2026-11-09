@@ -513,3 +513,15 @@ Retain CI checks, reviewed publication, exact-source provenance, scoped credenti
 promotion, stale-source rejection and enrollment coordination in automation. Repository privacy remains
 mandatory before private history is published. Direct pushes can bypass the automation; GitHub will
 not enforce these gates on the selected account plan. This decision removes the account-upgrade blocker.
+
+
+### Owner update: consolidate first, improve after
+
+The owner clarified during execution that the move should mostly consolidate existing projects,
+fix their paths and tidy the repository, with a usable app-development checkout first. New host
+enrollment coordination must not hold that up. Keep existing live host authority and working
+product handlers until their separate replacements are verified. The first complete reviewed
+candidate delivers the private consolidated app layout, build/CI compatibility and existing release
+paths; deeper lifecycle/enrollment improvements and retirement follow. This changes execution order,
+not permission to lose data, skip relevant checks, publish private history publicly, enable conflicting
+writers, or mark the full goal complete before its remaining acceptance requirements are met.

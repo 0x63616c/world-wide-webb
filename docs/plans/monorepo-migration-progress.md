@@ -623,3 +623,29 @@ current evidence/selection/privacy tests pass, alongside the16 shared selector/g
 Ruff, workflow lint and runner-route audit. Exact-attempt API metadata shape was independently
 read from an existing WWW run without a provider write. Local Git atomic support does not prove
 GitHub acceptance; the runbook retains that explicit canary before activation.
+
+
+## Owner execution correction: usable repo first
+
+The owner clarified that this should primarily be copying/consolidating the projects, adapting
+paths and tidying, rather than putting a new homelab enrollment design on the critical path.
+Prioritize the usable private app-development repository, existing product builds/releases and
+selective homelab runners. Preserve current live host authority until its separate handover works.
+Full migration/recovery/documentation/retirement scope stays open; those follow-ups do not block
+ordinary app development in the consolidated repo. Review each complete usable candidate before
+publication, keep automatic writers off until their own handover is proven, and do not claim live
+release delivery from imported code.
+
+Unfinished Rust enrollment-coordination changes were preserved separately, not published, in
+stash `Park unfinished enrollment coordination for follow-up; usable repo migration first` and
+local branch `codex/homelab-lease-followup-20261108-173501`. The stash's third parent contains the
+new untracked `deployment_lease.rs`; retain the complete stash/branch graph when resuming it.
+Its four independent integration findings and partial fixes are recorded outside Git at
+`/tmp/monorepo-cli-lease-astra-review.md`. This snapshot is unfinished and not cleared for delivery.
+The main migration candidate is back to the last committed implementation; no original checkout,
+profile, key, live host source or service was changed by parking it.
+
+Next milestone: refresh app sources, inspect the complete usable app/CI/release candidate,
+resolve concrete cutover failures, make WWW private before any private-history push, publish
+reviewed source, pass checks and verify the app workflows. Defer new enrollment features and
+old-repo retirement from that usability milestone, while retaining them in the full active goal.
