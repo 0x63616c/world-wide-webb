@@ -127,6 +127,7 @@ targets:
       - path: App/PatternsScreen.swift
       - path: App/FoldingPresentation.swift
       - path: App/CompetitionScreens.swift
+      - path: App/ProfileIdentityEditor.swift
       - path: App/CompetitionPresentation.swift
       - path: App/PodiumRing.swift
       - path: App/MilestoneModels.swift

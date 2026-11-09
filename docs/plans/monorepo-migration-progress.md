@@ -931,3 +931,20 @@ Xcode/Swift/SDK/runtime checks; it does not accept a different generator version
 setup serves native, domain and preview jobs. Local real Apple environment validation and
 its three existing regression tests pass, as do workflow lint/diff checks. Replacement
 fresh-guest CI remains required; no preview output or native delivery is claimed.
+
+### Folding screenshot target source membership
+
+Preview job128994117370/run42565972684 passed tool setup and reached compilation. It found
+three missing types used by existing screenshot views: AvatarImagePreparation,
+ProfileAccountActions and InlineProfileIdentity. Their existing ProfileIdentityEditor.swift
+file was included by the production target's App glob but omitted from the screenshot target's
+explicit source list. The screenshot target now includes that file; no view implementation,
+fixture behavior or product identity changed.
+
+A real local unsigned FoldingScreenshots simulator build passes. The storefront target also
+compiled, and its outer-render and tip-review cases passed on a fresh task-owned Duo simulator.
+The attempted full render suite was not green: its inner-render case correctly rejected the
+still-outer native geometry (466x678 versus951x669 points). That invocation did not control
+native poses and is not inner-display acceptance; the task simulator was cleaned up. Controlled
+CI preview/full captures remain the acceptance route. Source-only tests were not substituted
+for actual compilation or rendering evidence.
