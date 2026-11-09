@@ -6,7 +6,8 @@ target=${1:?usage: publish-site.sh <clean-legacy-gh-pages-checkout>}
 target=$(cd "$target" && pwd -P)
 [[ "$target" != "$root" ]] || { echo 'Use a separate Pages checkout' >&2; exit 1; }
 expected_remote=${SITE_PUBLISH_REMOTE:-git@github.com:0x63616c/apps.git}
-[[ "$(git -C "$target" remote get-url origin)" == "$expected_remote" ]] || { echo 'Unexpected Pages authority' >&2; exit 1; }
+actual_remote=$(git -C "$target" remote get-url origin)
+[[ "${actual_remote%.git}" == "${expected_remote%.git}" ]] || { echo 'Unexpected Pages authority' >&2; exit 1; }
 [[ "$(git -C "$target" branch --show-current)" == gh-pages ]] || { echo 'Pages checkout must use gh-pages' >&2; exit 1; }
 [[ -z "$(git -C "$target" status --porcelain)" ]] || { echo 'Pages checkout must be clean' >&2; exit 1; }
 git -C "$target" fetch -q origin gh-pages

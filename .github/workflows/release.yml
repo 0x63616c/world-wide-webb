@@ -53,7 +53,7 @@ jobs:
   screenshots:
     needs: resolve
     if: ${{ !inputs.skip_screenshots }}
-    runs-on: macos-26
+    runs-on: [self-hosted, macOS, ARM64, homelab-tart]
     timeout-minutes: 120
     env:
       DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
@@ -113,7 +113,7 @@ jobs:
   app-store-connect:
     needs: [resolve, screenshots]
     if: ${{ !cancelled() && needs.resolve.result == 'success' && (needs.screenshots.result == 'success' || needs.screenshots.result == 'skipped') }}
-    runs-on: macos-26
+    runs-on: [self-hosted, macOS, ARM64, homelab-tart]
     timeout-minutes: 60
     concurrency:
       group: app-store-${{ needs.resolve.outputs.app }}

@@ -90,9 +90,9 @@ jobs:
     name: Preserve installed privacy and support URLs
     needs: [selection, gate]
     if: >-
-      github.event_name == 'push' && github.ref == 'refs/heads/main' &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main' &&
       vars.LEGACY_SITE_DELIVERY_ENABLED == 'true' &&
-      contains(fromJSON(needs.selection.outputs.delivery), 'sites.pages')
+      (github.event_name == 'workflow_dispatch' || contains(fromJSON(needs.selection.outputs.delivery), 'sites.pages'))
     runs-on: ubuntu-24.04-arm
     environment: production
     timeout-minutes: 10
@@ -120,3 +120,41 @@ jobs:
           git -C build/legacy-pages config user.name 'github-actions[bot]'
           git -C build/legacy-pages config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           scripts/publish-site.sh "$GITHUB_WORKSPACE/build/legacy-pages" "$RUNNER_TEMP/public-site"
+  folding-publication:
+    name: Publish Folding websites
+    needs: [selection, gate]
+    if: >-
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main' &&
+      vars.FOLDING_SITE_DELIVERY_ENABLED == 'true' &&
+      (github.event_name == 'workflow_dispatch' || contains(fromJSON(needs.selection.outputs.delivery), 'sites.folding'))
+    runs-on: ubuntu-24.04-arm
+    environment: production
+    timeout-minutes: 10
+    concurrency:
+      group: folding-sites
+      cancel-in-progress: false
+    env:
+      CLOUDFLARE_LOAD_DEV_VARS_FROM_DOT_ENV: 'false'
+      WRANGLER_SEND_METRICS: 'false'
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '26.13.0'
+      - uses: actions/download-artifact@v4
+        with:
+          name: folding-public-sites-${{ github.sha }}
+          path: sites/folding
+      - name: Publish staging and production assets
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.FOLDING_DEPLOY_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          test -n "$CLOUDFLARE_API_TOKEN"
+          test -n "$CLOUDFLARE_ACCOUNT_ID"
+          wrangler_version=$(node -p "require('./apps/folding/backend/package.json').devDependencies.wrangler")
+          npx --yes "wrangler@$wrangler_version" deploy --config sites/folding/wrangler.jsonc
+          npx --yes "wrangler@$wrangler_version" deploy --config sites/folding/wrangler.jsonc --env production

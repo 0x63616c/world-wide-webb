@@ -9,7 +9,8 @@
       "adminUser": "admin",
       "adminUID": 501,
       "authorizedKeys": [
-        "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHZ7LV/EOeunWFi71s4dNzLnwsusY9RlMj37TaPecurE"
+        "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHZ7LV/EOeunWFi71s4dNzLnwsusY9RlMj37TaPecurE",
+        "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHcUxySiKnv14K3NgT2BoncKhVwzQ4BnEtHg9QGnHe3m WWW Cloudflare operations"
       ],
       "services": [
         "control-center",
