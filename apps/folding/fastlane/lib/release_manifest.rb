@@ -171,14 +171,18 @@ module FoldingRelease
     end
 
     def publish
-      writable!
-      FoldingRelease.run("gh", "release", "edit", tag, "--repo", repository, "--draft=false")
+      # Apple publishes the app. Release records and signed artifacts stay in
+      # authenticated GitHub drafts, including when the source repo is public.
+      raise "Artifact release is missing" unless writable!
     end
 
     private
 
     def writable!
       raise "Historical Folding artifacts are read-only; create a namespaced build record" if @historical
+      release = info
+      raise "Folding artifact storage must remain a private draft" if release && release["isDraft"] != true
+      release
     end
   end
 
@@ -300,8 +304,6 @@ module FoldingRelease
     source = clean_commit!
     raise "Wrong Apple team override" if ENV["APPLE_TEAM_ID"] && ENV["APPLE_TEAM_ID"] != CONFIG.fetch("apple_team_id")
     raise "Invalid marketing version" unless version.match?(/\A\d+\.\d+\.\d+\z/)
-    visibility = JSON.parse(run("gh", "repo", "view", CONFIG.fetch("repository"), "--json", "visibility")).fetch("visibility")
-    raise "Distribution artifacts require a private repository" unless visibility == "PRIVATE"
     if tag
       prior = GitHubArtifacts.new(tag).latest("manifest")
       if prior

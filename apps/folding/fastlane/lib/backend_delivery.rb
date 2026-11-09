@@ -137,8 +137,6 @@ module FoldingRelease
 
     def self.deploy(run_url:)
       source = FoldingRelease.clean_commit!
-      visibility = JSON.parse(FoldingRelease.run("gh", "repo", "view", CONFIG.fetch("repository"), "--json", "visibility"))
-      raise "Deployment receipts require a private repository" unless visibility["visibility"] == "PRIVATE"
       check = {"kind" => "ci", "name" => "backend", "commit_sha" => source, "conclusion" => "success", "run_url" => run_url}
       CheckEvidence.validate!(check, source: source, base: ROOT)
       verify_artifact!(source)
