@@ -51,6 +51,7 @@ fn read_receipt(path: &Path, original: &Changes) -> Result<Option<Receipt>, Erro
         || receipt.changes.repository != original.repository
         || receipt.changes.host != original.host
         || receipt.changes.manifest.schema != original.manifest.schema
+        || receipt.changes.manifest.deployment != original.manifest.deployment
         || receipt.changes.manifest.one_password != original.manifest.one_password
         || receipt.changes.manifest.tailscale != original.manifest.tailscale
         || receipt.changes.manifest.hosts.get(&original.host)
@@ -177,6 +178,13 @@ fn manifest_at(api: &impl Api, repository: &str, revision: &str) -> Result<Manif
     ))?)
     .map_err(|_| Error::Invalid)?;
     manifest.validate().map_err(|_| Error::Invalid)?;
+    if manifest
+        .deployment
+        .as_ref()
+        .is_some_and(|policy| policy.repository != repository)
+    {
+        return Err(Error::Invalid);
+    }
     Ok(manifest)
 }
 
@@ -187,6 +195,7 @@ fn rebase(api: &impl Api, changes: &Changes, revision: &str) -> Result<Changes, 
         || original.tailscale != current.tailscale
         || original.one_password != current.one_password
         || original.schema != current.schema
+        || original.deployment != current.deployment
     {
         return Err(Error::Conflict);
     }

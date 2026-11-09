@@ -11,17 +11,23 @@ fn committed_schema_matches_types_and_validates_current_example() {
     let generated = config::schema();
     assert_eq!(
         format!("{}\n", serde_json::to_string_pretty(&generated).unwrap()),
-        include_str!("../schema/homelab-v2.schema.json")
+        include_str!("../schema/homelab-v3.schema.json")
     );
     assert_eq!(
         generated["$schema"],
         "https://json-schema.org/draft/2020-12/schema"
     );
     let validator = jsonschema::validator_for(&generated).unwrap();
+    fn example() -> Value {
+        serde_json::from_str(include_str!("../examples/homelab-v3.json")).unwrap()
+    }
     assert!(validator.is_valid(&example()));
     assert!(config::parse(&serde_json::to_vec(&example()).unwrap()).is_ok());
     for (pointer, value) in [
         ("/schema", json!(1)),
+        ("/deployment", Value::Null),
+        ("/deployment/branch", json!("main")),
+        ("/deployment/repository", json!("-invalid/repo")),
         ("/onePassword", Value::Null),
         ("/onePassword/backupVault", json!("")),
         ("/hosts/build-mac/adminUID", json!(500)),

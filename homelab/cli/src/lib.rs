@@ -35,7 +35,6 @@ pub mod tailscale;
 pub mod tailscale_oauth;
 pub mod tui;
 mod ui;
-mod update_check;
 pub mod updater_gate;
 
 mod comin;

@@ -1484,6 +1484,7 @@ fn complete_preserved(f: &Fixture, already_rebooted: bool) {
             &ssh,
             &f.state_directory.join("vm-tailnet"),
             remote_completion::Installation {
+                branch: "main",
                 repository: &f.target.repository,
                 host: "vm-test",
                 revision: &merged,

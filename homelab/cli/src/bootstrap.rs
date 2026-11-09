@@ -608,6 +608,7 @@ fn run_inner(
     let approved = &request.expected_host;
     let manifest = crate::config::Manifest {
         schema_url: None,
+        deployment: None,
         one_password: None,
         schema: 1,
         hosts: [(request.host.clone(), approved.clone())].into(),

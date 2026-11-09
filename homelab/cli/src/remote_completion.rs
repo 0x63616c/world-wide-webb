@@ -67,6 +67,7 @@ pub enum Error {
 }
 
 pub struct Installation<'a> {
+    pub branch: &'a str,
     pub repository: &'a str,
     pub host: &'a str,
     pub revision: &'a str,
@@ -377,10 +378,11 @@ pub fn finish_with_tools(
     let binding =
         crate::config::setup_binding(selection.repository, selection.host, selection.revision)
             .ok_or(Error::Selection)?;
-    if !selection
-        .tag
-        .strip_prefix("tag:")
-        .is_some_and(crate::config::valid_host)
+    if !matches!(selection.branch, "main" | "deploy/homelab")
+        || !selection
+            .tag
+            .strip_prefix("tag:")
+            .is_some_and(crate::config::valid_host)
         || crate::inventory::validate_profile(profile).is_err()
     {
         return Err(Error::Selection);
@@ -433,8 +435,8 @@ pub fn finish_with_tools(
                 (
                     "repository-access",
                     format!(
-                        "/usr/bin/env GIT_SSH_COMMAND=\"/usr/bin/ssh -F /dev/null -i /var/lib/homelab-git/key.txt -o IdentitiesOnly=yes -o IdentityAgent=none -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=/etc/homelab/github_known_hosts -o GlobalKnownHostsFile=/dev/null -o ConnectTimeout=10\" /usr/bin/git ls-remote --exit-code git@github.com:{}.git refs/heads/main >/dev/null 2>&1",
-                        selection.repository
+                        "/usr/bin/env GIT_SSH_COMMAND=\"/usr/bin/ssh -F /dev/null -i /var/lib/homelab-git/key.txt -o IdentitiesOnly=yes -o IdentityAgent=none -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=/etc/homelab/github_known_hosts -o GlobalKnownHostsFile=/dev/null -o ConnectTimeout=10\" /usr/bin/git ls-remote --exit-code git@github.com:{}.git refs/heads/{} >/dev/null 2>&1",
+                        selection.repository, selection.branch
                     ),
                 ),
                 (

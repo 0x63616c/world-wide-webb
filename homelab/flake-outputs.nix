@@ -8,9 +8,13 @@ inputs@{ self, nixpkgs, darwin, ... }:
         config.allowUnfreePredicate = allowRunnerTools;
       };
       manifest = builtins.fromJSON (builtins.readFile ../homelab.json);
+      deploymentPolicy = assert manifest.schema == 3;
+        assert manifest.deployment.repository == "0x63616c/world-wide-webb";
+        assert manifest.deployment.branch == "deploy/homelab";
+        manifest.deployment;
       runnerTools = import ./packages/runner-tools.nix { inherit pkgs; };
       mkHost = name: darwin.lib.darwinSystem {
-        specialArgs = { inherit inputs; reviewedHost = manifest.hosts.${name}; };
+        specialArgs = { inherit inputs deploymentPolicy; reviewedHost = manifest.hosts.${name}; };
         modules = [
           { nixpkgs.config.allowUnfreePredicate = allowRunnerTools; }
           inputs.nix-homebrew.darwinModules.nix-homebrew

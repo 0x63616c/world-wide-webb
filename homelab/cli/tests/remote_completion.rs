@@ -69,6 +69,7 @@ impl Fixture {
             &self.directory.path().join("ssh"),
             &self.directory.path().join("ssh"),
             Installation {
+                branch: "main",
                 repository: "example/config",
                 host: "build-mac",
                 revision: &"a".repeat(40),

@@ -1,4 +1,4 @@
-{ config, inputs, lib, pkgs, ... }:
+{ config, inputs, deploymentPolicy, lib, pkgs, ... }:
 let
   hostTools = import ../packages/client.nix { inherit pkgs; };
   cominConfiguration = import (inputs.comin + "/nix/comin-config.nix") {
@@ -9,7 +9,7 @@ let
   '';
 in {
   options.homelab.updates = {
-    enable = lib.mkEnableOption "Git reconciliation from main";
+    enable = lib.mkEnableOption "Git reconciliation from the protected deployment branch";
     stateful.enable = lib.mkEnableOption "reviewed transactional stateful activation";
   };
 
@@ -51,8 +51,8 @@ in {
       exporter.listen_address = "127.0.0.1";
       remotes = [{
         name = "origin";
-        url = "git@github.com:0x63616c/homelab.git";
-        branches.main.name = "main";
+        url = "git@github.com:${deploymentPolicy.repository}.git";
+        branches.main.name = deploymentPolicy.branch;
         poller.period = 30;
         auth = {
           username = "git";

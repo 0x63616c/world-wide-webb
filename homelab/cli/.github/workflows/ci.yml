@@ -30,8 +30,8 @@ jobs:
           shellcheck src/probe.sh src/remote/*.sh src/first-access/*.sh
       - name: Check versioned configuration schema and example
         run: |
-          cargo run --locked --bin homelab -- config schema > /tmp/homelab-v2.schema.json
-          diff -u schema/homelab-v2.schema.json /tmp/homelab-v2.schema.json
+          cargo run --locked --bin homelab -- config schema > /tmp/homelab-v3.schema.json
+          diff -u schema/homelab-v3.schema.json /tmp/homelab-v3.schema.json
           env -u HOME target/debug/homelab config validate examples/homelab.json
       - name: Test synthetic setup journeys
         run: cargo test --locked
@@ -76,7 +76,7 @@ jobs:
           tar -xzf homelab-aarch64-apple-darwin.tar.gz -C release
           test -s release/LICENSE
           test -s release/docs/images/architecture.svg
-          test -s release/schema/homelab-v2.schema.json
+          test -s release/schema/homelab-v3.schema.json
           release/homelab --version
           release/hl --version
           release/homelab-host --version

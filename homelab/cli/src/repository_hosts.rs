@@ -199,6 +199,7 @@ mod tests {
         ];
         let current = Manifest {
             schema_url: None,
+            deployment: None,
             schema: 1,
             one_password: None,
             hosts: BTreeMap::from([("build-mac".into(), host("new-admin"))]),

@@ -16,7 +16,7 @@ pub enum Error {
     )]
     Configuration,
     #[error(
-        "New setup requires schema 2 and onePassword.backupVault in homelab.json. Existing recovery material was preserved."
+        "New setup requires schema 2 or 3 and onePassword.backupVault in homelab.json. Existing recovery material was preserved."
     )]
     BackupConfiguration,
     #[error(transparent)]
@@ -71,7 +71,7 @@ pub fn check_setup_configuration(
         .manifest
         .validate()
         .map_err(|_| Error::Configuration)?;
-    if workspace.manifest.schema == 2 && workspace.manifest.one_password.is_some() {
+    if workspace.manifest.schema >= 2 && workspace.manifest.one_password.is_some() {
         return Ok(());
     }
     if let Some(saved) = provisioning::approved_installation(root, host)? {
@@ -95,7 +95,7 @@ fn backup_vault(
         .manifest
         .validate()
         .map_err(|_| Error::Configuration)?;
-    let vault = if workspace.manifest.schema == 2 {
+    let vault = if workspace.manifest.schema >= 2 {
         let config = workspace
             .manifest
             .one_password
@@ -385,14 +385,32 @@ mod tests {
         let mut manifest = serde_json::json!({"schema":schema,"hosts":{
             "test-mac":{"adminUser":"admin","adminUID":501,"authorizedKeys":[],"activationReady":false,"services":[]}
         },"tailscale":{"tag":"tag:homelab","oauth":{"vault":"OAuth vault","item":"Issuer"}}});
-        if schema == 2 {
+        if schema >= 2 {
             manifest["onePassword"] = serde_json::json!({"backupVault":"Recovery vault"});
+        }
+        if schema == 3 {
+            manifest["deployment"] =
+                serde_json::json!({"repository":"example/config", "branch":"deploy/homelab"});
         }
         Workspace {
             repository: "example/config".into(),
             revision: "a".repeat(40),
             manifest: serde_json::from_value(manifest).unwrap(),
         }
+    }
+
+    #[test]
+    fn deployment_policy_keeps_explicit_recovery_vault_for_fresh_enrollment() {
+        let temporary = tempfile::tempdir().unwrap();
+        assert!(
+            check_setup_configuration(
+                &temporary.path().join("state"),
+                "test-mac",
+                &configuration(3)
+            )
+            .is_ok()
+        );
+        assert!(!temporary.path().join("state").exists());
     }
 
     #[test]

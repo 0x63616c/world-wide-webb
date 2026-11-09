@@ -577,7 +577,7 @@ fn render_decorated(
                     offset,
                     footer,
                     std::env::var_os("NO_COLOR").is_none(),
-                    crate::update_check::available().as_deref(),
+                    None,
                 );
                 commit_links = body
                     .iter()
@@ -615,7 +615,7 @@ pub(crate) fn help_body() -> Vec<(String, Role)> {
         ("Documentation and source".into(), Role::Section),
         (String::new(), Role::Body),
         (
-            "https://github.com/0x63616c/homelab-cli".into(),
+            "https://github.com/0x63616c/world-wide-webb/tree/main/homelab/cli".into(),
             Role::Context,
         ),
     ]

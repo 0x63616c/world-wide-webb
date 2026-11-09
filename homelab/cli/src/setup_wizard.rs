@@ -1876,6 +1876,7 @@ fn finish_enrollment(
         &tools.remote_setup.ssh,
         &tailscale_executable,
         crate::remote_completion::Installation {
+            branch: workspace.manifest.deployment_branch(),
             repository: &workspace.repository,
             host,
             revision: &workspace.revision,
@@ -2048,6 +2049,7 @@ mod tests {
             manifest: config::Manifest {
                 schema: 1,
                 schema_url: None,
+                deployment: None,
                 one_password: None,
                 tailscale: None,
                 hosts: ["build-mac", "service-mac"]

@@ -90,6 +90,21 @@ pub struct TailscaleConfig {
     pub tag: String,
     pub oauth: Option<OAuthReference>,
 }
+/// The authoring branch discovers this policy; only the deployment branch installs hosts.
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct Deployment {
+    #[schemars(pattern(r"^[A-Za-z0-9_][A-Za-z0-9_.-]{0,99}/[A-Za-z0-9_][A-Za-z0-9_.-]{0,99}$"))]
+    pub repository: String,
+    #[schemars(pattern(r"^deploy/homelab$"))]
+    pub branch: String,
+}
+impl Deployment {
+    pub fn valid(&self) -> bool {
+        valid_repository(&self.repository) && self.branch == "deploy/homelab"
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Manifest {
@@ -98,6 +113,8 @@ pub struct Manifest {
     pub schema_url: Option<String>,
     /// Version 2 requires an explicit, independent recovery-key backup vault.
     pub schema: u8,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub deployment: Option<Deployment>,
     #[serde(
         rename = "onePassword",
         default,
@@ -216,6 +233,12 @@ pub fn valid_revision(s: &str) -> bool {
             .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
 }
 impl Manifest {
+    pub fn deployment_branch(&self) -> &str {
+        self.deployment
+            .as_ref()
+            .map_or("main", |policy| policy.branch.as_str())
+    }
+
     pub fn validate(&self) -> Result<(), Error> {
         let label = |s: &str| {
             !s.is_empty()
@@ -224,8 +247,10 @@ impl Manifest {
                 && s.bytes()
                     .all(|b| b.is_ascii_alphanumeric() || b"._-".contains(&b))
         };
-        if !matches!(self.schema, 1 | 2)
-            || (self.schema == 2 && self.one_password.is_none())
+        if !matches!(self.schema, 1..=3)
+            || (self.schema >= 2 && self.one_password.is_none())
+            || (self.schema == 3 && !self.deployment.as_ref().is_some_and(Deployment::valid))
+            || (self.schema < 3 && self.deployment.is_some())
             || self
                 .one_password
                 .as_ref()
@@ -275,11 +300,14 @@ pub fn schema() -> serde_json::Value {
         .into_generator()
         .into_root_schema_for::<Manifest>();
     let mut schema = serde_json::to_value(generated).expect("derived schema is serializable");
-    schema["$id"] = serde_json::json!(
-        "https://raw.githubusercontent.com/0x63616c/homelab-cli/main/schema/homelab-v2.schema.json"
-    );
+    schema["$id"] = serde_json::json!("urn:homelab:configuration:v3");
     schema["properties"]["schema"] =
-        serde_json::json!({"const":2,"description":"Current configuration version."});
+        serde_json::json!({"const":3,"description":"Current configuration version."});
+    schema["properties"]["deployment"] = serde_json::json!({"$ref":"#/$defs/Deployment"});
+    schema["required"]
+        .as_array_mut()
+        .unwrap()
+        .push(serde_json::json!("deployment"));
     schema["properties"]["onePassword"] = serde_json::json!({"$ref":"#/$defs/OnePasswordConfig"});
     schema["required"]
         .as_array_mut()
@@ -343,13 +371,13 @@ pub fn parse(bytes: &[u8]) -> Result<Manifest, Diagnostic> {
     deserializer
         .end()
         .map_err(|_| fail("$", "Expected one JSON document."))?;
-    if !matches!(manifest.schema, 1 | 2) {
-        return Err(fail("$.schema", "Use configuration version 2."));
+    if !matches!(manifest.schema, 1..=3) {
+        return Err(fail("$.schema", "Use configuration version 3."));
     }
-    if manifest.schema == 2 && manifest.one_password.is_none() {
+    if manifest.schema >= 2 && manifest.one_password.is_none() {
         return Err(fail(
             "$.onePassword.backupVault",
-            "Version 2 requires an explicit backup vault.",
+            "Versions 2 and 3 require an explicit backup vault.",
         ));
     }
     if manifest
@@ -434,7 +462,34 @@ pub fn fetch(repository: &str) -> Result<Workspace, Error> {
     if !valid_revision(&revision) {
         return Err(Error::Fetch);
     }
-    fetch_revision(repository, &revision)
+    let authoring = fetch_revision(repository, &revision)?;
+    select_deployment(authoring, || {
+        let deployed_revision = String::from_utf8(api(
+            &format!("repos/{repository}/commits/deploy%2Fhomelab"),
+            false,
+        )?)
+        .map_err(|_| Error::Fetch)?
+        .trim()
+        .to_owned();
+        fetch_revision(repository, &deployed_revision)
+    })
+}
+
+fn select_deployment(
+    authoring: Workspace,
+    lookup: impl FnOnce() -> Result<Workspace, Error>,
+) -> Result<Workspace, Error> {
+    let Some(policy) = &authoring.manifest.deployment else {
+        return Ok(authoring);
+    };
+    let deployed = lookup()?;
+    // Never fall back to authoring main when the deployment ref is absent/stale.
+    if deployed.repository != authoring.repository
+        || deployed.manifest.deployment.as_ref() != Some(policy)
+    {
+        return Err(Error::InvalidManifest);
+    }
+    Ok(deployed)
 }
 
 pub fn fetch_revision(repository: &str, revision: &str) -> Result<Workspace, Error> {
@@ -447,6 +502,13 @@ pub fn fetch_revision(repository: &str, revision: &str) -> Result<Workspace, Err
     )?)
     .map_err(|_| Error::InvalidManifest)?;
     manifest.validate()?;
+    if manifest
+        .deployment
+        .as_ref()
+        .is_some_and(|policy| policy.repository != repository)
+    {
+        return Err(Error::InvalidManifest);
+    }
     Ok(Workspace {
         repository: repository.into(),
         revision: revision.into(),
@@ -624,5 +686,66 @@ mod repository_input_tests {
         ] {
             assert!(parse_repository(input).is_err());
         }
+    }
+}
+
+#[cfg(test)]
+mod deployment_policy_tests {
+    use super::*;
+    fn workspace(current: bool, revision: char) -> Workspace {
+        let mut value: serde_json::Value =
+            serde_json::from_str(include_str!("../examples/homelab.json")).unwrap();
+        if current {
+            value["schema"] = serde_json::json!(3);
+            value["deployment"] =
+                serde_json::json!({"repository":"example/config", "branch":"deploy/homelab"});
+        }
+        Workspace {
+            repository: "example/config".into(),
+            revision: revision.to_string().repeat(40),
+            manifest: parse(&serde_json::to_vec(&value).unwrap()).unwrap(),
+        }
+    }
+    #[test]
+    fn ordinary_main_commits_select_only_the_deployed_revision() {
+        let selected =
+            select_deployment(workspace(true, 'b'), || Ok(workspace(true, 'a'))).unwrap();
+        assert_eq!(selected.revision, "a".repeat(40));
+        assert_eq!(selected.manifest.deployment_branch(), "deploy/homelab");
+        let legacy = select_deployment(workspace(false, 'b'), || {
+            panic!("legacy must not look up deployment")
+        })
+        .unwrap();
+        assert_eq!(legacy.revision, "b".repeat(40));
+        assert_eq!(legacy.manifest.deployment_branch(), "main");
+    }
+    #[test]
+    fn missing_stale_or_retargeted_deployment_never_falls_back_to_main() {
+        assert!(select_deployment(workspace(true, 'b'), || Err(Error::Fetch)).is_err());
+        assert!(select_deployment(workspace(true, 'b'), || Ok(workspace(false, 'a'))).is_err());
+        let mut other = workspace(true, 'a');
+        other.repository = "example/other".into();
+        assert!(select_deployment(workspace(true, 'b'), || Ok(other)).is_err());
+    }
+    #[test]
+    fn version_three_requires_exact_policy_and_recovery_configuration() {
+        let base = serde_json::to_value(workspace(true, 'a').manifest).unwrap();
+        for (field, value) in [
+            ("/deployment", serde_json::Value::Null),
+            ("/deployment/branch", serde_json::json!("main")),
+            ("/deployment/repository", serde_json::json!("-bad/name")),
+            ("/onePassword", serde_json::Value::Null),
+            ("/schema", serde_json::json!(2)),
+        ] {
+            let mut invalid = base.clone();
+            *invalid.pointer_mut(field).unwrap() = value;
+            assert!(
+                parse(&serde_json::to_vec(&invalid).unwrap()).is_err(),
+                "{field}"
+            );
+        }
+        let mut current = workspace(true, 'a').manifest;
+        current.deployment.as_mut().unwrap().repository = "example/other".into();
+        assert!(current.validate().is_ok()); // Matching the fetched repository is checked at fetch_revision.
     }
 }

@@ -73,7 +73,8 @@ rebooting or rerunning verification, use
 credential step after verifying the Git-defined administrator and SSH identity.
 The checklist shows developer tools, repository access, recovery and secrets,
 Git configuration, Mac configuration, startup checks, and automatic updates.
-Enabling updates lets Comin build and apply current `main`; verification itself
+Enabling updates lets Comin build and apply the configured deployment branch (`deploy/homelab`
+for schema3; `main` for historical schema1/2); verification itself
 does not install changes. Screens that need acknowledgement show **Press Enter to continue**.
 A FileVault-protected Mac may need an unlock after restart. Unattended cold boot
 requires choosing a boot policy that does not depend on a password unlock.

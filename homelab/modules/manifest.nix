@@ -1,4 +1,4 @@
-{ config, inputs, reviewedHost, ... }:
+{ config, inputs, deploymentPolicy, reviewedHost, ... }:
 let
   services = reviewedHost.services;
   containers = builtins.filter (name: name != "home-assistant") services;
@@ -8,7 +8,8 @@ let
   };
 in {
   environment.etc."homelab/revision.json".text = builtins.toJSON {
-    repository = "0x63616c/homelab";
+    repository = deploymentPolicy.repository;
+    branch = deploymentPolicy.branch;
     host = config.networking.hostName;
     revision = inputs.self.rev or null;
   };

@@ -715,6 +715,7 @@ fn completion_child(fixture: &Fixture, config_path: &Path) {
         .expect("synthetic fixture requires Tailscale metadata")
         .tag;
     let selection = || homelab_client::remote_completion::Installation {
+        branch: "main",
         repository: &fixture.repository,
         host: &fixture.configuration_host,
         revision: &fixture.revision,

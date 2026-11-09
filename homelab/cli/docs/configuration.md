@@ -1,14 +1,18 @@
 # Configuration contract
 
-Put [homelab.json](../examples/homelab.json) at the root of your configuration
+Put [homelab.json](../examples/homelab-v3.json) at the root of your configuration
 repository on `main`. The wizard attaches using `owner/repository` and reads an
-exact commit through your local GitHub CLI authentication.
+exact commit through your local GitHub CLI authentication. Version 3 discovers the deployment
+policy on main, then reads the exact `deploy/homelab` commit. Missing or incompatible deployment
+refs stop setup; authoring main is never a fallback. Historical versions 1 and 2 retain their
+original main-branch behavior for existing recovery records.
 
 | Field | Purpose |
 | --- | --- |
 | `$schema` | Optional editor hint; the CLI never fetches it |
-| `schema` | Use `2` for new configuration; historical `1` remains readable |
-| `onePassword.backupVault` | Explicit vault for host/recovery age-key backups; required in version 2 |
+| `schema` | Use `3`; historical `1` and `2` remain readable |
+| `deployment` | Required in v3: matching `repository` and `branch: "deploy/homelab"` |
+| `onePassword.backupVault` | Explicit vault for host/recovery age-key backups; required in versions 2 and 3 |
 | `hosts` | Map of configuration names to administrator, SSH keys and services |
 | `tailscale.tag` | Tag assigned to single-use enrollment keys |
 | `tailscale.oauth` | 1Password vault/item references required for enrollment, never secret values |
@@ -38,8 +42,8 @@ The built system must supply:
 - `homelab-health`, which exits successfully only when the configured services
   are healthy, and the `tailscale` CLI for node verification.
 - Comin, its `com.github.nlewo.comin` launchd job and `/var/lib/homelab/comin.sock` status socket, configured
-  to reconcile this repository's `main` branch after enrollment releases its hold.
-- `etc/homelab/revision.json` with the exact `repository`, `host` and `revision`
+  to reconcile the configured deployment branch after enrollment releases its hold.
+- `etc/homelab/revision.json` with the exact `repository`, `branch`, `host` and `revision`
   of the built system. Completion checks this against Comin's actual deployment.
 
 Comin is required by this flow. This is a macOS/Nix contract, not a runner for
@@ -61,9 +65,11 @@ one regular JSON file up to 64 KiB and rejects unknown fields, unsupported versi
 and invalid host, key and reference values. Errors contain fixed field paths;
 unknown field names and invalid values are never copied into diagnostics.
 
-The example points `$schema` at the committed
-[version 2 JSON Schema](../schema/homelab-v2.schema.json). Editors may use that hint;
-the CLI treats it as inert metadata. `homelab config schema` prints the same
+The historical example retains its [version 2 JSON Schema](../schema/homelab-v2.schema.json).
+Current authoring uses the packaged [version 3 JSON Schema](../schema/homelab-v3.schema.json).
+Its `urn:homelab:configuration:v3` identifier needs no public source endpoint; configure an
+editor's local schema mapping when needed. The CLI treats `$schema` as inert metadata.
+`homelab config schema` prints the current
 Draft 2020-12 schema, generated from the Rust configuration types. CI checks for
 schema drift and validates the example against both the schema and the authoritative
 Rust semantic checks. The schema describes current authoring; it does not describe
@@ -72,7 +78,7 @@ all historical configuration the CLI can reconcile.
 To migrate version 1, set `schema` to `2` and add an explicit
 `onePassword: {"backupVault": "Homelab Recovery"}`. Choose the intended backup vault,
 not a value inferred from the OAuth item. Existing version 1 files remain readable
-for historical reconciliation. Fresh enrollment requires version 2; an existing
+for historical reconciliation. Fresh enrollment requires version 2 or 3; an existing
 attempt must retain its verified key-backup state rather than silently choosing a
 new vault. A historical attempt interrupted before verified backups fails closed.
 Migrate it explicitly to version 2 with the same intended backup vault, preserving
@@ -108,7 +114,7 @@ Mac should run. Setup progress is recorded separately.
 | `~/.homelab/profiles/default/inventory.json` | Selected SSH public key/agent and legacy host-to-journal bindings; saved addresses do not control routing |
 | `~/.homelab/profiles/default/inventory.json.lock` | Coordinates safe updates; not configuration |
 | `~/.homelab/profiles/default/provisioning/` | Private age identities, verified backup receipts, encrypted preparation files and resumable setup journals |
-| `~/.homelab/cache/release.json` | Public release-check cache |
+| `~/.homelab/cache/release.json` | Historical release-check cache; preserved and ignored |
 
 SSH host trust stays in the normal SSH known-hosts files. Private SSH keys stay
 in your SSH agent; the connection cache stores only its selected public key and
@@ -143,3 +149,16 @@ GitHub/1Password/Tailscale sign-ins, SSH known-hosts and the public release cach
 remain shared. Profiles isolate local progress, not remote resources: enrolling
 from a profile still changes the selected Git repository and target Mac. A new
 profile can restore the same repository's recovery keys from its configured vault.
+
+## Protected deployment handover
+
+Version 3 declares `deployment: {"repository": "0x63616c/world-wide-webb", "branch": "deploy/homelab"}`.
+Host metadata, Comin and the CLI use that same policy. All three observed Comin branch fields
+must match the installed branch; source revision, live system and fresh successful fetch remain
+required. Historical installed metadata without `branch` means main, never the new deployment ref.
+
+This source contract does not establish a live cutover. Protect and seed the deployment ref,
+install the scoped host Git identity, implement promotion/enrollment coordination and explicitly
+rebind preserved operator state before enabling the new writer. Enrollment proposals still target
+authoring main; they need successful checks and coordinated promotion before installation.
+Never delete old approved journals or substitute a newer commit to make an old receipt pass.

@@ -1,6 +1,6 @@
 {
-  "$schema": "https://raw.githubusercontent.com/0x63616c/homelab-cli/main/schema/homelab-v2.schema.json",
-  "schema": 2,
+  "$schema": "urn:homelab:configuration:v3",
+  "schema": 3,
   "onePassword": {
     "backupVault": "homelab"
   },
@@ -36,5 +36,9 @@
       "vault": "homelab",
       "item": "Homelab Tailscale OAuth"
     }
+  },
+  "deployment": {
+    "repository": "0x63616c/world-wide-webb",
+    "branch": "deploy/homelab"
   }
 }

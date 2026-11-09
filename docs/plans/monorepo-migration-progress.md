@@ -24,7 +24,7 @@ execution, including where they are stricter than the stored goal wording:
   current stage. Completion requires actual delivery, retained integrations/data/media and
   applicable restore evidence; local wiring or successful uploads alone do not prove it.
 
-Overall estimate is approximately 44%; current stage is local host/CLI handover implementation
+Overall estimate is approximately 45%; current stage is local host/CLI handover implementation
 and runtime canary preparation. The complete candidate is not yet ready for publication or live cutover.
 
 ## Current candidate
@@ -553,3 +553,25 @@ then correctly refused the already-running shared DeviceHub session. It removed 
 simulator (remaining Folding capture devices: zero). The existing desktop session was preserved.
 No screenshot manifest or preview success is claimed. Log: `/tmp/monorepo-folding-preview-14af3485a.log`.
 The required capture canary remains on an isolated Mac guest with the new pinned image.
+
+
+## Explicit host deployment policy — approximately 45% overall
+
+Schema3 now names the matching source repository and protected `deploy/homelab` branch.
+Authoring main discovers that policy; the CLI resolves an immutable deployment commit and
+rejects missing/stale/retargeted policy rather than installing main. Versions1/2 and old installed
+metadata retain their historical main behavior. Explicit recovery-vault handling accepts schema3;
+proposal receipts/rebase checks preserve deployment identity. Nix generates metadata and Comin
+configuration from the same root policy. Comin completion requires all three observed branch
+fields to match, alongside the existing source/system/fetch evidence.
+
+The obsolete public CLI release checker is removed. Homebrew will own upgrades; historical cache,
+profiles and approved receipts are preserved. Private CLI publication, repository rebind, protected
+promotion and bounded enrollment coordination are still required before live activation.
+
+Evidence: 239 targeted CLI checks pass (one separately ignored); all-target clippy/fmt, schema
+drift, offline current/historical validation and workflow lint pass. Actual isolated MacBook Nix
+evaluation selects WWW and `deploy/homelab`, with matching Mini metadata. Its Git-free test copy
+has no revision, so this is configuration evaluation, not built-source or activation evidence.
+Astra independently cleared this complete local batch, including compiled fake-GitHub fetch cases;
+report `/tmp/monorepo-deployment-policy-astra-review.md`. No host source, keys or update ref changed.

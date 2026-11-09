@@ -144,9 +144,9 @@ fn execute(arguments: Arguments) -> Result<(), Failure> {
                     )
                 })?;
                 if manifest.schema == 1 {
-                    "Valid historical schema 1 configuration. New enrollment requires schema 2 and onePassword.backupVault.".into()
+                    "Valid historical schema 1 configuration. New enrollment requires schema 2 or 3 and onePassword.backupVault.".into()
                 } else {
-                    "Configuration is valid (schema 2).".into()
+                    format!("Configuration is valid (schema {}).", manifest.schema)
                 }
             }
         };

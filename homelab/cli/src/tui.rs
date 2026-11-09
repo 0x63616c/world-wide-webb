@@ -445,7 +445,6 @@ fn launch_mode(
 ) -> Result<(), MenuError> {
     crate::provider_diagnostics::initialize()?;
     let mut terminal_guard = Terminal::enter()?;
-    crate::update_check::start();
     let binding = path.with_file_name("repository.json");
     let mut loaded_workspace = None;
     let repository =
@@ -643,6 +642,7 @@ mod tests {
             revision: "a".repeat(40),
             manifest: Manifest {
                 schema_url: None,
+                deployment: None,
                 schema: 1,
                 one_password: None,
                 tailscale: None,

@@ -93,9 +93,15 @@ struct Branch {
 }
 #[derive(Deserialize)]
 struct Metadata {
+    #[serde(default = "legacy_branch")]
+    branch: String,
     repository: String,
     host: String,
     revision: String,
+}
+
+fn legacy_branch() -> String {
+    "main".into()
 }
 
 fn reconciled(
@@ -105,6 +111,9 @@ fn reconciled(
     since: i64,
     now: i64,
 ) -> Option<String> {
+    if !matches!(metadata.branch.as_str(), "main" | "deploy/homelab") {
+        return None;
+    }
     let state: State = serde_json::from_slice(bytes).ok()?;
     let deployment = &state.deployer.deployment;
     let generation = &deployment.generation;
@@ -137,16 +146,16 @@ fn reconciled(
         || git.hostname != metadata.host
         || git.selected_remote_url != url
         || git.selected_remote_name != "origin"
-        || git.selected_branch_name != "main"
+        || git.selected_branch_name != metadata.branch
         || git.selected_branch_is_testing != Some(false)
         || repository.selected_remote_name != "origin"
-        || repository.selected_branch_name != "main"
+        || repository.selected_branch_name != metadata.branch
         || repository.selected_branch_is_testing != Some(false)
         || !repository.error_msg.is_empty()
         || remote.url != url
         || remote.fetched != Some(true)
         || !remote.fetch_error_msg.is_empty()
-        || remote.main.name != "main"
+        || remote.main.name != metadata.branch
         || !remote.main.error_msg.is_empty()
         || fetched < since
         || fetched > now + 60
@@ -587,6 +596,7 @@ mod tests {
 
     fn verify(status: &serde_json::Value, since: i64) -> Option<String> {
         let metadata = Metadata {
+            branch: "main".into(),
             repository: "example/config".into(),
             host: "build-mac".into(),
             revision: "a".repeat(40),
@@ -601,6 +611,50 @@ mod tests {
             since,
             now,
         )
+    }
+
+    #[test]
+    fn deployment_branch_requires_all_three_observed_branch_fields() {
+        let mut good = status();
+        let pointers = [
+            "/deployer/deployment/generation/source/git/selected_branch_name",
+            "/fetcher/git_repository_status/selected_branch_name",
+            "/fetcher/git_repository_status/remotes/0/main/name",
+        ];
+        for pointer in pointers {
+            *good.pointer_mut(pointer).unwrap() = json!("deploy/homelab");
+        }
+        let mut metadata = Metadata {
+            branch: "deploy/homelab".into(),
+            repository: "example/config".into(),
+            host: "build-mac".into(),
+            revision: "a".repeat(40),
+        };
+        let now = OffsetDateTime::parse("2026-11-06T00:00:10Z", &Rfc3339)
+            .unwrap()
+            .unix_timestamp();
+        let check = |value: &serde_json::Value, metadata: &Metadata| {
+            reconciled(
+                &serde_json::to_vec(value).unwrap(),
+                metadata,
+                Path::new("/nix/store/test-system"),
+                now - 15,
+                now,
+            )
+        };
+        assert!(check(&good, &metadata).is_some());
+        for pointer in pointers {
+            let mut mismatch = good.clone();
+            *mismatch.pointer_mut(pointer).unwrap() = json!("main");
+            assert!(check(&mismatch, &metadata).is_none(), "{pointer}");
+        }
+        metadata.branch = "unreviewed".into();
+        assert!(check(&good, &metadata).is_none());
+        let historical: Metadata = serde_json::from_value(json!({
+            "repository":"example/config", "host":"build-mac", "revision":"a".repeat(40)
+        }))
+        .unwrap();
+        assert_eq!(historical.branch, "main");
     }
 
     #[test]

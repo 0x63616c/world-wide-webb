@@ -27,7 +27,9 @@ Nix runs on the target Mac. You do not need Nix on your personal laptop.
 
 The public CLI contains the installer and tests. **Your own repository contains
 hosts, services, Nix configuration and encrypted secrets.** This enrollment flow
-requires Comin for updates: merging to `main` authorizes the next deployment.
+requires Comin for updates: checked host changes are promoted from authoring `main` to
+protected `deploy/homelab`; that ref authorizes the next deployment. Historical schema1/2
+configurations retain their original main policy until explicitly migrated.
 The CLI finishes after enrollment.
 
 ## Requirements
@@ -162,3 +164,11 @@ never belong in the manifest.
 ## License
 
 [MIT](LICENSE).
+
+## Private distribution handover
+
+The CLI source is now in private `world-wide-webb/homelab/cli`. Homebrew owns CLI upgrades;
+the app no longer polls the retired public GitHub release endpoint or reads its cached notices.
+Existing profiles, installation receipts and the old cache remain preserved. Private Homebrew
+publication and preserve-state repository rebind are pending migration acceptance; moving this
+source alone does not change an installed client's repository or host Git identity.
