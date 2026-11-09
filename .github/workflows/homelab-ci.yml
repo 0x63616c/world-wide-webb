@@ -78,10 +78,19 @@ jobs:
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
+          fetch-depth: 0
           persist-credentials: false
       - uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a
+      - uses: DeterminateSystems/magic-nix-cache-action@f69a2d3e148e90223fe63ab6e3f6331f2e7e33dc
+        with:
+          use-gha-cache: enabled
+          use-flakehub: disabled
+          diagnostic-endpoint: ''
       - name: Build and test both configurations without activation
-        run: nix flake check --no-update-lock-file --print-build-logs
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD: ${{ github.sha }}
+        run: python3 scripts/homelab/check_nix.py --base "$BASE" --head "$HEAD"
       - name: Check local host operations
         run: |
           nix develop --no-update-lock-file --command cargo fmt --manifest-path homelab/host/Cargo.toml --check

@@ -1,18 +1,39 @@
 # Git manages each Mac
 
-Comin watches this private repository's `main` branch every 30 seconds, builds
-the matching `darwinConfigurations.<host>`, and activates it. Each Mac uses its
-own read-only SSH deploy key. GitHub's reviewed SSH host key is pinned; nodes
-receive no GitHub account token and do not query Actions to authorize deployment.
+Main is the authoring branch. Successful selected Homelab CI authorizes source
+promotion to `deploy/homelab`; Comin polls that branch every 30 seconds. GitHub
+promotion completion is distinct from host acceptance. Check the installed revision
+and `/var/lib/homelab-operations/last-success.json` before claiming deployment.
 
-The interval is explicit in [`modules/updates.nix`](../modules/updates.nix):
-`poller.period = 30` (seconds). Change it through Git, like other host settings.
+## Generation changes
 
-**Merging is deployment authorization.** Use repository reviews and checks before
-merging. The host applies the resulting commit automatically after enrollment.
-The checked-in host recipes enable Comin; this branch has not been deployed to
-the real Macs. Disposable enrollment and Comin handover passed; the separate
-native scheduled-update test is still pending. See [VM evidence](vm-validation.md).
+Evaluated per-application and shared inputs feed the pure deployment planner.
+Application image/configuration/credential changes select their applications;
+shared runtime/storage changes select affected applications and require off-host
+recovery. Host monitoring-agent changes leave application inputs unchanged.
+Unknown/old descriptors retain full protection. Image-only Compose edits are local
+recovery changes; other Compose edits conservatively require an off-host point.
+Host ciphertext rotation selects all consumers without exposing plaintext digests.
+
+Under the existing operation lock, the transaction pre-pulls selected images, captures
+old state, activates Nix, reconciles selected projects with two concurrent children,
+checks selected/dependent readiness and records phase timings. HA precedes dependent
+Control Center acceptance. Cold snapshots and image pulls stay sequential; both host
+and VM admission reserves are checked before pulls. A new assignment still needs
+existing restored volumes and provisioning; removal requires explicit retirement.
+
+Ordinary application updates require a complete, fsynced, verified local recovery
+point. NAS publication runs independently. Shared VM/storage/safety changes wait for
+their transaction's off-host verification. Backup and mutation failures preserve the
+journal and recovery pins; no data rollback or ambiguous action replay is automatic.
+On the first optimized release, the installed older generation still performs its
+full synchronous backup because it cannot provide scoped metadata/commands.
+
+The journal records source system paths, selected scope/reasons and monotonic phase
+durations. Local backup receipts record capture duration, container cold durations
+and bytes; NAS receipts record publication time. Successful receipt plus current/boot
+profile agreement establishes host acceptance. Timings are observed work, not timeout
+budgets. Preserve interrupted transactions for inspection.
 
 ## During setup
 
@@ -21,7 +42,7 @@ native scheduled-update test is still pending. See [VM evidence](vm-validation.m
    that hold exists or before a verified enrollment completion receipt exists.
 3. The wizard verifies the approved configuration, Tailscale, services and reboot.
 4. It records completion, releases the hold, and waits for Comin to fetch and
-   activate `main`. Only a matching successful reconciliation produces Ready.
+   activate `deploy/homelab`. Only a matching successful reconciliation produces Ready.
 
 If the connection drops, resume the saved host. The approved revision is saved
 locally before installation; changes on `main` do not replace an in-progress
@@ -41,10 +62,8 @@ metrics bind to localhost. The startup gate checks that directory before startin
 Comin. The native macOS `/run` directory is group-writable and is not used for RPC.
 The wizard reads bounded status JSON without printing raw commit messages or errors.
 
-Application backup and restore remain separate workflows. Comin does not provide
-the former custom updater's backup-before-activation or application rollback
-transaction. Current host manifests enable no application services; migration and
-restore rehearsals must establish their operational workflow before cutover.
+Comin invokes the stateful generation transaction for application hosts. Restore
+remains explicit: rolling Nix back does not reverse application schema/data changes.
 
 ## Pinned upstream
 
@@ -57,6 +76,5 @@ Retention uses the same profile, preserves active/history generations and delega
 deletion to Nix's locked profile operation. Unrelated profiles are excluded.
 Completion checks the boot profile and live `/etc/static` against the current system.
 The startup check avoids relying on its suspend/resume behavior across restart.
-The former Python updater is removed. Comin cannot be enabled alongside stateful
-container or Home Assistant workloads until their backup/deployment workflow is
-reviewed; the Nix assertion prevents silently losing those protections.
+The former Python updater is removed. The Nix assertion requires transactional activation and backups whenever
+container or Home Assistant workloads are assigned.

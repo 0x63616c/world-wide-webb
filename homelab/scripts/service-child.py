@@ -1,37 +1,50 @@
 """Trusted root-to-service command boundary for the pending update transaction."""
+
 import os
-from pathlib import Path
 import pwd
 import signal
 import subprocess
+from pathlib import Path
 
 COMMANDS = {
-    'backup': 'homelab-backup-now',
-    'reconcile': 'homelab-reconcile-all',
-    'health': 'homelab-health',
+    "backup": "homelab-backup-now",
+    "reconcile": "homelab-reconcile-all",
+    "health": "homelab-health",
 }
 
 
-def run_service(operation, lock_fd, timeout, system=Path('/run/current-system'), log=None):
+def run_service(operation, lock_fd, timeout, system=Path("/run/current-system"), log=None, arguments=()):
     if os.geteuid() != 0:
-        raise RuntimeError('Only the root updater may invoke service children')
+        raise RuntimeError("Only the root updater may invoke service children")
     if operation not in COMMANDS:
-        raise ValueError('Unapproved service operation')
-    user = pwd.getpwnam('_containers')
-    if (user.pw_uid, user.pw_gid, user.pw_dir) != (450, 450, '/var/lib/_containers'):
-        raise RuntimeError('Service account differs from the reviewed identity')
+        raise ValueError("Unapproved service operation")
+    user = pwd.getpwnam("_containers")
+    if (user.pw_uid, user.pw_gid, user.pw_dir) != (450, 450, "/var/lib/_containers"):
+        raise RuntimeError("Service account differs from the reviewed identity")
     resolved = system.resolve(strict=True)
-    if resolved.parent != Path('/nix/store'):
-        raise ValueError('Service commands must come from a built Nix system')
-    command = resolved / 'sw/bin' / COMMANDS[operation]
+    if resolved.parent != Path("/nix/store"):
+        raise ValueError("Service commands must come from a built Nix system")
+    command = resolved / "sw/bin" / COMMANDS[operation]
     env = {
-        'HOME': user.pw_dir, 'USER': '_containers', 'LOGNAME': '_containers',
-        'PATH': '/usr/bin:/bin:/usr/sbin:/sbin',
-        'HOMELAB_OPERATION_FD': str(lock_fd),
+        "HOME": user.pw_dir,
+        "USER": "_containers",
+        "LOGNAME": "_containers",
+        "PATH": "/usr/bin:/bin:/usr/sbin:/sbin",
+        "HOMELAB_OPERATION_FD": str(lock_fd),
     }
-    process = subprocess.Popen([str(command)], env=env, cwd='/', user=450, group=450,
-                               extra_groups=[450], umask=0o077, pass_fds=(lock_fd,),
-                               start_new_session=True, stdout=log, stderr=log)
+    process = subprocess.Popen(
+        [str(command), *arguments],
+        env=env,
+        cwd="/",
+        user=450,
+        group=450,
+        extra_groups=[450],
+        umask=0o077,
+        pass_fds=(lock_fd,),
+        start_new_session=True,
+        stdout=log,
+        stderr=log,
+    )
     try:
         result = process.wait(timeout=timeout)
     except subprocess.TimeoutExpired:

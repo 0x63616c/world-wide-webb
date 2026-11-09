@@ -15,6 +15,7 @@ let
     inherit services;
     root = "/var/lib/_containers/backups";
     inherit (cfg) keepLocal minFreeGiB;
+    reconcileCommand = "/run/current-system/sw/bin/homelab-reconcile-all";
     healthCommands = {
       control-center-hourly = scopedHealth "control-center-hourly" [ "control-center" ];
       penpot = scopedHealth "penpot" [ "penpot" ];
@@ -26,6 +27,9 @@ let
     export HOME=/var/lib/_containers
     export PYTHONTZPATH=${pkgs.tzdata}/share/zoneinfo
     [ "$(id -u)" = ${toString config.users.users._containers.uid} ] || { echo 'Run as _containers.' >&2; exit 1; }
+    if [ "''${1:-}" = --publish-pending ] || [ "''${1:-}" = --publish-transaction ]; then
+      exec python3 ${../scripts}/backup.py --config ${settings} "$@"
+    fi
     exec /run/current-system/sw/bin/homelab-operation -- \
       python3 ${../scripts}/backup.py --config ${settings} "$@"
   '';
@@ -33,7 +37,7 @@ let
     path = with pkgs; [ python3 docker coreutils gnutar gzip ];
     environment.HOME = "/var/lib/_containers";
     script = ''
-      exec ${command}/bin/homelab-backup-now --scope ${scope}
+      exec ${command}/bin/homelab-backup-now --scope ${scope} --local-only
     '';
     serviceConfig = {
       UserName = "_containers"; GroupName = "_containers";
@@ -55,6 +59,20 @@ in {
     ];
     launchd.daemons = {
       homelab-backup = job "full" { Hour = 4; Minute = 15; };
+      homelab-backup-publisher = {
+        path = with pkgs; [ python3 docker coreutils gnutar gzip ];
+        environment.HOME = "/var/lib/_containers";
+        script = ''
+          # One launchd owner bounds network work across all backup scopes.
+          exec ${pkgs.coreutils}/bin/timeout --kill-after=10s 15m \
+            ${command}/bin/homelab-backup-now --publish-pending
+        '';
+        serviceConfig = {
+          UserName = "_containers"; GroupName = "_containers";
+          RunAtLoad = true; StartInterval = 60; ThrottleInterval = 30;
+          ProcessType = "Background"; LowPriorityIO = true; Nice = 10;
+        };
+      };
     } // lib.optionalAttrs (builtins.elem "control-center" services) {
       homelab-control-center-hourly-backup = job "control-center-hourly" { Minute = 0; };
     } // lib.optionalAttrs (builtins.elem "penpot" services) {

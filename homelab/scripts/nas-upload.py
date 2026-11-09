@@ -89,6 +89,24 @@ class Nas:
                     raise
                 self.login()
 
+    def ensure_file(self, path, destination, checksum, size):
+        """Reconcile ambiguous prior publication before attempting another write."""
+        remote = destination + '/' + path.name
+        try:
+            data = self.call('SYNO.FileStation.List', 'getinfo', path=json.dumps([remote]))
+        except NasApiError as error:
+            if error.code not in (400, 408):
+                raise
+            data = {'files': []}
+        if data.get('files'):
+            actual, count = self.download_hash(remote)
+            if (actual, count) != (checksum, size):
+                raise RuntimeError('Existing NAS payload differs; refusing overwrite')
+            return
+        record = self.upload(path, destination)
+        if (record['sha256'], record['bytes']) != (checksum, size):
+            raise RuntimeError('Published bytes differ from the accepted snapshot')
+
     def _upload(self, path, destination):
         if not re.fullmatch(r'[A-Za-z0-9_.-]+', path.name):
             raise ValueError('Backup filename must contain only letters, numbers, dots, dashes or underscores')
@@ -159,7 +177,7 @@ class Nas:
 def valid_destination(destination):
     return re.fullmatch(
         r'/Homelab/backups/(?:mac-mini|homelab-mac-mini|homelab-macbook)/[A-Za-z0-9_-]+'
-        r'|/Homelab/backups/(?:homelab-mac-mini|homelab-macbook)/(?:control-center-history|penpot)/\d{8}T\d{6}Z-[a-f0-9]{8}',
+        r'|/Homelab/backups/(?:homelab-mac-mini|homelab-macbook)/(?:control-center-history|penpot|deployment)/\d{8}T\d{6}Z-[a-f0-9]{8}',
         destination) is not None
 
 
