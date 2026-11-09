@@ -93,6 +93,37 @@ class HostControlProtocolTests(unittest.TestCase):
                 else:
                     self.assertIn("selection failed", result["error"])
 
+    def test_acknowledged_pose_is_not_reselected_for_each_orientation(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            (directory / "plan.json").write_text(json.dumps({"mode": "fold", "host_control": True}))
+            requests = [("pose", "outer"), ("orientation", "landscape-left"), ("orientation", "portrait")]
+            index = [0]
+            calls = []
+
+            def send():
+                action, name = requests[index[0]]
+                (directory / "request.json").write_text(json.dumps({"id": str(index[0]), "action": action, "name": name}))
+
+            def pause(_seconds):
+                response = directory / "response.json"
+                if response.exists():
+                    value = json.loads(response.read_text())
+                    self.assertTrue(value["ok"], value)
+                    response.unlink()
+                    index[0] += 1
+                    if index[0] == len(requests):
+                        raise StopIteration
+                    send()
+
+            send()
+            with patch.object(duo, "host_pose", side_effect=lambda _folder, pose: calls.append({"pose": pose})), \
+                 patch.object(duo, "host_command", side_effect=lambda _folder, command: calls.append(command)), \
+                 patch.object(duo.time, "sleep", side_effect=pause):
+                with self.assertRaises(StopIteration):
+                    duo.serve("duo", directory, directory, "light")
+            self.assertEqual(calls, [{"pose": "outer"}, {"orientation": "landscape-left"}, {"orientation": "portrait"}])
+
     def test_orientation_waits_for_its_own_acknowledgement(self):
         for accepted in (True, False):
             with self.subTest(accepted=accepted), tempfile.TemporaryDirectory() as temporary:
@@ -134,7 +165,7 @@ name = pathlib.Path(sys.argv[0]).name
 args = sys.argv[1:]
 mode = os.environ["MOCK_DUO_MODE"]
 if name == "ruby":
-    print({"project_path":"apps/tendr/Still.xcodeproj", "scheme":"Still", "duo_screenshot_test":"StillUITests/DuoScreenshotTests", "name":"Tendr"}[args[-1]])
+    print({"project_path":"apps/tendr/Still.xcodeproj", "scheme":"Still", "duo_screenshot_test":"StillUITests/DuoScreenshotTests", "duo_capture_test":"StillUITests/DuoScreenshotTests/testMainScreens", "name":"Tendr"}[args[-1]])
 elif name == "xcrun":
     args = args[1:]
     with open(os.environ["MOCK_SIMCTL_LOG"], "a") as log:
@@ -171,6 +202,8 @@ elif name == "xcrun":
 elif name == "xcodebuild" and args[0] == "build-for-testing":
     pathlib.Path(os.environ["MOCK_XCODE_ARGS"]).write_text(json.dumps(args))
 elif name == "xcodebuild" and args[0] == "test-without-building":
+    with open(os.environ["MOCK_TEST_ARGUMENTS"], "a") as log:
+        log.write(json.dumps(args) + "\n")
     folder = pathlib.Path(os.environ["TEST_RUNNER_DUO_CONTROL_DIR"])
     if mode in ("native-timeout-once", "native-timeout-always", "native-timeout-cancelled"):
         count = pathlib.Path(os.environ["MOCK_TEST_COUNT"])
@@ -371,6 +404,7 @@ class DuoCapabilitiesTests(unittest.TestCase):
             env = dict(os.environ, PATH=f"{commands}:{os.environ['PATH']}", MOCK_DUO_MODE=mode,
                        MOCK_CREATED_DEVICE=str(root / "created-device"),
                        MOCK_XCODE_ARGS=str(root / "build-arguments.json"),
+                       MOCK_TEST_ARGUMENTS=str(root / "test-arguments.jsonl"),
                        MOCK_TEST_COUNT=str(root / "test-invocations"),
                        MOCK_SIMCTL_LOG=str(root / "simctl.jsonl"),
                        MOCK_SIMULATORS=json.dumps({"devices": devices or {}}))
@@ -437,6 +471,9 @@ class DuoCapabilitiesTests(unittest.TestCase):
                 arguments = json.loads((root / "build-arguments.json").read_text())
                 self.assertIn(f"MARKETING_VERSION={release[0]}", arguments)
                 self.assertIn(f"CURRENT_PROJECT_VERSION={release[1]}", arguments)
+            test_arguments = [json.loads(line) for line in (root / "test-arguments.jsonl").read_text().splitlines()]
+            self.assertIn("-only-testing:StillUITests/DuoScreenshotTests", test_arguments[-2])
+            self.assertIn("-only-testing:StillUITests/DuoScreenshotTests/testMainScreens", test_arguments[-1])
             plan = json.loads((output / "plan.json").read_text())
             expected_mode = "unmapped" if mode == "integrated" else mode if mode in ("fold", "displays") else "default"
             self.assertEqual(plan["mode"], expected_mode)

@@ -196,6 +196,7 @@ def serve(udid, directory, output, appearance):
     pose = "inner" if plan["mode"] == "fold" else "default"
     request_path = directory / "request.json"
     previous = None
+    host_pose_known = False
     while True:
         if not request_path.exists():
             time.sleep(0.1)
@@ -213,6 +214,7 @@ def serve(udid, directory, output, appearance):
                     raise ValueError(f"Unsupported pose: {target}")
                 if plan.get("host_control"):
                     host_pose(directory, target)
+                    host_pose_known = True
                 else:
                     simctl(*plan["commands"][target], check=True)
                 pose = target
@@ -224,7 +226,11 @@ def serve(udid, directory, output, appearance):
                 # Selecting Open/Closed resets that pose's physical orientation.
                 # Choose the display first, then rotate; reselecting it afterward
                 # can undo a successful landscape command back to portrait.
-                host_pose(directory, pose)
+                # This process owns the native controls. Once a pose is acknowledged,
+                # rotating it needs no extra Open/Closed click (which resets orientation).
+                if not host_pose_known:
+                    host_pose(directory, pose)
+                    host_pose_known = True
                 host_command(directory, {"orientation": orientation})
                 time.sleep(2)
             elif request["action"] == "capture":
@@ -240,6 +246,7 @@ def serve(udid, directory, output, appearance):
                 raise ValueError("Unknown UI-test request")
             response["ok"] = True
         except (ValueError, subprocess.SubprocessError) as error:
+            host_pose_known = False
             response.update(ok=False, error=str(error))
         temporary = directory / "response.tmp"
         temporary.write_text(json.dumps(response))

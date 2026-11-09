@@ -818,3 +818,32 @@ actual implementation supports these branch/authentication environment variables
 release regression tests pass (70 assertions), actionlint passes, and independent Astra final
 review found no actionable issues. This is source wiring only: the delivery flag stays off and
 a real readonly signed archive remains required before retiring the old signing store.
+
+
+### Real Duo acceptance and measured capture overhead
+
+Private CI run42553684855, source0c8ef9643, completed successfully. The Duo job built,
+exercised all six interaction cases in both appearances, validated the inner/outer PNGs and
+uploaded artifact13648170108 (`duo-screenshots-tendr`, 8362480bytes). Tendr, Air Miles,
+RDesign and the new-app template also passed their real native CI jobs at this source.
+Remaining selected workflows are still pending; this is not complete PR acceptance.
+
+The screenshot job was too slow. Its logs show677.778s and682.244s for the repeated full
+six-test suites; `testMainScreens` accounted for214.435s and219.755s respectively. Roughly
+15minutes were repeated non-capture interaction work. Cold device probing/boot took112s,
+the native helper build113s and controller startup39s; other build/start overhead remains.
+These are observations from one cold run, not a controlled benchmark.
+
+The completed correction retains the full interaction suite in the first appearance and uses
+Tendr's explicit capture-only selector for later appearances. Both sets of required images stay
+mandatory. Other apps without that selector keep their existing suite. The native helper no
+longer reselects an acknowledged pose before every orientation; explicit pose changes still
+execute, fresh helper processes start unknown and errors invalidate remembered state.
+The real serve-path regression fails against the previous implementation and passes the fix;
+33 existing capture/protocol tests plus the new protocol regression pass, as does ShellCheck.
+Independent Astra final review found no actionable issues. Actual runtime improvement still
+requires the updated real job; no faster duration is claimed yet.
+
+The host backport merge temporarily drained new admissions while the existing Duo job ran.
+That serialized otherwise available capacity. Avoid further host updates during the app CI batch;
+observe installed revision and updater-owned hold release rather than releasing its hold manually.

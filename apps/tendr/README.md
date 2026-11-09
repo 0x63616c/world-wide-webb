@@ -45,14 +45,14 @@ Compact windows retain the five tabs. On supported systems, adaptive system navi
 From the repository root on macOS with the Duo simulator installed:
 
 ```sh
-DEVELOPER_DIR=/Applications/Xcode_27.1.app/Contents/Developer scripts/capture-duo-screenshots.sh tendr
+DEVELOPER_DIR=/Applications/Xcode_27.2.app/Contents/Developer scripts/capture-duo-screenshots.sh tendr
 ```
 
-See [Duo validation](docs/DUO.md) for display detection, raw captures and the native resize checklist.
+The first appearance runs the full Duo interaction suite; later appearances run only the capture case. This preserves interaction coverage once and produces both light and dark screenshot sets. See [Duo validation](docs/DUO.md) for display detection, raw captures and the native resize checklist.
 
 ## Monorepo
 
-Run app-local build/test commands above from `apps/tendr`. Shared release, CI and Pages commands run from the repository root; see [root README](../../README.md) and [release guide](../../docs/RELEASE.md). Shared UI is in `../../packages/RDesign`.
+Run app-local build/test commands above from `apps/tendr`. Shared release, CI and Pages commands run from the repository root; see [root README](../../README.md) and [release guide](../../docs/RELEASE.md). Tendr owns its UI package in `Packages/RDesign`; other apps keep their own design systems.
 
 ## Privacy and storage
 

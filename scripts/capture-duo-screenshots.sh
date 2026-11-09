@@ -30,6 +30,7 @@ done
 project=$(ruby scripts/app-config.rb "$app" project_path)
 scheme=$(ruby scripts/app-config.rb "$app" scheme)
 test_id=$(ruby scripts/app-config.rb "$app" duo_screenshot_test)
+capture_test_id=$(ruby scripts/app-config.rb "$app" duo_capture_test 2>/dev/null || printf '%s' "$test_id")
 name=$(ruby scripts/app-config.rb "$app" name)
 out=${2:-build/duo-screenshots/$app/raw}
 shift $(( $# > 1 ? 2 : 1 ))
@@ -204,6 +205,7 @@ host_orientation=$(python3 -c 'import json,sys; print("1" if json.load(open(sys.
 xcodebuild build-for-testing -project "$project" -scheme "$scheme" \
   -destination "id=$udid" -derivedDataPath "$derived" "${screenshot_xcargs[@]}" -quiet
 
+appearance_test_id=$test_id
 for appearance in "${appearances[@]}"; do
   xcrun simctl ui "$udid" appearance "$appearance"
   xcrun simctl status_bar "$udid" override --time "9:41" \
@@ -218,13 +220,15 @@ for appearance in "${appearances[@]}"; do
   worker=$!
   TEST_RUNNER_DUO_CONTROL_DIR="$work" TEST_RUNNER_DUO_CAN_FOLD="$fold" TEST_RUNNER_DUO_HOST_ORIENTATION="$host_orientation" \
     xcodebuild test-without-building -project "$project" -scheme "$scheme" \
-    -destination "id=$udid" -derivedDataPath "$derived" -only-testing:"$test_id" \
+    -destination "id=$udid" -derivedDataPath "$derived" -only-testing:"$appearance_test_id" \
     -parallel-testing-enabled NO \
     -test-timeouts-enabled YES -default-test-execution-time-allowance 300 -maximum-test-execution-time-allowance 900 \
     -resultBundlePath "$work/DuoScreenshotTests-$appearance.xcresult"
   kill "$worker" 2>/dev/null || true
   wait "$worker" 2>/dev/null || true
   worker=
+  # Behavior/state regressions run once; later appearances repeat capture only.
+  appearance_test_id=$capture_test_id
   python3 - "$capture" "$work/plan.json" "$appearance" "$out" <<'PY'
 import json, pathlib, shutil, struct, sys
 source, plan_path, appearance, output = sys.argv[1:]
