@@ -62,6 +62,8 @@ jobs:
         with:
           persist-credentials: false
       - name: Diagnose the retained public archive without publishing
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           python3 - <<'PYTHON'
           import importlib.util, pathlib, subprocess, tempfile
@@ -82,10 +84,13 @@ jobs:
           with tempfile.TemporaryDirectory() as temporary:
               folder = pathlib.Path(temporary)
               archive = folder / "Callkeep.zip"
-              traced("curl", "--fail", "--silent", "--show-error", "--location",
-                     "https://github.com/0x63616c/world-wide-webb/releases/download/callkeep%2Fv1.0.26/Callkeep-1.0.26.zip",
-                     "--output", str(archive))
-              assert delivery.sha(archive) == "87e06b44d5a75142d614a17ff83f45382e9461f5d34667826355ac5da596c4db"
+              store = delivery.Release("callkeep/v1.0.26")
+              record = store.latest()
+              print("RELEASE STATE:", record["state"], record["revision"], flush=True)
+              for item in record["candidates"].values():
+                  downloaded = store.download(item["name"], folder)
+                  assert delivery.sha(downloaded) == item["sha256"]
+              archive = folder / record["candidates"]["archive"]["name"]
               stage = folder / "stage"
               stage.mkdir()
               delivery.safe_extract(archive, stage)
