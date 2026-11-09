@@ -869,3 +869,18 @@ reserve60GiB growth each. With216.8GiB physical free and80GiB emergency reserve,
 24GiB-growth Linux guest needs224GiB. The configured four slots are a ceiling, not guaranteed
 mixed-workload throughput. The updater-owned hold is now absent, and the checked cache-fix
 revision3b442219 is installed. Preserve these bounds while avoiding repeated full-import CI.
+
+
+### Updated Duo run measured
+
+Run42557074449/job128965093779 on110fc2f2c passed its capture, staging and upload checks.
+Capture step03:35:46–03:56:57UTC took21m11s versus the previous28m41s, a7m30s reduction
+(about26%). Both required screenshot sets remain validated. This is a one-run observation under
+a changing mixed workload, not a controlled performance guarantee; the pipeline remains too slow
+for a general fast feedback loop. Further timing/trigger improvements remain follow-up work.
+
+The only safe large temporary cleanup found on the host was our verified Linux transfer archive.
+Its SHA256 matched the retained original backup before unlinking. That recovered about2GiB;
+last physical free was220GiB. Both active Mac guests and both required image caches remain.
+No obsolete VM, large disposable user cache or Time Machine snapshot was found. No disk budget,
+rollback generation or active image was removed to increase concurrency.
