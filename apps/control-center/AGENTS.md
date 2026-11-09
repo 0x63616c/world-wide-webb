@@ -7,9 +7,8 @@ Read `CODEBASE_OVERVIEW.md` for the map. Production-cutover status and evidence 
 
 The native Swift + Rust/SQLite + OpenTofu migration is complete. Its accepted delivery, data/media
 reconciliation, restore evidence and measurement limits are recorded in `docs/plans/native-rust-progress.md`.
-The primary agent implements changes; subagents are allowed only for independent final review.
-Keep implementation, verification, review fixes and commits local until the complete candidate is reviewed,
-then publish, pass required checks, merge and verify delivery. Documentation follows working code.
+Follow the root working rules: substantial simple changes, proportionate checks and no delegated
+reviews unless the user requests them. Documentation follows working code.
 
 Ship the shared faithful iPad/iPhone/Duo app, preserving its clock and slide-up launcher. Mac app support
 is removed; Mac mini hosting and macOS developer/test tooling remain. The Tailscale-only API trusts Tailnet
@@ -20,15 +19,15 @@ remain protected. Historical Mac/device data remains decodable; missing legacy w
 
 - `apple/App` is the production SwiftUI application. Share components and feature providers across sizes;
   preserve the clock-first root, slide-up interaction, bundle IDs and existing iPad design.
-- `apple/Packages/PanelKit` owns typed REST clients, wire models and shared client state. Keep this client
-  for the cutover; verify it against a real isolated Rust server with `tools/check integration`.
+- `apple/Packages/PanelKit` owns typed REST clients, wire models and shared client state. Use
+  `tools/check integration` when changing the Swift/Rust wire contract.
 - `server` is one Rust process: Axum HTTP, SQLite persistence and supervised interval work. Feature modules
   own their behavior and SQL; shared integration adapters own external transport. No feature registry,
   queue, generic repository framework or separate worker deployment is needed.
 - Preserve existing IDs and data verbatim. Mint new IDs through the server's shared ID primitive.
   Ordered SQL migrations live in `server/migrations`. Never replace an existing database with an empty one.
-- SQLite uses WAL: persist its directory, use the backup API or a stopped writer, and check integrity,
-  foreign keys, row counts and values. Preserve all Photo Booth media and raw legacy archive data.
+- SQLite uses WAL: persist its directory and use the backup API or a stopped writer. For data migrations
+  or storage changes, check integrity and affected data. Preserve all Photo Booth media and raw legacy archives.
 - Only one production process owns scheduled work. Device commands have explicit ownership and idempotency;
   avoid automatic mutation retries. Trace structured, sanitized metadata, never credentials or payloads.
 - The app connects to `https://homelab.tail8c014d.ts.net` without application credentials. Publish the
@@ -48,8 +47,9 @@ updates in `.agents/skills/SOURCES.md`.
 For SwiftUI changes use `swiftui-expert-skill`, `apple-hig`, `animation-patterns` and the platform's
 `swiftui-liquid-glass` skill. Use system glass APIs.
 
-`tools/check` exposes `lint`, `rust`, `ops`, `apple`, `integration` and `infra`. Run relevant checks, then
-`tools/test_apple.sh` for the production iPad build/unit tests and iPhone platform policy. Use existing UI tests for interaction evidence.
+`tools/check` exposes `lint`, `rust`, `ops`, `apple`, `integration` and `infra`. Run checks for the changed
+area. Use `tools/test_apple.sh` for Apple changes and existing UI tests when interaction behavior changes;
+do not run Apple builds, UI suites or restore drills for unrelated server, operations or documentation edits.
 Pinned linters cover Rust, Python, Swift, shell and workflow files. `tools/check dependencies` enforces
 cargo-deny advisories, licenses, dependency constraints and allowed sources. Pre-commit guards formatting/syntax,
 private information, encrypted secrets and worktree rules; pre-push runs Rust and operations tests.
@@ -63,13 +63,14 @@ vault content; pass required fields directly to the authorized operation. Privat
 
 ## Publishing and completion
 
-Interactive requests normally include PR, green required checks, merge and deployment verification; the
-local-until-reviewed agreement takes precedence until its final publication gate. Pipeline executors
-commit only; their wrapper publishes. Never bypass required checks or merge a red PR.
+Follow the user's requested publication scope. When publishing, pass required checks and verify the
+affected outcome. Pipeline executors commit only; their wrapper publishes. Never bypass required checks
+or merge a red PR. There is no mandatory independent-review or local-until-reviewed gate.
 
 PRs need Conventional Commit titles and accurate validation. Visual evidence is optional; keep screenshots
 and recordings outside Git. Calum explicitly removed the mandatory screenshot requirement. Existing screenshot
 archives were removed after the core cutover; production assets and fixtures remain. Avoid private media in shared evidence.
-Main merge deliberately deploys the tested immutable revision. Verify backend revision/health/worker ownership,
-retained integrations, Apple processing, migrated data/media, fresh NAS backup restore and comparable after metrics.
-Keep tracking issues open until their acceptance evidence exists. Report unverified work honestly.
+Main merge deliberately deploys the tested immutable revision. For a deployed change, check its live
+revision/health and one or two affected core flows. Perform Apple processing, data reconciliation, NAS
+restore or performance checks only when the task changes or specifically requires them. Reuse existing
+valid evidence for unchanged mechanisms. Report material unverified work honestly.
