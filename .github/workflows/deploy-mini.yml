@@ -23,7 +23,7 @@ jobs:
   source:
     name: Control Center source
     if: >-
-      github.ref == 'refs/heads/main' && vars.CONTROL_CENTER_PROMOTION_ENABLED == 'true' &&
+      github.ref == 'refs/heads/main' &&
       (github.event_name == 'workflow_dispatch' ||
        (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'))
     runs-on: ubuntu-24.04-arm

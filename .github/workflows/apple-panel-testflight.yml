@@ -15,7 +15,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   selection:
-    if: vars.PANEL_DELIVERY_ENABLED == 'true' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
     runs-on: ubuntu-24.04-arm
     outputs:
       apple: ${{ steps.selection.outputs.apple }}
@@ -37,7 +37,9 @@ jobs:
   upload:
     needs: selection
     if: needs.selection.outputs.apple == 'true'
-    runs-on: macos-26
+    runs-on: xcode-27
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
     timeout-minutes: 45
     environment: production
     steps:
@@ -45,28 +47,24 @@ jobs:
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
           persist-credentials: false
+      - uses: ./.github/actions/github-cli
       - name: Check processed upload receipt
         id: receipt
         env:
           GH_TOKEN: ${{ github.token }}
           SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
         run: python3 tools/ci_apple_receipt.py
-      - name: Select supported Xcode
+      - name: Use Xcode 27.2 for Duo delivery
         if: steps.receipt.outputs.uploaded != 'true'
-        run: echo "DEVELOPER_DIR=$(python3 ../../.github/scripts/apple-toolchain.py)" >> "$GITHUB_ENV"
+        run: xcodebuild -version
       - run: brew install sops
       - run: brew install xcodegen
         if: steps.receipt.outputs.uploaded != 'true' 
-      - name: Load signing and deployment credentials once
+      - name: Load signing credentials once
         if: steps.receipt.outputs.uploaded != 'true'
         env:
           SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
         run: sops exec-env ../../secrets/vault.yaml 'python3 tools/ci_signing_env.py'
-      - name: Load only publication credentials for an existing upload
-        if: steps.receipt.outputs.uploaded == 'true'
-        env:
-          SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
-        run: sops exec-env ../../secrets/vault.yaml 'python3 tools/ci_deploy_env.py'
       - uses: ./.github/actions/ruby-tools
         if: steps.receipt.outputs.uploaded != 'true'
         with:
@@ -96,15 +94,11 @@ jobs:
           retention-days: 90
       - uses: tailscale/github-action@v4
         with:
-          oauth-client-id: ${{ env.TS_CLIENT_ID }}
-          oauth-secret: ${{ env.TS_CLIENT_SECRET }}
-          tags: tag:ci
-      - name: Publish processed build from the mini
+          oauth-client-id: ${{ secrets.HOMELAB_OPS_TS_CLIENT_ID }}
+          oauth-secret: ${{ secrets.HOMELAB_OPS_TS_CLIENT_SECRET }}
+          tags: tag:homelab
+      - name: Publish processed build through the private API
         env:
-          MINI_KNOWN_HOSTS: ${{ vars.MINI_KNOWN_HOSTS }}
-        run: |
-          test -n "$MINI_KNOWN_HOSTS"
-          printf '%s\n' "$MINI_KNOWN_HOSTS" > "$RUNNER_TEMP/mini-known-hosts"
-          ssh -i "$RUNNER_TEMP/mini-key" -o BatchMode=yes -o IdentitiesOnly=yes \
-            -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$RUNNER_TEMP/mini-known-hosts" \
-            calum@homelab.tail8c014d.ts.net "python3 /Users/calum/www-control-center/publish-apple-release.py '$PANEL_UPLOADED_BUILD'"
+          SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
+          WWW_RELEASE_ORIGIN: https://homelab.tail8c014d.ts.net
+        run: sops exec-env ../../secrets/vault.yaml 'python3 deploy/mini/publish-apple-release.py "$PANEL_UPLOADED_BUILD"'
