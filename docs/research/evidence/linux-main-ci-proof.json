@@ -1,0 +1,411 @@
+{
+  "schema": 1,
+  "observed_at": "2026-11-08T23:53:42.485632+00:00",
+  "application_pr": "https://github.com/0x63616c/world-wide-webb/pull/958",
+  "merged_app_commit": "4af50b39b30c637fbe647c1a5361621e84604470",
+  "main_ci_run": 42536990147,
+  "main_ci_url": "https://github.com/0x63616c/world-wide-webb/actions/runs/42536990147",
+  "earlier_journal_snapshot": {
+    "journal_version": 3,
+    "attempts": [
+      {
+        "nonce": "da2d2ce1d81a49e7a432737843f4ecdc",
+        "platform": "macos-arm64",
+        "phase": "Running",
+        "candidate": {
+          "repository": "0x63616c/world-wide-webb",
+          "run_id": 42536990147,
+          "run_attempt": 1,
+          "job_id": 128903444915
+        },
+        "assigned": {
+          "repository": "0x63616c/world-wide-webb",
+          "run_id": 42536990147,
+          "run_attempt": 1,
+          "job_id": 128903444915
+        },
+        "runner_id": 77
+      },
+      {
+        "nonce": "283294bbc25e45848494168328373a62",
+        "platform": "linux-arm64",
+        "phase": "Running",
+        "candidate": {
+          "repository": "0x63616c/world-wide-webb",
+          "run_id": 42536990147,
+          "run_attempt": 1,
+          "job_id": 128903375569
+        },
+        "assigned": {
+          "repository": "0x63616c/world-wide-webb",
+          "run_id": 42536990147,
+          "run_attempt": 1,
+          "job_id": 128903375569
+        },
+        "runner_id": 78
+      },
+      {
+        "nonce": "b84962dd652a4bbdb7757f144c5382f4",
+        "platform": "linux-arm64",
+        "phase": "Listening",
+        "candidate": {
+          "repository": "0x63616c/world-wide-webb",
+          "run_id": 42536990147,
+          "run_attempt": 1,
+          "job_id": 128903375770
+        },
+        "assigned": null,
+        "runner_id": 79
+      }
+    ]
+  },
+  "linux_job_log_excerpts": [
+    {
+      "job_id": 128903375569,
+      "excerpts": [
+        "2026-11-08T23:50:38.0634035Z Runner name: 'homelab-macbook-job-283294bbc25e45848494168328373a62'",
+        "2026-11-08T23:50:45.8571463Z 1.99.1-aarch64-unknown-linux-gnu (overridden by '/home/admin/actions-runner/_work/world-wide-webb/world-wide-webb/rust-toolchain.toml')"
+      ]
+    },
+    {
+      "job_id": 128903375770,
+      "excerpts": [
+        "2026-11-08T23:51:15.0962125Z Runner name: 'homelab-macbook-job-b84962dd652a4bbdb7757f144c5382f4'",
+        "2026-11-08T23:51:17.5318580Z 1.99.1-aarch64-unknown-linux-gnu (overridden by '/home/admin/actions-runner/_work/world-wide-webb/world-wide-webb/rust-toolchain.toml')"
+      ]
+    }
+  ],
+  "completed_linux_jobs": [
+    {
+      "id": 128903375569,
+      "name": "typecheck",
+      "status": "completed",
+      "conclusion": "success",
+      "runner_id": 78,
+      "runner_name": "homelab-macbook-job-283294bbc25e45848494168328373a62",
+      "labels": [
+        "self-hosted",
+        "Linux",
+        "ARM64",
+        "homelab-linux"
+      ],
+      "started_at": "2026-11-08T23:50:37Z",
+      "completed_at": "2026-11-08T23:51:23Z"
+    },
+    {
+      "id": 128903375770,
+      "name": "test-unit",
+      "status": "completed",
+      "conclusion": "success",
+      "runner_id": 79,
+      "runner_name": "homelab-macbook-job-b84962dd652a4bbdb7757f144c5382f4",
+      "labels": [
+        "self-hosted",
+        "Linux",
+        "ARM64",
+        "homelab-linux"
+      ],
+      "started_at": "2026-11-08T23:51:14Z",
+      "completed_at": "2026-11-08T23:52:26Z"
+    }
+  ],
+  "normal_completion": [
+    {
+      "id": 128903375569,
+      "name": "typecheck",
+      "status": "completed",
+      "conclusion": "success",
+      "run_attempt": 1
+    },
+    {
+      "id": 128903375770,
+      "name": "test-unit",
+      "status": "completed",
+      "conclusion": "success",
+      "run_attempt": 1
+    },
+    {
+      "id": 128903375912,
+      "name": "changes",
+      "status": "completed",
+      "conclusion": "success",
+      "run_attempt": 1
+    },
+    {
+      "id": 128903444818,
+      "name": "image",
+      "status": "completed",
+      "conclusion": "success",
+      "run_attempt": 1
+    },
+    {
+      "id": 128903444828,
+      "name": "infra",
+      "status": "completed",
+      "conclusion": "success",
+      "run_attempt": 1
+    },
+    {
+      "id": 128903444915,
+      "name": "apple",
+      "status": "completed",
+      "conclusion": "success",
+      "run_attempt": 1
+    },
+    {
+      "id": 128905267563,
+      "name": "build-and-test",
+      "status": "completed",
+      "conclusion": "success",
+      "run_attempt": 1
+    }
+  ],
+  "registrations_absent": [
+    77,
+    78,
+    79
+  ],
+  "final_runtime": {
+    "observed_at": "2026-11-08T23:57:51.251798+00:00",
+    "current": "/nix/store/kwsfi2f9gvhsc0mbr5mh6q76bkpdnvc0-darwin-system-26.11.ff0e21a",
+    "profile": "/nix/store/kwsfi2f9gvhsc0mbr5mh6q76bkpdnvc0-darwin-system-26.11.ff0e21a",
+    "controller_binary": "/nix/store/4mlaqaky54iym4jxxarpyjp5bsd4qy0i-homelab-runner-0.1.0/bin/homelab-runner",
+    "services_running": {
+      "org.nixos.homelab-runner": 632,
+      "com.github.nlewo.comin": 2328
+    },
+    "admission_enabled": true,
+    "max_total": 4,
+    "max_mac": 2,
+    "cpu_budget": 12,
+    "memory_budget_mib": 24576,
+    "linux_image": "ghcr.io/0x63616c/homelab-linux-runner@sha256:c1d4c31b2576eda6adff0889e350efddda73e38a0153743f1972b5c994bcd78c",
+    "original_nix_config_restored": true,
+    "recovery_receipt_absent": true,
+    "hold_absent": true,
+    "transaction_absent": true,
+    "console_uid": 0,
+    "journal_version": 3,
+    "journal_idle": true,
+    "local_vms": [],
+    "test_startup_entries_absent": true
+  },
+  "final_cache_verification": {
+    "schema": 1,
+    "image": "ghcr.io/0x63616c/homelab-linux-runner@sha256:c1d4c31b2576eda6adff0889e350efddda73e38a0153743f1972b5c994bcd78c",
+    "disk_sha256": "734c48bbb378617ea91c8f5c6596004591b5e67bc6cea9a9f02f9db086cef165",
+    "sizes": {
+      "config.json": 211,
+      "disk.img": 24000000000,
+      "nvram.bin": 131072,
+      "manifest.json": 16364
+    }
+  },
+  "workflow_outcomes": [
+    {
+      "id": 42537617536,
+      "name": "Deploy Mac mini",
+      "path": ".github/workflows/deploy-mini.yml",
+      "event": "workflow_run",
+      "status": "completed",
+      "conclusion": "skipped",
+      "head_sha": "4af50b39b30c637fbe647c1a5361621e84604470",
+      "html_url": "https://github.com/0x63616c/world-wide-webb/actions/runs/42537617536"
+    },
+    {
+      "id": 42537617461,
+      "name": "Apple Panel TestFlight",
+      "path": ".github/workflows/apple-panel-testflight.yml",
+      "event": "workflow_run",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "4af50b39b30c637fbe647c1a5361621e84604470",
+      "html_url": "https://github.com/0x63616c/world-wide-webb/actions/runs/42537617461"
+    },
+    {
+      "id": 42537617489,
+      "name": "Apply Cloudflare",
+      "path": ".github/workflows/cloudflare.yml",
+      "event": "workflow_run",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "4af50b39b30c637fbe647c1a5361621e84604470",
+      "html_url": "https://github.com/0x63616c/world-wide-webb/actions/runs/42537617489"
+    },
+    {
+      "id": 42536989845,
+      "name": "Push on main",
+      "path": "dynamic/github-code-scanning/codeql",
+      "event": "dynamic",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "4af50b39b30c637fbe647c1a5361621e84604470",
+      "html_url": "https://github.com/0x63616c/world-wide-webb/actions/runs/42536989845"
+    },
+    {
+      "id": 42536990147,
+      "name": "CI",
+      "path": ".github/workflows/ci.yml",
+      "event": "push",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "4af50b39b30c637fbe647c1a5361621e84604470",
+      "html_url": "https://github.com/0x63616c/world-wide-webb/actions/runs/42536990147"
+    }
+  ],
+  "security_checks": [
+    {
+      "name": "release",
+      "status": "completed",
+      "conclusion": "skipped"
+    },
+    {
+      "name": "apply",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "name": "upload",
+      "status": "completed",
+      "conclusion": "skipped"
+    },
+    {
+      "name": "source",
+      "status": "completed",
+      "conclusion": "skipped"
+    },
+    {
+      "name": "source",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "name": "selection",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "name": "build-and-test",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "name": "apple",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "name": "infra",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "name": "image",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "name": "Analyze (ruby)",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "name": "Analyze (python)",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "name": "Analyze (actions)",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "name": "Analyze (rust)",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "name": "changes",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "name": "test-unit",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "name": "typecheck",
+      "status": "completed",
+      "conclusion": "success"
+    }
+  ],
+  "native_controller_test_summaries": [
+    "test result: ok. 113 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.18s",
+    "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s",
+    "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "test result: ok. 44 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.17s",
+    "test result: ok. 1 passed; 0 failed; 3 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+  ],
+  "production_health_after": {
+    "http_status": 200,
+    "status": "ok",
+    "database": "ok",
+    "build": "72f9533c84cc9362b9a3df9a5fe3f079411c638d",
+    "worker_failures": {
+      "alarm-clock": 0,
+      "alarm-lights": 0,
+      "climate-enforcer": 0,
+      "light-enforcer": 0,
+      "weather-ingest": 0
+    }
+  },
+  "legacy_mini_deploy_enabled_at_verification": "false",
+  "testflight_upload_outcome": "skipped",
+  "downstream_jobs": {
+    "42537617536": [
+      {
+        "id": 128905311230,
+        "name": "source",
+        "status": "completed",
+        "conclusion": "skipped"
+      },
+      {
+        "id": 128905347609,
+        "name": "release",
+        "status": "completed",
+        "conclusion": "skipped"
+      }
+    ],
+    "42537617461": [
+      {
+        "id": 128905309620,
+        "name": "selection",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 128905335303,
+        "name": "upload",
+        "status": "completed",
+        "conclusion": "skipped"
+      }
+    ],
+    "42537617489": [
+      {
+        "id": 128905310176,
+        "name": "source",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 128905344268,
+        "name": "apply",
+        "status": "completed",
+        "conclusion": "success"
+      }
+    ]
+  }
+}
