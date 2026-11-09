@@ -28,7 +28,7 @@ class SparseSelectionTests(unittest.TestCase):
             git('init', '-q', '-b', 'main')
             git('config', 'user.name', 'Selection fixture')
             git('config', 'user.email', 'fixture@example.test')
-            for name in ('.github/actions/select/action.yml', 'scripts/ci/select.py', 'scripts/ci/units.json',
+            for name in ('.github/actions/select/action.yml', 'scripts/ci/select_units.py', 'scripts/ci/units.json',
                          'apps/control-center/tools/ci_changes.py'):
                 target = repo / name
                 target.parent.mkdir(parents=True, exist_ok=True)
@@ -59,7 +59,7 @@ class SparseSelectionTests(unittest.TestCase):
                     output.unlink()
                     return value
                 output = Path(temporary) / 'selection.json'
-                subprocess.run([sys.executable, 'scripts/ci/select.py', base, head, '--event', 'pull_request',
+                subprocess.run([sys.executable, 'scripts/ci/select_units.py', base, head, '--event', 'pull_request',
                                 '--output', str(output)], cwd=repo, check=True,
                                stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 return json.loads(output.read_text())

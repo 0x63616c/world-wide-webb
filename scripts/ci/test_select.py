@@ -7,7 +7,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-SPEC = importlib.util.spec_from_file_location("selection", Path(__file__).with_name("select.py"))
+SPEC = importlib.util.spec_from_file_location("selection", Path(__file__).with_name("select_units.py"))
 selection = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(selection)
 CONFIG = json.loads(selection.CONFIG.read_text())

@@ -25,7 +25,7 @@ Prepare those concrete decisions together; a small code change needs no ticket c
 app, and `scripts/dev check <folder>` runs its existing checks. Standard iOS products run their
 core package tests when declared and an unsigned simulator build. Folding, Callkeep and Control
 Center keep their product-owned handlers. These commands neither publish nor activate hosts.
-`scripts/dev affected <base>` resolves committed app changes; `scripts/ci/select.py` provides the
+`scripts/dev affected <base>` resolves committed app changes; `scripts/ci/select_units.py` provides the
 full multi-area selection. Activate a Python environment containing `scripts/requirements.txt`
 for affected selection; `scripts/dev doctor` reports a missing PyYAML installation.
 `scripts/dev doctor` checks shared tool availability; exact product pins,

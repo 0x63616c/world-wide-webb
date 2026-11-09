@@ -32,7 +32,7 @@ class StandardDeliveryTests(unittest.TestCase):
             git("config", "user.name", "Delivery test")
             git("config", "user.email", "test@example.invalid")
             git("config", "commit.gpgsign", "false")
-            for name in ["scripts/affected", "scripts/ci/select.py", "scripts/ci/units.json"]:
+            for name in ["scripts/affected", "scripts/ci/select_units.py", "scripts/ci/units.json"]:
                 target = repo / name
                 target.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(ROOT / name, target)

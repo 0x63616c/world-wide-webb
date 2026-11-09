@@ -82,7 +82,7 @@ def classify(paths, force=False):
 def classify_repository(paths, force=False):
     """Adapt the existing product policy to repository-relative inputs."""
     root = Path(__file__).resolve().parents[3]
-    spec = importlib.util.spec_from_file_location("monorepo_selection", root / "scripts/ci/select.py")
+    spec = importlib.util.spec_from_file_location("monorepo_selection", root / "scripts/ci/select_units.py")
     policy = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(policy)
     selection = policy.select(paths, json.loads(policy.CONFIG.read_text()), force=force)

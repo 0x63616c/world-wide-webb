@@ -21,4 +21,4 @@ runs:
         arguments=()
         if [[ "$EVENT" == workflow_dispatch ]]; then arguments+=(--force); fi
         if [[ "$EVENT" != pull_request ]]; then EVENT=push; fi
-        python3 scripts/ci/select.py "$BASE" "$HEAD" --event "$EVENT" "${arguments[@]}" --output "$RUNNER_TEMP/ci-selection.json"
+        python3 scripts/ci/select_units.py "$BASE" "$HEAD" --event "$EVENT" "${arguments[@]}" --output "$RUNNER_TEMP/ci-selection.json"

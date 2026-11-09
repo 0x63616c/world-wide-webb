@@ -1001,3 +1001,21 @@ that prerequisite on Linux before OpenTofu and Folding's ZIP-based Bun setup. Ex
 tools remain in use. Workflow lint, ShellCheck of the bootstrap and diff checks pass. This
 changes guest tool preparation only; no image/host activation, live state operation, version
 or verification gate was changed. Actual installer/infra CI remains required.
+
+### Python test-discovery import collision
+
+Current-head Tendr tooling reached its path-filter regressions and failed because Linux loaded
+`scripts/ci/select.py` as Python's native `select` module. Subprocess capture then raised
+`TypeError: select() takes from2 to3 positional arguments but5 were given`. The original macOS
+Python3.15 build's builtin module hid that lookup path; the earlier system-Python failure was
+also evidence of this code naming collision, not solely an unsupported local environment.
+
+The helper is renamed to `select_units.py`, with every action, resolver, input hash, product
+adapter and fixture caller updated. Its implementation is byte-identical. A fresh-interpreter
+regression exercises Linux's path lookup even on Darwin, reproduces the exact error before the
+rename and passes after it. All18 shared selection/gate/import tests,15 product CI tests and
+legacy real-Git impact fixtures pass after the correction. The same current CI already passed
+Folding native and the light/dark Duo capture; its capture step took23m03s. Those successful
+jobs are evidence for their current revision, not a green aggregate. Replacement tooling and
+remaining real checks still need acceptance. The Folding backend additionally lost its runner
+without a final build log; host diagnostics are being examined before deciding the retry.
