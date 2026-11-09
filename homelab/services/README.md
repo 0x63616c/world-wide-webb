@@ -1,6 +1,10 @@
 # Service sources and migration status
 
-These definitions preserve observed services. Nothing is enabled on either host.
+These definitions preserve the independently owned services. Read-only inspection on
+November 8, 2026 found the mini assigned Control Center, Bambuddy, Hindsight, cloudflared,
+Penpot, Beszel and Home Assistant, with shared backups configured. Its installed source
+still belongs to the original homelab repository; WWW authority handover remains pending.
+See [release ownership](../docs/releases.md) and the root migration progress for acceptance.
 
 - Bambuddy: imported from `0x63616c/bambuddy-homelab` commit
   `2884b8f8239d3680e2255371fd35eea525c3c951`; image tags replaced with running
@@ -22,9 +26,9 @@ then change host service assignment and verify application state. Do not copy a
 live database directory. Do not simultaneously start duplicated HA automations
 or duplicated Bambuddy Tailscale identity on both hosts.
 
-Control Center has a local image-promotion helper and backup/update locking.
-Cross-repo promotion automation and end-to-end recovery validation remain
-unfinished. Keep its Compose reconciler disabled until those deployment
-safeguards are verified. Runtime paths/environment
-and tunnel networking must be reviewed for Colima rather than assumed to be
-identical to OrbStack. In particular, host-loopback tunnel origins require testing.
+Control Center now uses native Rust/SQLite, an external persistent SQLite volume and
+preserved media. The local image-promotion helper validates immutable source/digest inputs;
+host transactional activation supplies backup/update locking. Automatic consolidated app
+promotion and actual restore acceptance remain unfinished. Do not re-enable the obsolete
+retired-user app deployer or introduce another worker. Use the installed Colima runtime and
+preserve the independently owned HA VM, tunnel routes, backups and service assignments.
