@@ -1,4 +1,9 @@
-# World Wide Webb: one private home for apps and homelab
+# World Wide Webb: original consolidation plan
+
+> Historical proposal. The current execution plan is [Finish the migration](monorepo-remaining-work-2026-11-09.md).
+> WWW is now public, source consolidation and homelab handover are complete, and the remaining
+> work is Cloudflare/sites followed by references and cleanup. Earlier privacy, review and
+> acceptance requirements below do not override that plan or later user instructions.
 
 Planning date: November 8, 2026, Pacific time. Execution authorized November 8, 2026; progress is tracked in `monorepo-migration-progress.md`. This document supersedes the earlier proposal to consolidate into `apps` and move shared infrastructure between repositories.
 

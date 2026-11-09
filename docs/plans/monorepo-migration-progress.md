@@ -1,70 +1,27 @@
 # Monorepo migration progress
 
-Execution authorized November 8, 2026. The accepted scope and acceptance criteria are in
-[the migration plan](world-wide-webb-monorepo-2026-11-08.md).
+## Current status — November 9, 2026
 
-## Active goal execution contract
+Use [Finish the migration](monorepo-remaining-work-2026-11-09.md) for the remaining work.
+Cloudflare and sites come first, followed by remaining references, documentation and old-repo
+cleanup. That short plan supersedes the older execution contract and acceptance checklists.
 
-The full consolidation goal remains active. The November 8 working instructions govern
-execution, including where they are stricter than the stored goal wording:
+Source consolidation and the GitHub-hosted CI switch are merged. WWW is public. Both Macs
+follow WWW at checked host revision `0b046d9b6d20bd80a94951f26b22a9e105e490cf`; the newer
+`cf8734b` commit changes agent documentation only. Both host activations completed, their
+updaters are loaded and operation locks are idle. The mini's backup has COMPLETE/NAS_VERIFIED,
+and its bedroom-switch worker is live with zero reported failures. A physical flip was not
+independently observed. The old homelab repository is archived.
 
-- The primary agent implements substantial coherent batches. Subagents provide independent
-  final review only; Astra reviews the completed candidate, with findings fixed locally.
-- Keep the entire migration candidate, verification, review fixes and Conventional Commits
-  local until the complete candidate is reviewed. Then publish, pass required checks, merge
-  and verify delivery. A usable-cutover priority does not authorize publishing a partial candidate.
-- Preserve the existing worktree, original checkouts, ongoing source work, product identities,
-  data/media, infrastructure ownership and excluded repositories. Refresh sources before handover.
-- Use one primary-agent persistent credential session; reviewers do not access credentials.
-  Keep secrets, private state and private visual evidence outside Git.
-- Optimize elapsed time through substantial batches, existing product tooling and reuse of
-  valid exact-source evidence. Run relevant checks and required product acceptance checks;
-  avoid repeated broad verification without a new reason.
-- Continue autonomously within the agreed scope. Report estimated overall completion and
-  current stage. Completion requires actual delivery, retained integrations/data/media and
-  applicable restore evidence; local wiring or successful uploads alone do not prove it.
+Normal relevant CI and checks of changed sites/infrastructure are sufficient for the remaining
+migration. Product releases happen when needed; extra release, screenshot, restore and review
+campaigns are not migration prerequisites. Delegated reviews require Calum's explicit request.
 
-Overall estimate is approximately 52%; current stage is private publication and real CI for the usable app-development repository.
-Live release channels, infrastructure/host handovers and retirement remain separate acceptance work.
+## Historical execution record
 
-## Current candidate
-
-Local branch `codex/monorepo-consolidation`, created from WWW `242eb8f4a0c3dc1ca336c20682e610128f914ac9`.
-WWW is private (provider readback verified before publishing imported history). The reviewed
-candidate is published as PR #959; real selective homelab CI is running. Original working
-copies remain untouched. Cloudflare apply, Control Center image publication and the obsolete
-Mini deploy writer are explicitly held off; other migration delivery flags remain unset/off.
-The obsolete Mini deployment trigger was disabled separately; the running service remained healthy.
-
-Non-squashed local history imports:
-
-- Folding `ea966862c7e07e08bb7f046873b94d7c915977a3` into `apps/folding`.
-- Callkeep `73bb6dde3dbc765756ff12f3751db5bfad9bc4de` into `apps/callkeep`.
-- Apps `590d39abf0d483d232b3045d10446ef83895ae79` temporarily into `imports/apps`;
-  staging contents have been moved to their product/tooling/site locations. No tracked `imports/` paths remain.
-
-## Work remaining
-
-- Finish the usable private app-development milestone: pass PR #959 real selective CI,
-  fix discovered runner/build issues, merge and verify a fresh checkout. Reviewed writer
-  holds, private visibility and private source publication are complete.
-- After that milestone, integrate/validate host promotion, preserve-state repository migration,
-  enrollment coordination and destination-scoped host Git-key handover.
-- Finish private CLI release/installation authority and source/update/schema/help references;
-  prove existing-profile resume/reboot/recovery and retain an off-host recovery route.
-- Adapt Control Center delivery to current homelab-owned runtime/locks/backups/Serve, replacing
-  the disabled retired-user SSH deployment without overwriting shared operations.
-- Validate the Xcode27.2 image/runtime/Ruby and actual Linux/native job capabilities, then run
-  isolated Folding/Tendr screenshots, signing/Apple processing/groups and private Homebrew canaries.
-- Drain/seed old writers, immutable ledgers/artifacts and scoped credentials; complete separate
-  Cloudflare app/site/state ownership and no-unintended-change/backup/restore acceptance.
-- Finish new-app command/onboarding/backend preset and product/home documentation from working code;
-  preserve all original active snapshots and refresh again immediately before handover.
-- The usable-source integrated Astra review and privacy/publication gates are complete.
-  Finish green CI/merge/checkout verification, then review each substantial remaining live
-  handover at its publication boundary. The owner declined branch protections and Pro.
-- Archive eligible old authorities only after proven handover. Retain old apps as a publication host
-  while installed URLs need it; preserve excluded repos and separate deletion decisions.
+The entries below are historical evidence, not current instructions or live status. References
+to private visibility, pending homelab handover, old percentages, mandatory Astra reviews or
+additional acceptance gates have been superseded.
 
 ## Dependencies and preservation
 
