@@ -948,3 +948,16 @@ still-outer native geometry (466x678 versus951x669 points). That invocation did 
 native poses and is not inner-display acceptance; the task simulator was cleaned up. Controlled
 CI preview/full captures remain the acceptance route. Source-only tests were not substituted
 for actual compilation or rendering evidence.
+
+### Pinned runner-tool download mirror
+
+The Homelab Darwin configuration job128997796951 failed fetching Tart, with HTTP504 after
+its normal retries. Direct operator downloads reproduced504 for both pinned Tart and Softnet
+browser URLs. The upstream release APIs still identified the same release assets; unauthenticated
+API asset downloads succeeded and matched both existing SHA256 pins exactly. Runner tools now
+try those exact API assets with the octet-stream header, retaining the original browser URLs as
+fallbacks and explicit archive filenames. Versions, archive contents, checksums and signed app
+handling remain unchanged. Native Nix parsing/evaluation against the pinned nixpkgs revision
+passes and confirms unchanged fixed-output source and final package paths for both tools.
+This is a download-route correction,
+not a host update or a successful replacement full configuration check; actual CI remains required.
