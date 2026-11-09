@@ -61,7 +61,36 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
-      - run: ../../scripts/ci/apple-desktop.sh Scripts/test.sh
+      - name: Diagnose the retained public archive without publishing
+        run: |
+          python3 - <<'PYTHON'
+          import importlib.util, pathlib, subprocess, tempfile
+          spec = importlib.util.spec_from_file_location("delivery", "Scripts/release.py")
+          delivery = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(delivery)
+          original = delivery.prepare.run
+          def traced(*args, **kwargs):
+              print("READ-ONLY TOOL:", args[0], flush=True)
+              try:
+                  return original(*args, **kwargs)
+              except subprocess.CalledProcessError as error:
+                  print("READ-ONLY FAILURE:", args[0], error.returncode, flush=True)
+                  if args[0] in {"codesign", "xcrun", "curl", "ditto"}:
+                      print(error.stderr, flush=True)
+                  raise
+          delivery.prepare.run = traced
+          with tempfile.TemporaryDirectory() as temporary:
+              folder = pathlib.Path(temporary)
+              archive = folder / "Callkeep.zip"
+              traced("curl", "--fail", "--silent", "--show-error", "--location",
+                     "https://github.com/0x63616c/world-wide-webb/releases/download/callkeep%2Fv1.0.26/Callkeep-1.0.26.zip",
+                     "--output", str(archive))
+              assert delivery.sha(archive) == "87e06b44d5a75142d614a17ff83f45382e9461f5d34667826355ac5da596c4db"
+              stage = folder / "stage"
+              stage.mkdir()
+              delivery.safe_extract(archive, stage)
+              delivery.prepare.validate_callkeep_app(stage / "Callkeep.app", "47697228c342315f5425de38980baa94c51a377d", "1.0.26")
+          PYTHON
   gate:
     name: Callkeep checks
     needs: [selection, tooling, native]
