@@ -921,3 +921,13 @@ the real checker entry point failed before the change and passed after it. Four 
 tests cover recovery, deadline, revision mismatch and post-readiness failure; the Control
 Center operations checks pass (70 tools and 37 deployment tests). Independent final review
 found no actionable issues. Replacement real-image CI remains required before acceptance.
+
+### Folding fresh-guest project generator
+
+The replacement preview job completed the frozen install of all103 gems, confirming the
+checksum correction. It then exposed a missing XcodeGen executable in the disposable guest.
+The shared Folding Apple setup now installs XcodeGen before its existing strict product-pin,
+Xcode/Swift/SDK/runtime checks; it does not accept a different generator version. The same
+setup serves native, domain and preview jobs. Local real Apple environment validation and
+its three existing regression tests pass, as do workflow lint/diff checks. Replacement
+fresh-guest CI remains required; no preview output or native delivery is claimed.

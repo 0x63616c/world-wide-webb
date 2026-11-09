@@ -71,6 +71,10 @@ runs:
       working-directory: apps/folding/backend
       run: bun install --frozen-lockfile
     - if: inputs.target == 'apple'
+      name: Install the Apple project generator
       shell: bash
       working-directory: apps/folding
-      run: python3 scripts/apple-build-environment.py --create-device
+      run: |
+        brew list xcodegen >/dev/null 2>&1 || brew install xcodegen
+        # The environment check below rejects a different product-pinned version.
+        python3 scripts/apple-build-environment.py --create-device
