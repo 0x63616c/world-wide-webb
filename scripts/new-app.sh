@@ -1,0 +1,116 @@
+#!/usr/bin/env bash
+# Scaffolds a new -r app from templates/new-app.
+#   scripts/new-app.sh <Name> <bundle-suffix> [--backend cloudflare]
+#   scripts/new-app.sh Samplr samplr      → apps/samplr, bundle ID com.calumwebb.samplr, sites/samplr
+#
+# Creates the XcodeGen project (native SwiftUI, launch screen, placeholder icon, Home and Settings with
+# privacy and support links, a screenshot UI test), apps/<app>/app.yml for fastlane and CI,
+# a metadata skeleton, screenshot frames and site pages. CI picks the app up automatically.
+# Remaining product/account setup is printed at the end; see docs/NEW-APP.md.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+fail() { printf 'error: %s\n' "$*" >&2; exit 1; }
+raw=${1:-}
+suffix=${2:-}
+[[ $# == 2 || ( $# == 4 && "$3" == --backend && "$4" == cloudflare ) ]] || fail "usage: scripts/new-app.sh <Name> <bundle-suffix> [--backend cloudflare]"
+backend=${4:-none}
+[[ -n "$raw" && -n "$suffix" ]] || fail "Name and bundle suffix are required"
+[[ "$raw" =~ ^[A-Za-z][A-Za-z0-9]*$ ]] || fail "Name must be letters and digits, starting with a letter (for example Samplr)"
+[[ "$suffix" =~ ^[a-z0-9][a-z0-9.-]*$ ]] || fail "Bundle suffix must be lowercase letters, digits, dots or hyphens"
+
+name="$(printf '%s' "${raw:0:1}" | tr '[:lower:]' '[:upper:]')${raw:1}"
+slug=$(printf '%s' "$raw" | tr '[:upper:]' '[:lower:]')
+bundle="com.calumwebb.$suffix"
+dest="apps/$slug"
+[[ ! -e "$dest" ]] || fail "$dest already exists"
+[[ ! -e "sites/$slug" ]] || fail "sites/$slug already exists"
+# Standard delivery requires an explicit unit; unknown paths authorize verification only.
+python3 - "$slug" <<'PYTHON'
+import json, sys
+from pathlib import Path
+config = json.loads(Path('scripts/ci/units.json').read_text())
+assert config['version'] == 1
+assert sys.argv[1] + '.native' not in config['units'], 'App CI unit already exists'
+PYTHON
+pages="https://0x63616c.github.io/apps/$slug/"
+
+cp -R templates/new-app/app "$dest"
+if [[ "$backend" == cloudflare ]]; then
+  mkdir "$dest/backend"
+  for item in src tests package.json bun.lock wrangler.jsonc .gitignore README.md; do
+    cp -R "templates/cloudflare-backend/$item" "$dest/backend/$item"
+  done
+fi
+cp -R templates/new-app/site "sites/$slug"
+printf '%s\n' "$slug" >> sites/.pages
+find "$dest" "sites/$slug" -type f \( -name '*.swift' -o -name '*.yml' -o -name '*.json' -o -name '*.txt' -o -name '*.md' -o -name '*.html' -o -name '*.plist' -o -name '*.ts' -o -name '*.jsonc' \) -print0 |
+  while IFS= read -r -d '' file; do
+    sed -i.bak \
+      -e "s#__NAME__#$name#g" -e "s#__SLUG__#$slug#g" -e "s#__BUNDLE_ID__#$bundle#g" \
+      -e "s#__PAGES__#$pages#g" -e "s#__YEAR__#$(date +%Y)#g" -e "s#__DATE__#$(date '+%B %-d, %Y')#g" \
+      "$file"
+    rm -f "$file.bak"
+  done
+
+marker='<!-- apps: scripts/new-app.sh adds a card per app above this line -->'
+card="<a class=\"card\" href=\"./$slug/\"><h2>$name</h2><span>New app</span></a>"
+sed -i.bak "s#$marker#$card\\
+$marker#" sites/index.html && rm -f sites/index.html.bak
+
+python3 - "$slug" <<'PYTHON'
+import json, sys
+from pathlib import Path
+slug = sys.argv[1]
+path = Path('scripts/ci/units.json')
+config = json.loads(path.read_text())
+prefix = 'apps/' + slug + '/'
+config['units'][slug + '.native'] = {
+    'paths': [prefix + '**'],
+    'delivery': 'testflight',
+    'delivery_paths': [prefix + part for part in (
+        'App/**', 'Sources/**', 'Packages/*/Sources/**', 'Packages/*/Package.swift',
+        'Packages/*/Package.resolved', 'project.yml', 'Package.swift', 'Package.resolved',
+        'app.yml', 'fastlane/metadata/**', 'screenshots.json',
+    )],
+    'delivery_exclude': [
+        '**/Tests/**', '**/tests/**', '**/test_*', '**/*_test.*', '**/fixtures/**',
+        '**/BuildTests/**', '**/ScreenshotTests/**', '**/StorefrontTests/**',
+    ],
+}
+path.write_text(json.dumps(config, indent=2) + '\n')
+PYTHON
+
+if command -v xcodegen >/dev/null; then
+  (cd "$dest" && xcodegen generate --quiet)
+  generated="Generated $dest/$name.xcodeproj."
+else
+  generated="Install XcodeGen (brew install xcodegen), then run: (cd $dest && xcodegen generate)"
+fi
+
+cat <<EOF
+Created $name ($bundle) in $dest and sites/$slug. $generated
+
+Done for you: native SwiftUI, launch screen, placeholder icon, Settings with privacy and support links,
+screenshot UI test, app.yml (fastlane + CI), metadata skeleton, screenshots.json and site pages.
+
+Remaining setup (the agent can complete supported account/API steps):
+  1. Register/verify App Store Connect and the bundle ID ($name, $bundle).
+     Request owner input only for unavoidable account/2FA/legal facts.
+  2. Put the new app's numeric Apple ID in $dest/app.yml (apple_id) and set testflight: true.
+  3. Create the "Owner Preview" internal TestFlight group for the app (or change testflight_group).
+  4. Replace the placeholder icon and launch glyph in $dest/App/Assets.xcassets.
+  5. Write the listing in $dest/fastlane/metadata, the screenshot headlines in
+     $dest/screenshots.json, and review sites/$slug/privacy before publishing (scripts/publish-site.sh).
+  6. Commit and push: CI builds the app; TestFlight uploads start once testflight is true.
+EOF
+
+if [[ "$backend" == cloudflare ]]; then
+  cat <<EOF
+
+Cloudflare backend: $dest/backend (separate staging/production, no resources provisioned).
+  cd $dest/backend && bun install --frozen-lockfile && bun run check
+  bun run dev starts the staging Worker locally.
+Follow backend/README.md for account setup, product authentication, bindings and promotion.
+EOF
+fi

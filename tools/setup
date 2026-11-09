@@ -1,6 +1,4 @@
 #!/usr/bin/env bash
 set -euo pipefail
-for tool in cargo lefthook; do
-  command -v "$tool" >/dev/null || { echo "Install $tool before working in this checkout." >&2; exit 1; }
-done
-cargo fetch --locked
+cd "$(dirname "$0")/../apps/control-center"
+exec bash tools/setup "$@"

@@ -1,0 +1,11 @@
+{
+  "phase": "verified",
+  "previous": "/nix/store/1cnrfdllqzwds7lwlawkhdaq7fjkphil-darwin-system-26.11.ff0e21a",
+  "candidate": "/nix/store/9bkva9vyy14acmdp170n2wj90sd6vd54-darwin-system-26.11.ff0e21a",
+  "recovered_after_runner_maintenance": true,
+  "current": "/nix/store/9bkva9vyy14acmdp170n2wj90sd6vd54-darwin-system-26.11.ff0e21a",
+  "profile": "/nix/store/9bkva9vyy14acmdp170n2wj90sd6vd54-darwin-system-26.11.ff0e21a",
+  "transaction_absent": true,
+  "permanent_daemon_loaded": true,
+  "temporary_daemons_unloaded": true
+}

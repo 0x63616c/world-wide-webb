@@ -1,0 +1,102 @@
+{
+  "schema": 2,
+  "scope": "two_disposable_vms_production_architecture_boundary_no_job",
+  "started_at": 1794116546,
+  "finished_at": 1794116639,
+  "stage": "complete",
+  "image": "ghcr.io/cirruslabs/macos-tahoe-xcode@sha256:e329b2ea9634c3e72e20b0c3e5a75b8591de899638c4720a466a0fb55dec5b71",
+  "tart_binary": "/nix/store/5wqklnfrxfazk79jci5xc0pzs76nzllc-tart-2.41.1/bin/tart",
+  "softnet_directory": "/var/lib/homelab-runner-helpers/gmmfldqc4m5l9palja2qxkpk20av06nc-softnet-0.25.0",
+  "control_policy": "test_only_softnet_allow_all_IPv4; no_host_integrations_or_exposed_ports",
+  "production_client_arguments": [
+    "run",
+    "--no-graphics",
+    "--no-clipboard",
+    "--no-audio",
+    "--no-usb-accessories",
+    "--net-softnet",
+    "--net-softnet-block=@host,@peers,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,100.64.0.0/10,169.254.0.0/16,127.0.0.0/8,0.0.0.0/8,224.0.0.0/4,240.0.0.0/4,in 0.0.0.0/0",
+    "homelab-job-466a81a7fa334676ba7cbdb3c0b502b4"
+  ],
+  "client": "homelab-job-466a81a7fa334676ba7cbdb3c0b502b4",
+  "target": "homelab-job-5ea684fd023e472196f9e824e593a30c",
+  "client_memory_mib": 8192,
+  "target_memory_mib": 4096,
+  "target_pid": 1136,
+  "control_client_pid": 1137,
+  "production_client_pid": 1243,
+  "target_ipv4": "192.168.10.50",
+  "target_netmask": "255.255.255.248",
+  "open_client_ipv4": "10.70.188.210",
+  "open_client_netmask": "255.255.255.248",
+  "production_client_ipv4": "172.27.162.74",
+  "production_client_netmask": "255.255.255.248",
+  "topology": "separate_Tart_runs_each_initialize_one_Softnet_vmnet_network_with_unused_private_29; permissive_baseline_does_not_establish_filter_causality",
+  "topology_source": "https://github.com/openai/softnet/blob/0.25.0/lib/manager.rs#L249-L252; https://github.com/openai/tart/blob/2.41.1/Sources/tart/Network/Softnet.swift#L43-L48",
+  "policy_causality_proven": false,
+  "production_client_public_https": true,
+  "peer_ipv6": "fe80::1c29:8fbf:822b:59c4%en0",
+  "checks": [
+    {
+      "name": "target_ipv4_loopback_ssh",
+      "expected": "connected",
+      "observation": "connected"
+    },
+    {
+      "name": "host_target_ipv4_ssh_before",
+      "expected": "connected",
+      "observation": "connected"
+    },
+    {
+      "name": "open_client_target_ipv4_ssh",
+      "expected": "observed_only",
+      "observation": "timed_out"
+    },
+    {
+      "name": "host_open_client_ipv4_ssh",
+      "expected": "connected",
+      "observation": "connected"
+    },
+    {
+      "name": "production_client_ipv4_loopback_ssh",
+      "expected": "connected",
+      "observation": "connected"
+    },
+    {
+      "name": "production_client_ipv6_loopback_ssh",
+      "expected": "connected",
+      "observation": "connected"
+    },
+    {
+      "name": "production_client_target_ipv4_ssh",
+      "expected": "blocked",
+      "observation": "timed_out"
+    },
+    {
+      "name": "host_target_ipv4_ssh_after",
+      "expected": "connected",
+      "observation": "connected"
+    },
+    {
+      "name": "target_ipv4_loopback_ssh_after",
+      "expected": "connected",
+      "observation": "connected"
+    },
+    {
+      "name": "target_ipv6_linklocal_ssh",
+      "expected": "connected",
+      "observation": "connected"
+    },
+    {
+      "name": "production_client_target_ipv6_linklocal_ssh",
+      "expected": "blocked",
+      "observation": "timed_out"
+    }
+  ],
+  "public_ipv6_black_box_proven": false,
+  "ipv6_scope": "loopback_positive_and_conditional_peer_negative; public_IPv6_unproven; Softnet0.25_source_drops_nonARP_nonIPv4",
+  "cleanup_client": true,
+  "cleanup_target": true,
+  "passed": true,
+  "failure": null
+}

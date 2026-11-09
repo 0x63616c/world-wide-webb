@@ -1,0 +1,32 @@
+{
+  "repository": "0x63616c/world-wide-webb",
+  "workflow_run_id": 42448237223,
+  "workflow_commit": "0fbfd9a9c738f1d604a923f5c7c6e4c25fdd43a7",
+  "job_id": 128631727822,
+  "runner_name": "homelab-job-56cc0092efec46d98a30843b9eb13b39",
+  "controller_commit": "954bf40a270483f398e006f94d6ac8767b197c99",
+  "package": "/nix/store/yv4836b6zq5bq8r4q975052hm1l93asd-homelab-runner-0.1.0",
+  "started_at": "2026-11-08T04:52:21Z",
+  "completed_at": "2026-11-08T04:59:43Z",
+  "duration_seconds": 442,
+  "conclusion": "success",
+  "passed": [
+    "checkout", "repository-pinned Rust installation", "Xcode selection",
+    "XcodeGen installation", "Swift formatting", "Swift package tests",
+    "Swift and Rust integration", "iPad build and unit tests", "iPhone platform policy tests"
+  ],
+  "other_workflow_jobs": {
+    "typecheck": "success", "test-unit": "success", "changes": "success",
+    "image": "success", "infra": "success", "build-and-test": "success"
+  },
+  "cleanup": {
+    "controller_active_attempt": false,
+    "journal_sequence": 88,
+    "exact_vm_directory_absent": true,
+    "exact_github_runner_registration_matches": 0
+  },
+  "limits": [
+    "Executed from the test branch; application workflow routing was not yet merged into main.",
+    "A human GUI session existed on the host; reboot-before-login validation remained outstanding."
+  ]
+}

@@ -1,0 +1,79 @@
+{
+  "schema": 1,
+  "proof_scope": "service_account_stock_vm_public_helper_lifecycle_no_job",
+  "uid": 451,
+  "started_at": 1794104247,
+  "finished_at": 1794104312,
+  "boot_uuid": "ea2c5eef-f3eb-48d7-b57f-ad31101d753a",
+  "host_gui_observed": true,
+  "nonce": "acd08cdb3e39458b9d0f9e463a74b3cb",
+  "vm_name": "homelab-job-acd08cdb3e39458b9d0f9e463a74b3cb",
+  "image": "ghcr.io/cirruslabs/macos-golden-gate-base@sha256:14f4fc32a778763ccae1a4d543ea0f177720c570dd7f859eda10b9e0020c7d05",
+  "tart_binary": "/nix/store/5wqklnfrxfazk79jci5xc0pzs76nzllc-tart-2.41.1/bin/tart",
+  "guest_helper": "/var/lib/homelab-runner-probe/homelab-runner-guest",
+  "boot_deadline": 1794104847,
+  "stages": [
+    {
+      "stage": "host_observation",
+      "started_at": 1794104247,
+      "completed_at": 1794104247
+    },
+    {
+      "stage": "keychain",
+      "started_at": 1794104247,
+      "completed_at": 1794104247
+    },
+    {
+      "stage": "tool_preflight",
+      "started_at": 1794104247,
+      "completed_at": 1794104247
+    },
+    {
+      "stage": "inventory",
+      "started_at": 1794104247,
+      "completed_at": 1794104247
+    },
+    {
+      "stage": "clone",
+      "started_at": 1794104247,
+      "completed_at": 1794104247
+    },
+    {
+      "stage": "boot",
+      "started_at": 1794104247,
+      "completed_at": 1794104309
+    },
+    {
+      "stage": "prepare_guest",
+      "started_at": 1794104309,
+      "completed_at": 1794104309
+    },
+    {
+      "stage": "guest_ready",
+      "started_at": 1794104309,
+      "completed_at": 1794104309
+    },
+    {
+      "stage": "stop",
+      "started_at": 1794104309,
+      "completed_at": 1794104311
+    },
+    {
+      "stage": "delete",
+      "started_at": 1794104311,
+      "completed_at": 1794104311
+    },
+    {
+      "stage": "lease_cleanup",
+      "started_at": 1794104311,
+      "completed_at": 1794104312
+    },
+    {
+      "stage": "complete",
+      "started_at": 1794104312,
+      "completed_at": 1794104312
+    }
+  ],
+  "passed": true,
+  "failure_category": null
+}

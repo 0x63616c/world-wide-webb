@@ -1,0 +1,12 @@
+name: GitHub CLI
+description: Install the GitHub client on disposable Linux guests without credentials
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: |
+        if ! command -v gh >/dev/null; then
+          [[ "$(uname -s)" == Linux ]] || { echo 'GitHub CLI is missing from the Mac image' >&2; exit 1; }
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends gh
+        fi

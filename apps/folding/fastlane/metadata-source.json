@@ -1,0 +1,227 @@
+{
+  "schema_version": 1,
+  "caption_version": 3,
+  "translations_status": "draft_pending_final_localization_review",
+  "locales": {
+    "en-US": {
+      "name": "Folding: Duo Fold Tracker",
+      "subtitle": "Fold stats & leaderboards",
+      "keywords": "fold,hinge,duo,stats,tracker,leaderboard,widgets",
+      "description": "Track your iPhone Duo folds with Folding. Set up opening and closing automations in Shortcuts, then see your daily habits take shape.\n\n• Track folds and time unfolded.\n• Explore your history and activity patterns.\n• Sync personal history with iCloud and view your stats in widgets.\n• Join weekly, monthly and all-time leaderboards with Sign in with Apple.\n• Earn fold and days-used badges, explore profiles and feature a favourite badge.\n• Export your history as a CSV package or reset it in the app.\n\nAll features are free. Optional tips support development and unlock nothing.",
+      "promotional_text": "Every fold. A little story.",
+      "release_notes": "Meet Folding: your personal Duo fold tracker.",
+      "captions": {
+        "today": "Every fold.\nA little story.",
+        "history": "Your day, unfolded.",
+        "leaderboard": "A friendly bit\nof rivalry.",
+        "patterns": "Find your rhythm.",
+        "milestones": "Every milestone\nearned."
+      },
+      "eyebrows": {
+        "today": "Your folds",
+        "history": "History",
+        "leaderboard": "Community",
+        "patterns": "Patterns",
+        "milestones": "Milestones"
+      }
+    },
+    "de-DE": {
+      "name": "Folding: Duo Faltzähler",
+      "subtitle": "Faltstatistik & Ranglisten",
+      "keywords": "falten,duo,statistik,zähler,rangliste,widgets",
+      "description": "Erfasse mit Folding die Faltungen deines iPhone Duo. Richte Automationen zum Öffnen und Schließen in Kurzbefehle ein und entdecke deine täglichen Gewohnheiten.\n\n• Erfasse Faltungen und die aufgeklappte Zeit.\n• Entdecke deinen Verlauf und Nutzungsmuster.\n• Synchronisiere deinen Verlauf über iCloud und nutze Widgets.\n• Nimm mit „Mit Apple anmelden“ an Wochen-, Monats- und Gesamtranglisten teil.\n• Verdiene Abzeichen für Faltungen und Nutzungstage, entdecke Profile und zeige dein Lieblingsabzeichen.\n• Exportiere deinen Verlauf als CSV-Paket oder setze ihn in der App zurück.\n\nAlle Funktionen sind kostenlos. Freiwillige Trinkgelder unterstützen die Entwicklung und schalten nichts frei.",
+      "promotional_text": "Jede Faltung zählt.",
+      "release_notes": "Lerne Folding kennen: deinen persönlichen Duo-Faltzähler.",
+      "captions": {
+        "today": "Jede Faltung zählt.",
+        "history": "Dein Tag, aufgeklappt.",
+        "leaderboard": "Ein freundlicher Wettbewerb.",
+        "patterns": "Entdecke deinen Rhythmus.",
+        "milestones": "Deine Meilensteine."
+      },
+      "eyebrows": {
+        "today": "Deine Faltungen",
+        "history": "Verlauf",
+        "leaderboard": "Community",
+        "patterns": "Muster",
+        "milestones": "Meilensteine"
+      }
+    },
+    "fr-FR": {
+      "name": "Folding : compteur Duo",
+      "subtitle": "Statistiques et classements",
+      "keywords": "pliage,duo,statistiques,compteur,classement,widgets",
+      "description": "Suivez les pliages de votre iPhone Duo avec Folding. Configurez les automatisations d’ouverture et de fermeture dans Raccourcis et découvrez vos habitudes.\n\n• Comptez vos pliages et le temps passé déplié.\n• Explorez votre historique et vos tendances d’utilisation.\n• Synchronisez votre historique avec iCloud et consultez vos statistiques dans les widgets.\n• Rejoignez les classements hebdomadaires, mensuels et généraux avec « Se connecter avec Apple ».\n• Gagnez des badges de pliages et de jours d’utilisation, découvrez les profils et affichez votre badge préféré.\n• Exportez votre historique en fichiers CSV ou réinitialisez-le dans l’app.\n\nToutes les fonctions sont gratuites. Les pourboires facultatifs soutiennent le développement et ne débloquent rien.",
+      "promotional_text": "Chaque pli compte.",
+      "release_notes": "Découvrez Folding, votre compteur de pliages pour Duo.",
+      "captions": {
+        "today": "Chaque pli compte.",
+        "history": "Votre journée se déplie.",
+        "leaderboard": "Une rivalité amicale.",
+        "patterns": "Trouvez votre rythme.",
+        "milestones": "Chaque étape compte."
+      },
+      "eyebrows": {
+        "today": "Vos pliages",
+        "history": "Historique",
+        "leaderboard": "Communauté",
+        "patterns": "Tendances",
+        "milestones": "Étapes"
+      }
+    },
+    "es-ES": {
+      "name": "Folding: contador Duo",
+      "subtitle": "Estadísticas y clasificación",
+      "keywords": "pliegues,duo,estadísticas,contador,clasificación,widgets",
+      "description": "Registra los pliegues de tu iPhone Duo con Folding. Configura las automatizaciones de apertura y cierre en Atajos y descubre tus hábitos diarios.\n\n• Registra pliegues y tiempo desplegado.\n• Explora tu historial y tus patrones de uso.\n• Sincroniza el historial con iCloud y consulta tus estadísticas en widgets.\n• Únete a las clasificaciones semanales, mensuales e históricas con «Iniciar sesión con Apple».\n• Consigue insignias de pliegues y días de uso, explora perfiles y destaca tu insignia favorita.\n• Exporta el historial como paquete CSV o restablécelo en la app.\n\nTodas las funciones son gratis. Las propinas opcionales apoyan el desarrollo y no desbloquean funciones.",
+      "promotional_text": "Cada pliegue cuenta.",
+      "release_notes": "Descubre Folding: tu contador personal de pliegues para Duo.",
+      "captions": {
+        "today": "Cada pliegue cuenta.",
+        "history": "Tu día, desplegado.",
+        "leaderboard": "Una rivalidad amistosa.",
+        "patterns": "Encuentra tu ritmo.",
+        "milestones": "Cada logro cuenta."
+      },
+      "eyebrows": {
+        "today": "Tus pliegues",
+        "history": "Historial",
+        "leaderboard": "Comunidad",
+        "patterns": "Patrones",
+        "milestones": "Hitos"
+      }
+    },
+    "es-MX": {
+      "name": "Folding: contador Duo",
+      "subtitle": "Estadísticas y clasificación",
+      "keywords": "pliegues,duo,estadísticas,contador,clasificación,widgets",
+      "description": "Registra los pliegues de tu iPhone Duo con Folding. Configura las automatizaciones de apertura y cierre en Atajos y descubre tus hábitos diarios.\n\n• Registra pliegues y tiempo desplegado.\n• Explora tu historial y tus patrones de uso.\n• Sincroniza el historial con iCloud y consulta tus estadísticas en widgets.\n• Únete a las clasificaciones semanales, mensuales e históricas con «Iniciar sesión con Apple».\n• Gana insignias de pliegues y días de uso, explora perfiles y destaca tu insignia favorita.\n• Exporta el historial como paquete CSV o restablécelo en la app.\n\nTodas las funciones son gratis. Las propinas opcionales apoyan el desarrollo y no desbloquean funciones.",
+      "promotional_text": "Cada pliegue cuenta.",
+      "release_notes": "Conoce Folding: tu contador personal de pliegues para Duo.",
+      "captions": {
+        "today": "Cada pliegue cuenta.",
+        "history": "Tu día, desplegado.",
+        "leaderboard": "Una competencia amistosa.",
+        "patterns": "Encuentra tu ritmo.",
+        "milestones": "Cada logro cuenta."
+      },
+      "eyebrows": {
+        "today": "Tus pliegues",
+        "history": "Historial",
+        "leaderboard": "Comunidad",
+        "patterns": "Patrones",
+        "milestones": "Logros"
+      }
+    },
+    "ja": {
+      "name": "Folding：Duoの開閉を記録",
+      "subtitle": "開閉の記録とランキング",
+      "keywords": "折りたたみ,Duo,記録,統計,ランキング,ウィジェット",
+      "description": "FoldingでiPhone Duoの折りたたみを記録。ショートカットで開閉のオートメーションを設定して、毎日の使い方を振り返りましょう。\n\n• 折りたたみ回数と開いていた時間を記録。\n• 履歴と使用パターンを確認。\n• iCloudで履歴を同期し、ウィジェットで統計を表示。\n• 「Appleでサインイン」で週間・月間・全期間のランキングに参加。\n• 折りたたみ回数や使用日数でバッジを獲得。プロフィールを見たり、お気に入りのバッジを表示したりできます。\n• 履歴をCSVパッケージで書き出し、アプリ内でリセット。\n\nすべての機能は無料です。任意のチップは開発を支えるもので、追加機能の解放はありません。",
+      "promotional_text": "開くたび、閉じるたび。",
+      "release_notes": "Duoの開閉を記録するFoldingが登場。",
+      "captions": {
+        "today": "開くたび、閉じるたび。",
+        "history": "一日の動きを記録。",
+        "leaderboard": "気軽に競い合おう。",
+        "patterns": "自分のリズムを見つけよう。",
+        "milestones": "積み重ねた成果をバッジに。"
+      },
+      "eyebrows": {
+        "today": "折りたたみ",
+        "history": "履歴",
+        "leaderboard": "コミュニティ",
+        "patterns": "パターン",
+        "milestones": "マイルストーン"
+      }
+    },
+    "ko": {
+      "name": "Folding: Duo 접기 기록",
+      "subtitle": "접기 통계와 순위",
+      "keywords": "접기,Duo,기록,통계,순위,위젯",
+      "description": "Folding으로 iPhone Duo의 접기 기록을 확인하세요. 단축어에서 열기와 닫기 자동화를 설정하고 매일의 사용 습관을 살펴보세요.\n\n• 접기 횟수와 펼친 시간을 기록하세요.\n• 기록과 사용 패턴을 살펴보세요.\n• iCloud로 기록을 동기화하고 위젯에서 통계를 확인하세요.\n• Apple로 로그인하여 주간, 월간, 전체 순위에 참여하세요.\n• 접기 횟수와 사용 일수로 배지를 획득하고, 프로필을 둘러보고, 좋아하는 배지를 표시하세요.\n• 기록을 CSV 패키지로 내보내거나 앱에서 초기화하세요.\n\n모든 기능은 무료입니다. 선택 사항인 팁은 개발을 지원하며 추가 기능을 제공하지 않습니다.",
+      "promotional_text": "열고 닫는 순간마다.",
+      "release_notes": "Duo를 위한 개인 접기 기록 앱, Folding을 만나보세요.",
+      "captions": {
+        "today": "열고 닫는 순간마다.",
+        "history": "하루의 움직임을 기록해요.",
+        "leaderboard": "가볍게 함께 경쟁해요.",
+        "patterns": "나만의 리듬을 찾아보세요.",
+        "milestones": "기록이 배지가 됩니다."
+      },
+      "eyebrows": {
+        "today": "접기 기록",
+        "history": "기록",
+        "leaderboard": "커뮤니티",
+        "patterns": "패턴",
+        "milestones": "마일스톤"
+      }
+    },
+    "pt-BR": {
+      "name": "Folding: contador Duo",
+      "subtitle": "Estatísticas e classificações",
+      "keywords": "dobras,duo,estatísticas,contador,ranking,widgets",
+      "description": "Registre as dobras do seu iPhone Duo com o Folding. Configure as automações de abertura e fechamento no Atalhos e descubra seus hábitos diários.\n\n• Registre dobras e o tempo com o aparelho aberto.\n• Explore seu histórico e padrões de uso.\n• Sincronize o histórico com o iCloud e veja estatísticas nos widgets.\n• Participe dos rankings semanais, mensais e gerais com “Iniciar sessão com a Apple”.\n• Ganhe distintivos de dobras e dias de uso, explore perfis e destaque seu distintivo favorito.\n• Exporte o histórico como pacote CSV ou redefina-o no app.\n\nTodos os recursos são gratuitos. Gorjetas opcionais apoiam o desenvolvimento e não desbloqueiam recursos.",
+      "promotional_text": "Cada dobra conta.",
+      "release_notes": "Conheça o Folding, seu contador pessoal de dobras para Duo.",
+      "captions": {
+        "today": "Cada dobra conta.",
+        "history": "Seu dia, desdobrado.",
+        "leaderboard": "Uma disputa amigável.",
+        "patterns": "Encontre seu ritmo.",
+        "milestones": "Cada conquista conta."
+      },
+      "eyebrows": {
+        "today": "Suas dobras",
+        "history": "Histórico",
+        "leaderboard": "Comunidade",
+        "patterns": "Padrões",
+        "milestones": "Marcos"
+      }
+    },
+    "zh-Hans": {
+      "name": "Folding：Duo折叠记录",
+      "subtitle": "折叠统计与排行榜",
+      "keywords": "折叠,Duo,记录,统计,排行榜,小组件",
+      "description": "用Folding记录iPhone Duo的折叠。在快捷指令中设置打开和关闭自动化，发现每天的使用习惯。\n\n• 记录折叠次数和展开时间。\n• 查看历史记录和使用规律。\n• 通过iCloud同步历史记录，在小组件中查看统计。\n• 使用“通过Apple登录”加入每周、每月和累计排行榜。\n• 按折叠次数和使用天数获得徽章，浏览个人资料，展示喜欢的徽章。\n• 将历史记录导出为CSV文件包，或在App中重置。\n\n所有功能均免费。自愿打赏支持开发，不会解锁额外功能。",
+      "promotional_text": "每次开合，都有记录。",
+      "release_notes": "欢迎使用Folding，你的Duo折叠记录工具。",
+      "captions": {
+        "today": "每次开合，都有记录。",
+        "history": "看见一天的开合。",
+        "leaderboard": "轻松比一比。",
+        "patterns": "发现你的使用节奏。",
+        "milestones": "每一步都值得记录。"
+      },
+      "eyebrows": {
+        "today": "折叠记录",
+        "history": "历史记录",
+        "leaderboard": "社区",
+        "patterns": "使用规律",
+        "milestones": "里程碑"
+      }
+    },
+    "zh-Hant": {
+      "name": "Folding：Duo摺疊記錄",
+      "subtitle": "摺疊統計與排行榜",
+      "keywords": "摺疊,Duo,記錄,統計,排行榜,小工具",
+      "description": "用Folding記錄iPhone Duo的摺疊。在捷徑中設定開啟和關閉自動化，發現每天的使用習慣。\n\n• 記錄摺疊次數和展開時間。\n• 查看歷史記錄和使用規律。\n• 透過iCloud同步歷史記錄，在小工具中查看統計。\n• 使用「透過Apple登入」加入每週、每月和累計排行榜。\n• 按摺疊次數和使用天數獲得徽章，瀏覽個人檔案，展示喜歡的徽章。\n• 將歷史記錄輸出為CSV檔案套件，或在App中重置。\n\n所有功能均免費。自願贊助支持開發，不會解鎖額外功能。",
+      "promotional_text": "每次開合，都有記錄。",
+      "release_notes": "歡迎使用Folding，你的Duo摺疊記錄工具。",
+      "captions": {
+        "today": "每次開合，都有記錄。",
+        "history": "看見一天的開合。",
+        "leaderboard": "輕鬆比一比。",
+        "patterns": "發現你的使用節奏。",
+        "milestones": "每一步都值得記錄。"
+      },
+      "eyebrows": {
+        "today": "摺疊記錄",
+        "history": "歷史記錄",
+        "leaderboard": "社群",
+        "patterns": "使用規律",
+        "milestones": "里程碑"
+      }
+    }
+  }
+}

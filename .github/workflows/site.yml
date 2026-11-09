@@ -1,0 +1,122 @@
+name: Sites
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: sites-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+jobs:
+  selection:
+    runs-on: [self-hosted, Linux, ARM64, homelab-linux]
+    timeout-minutes: 5
+    outputs:
+      verify: ${{ steps.select.outputs.verify }}
+      delivery: ${{ steps.select.outputs.delivery_candidates }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          sparse-checkout: |
+            .github/actions/select
+            scripts/ci
+          persist-credentials: true
+      - id: select
+        uses: ./.github/actions/select
+  pages:
+    name: Public Pages assets
+    needs: selection
+    if: contains(fromJSON(needs.selection.outputs.verify), 'sites.pages')
+    runs-on: [self-hosted, Linux, ARM64, homelab-linux]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - run: python3 scripts/test-publish-site.py
+      - run: scripts/build-site.sh "$RUNNER_TEMP/public-site"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: public-pages-${{ github.sha }}
+          path: ${{ runner.temp }}/public-site
+          include-hidden-files: true
+          retention-days: 14
+          if-no-files-found: error
+  folding:
+    name: Folding public assets
+    needs: selection
+    if: contains(fromJSON(needs.selection.outputs.verify), 'sites.folding')
+    runs-on: [self-hosted, Linux, ARM64, homelab-linux]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '26.13.0'
+      - run: node sites/folding/build.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: folding-public-sites-${{ github.sha }}
+          path: |
+            sites/folding/dist
+            sites/folding/dist-staging
+          retention-days: 14
+          if-no-files-found: error
+  gate:
+    name: Site checks
+    if: always() && !cancelled()
+    needs: [selection, pages, folding]
+    runs-on: [self-hosted, Linux, ARM64, homelab-linux]
+    timeout-minutes: 5
+    steps:
+      - env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          python3 - <<'PYTHON'
+          import json, os
+          results = json.loads(os.environ['RESULTS'])
+          assert results['selection']['result'] == 'success', 'Selection failed'
+          selected = json.loads(results['selection']['outputs']['verify'])
+          for job, unit in (('pages', 'sites.pages'), ('folding', 'sites.folding')):
+              expected = 'success' if unit in selected else 'skipped'
+              assert results[job]['result'] == expected, f'{job}: expected {expected}'
+          PYTHON
+  legacy-publication:
+    name: Preserve installed privacy and support URLs
+    needs: [selection, gate]
+    if: >-
+      github.event_name == 'push' && github.ref == 'refs/heads/main' &&
+      vars.LEGACY_SITE_DELIVERY_ENABLED == 'true' &&
+      contains(fromJSON(needs.selection.outputs.delivery), 'sites.pages')
+    runs-on: [self-hosted, Linux, ARM64, homelab-linux]
+    environment: production
+    timeout-minutes: 10
+    concurrency:
+      group: legacy-apps-pages
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          filter: blob:none
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: public-pages-${{ github.sha }}
+          path: ${{ runner.temp }}/public-site
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: 0x63616c/apps
+          ref: gh-pages
+          ssh-key: ${{ secrets.LEGACY_SITE_DEPLOY_KEY }}
+          path: build/legacy-pages
+      - name: Publish tested static assets to the legacy endpoint
+        run: |
+          git -C build/legacy-pages config user.name 'github-actions[bot]'
+          git -C build/legacy-pages config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          scripts/publish-site.sh "$GITHUB_WORKSPACE/build/legacy-pages" "$RUNNER_TEMP/public-site"

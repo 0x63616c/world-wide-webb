@@ -1,0 +1,25 @@
+{
+  "configuration_commit": "a26e361354aca093e26337999938538192c7d407",
+  "deployment": "Comin automatically reconciled main to standard system generation 3",
+  "previous_standard_generation": 2,
+  "previous_standard_output": "/nix/store/rh318212x1d3d3qghrml0hah54xiz2vj-darwin-system-26.11.ff0e21a",
+  "boot_before_unix_seconds": 1794114312,
+  "boot_after_unix_seconds": 1794115810,
+  "automatic_desktop_login_configured": false,
+  "console_user_after_restart": "root",
+  "human_login_performed": false,
+  "service_label": "org.nixos.homelab-runner",
+  "automatic_service_state": "running",
+  "automatic_service_pid": 612,
+  "service_uid": 451,
+  "job_admission": false,
+  "preflight": "Managed controller reached its admission-disabled observation loop without GUI login",
+  "tailscale_ssh_command_exit_code": 0,
+  "tailscale_dns_escape_health_error": false,
+  "tailscale_resolver": "regular root-owned file, mode 0644",
+  "runtime_app_key": "SOPS-managed, UID451, mode0400; value not captured",
+  "limits": [
+    "This was a software restart, not a physical power-cut test.",
+    "VM startup after this restart is recorded separately in the native network proof."
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "$schema": "urn:homelab:configuration:v3",
+  "schema": 3,
+  "hosts": {
+    "build-mac": {
+      "adminUser": "admin",
+      "adminUID": 501,
+      "authorizedKeys": [],
+      "services": []
+    }
+  },
+  "tailscale": {
+    "tag": "tag:lab",
+    "oauth": {
+      "vault": "Infrastructure",
+      "item": "Enrollment OAuth"
+    }
+  },
+  "onePassword": {
+    "backupVault": "Homelab Recovery"
+  },
+  "deployment": {
+    "repository": "example/config",
+    "branch": "deploy/homelab"
+  }
+}

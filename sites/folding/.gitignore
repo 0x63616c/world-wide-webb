@@ -1,0 +1,4 @@
+dist/
+dist-staging/
+.wrangler/
+node_modules/

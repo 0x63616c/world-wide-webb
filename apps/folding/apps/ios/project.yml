@@ -1,0 +1,239 @@
+name: Folding
+configs:
+  Debug: debug
+  Release: release
+  Screenshots: release
+options:
+  minimumXcodeGenVersion: 2.46.0
+  deploymentTarget:
+    iOS: '27.0'
+  createIntermediateGroups: true
+packages:
+  FoldingKit:
+    path: Packages/FoldingKit
+settings:
+  base:
+    SWIFT_VERSION: '6.0'
+    SWIFT_STRICT_CONCURRENCY: complete
+    TARGETED_DEVICE_FAMILY: '1'
+    MARKETING_VERSION: '1.0.0'
+    CURRENT_PROJECT_VERSION: '1'
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+    GENERATE_INFOPLIST_FILE: YES
+    INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+    INFOPLIST_KEY_UILaunchScreen_Generation: YES
+    INFOPLIST_KEY_CFBundleDisplayName: Folding
+    CODE_SIGN_STYLE: Manual
+    DEVELOPMENT_TEAM: ''
+    FOLDING_APP_BUNDLE_ID: app.getfolding.Folding
+    FOLDING_WIDGET_BUNDLE_ID: app.getfolding.Folding.Widgets
+    FOLDING_SIMULATOR_ENTITLEMENTS: Config/Simulator.entitlements
+    FOLDING_APP_PROFILE_SPECIFIER: ''
+    FOLDING_WIDGET_PROFILE_SPECIFIER: ''
+    FOLDING_APP_GROUP_IDENTIFIER: ''
+    FOLDING_CLOUD_CONTAINER_IDENTIFIER: ''
+    FOLDING_API_ORIGIN: ''
+    FOLDING_ENVIRONMENT: ''
+    FOLDING_SOURCE_COMMIT: ''
+    FOLDING_APNS_ENVIRONMENT: ''
+    FOLDING_ICLOUD_ENVIRONMENT: ''
+    FOLDING_ATTEST_ENVIRONMENT: ''
+    'CODE_SIGN_IDENTITY[sdk=iphonesimulator*]': '-'
+    'CODE_SIGNING_ALLOWED[sdk=iphonesimulator*]': YES
+targets:
+  Folding:
+    type: application
+    platform: iOS
+    info:
+      path: Config/GeneratedFolding-Info.plist
+      properties:
+        CFBundleURLTypes:
+          - CFBundleURLName: app.getfolding.navigation
+            CFBundleURLSchemes: [folding]
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        ITSAppUsesNonExemptEncryption: false
+        UIBackgroundModes:
+          - remote-notification
+        FoldingAPIOrigin: '$(FOLDING_API_ORIGIN)'
+        FoldingEnvironment: '$(FOLDING_ENVIRONMENT)'
+        FoldingSourceCommit: '$(FOLDING_SOURCE_COMMIT)'
+        FoldingAPNSEnvironment: '$(FOLDING_APNS_ENVIRONMENT)'
+        FoldingICloudEnvironment: '$(FOLDING_ICLOUD_ENVIRONMENT)'
+        FoldingAttestEnvironment: '$(FOLDING_ATTEST_ENVIRONMENT)'
+        FoldingCloudContainerIdentifier: '$(FOLDING_CLOUD_CONTAINER_IDENTIFIER)'
+        FoldingAppGroupIdentifier: '$(FOLDING_APP_GROUP_IDENTIFIER)'
+    sources:
+      - path: App
+        includes: ['*.swift', '*.xcstrings']
+      - path: App/Assets.xcassets
+      - path: Config/AppPrivacy/PrivacyInfo.xcprivacy
+        buildPhase: resources
+    settings:
+      base:
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        PRODUCT_BUNDLE_IDENTIFIER: $(FOLDING_APP_BUNDLE_ID)
+        'CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]': Config/Folding.entitlements
+        'PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]': $(FOLDING_APP_PROFILE_SPECIFIER)
+        'CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*]': $(FOLDING_SIMULATOR_ENTITLEMENTS)
+    dependencies:
+      - target: FoldingWidgets
+        embed: true
+      - package: FoldingKit
+        product: FoldingDomain
+      - package: FoldingKit
+        product: FoldingData
+  FoldingWidgets:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: Widgets
+      - path: Config/WidgetPrivacy/PrivacyInfo.xcprivacy
+        buildPhase: resources
+      - path: App/Localizable.xcstrings
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(FOLDING_WIDGET_BUNDLE_ID)
+        'CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]': Config/Widgets.entitlements
+        'PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]': $(FOLDING_WIDGET_PROFILE_SPECIFIER)
+        APPLICATION_EXTENSION_API_ONLY: YES
+        SKIP_INSTALL: YES
+        INFOPLIST_KEY_CFBundleDisplayName: Folding
+    info:
+      path: Config/Widgets-Info.plist
+      properties:
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    dependencies:
+      - package: FoldingKit
+        product: FoldingData
+  FoldingScreenshots:
+    type: application
+    platform: iOS
+    info:
+      path: Config/GeneratedScreenshots-Info.plist
+      properties:
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+    sources:
+      - path: Screenshots
+      - path: App/FoldingScreens.swift
+      - path: App/PatternsScreen.swift
+      - path: App/FoldingPresentation.swift
+      - path: App/CompetitionScreens.swift
+      - path: App/ProfileIdentityEditor.swift
+      - path: App/CompetitionPresentation.swift
+      - path: App/PodiumRing.swift
+      - path: App/MilestoneModels.swift
+      - path: App/MilestoneCache.swift
+      - path: App/MilestonePresentation.swift
+      - path: App/MilestoneScreens.swift
+      - path: App/Assets.xcassets
+      - path: BuildTests/Fixtures/ProfilePortraits.png
+        buildPhase: resources
+      - path: App/TipJarContent.swift
+      - path: ../../fastlane/tip-products.json
+      - path: App/NotificationPreferences.swift
+      - path: App/Localizable.xcstrings
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.getfolding.Folding.Screenshots
+        SUPPORTED_PLATFORMS: iphonesimulator
+        SUPPORTS_MACCATALYST: NO
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: FOLDING_SCREENSHOTS
+        FOLDING_APP_GROUP_IDENTIFIER: ''
+        FOLDING_CLOUD_CONTAINER_IDENTIFIER: ''
+        FOLDING_API_ORIGIN: ''
+        FOLDING_ENVIRONMENT: ''
+        ENABLE_TESTABILITY: YES
+        SWIFT_OPTIMIZATION_LEVEL: '-O'
+    dependencies:
+      - package: FoldingKit
+        product: FoldingDomain
+      - package: FoldingKit
+        product: FoldingData
+  FoldingScreenshotTests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: ScreenshotTests
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.getfolding.Folding.ScreenshotTests
+        TEST_TARGET_NAME: FoldingScreenshots
+        SUPPORTED_PLATFORMS: iphonesimulator
+    dependencies:
+      - target: FoldingScreenshots
+  FoldingStorefrontTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: StorefrontTests
+      - path: ../../fastlane/screenshot-plan.json
+        buildPhase: resources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.getfolding.Folding.StorefrontTests
+        SUPPORTED_PLATFORMS: iphonesimulator
+    dependencies:
+      - target: FoldingScreenshots
+
+  FoldingBuildTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: BuildTests
+        includes: ['*.swift']
+      - path: ../../contracts/fixtures/milestones.json
+        buildPhase: resources
+      - path: BuildTests/Fixtures
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.getfolding.Folding.BuildTests
+    dependencies:
+      - target: Folding
+      - package: FoldingKit
+        product: FoldingData
+      - package: FoldingKit
+        product: FoldingDomain
+schemes:
+  Folding:
+    build:
+      targets:
+        Folding: all
+        FoldingBuildTests: [test]
+    test:
+      config: Debug
+      targets:
+        - FoldingBuildTests
+      gatherCoverageData: true
+
+  FoldingScreenshots:
+    build:
+      targets:
+        FoldingScreenshots: all
+        FoldingScreenshotTests: [test]
+    run:
+      config: Screenshots
+    test:
+      config: Screenshots
+      targets:
+        - FoldingScreenshotTests
+      gatherCoverageData: false
+
+  FoldingStorefront:
+    build:
+      targets:
+        FoldingScreenshots: all
+        FoldingStorefrontTests: [test]
+    test:
+      config: Screenshots
+      targets:
+        - FoldingStorefrontTests
+      gatherCoverageData: false

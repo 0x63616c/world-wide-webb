@@ -1,0 +1,82 @@
+name: Screenshots
+
+# Captures an app's App Store screenshots (light and dark) and frames them with RDesign's rframe.
+# CI calls this for each changed app on pull requests; the release workflow calls it before upload.
+on:
+  workflow_dispatch:
+    inputs:
+      app:
+        description: 'App folder under apps/ (for example tendr)'
+        type: string
+        default: tendr
+  workflow_call:
+    inputs:
+      app:
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  screenshots:
+    runs-on: [self-hosted, macOS, ARM64, homelab-tart]
+    timeout-minutes: 60
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
+      APP: ${{ inputs.app }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check hosted simulator runtime
+        run: |
+          xcodebuild -version
+          xcrun simctl list runtimes
+          xcrun simctl list runtimes available | grep -F 'com.apple.CoreSimulator.SimRuntime.iOS-27-2'
+      - name: Capture iPhone 18 Pro Max screens (light and dark)
+        timeout-minutes: 25
+        run: scripts/ci/apple-desktop.sh scripts/capture-screenshots.sh "$APP" "build/screenshots/$APP/raw" light dark
+      - name: Render App Store frames
+        timeout-minutes: 10
+        run: scripts/frame-screenshots.sh "$APP"
+      - name: Check App Store dimensions
+        run: |
+          expected=$(ruby -rjson -e 'puts JSON.parse(File.read(ARGV[0]))["shots"].size' "apps/$APP/screenshots.json")
+          python3 - "apps/$APP/fastlane/screenshots/en-US" "$expected" <<'PY'
+          import pathlib, struct, sys
+          shots = sorted(pathlib.Path(sys.argv[1]).glob("*.png"))
+          if len(shots) != int(sys.argv[2]):
+              sys.exit(f"expected {sys.argv[2]} framed screenshots, found {len(shots)}")
+          for png in shots:
+              data = png.read_bytes()
+              width, height = struct.unpack(">II", data[16:24])
+              colour_type = data[25]
+              print(f"{png.name}: {width}x{height}, colour type {colour_type}")
+              if (width, height) != (1320, 2868) or colour_type != 2:
+                  sys.exit(f"{png.name} must be an opaque 1320x2868 RGB PNG")
+          PY
+          {
+            echo "### $APP App Store screenshots"
+            echo
+            for png in "apps/$APP/fastlane/screenshots/en-US"/*.png; do echo "- \`$(basename "$png")\`"; done
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: app-store-screenshots-${{ inputs.app }}
+          path: apps/${{ inputs.app }}/fastlane/screenshots/en-US/*.png
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: screenshots-overview-${{ inputs.app }}
+          path: build/screenshots/${{ inputs.app }}/overview.png
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: screenshots-raw-${{ inputs.app }}
+          path: build/screenshots/${{ inputs.app }}/raw
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: screenshot-test-results-${{ inputs.app }}
+          path: build/screenshots/${{ inputs.app }}/*.xcresult
+          if-no-files-found: ignore

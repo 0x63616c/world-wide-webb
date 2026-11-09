@@ -1,0 +1,6 @@
+---
+description: Keep Folding delivery tracking accurate across agents
+alwaysApply: true
+---
+
+Follow the repository `AGENTS.md` completion-tracking rules for every implementation batch. Keep linked sub-issues, parent checkboxes, Project Status and `docs/work-tracker.md` consistent. For example, close a verified local-sync task while leaving its live-iCloud acceptance task open. Mark owner-deferred CI/device work Deferred, never Done.

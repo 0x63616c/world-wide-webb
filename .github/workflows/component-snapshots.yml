@@ -1,0 +1,78 @@
+name: Component snapshots
+
+# Renders component galleries (snapshot_test in apps/<app>/app.yml) to PNG with ImageRenderer on the
+# Mac runner and uploads them as an artifact. Dispatch on a design branch, optionally with one test.
+on:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      app:
+        description: 'App folder under apps/'
+        type: string
+        default: tendr
+        required: true
+      test:
+        description: 'Optional -only-testing id, e.g. StillSnapshots/GallerySnapshots/testUpcomingDoseDates'
+        type: string
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: component-snapshots-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  changes:
+    runs-on: [self-hosted, Linux, ARM64, homelab-linux]
+    timeout-minutes: 5
+    outputs:
+      apps: ${{ steps.detect.outputs.apps }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          filter: blob:none
+      - id: detect
+        uses: ./.github/actions/affected
+        with:
+          base: ${{ github.event.pull_request.base.sha }}
+          intent: verify
+          only: snapshot_test
+
+  snapshots:
+    needs: changes
+    if: github.event_name == 'workflow_dispatch' || contains(fromJSON(needs.changes.outputs.apps), 'tendr')
+    runs-on: [self-hosted, macOS, ARM64, homelab-tart]
+    timeout-minutes: 60
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
+      APP: ${{ inputs.app || 'tendr' }}
+      TEST_ID: ${{ inputs.test }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Free simulator resources
+        # Free any prebooted simulator resources before capture on this isolated hosted runner.
+        run: |
+          xcrun simctl shutdown all || true
+          echo "User processes: $(ps -U "$USER" | wc -l)"
+      - name: Render galleries
+        timeout-minutes: 30
+        run: scripts/ci/apple-desktop.sh scripts/capture-snapshots.sh "$APP" "build/snapshots/$APP" ${TEST_ID:+"$TEST_ID"}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: component-snapshots-${{ env.APP }}
+          path: build/snapshots/${{ env.APP }}
+          if-no-files-found: error
+      - name: Generated Xcode project
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcodeproj-${{ env.APP }}
+          path: apps/${{ env.APP }}/*.xcodeproj/project.pbxproj
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: component-snapshots-results-${{ env.APP }}
+          path: build/snapshots-derived/${{ env.APP }}/snapshots.xcresult

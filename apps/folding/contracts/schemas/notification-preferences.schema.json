@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://getfolding.app/contracts/v1/notification-preferences.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "weekly": {
+      "enum": [
+        "off",
+        "all",
+        "podium"
+      ]
+    },
+    "monthly": {
+      "enum": [
+        "off",
+        "all",
+        "podium"
+      ]
+    },
+    "badge_earned": {
+      "type": "boolean",
+      "default": false
+    },
+    "home_timezone": {
+      "type": "string",
+      "minLength": 1
+    },
+    "locale": {
+      "enum": [
+        "en",
+        "de",
+        "fr",
+        "es",
+        "es-419",
+        "ja",
+        "ko",
+        "pt-BR",
+        "zh-Hans",
+        "zh-Hant"
+      ]
+    }
+  },
+  "required": [
+    "weekly",
+    "monthly",
+    "home_timezone",
+    "locale"
+  ]
+}

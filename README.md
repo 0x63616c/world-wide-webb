@@ -1,22 +1,46 @@
 # World Wide Webb
 
-Native SwiftUI home control for iPad and iPhone/Duo, with a Rust backend, SQLite and OpenTofu.
-The shared clock-first interface retains the iPad app's components and slide-up launcher.
+A private home for independent apps, websites and homelab operations.
 
-Start with [CODEBASE_OVERVIEW.md](CODEBASE_OVERVIEW.md) for source locations and
-[AGENTS.md](AGENTS.md) for workflow rules. Migration status is recorded in
-[the progress tracker](docs/plans/native-rust-progress.md) and [delivery issue #941](https://github.com/0x63616c/world-wide-webb/issues/941).
+The consolidation is in progress on a local candidate. Production still follows its existing
+sources until the verified handovers in the [migration tracker](docs/plans/monorepo-migration-progress.md).
 
-Install the pinned Rust toolchain, OpenTofu, Xcode 26.4 or newer, XcodeGen and standalone Lefthook.
-`bash tools/setup` fetches Rust dependencies. `bash tools/check dependencies` downloads the checksum-verified,
-pinned cargo-deny binary on first use and checks advisories, licenses and sources. `bash tools/check` runs maintained-stack checks;
-`bash tools/test_apple.sh` builds and tests the production iPad app.
+## Products
 
-Build the service with `cargo build --locked -p www-server`. For local experiments, use an isolated data
-directory; set `WORKER_CYCLES=off` to avoid physical-device actions.
-The app connects automatically over private Tailscale HTTPS. Devices must be connected to the Tailnet;
-no app login or credentials are required. The server container is published on loopback only.
+- [Tendr](apps/tendr/README.md): native dose and health journal; owns `Packages/RDesign`.
+- [Folding](apps/folding/README.md): native app, Rust Worker and product-owned delivery tools.
+- [Callkeep](apps/callkeep/README.md): native Mac recording and transcription.
+- [Air Miles](apps/airmiles/README.md): offline flight journal, independently styled.
+- [Control Center](apps/control-center/README.md): native home controls and private Rust/SQLite service.
 
-Deployment, backup and migration instructions are in
-[the cutover runbook](docs/runbooks/native-rust-cutover.md). User data, media and encrypted infrastructure
-state live outside Git and outside container images. Git retains the removed web/Expo/TypeScript/Pulumi history.
+`sites/` contains public website sources. `infra/cloudflare/` contains retained infrastructure.
+[Homelab](homelab/README.md) contains host configuration, runners, services and the CLI.
+Root enrollment files preserve the installer contract; live source handover is pending.
+App components stay with their own products; shared tooling standardizes checks and delivery.
+
+## Work locally
+
+Create a worktree with `wtp add -b codex/<task> origin/main`. Use the product README for setup.
+
+```sh
+swift test --package-path apps/tendr
+swift test --package-path apps/airmiles
+bash apps/control-center/tools/check ops
+python3 -m unittest discover -s scripts/ci -p 'test_*.py'
+```
+
+Tendr uses the root locked Ruby/Fastlane bundle. Folding keeps its own release bundle and
+existing internal layout. Root `tools/check` and `tools/setup` preserve Control Center entrypoints.
+
+[Development](docs/DEVELOPMENT.md), [new apps](docs/NEW-APP.md) and [releases](docs/RELEASE.md)
+describe the shared lifecycle and current handler boundaries.
+
+## Delivery and migration
+
+The [accepted plan](docs/plans/world-wide-webb-monorepo-2026-11-08.md) defines selective CI,
+immutable delivery, private Homebrew installation, home ownership and repo retirement.
+The selection policy in `scripts/ci/units.json` separates verification from delivery candidates;
+selection alone never authorizes publication. Current pipelines are being adapted and verified.
+
+Keep original repositories and worktrees until their imports, active changes, releases, issues,
+compatibility URLs and recovery paths are accounted for. Excluded personal projects/data remain separate.

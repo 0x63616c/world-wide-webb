@@ -1,0 +1,55 @@
+name: Hindsight recovery
+
+on:
+  # Opt in explicitly while private checks run locally to avoid hosted CI costs.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hindsight-recovery-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  synthetic-restore:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 20
+    env:
+      HINDSIGHT_IMAGE: ghcr.io/vectorize-io/hindsight@sha256:a88678c038b0e4340822b02a5efc566c56d8176b5bffa731bc433fd37f978e4c
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
+        with:
+          toolchain: 1.89.0
+      - name: Check architecture and production image pin
+        run: |
+          test "$(uname -m)" = aarch64
+          grep -Fx "    image: $HINDSIGHT_IMAGE" services/hindsight/compose.yaml
+      - name: Build the restore operation and its real database test
+        run: |
+          set -euo pipefail
+          cargo build --manifest-path host/Cargo.toml --locked --release --bin homelab-services
+          cargo test --manifest-path host/Cargo.toml --locked --release --test hindsight_restore --no-run --message-format=json > "$RUNNER_TEMP/test-build.jsonl"
+          test_binary=$(jq -r 'select(.reason == "compiler-artifact" and .target.name == "hindsight_restore" and .executable != null) | .executable' "$RUNNER_TEMP/test-build.jsonl")
+          test -f "$test_binary"
+          mkdir "$RUNNER_TEMP/restore-test"
+          cp "$test_binary" "$RUNNER_TEMP/restore-test/recovery-test"
+          cp host/target/release/homelab-services "$RUNNER_TEMP/restore-test/homelab-services"
+          chmod 755 "$RUNNER_TEMP/restore-test" "$RUNNER_TEMP/restore-test/"*
+      - name: Pull the pinned image before isolating the rehearsal
+        run: docker pull --platform linux/arm64 "$HINDSIGHT_IMAGE"
+      - name: Restore synthetic data without external networking
+        run: |
+          docker run --rm --init --platform linux/arm64 \
+            --network none --user 1000:1000 \
+            --cap-drop ALL --security-opt no-new-privileges \
+            --cpus 2 --memory 4g --pids-limit 256 \
+            --mount "type=bind,source=$RUNNER_TEMP/restore-test,target=/homelab-tests,readonly" \
+            --env HOMELAB_HOST_BINARY=/homelab-tests/homelab-services \
+            --entrypoint /homelab-tests/recovery-test \
+            "$HINDSIGHT_IMAGE" \
+            --ignored --exact synthetic_hindsight_restore --nocapture

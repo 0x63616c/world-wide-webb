@@ -1,0 +1,125 @@
+name: PR screenshots
+
+# Capture synthetic previews and link authenticated artifacts in the run summary.
+on:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      app:
+        description: 'App folder under apps/'
+        type: string
+        default: tendr
+        required: true
+      pr:
+        description: 'Pull request number to comment on (blank: artifact only)'
+        type: string
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-screenshots-${{ github.event.pull_request.number || inputs.pr || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  changes:
+    runs-on: [self-hosted, Linux, ARM64, homelab-linux]
+    timeout-minutes: 5
+    outputs:
+      apps: ${{ steps.apps.outputs.apps }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          filter: blob:none
+      - id: affected
+        if: github.event_name != 'workflow_dispatch'
+        uses: ./.github/actions/affected
+        with:
+          base: ${{ github.event.pull_request.base.sha }}
+          intent: verify
+          only: pr_screenshot_test
+      - uses: ./.github/actions/ruby-tools
+        if: github.event_name == 'workflow_dispatch'
+      - name: Pick apps
+        id: apps
+        env:
+          AFFECTED_APPS: ${{ steps.affected.outputs.apps }}
+          INPUT_APP: ${{ inputs.app }}
+        run: |
+          if [[ -n "$INPUT_APP" ]]; then
+            ruby scripts/app-config.rb "$INPUT_APP" pr_screenshot_test >/dev/null
+            apps=$INPUT_APP
+          else
+            apps=$(echo "$AFFECTED_APPS" | python3 -c 'import json,sys; print(" ".join(json.load(sys.stdin)))')
+          fi
+          echo "apps=$apps" >> "$GITHUB_OUTPUT"
+          echo "Apps with PR screenshots: ${apps:-none}"
+
+  screenshots:
+    needs: changes
+    # Capture only source from this repository on the private runner pool.
+    if: needs.changes.outputs.apps != '' && (github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: [self-hosted, macOS, ARM64, homelab-tart]
+    timeout-minutes: 60
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
+      PR: ${{ github.event.pull_request.number || inputs.pr }}
+      SCREENSHOT_TEST_KEY: pr_screenshot_test
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          filter: blob:none
+      - name: Free simulator resources
+        if: needs.changes.outputs.apps != ''
+        # Free any prebooted simulator resources before capture on this isolated hosted runner.
+        run: |
+          echo "User processes: $(ps -U "$USER" | wc -l) of $(sysctl -n kern.maxprocperuid)"
+          ps -U "$USER" -o comm= | awk -F/ '{print $NF}' | sort | uniq -c | sort -rn | head -15
+          xcrun simctl list devices booted
+          xcrun simctl shutdown all || true
+          sleep 5
+          echo "User processes after shutdown: $(ps -U "$USER" | wc -l)"
+      - name: Capture PR screens (light)
+        if: needs.changes.outputs.apps != ''
+        timeout-minutes: 30
+        run: |
+          for app in ${{ needs.changes.outputs.apps }}; do
+            scripts/ci/apple-desktop.sh scripts/capture-screenshots.sh "$app" "build/pr-screenshots/$app" light
+          done
+      - name: Screenshot failure details
+        if: failure() && needs.changes.outputs.apps != ''
+        run: |
+          for app in ${{ needs.changes.outputs.apps }}; do
+            for result in "build/screenshots/$app/"*.xcresult; do
+              [[ -d "$result" ]] || continue
+              xcrun xcresulttool get test-results summary --path "$result"
+            done
+          done
+      - uses: actions/upload-artifact@v4
+        if: always() && needs.changes.outputs.apps != ''
+        with:
+          name: screenshot-test-diagnostics
+          path: |
+            build/screenshots/*/*.xcresult
+            build/pr-screenshots
+          retention-days: 7
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@v4
+        if: needs.changes.outputs.apps != ''
+        with:
+          name: pr-screenshots
+          path: build/pr-screenshots
+          if-no-files-found: error
+      - name: Link private screenshot evidence
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+        run: |
+          {
+            printf '### Synthetic preview screenshots\n\n'
+            printf 'Source commit: %s\n\n' "$SOURCE_SHA"
+            printf '[Download authenticated screenshot artifacts](%s/%s/actions/runs/%s#artifacts)\n' \
+              "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID"
+          } >> "$GITHUB_STEP_SUMMARY"

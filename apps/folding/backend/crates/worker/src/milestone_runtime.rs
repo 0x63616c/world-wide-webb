@@ -1,0 +1,432 @@
+//! Revision-fenced, bounded reward backfill and incremental score projections.
+use crate::auth_runtime::{Failure, now, number, statement, text, uuid};
+use crate::{milestone_projection, milestone_sql as sql};
+use folding_domain::{
+    milestones::{BadgeId, Track, UTC_DAY_MS},
+    wire::{Event, Generation, Id, Transition},
+};
+use serde::Deserialize;
+use std::collections::BTreeMap;
+use worker::*;
+
+#[derive(Deserialize)]
+pub(crate) struct State {
+    pub generation_revision: u64,
+    pub generation_id: String,
+    pub source_revision: i64,
+    pub state: String,
+    pub folds: u64,
+    pub days_used: u64,
+    cursor_device_id: Option<String>,
+    cursor_sequence: Option<u64>,
+    cursor_transition: Option<Transition>,
+}
+pub(crate) async fn state(db: &D1Database, participant: &str) -> Result<Option<State>, Failure> {
+    statement(
+        db,
+        "SELECT * FROM milestone_state WHERE participant_id=?1",
+        &[text(participant)],
+    )?
+    .first::<State>(None)
+    .await
+    .map_err(|_| Failure::unavailable())
+}
+
+pub(crate) fn purge(
+    db: &D1Database,
+    participant: &str,
+    reset: bool,
+) -> Result<Vec<D1PreparedStatement>, Failure> {
+    let mut tables = vec![
+        "milestone_featured",
+        "milestone_grants",
+        "milestone_counted_events",
+        "milestone_days",
+        "milestone_state",
+    ];
+    if reset {
+        tables.push("milestone_acknowledgments");
+        tables.push("badge_notification_jobs");
+    }
+    tables
+        .into_iter()
+        .map(|table| {
+            statement(
+                db,
+                &format!("DELETE FROM {table} WHERE participant_id=?1"),
+                &[text(participant)],
+            )
+        })
+        .collect()
+}
+pub(crate) fn initialize(
+    db: &D1Database,
+    participant: &str,
+    generation: &Generation,
+    revision: i64,
+    ready: bool,
+) -> Result<D1PreparedStatement, Failure> {
+    statement(
+        db,
+        sql::INITIALIZE,
+        &[
+            text(participant),
+            number(generation.revision as i64),
+            text(generation.reset_id.as_str()),
+            number(revision),
+            text(if ready { "ready" } else { "building" }),
+        ],
+    )
+}
+
+/// Update grants from the scalar projection. Expensive nth-event date lookup runs
+/// only for newly reached awards, not every fold. Six catalog entries bound work.
+fn grants(
+    db: &D1Database,
+    participant: &str,
+    refresh_from: Option<u64>,
+) -> Result<Vec<D1PreparedStatement>, Failure> {
+    let mut writes = vec![];
+    for badge in BadgeId::ALL {
+        let column = if badge.track() == Track::Folds {
+            "folds"
+        } else {
+            "days_used"
+        };
+        writes.push(statement(db,&format!("DELETE FROM milestone_grants WHERE participant_id=?1 AND badge_id=?2 AND NOT EXISTS(SELECT 1 FROM milestone_state WHERE participant_id=?1 AND state='ready' AND {column}>=?3)"),&[text(participant),text(badge.as_str()),number(badge.threshold() as i64)])?);
+        let date = if badge.track() == Track::Folds {
+            "SELECT observed_at_ms FROM milestone_counted_events WHERE participant_id=?1 ORDER BY observed_at_ms,event_id LIMIT 1 OFFSET ?4".to_string()
+        } else {
+            format!(
+                "SELECT MIN(e.observed_at_ms) FROM (SELECT utc_day FROM milestone_days WHERE participant_id=?1 AND folds>0 ORDER BY utc_day LIMIT 1 OFFSET ?4) d JOIN milestone_counted_events e ON e.participant_id=?1 AND e.observed_at_ms>=d.utc_day*{UTC_DAY_MS} AND e.observed_at_ms<(d.utc_day+1)*{UTC_DAY_MS}"
+            )
+        };
+        writes.push(statement(db,&format!("INSERT OR IGNORE INTO badge_notification_jobs(participant_id,generation_revision,generation_id,badge_id,created_at_ms,state) SELECT s.participant_id,s.generation_revision,s.generation_id,?2,?4,'pending' FROM milestone_state s JOIN badge_notification_preferences n ON n.participant_id=s.participant_id AND n.enabled=1 WHERE s.participant_id=?1 AND s.state='ready' AND s.{column}>=?3 AND NOT EXISTS(SELECT 1 FROM milestone_grants g WHERE g.participant_id=?1 AND g.badge_id=?2) AND NOT EXISTS(SELECT 1 FROM milestone_acknowledgments a WHERE a.participant_id=?1 AND a.badge_id=?2)"),&[text(participant),text(badge.as_str()),number(badge.threshold() as i64),number(now())])?);
+        writes.push(statement(db,&format!("INSERT INTO milestone_grants(participant_id,badge_id,earned_at_ms) SELECT ?1,?2,({date}) WHERE EXISTS(SELECT 1 FROM milestone_state WHERE participant_id=?1 AND state='ready' AND {column}>=?3) AND NOT EXISTS(SELECT 1 FROM milestone_grants WHERE participant_id=?1 AND badge_id=?2)"),&[text(participant),text(badge.as_str()),number(badge.threshold() as i64),number(badge.threshold() as i64-1)])?);
+        if let Some(from) = refresh_from {
+            let cutoff = if badge.track() == Track::Days {
+                from / UTC_DAY_MS * UTC_DAY_MS
+            } else {
+                from
+            };
+            writes.push(statement(db,&format!("UPDATE milestone_grants SET earned_at_ms=({date}) WHERE participant_id=?1 AND badge_id=?2 AND (earned_at_ms IS NULL OR earned_at_ms>=?3)"),&[text(participant),text(badge.as_str()),number(cutoff as i64),number(badge.threshold() as i64-1)])?);
+        }
+    }
+    Ok(writes)
+}
+
+#[derive(Deserialize)]
+struct Day {
+    utc_day: u64,
+    folds: i64,
+}
+async fn day_change(
+    db: &D1Database,
+    participant: &str,
+    changes: &BTreeMap<u64, i64>,
+) -> Result<i64, Failure> {
+    let keys: Vec<_> = changes.keys().collect();
+    let keys = serde_json::to_string(&keys).map_err(|_| Failure::unavailable())?;
+    let old=statement(db,"SELECT utc_day,folds FROM milestone_days WHERE participant_id=?1 AND utc_day IN(SELECT value FROM json_each(?2))",&[text(participant),text(&keys)])?.all().await.map_err(|_|Failure::unavailable())?.results::<Day>().map_err(|_|Failure::unavailable())?;
+    let old: BTreeMap<_, _> = old
+        .into_iter()
+        .map(|day| (day.utc_day, day.folds))
+        .collect();
+    let mut delta = 0;
+    for (day, change) in changes {
+        let before = *old.get(day).unwrap_or(&0);
+        let after = before + change;
+        if after < 0 {
+            return Err(Failure::conflict());
+        }
+        delta += i64::from(after > 0) - i64::from(before > 0);
+    }
+    Ok(delta)
+}
+fn contributions(
+    db: &D1Database,
+    participant: &str,
+    change: &milestone_projection::Delta,
+) -> Result<Vec<D1PreparedStatement>, Failure> {
+    let removed = serde_json::to_string(&change.removed).map_err(|_| Failure::unavailable())?;
+    let added = serde_json::to_string(&change.added).map_err(|_| Failure::unavailable())?;
+    let days = serde_json::to_string(&change.days).map_err(|_| Failure::unavailable())?;
+    Ok(vec![
+        statement(db, sql::REMOVE_EVENTS, &[text(participant), text(&removed)])?,
+        statement(db, sql::ADD_EVENTS, &[text(participant), text(&added)])?,
+        statement(db, sql::DAY_DELTAS, &[text(participant), text(&days)])?,
+        statement(
+            db,
+            "DELETE FROM milestone_days WHERE participant_id=?1 AND folds=0",
+            &[text(participant)],
+        )?,
+    ])
+}
+
+/// Appended to the same CAS batch as live-score changes. Common neighbor
+/// contributions cancel, so truncated causal boundaries cannot fabricate awards.
+pub(crate) async fn incremental(
+    db: &D1Database,
+    participant: &str,
+    generation: &Generation,
+    revision: i64,
+    before: &[(Id, u64)],
+    after: &[(Id, u64)],
+) -> Result<Vec<D1PreparedStatement>, Failure> {
+    let old = state(db, participant).await?;
+    if !old.as_ref().is_some_and(|s| {
+        s.state == "ready"
+            && s.generation_revision == generation.revision
+            && s.generation_id == generation.reset_id.as_str()
+    }) {
+        return rebuild(
+            db,
+            participant,
+            generation,
+            revision,
+            old.as_ref().is_some_and(|s| {
+                s.generation_revision == generation.revision
+                    && s.generation_id == generation.reset_id.as_str()
+            }),
+        );
+    }
+    let change = milestone_projection::delta(before, after).map_err(|_| Failure::unavailable())?;
+    if change.added.is_empty() && change.removed.is_empty() {
+        return Ok(vec![statement(
+            db,
+            sql::UPDATE_STATE,
+            &[text(participant), number(0), number(0), number(revision)],
+        )?]);
+    }
+    let removed: std::collections::BTreeSet<_> = change.removed.iter().collect();
+    let earliest = before
+        .iter()
+        .filter(|(id, _)| removed.contains(id))
+        .map(|(_, time)| *time)
+        .chain(change.added.iter().map(|(_, time)| *time))
+        .min();
+    let days = day_change(db, participant, &change.days).await?;
+    let mut writes = contributions(db, participant, &change)?;
+    writes.push(statement(
+        db,
+        sql::UPDATE_STATE,
+        &[
+            text(participant),
+            number(change.added.len() as i64 - change.removed.len() as i64),
+            number(days),
+            number(revision),
+        ],
+    )?);
+    writes.extend(grants(db, participant, earliest)?);
+    Ok(writes)
+}
+
+/// Hide the changed projection immediately; durable keyset backfill publishes the
+/// corrected grants atomically. Keep acknowledged/featured choices until the
+/// completed rebuild determines whether their grants still qualify.
+pub(crate) fn rebuild(
+    db: &D1Database,
+    participant: &str,
+    generation: &Generation,
+    revision: i64,
+    preserve_grants: bool,
+) -> Result<Vec<D1PreparedStatement>, Failure> {
+    let mut writes = if preserve_grants {
+        [
+            "milestone_counted_events",
+            "milestone_days",
+            "milestone_state",
+        ]
+        .into_iter()
+        .map(|table| {
+            statement(
+                db,
+                &format!("DELETE FROM {table} WHERE participant_id=?1"),
+                &[text(participant)],
+            )
+        })
+        .collect::<Result<Vec<_>, Failure>>()?
+    } else {
+        purge(db, participant, false)?
+    };
+    writes.push(initialize(db, participant, generation, revision, false)?);
+    Ok(writes)
+}
+
+#[derive(Deserialize)]
+struct Source {
+    generation_revision: u64,
+    generation_id: String,
+    revision: i64,
+    folds: u64,
+}
+#[derive(Deserialize)]
+struct BackfillRow {
+    event_json: String,
+    deleted: i64,
+}
+
+/// One durable keyset page. Hidden building projections are never returned to
+/// profiles; every page and final publish rechecks identity/generation/revision.
+pub(crate) async fn backfill(db: &D1Database, participant: &str) -> Result<bool, Failure> {
+    let source=statement(db,"SELECT p.generation_revision,p.generation_id,r.revision,COALESCE(s.folds,0) AS folds FROM participants p JOIN participant_revisions r ON r.participant_id=p.participant_id LEFT JOIN live_scores s ON s.participant_id=p.participant_id AND s.period_id='all' AND s.generation_revision=p.generation_revision AND s.generation_id=p.generation_id WHERE p.participant_id=?1 AND p.account_state='active' AND p.membership='joined' AND p.restriction='none'",&[text(participant)])?.first::<Source>(None).await.map_err(|_|Failure::unavailable())?;
+    let Some(source) = source else {
+        return Ok(true);
+    };
+    let generation = Generation {
+        revision: source.generation_revision,
+        reset_id: Id::parse(&source.generation_id).map_err(|_| Failure::unavailable())?,
+    };
+    let existing = state(db, participant).await?;
+    if existing.as_ref().is_some_and(|s| {
+        s.state == "ready"
+            && s.generation_revision == generation.revision
+            && s.generation_id == source.generation_id
+    }) {
+        return Ok(true);
+    };
+    let resume = existing.as_ref().filter(|s| {
+        s.generation_revision == generation.revision
+            && s.generation_id == source.generation_id
+            && s.source_revision == source.revision
+    });
+    let device = resume
+        .and_then(|s| s.cursor_device_id.as_deref())
+        .unwrap_or("");
+    let sequence = resume
+        .and_then(|s| s.cursor_sequence)
+        .map(|s| s as i64)
+        .unwrap_or(-1);
+    let rows = statement(
+        db,
+        sql::BACKFILL_ROWS,
+        &[
+            text(participant),
+            text(device),
+            number(sequence),
+            number(generation.revision as i64),
+            text(&source.generation_id),
+        ],
+    )?
+    .all()
+    .await
+    .map_err(|_| Failure::unavailable())?
+    .results::<BackfillRow>()
+    .map_err(|_| Failure::unavailable())?;
+    let complete = rows.len() < 256;
+    let mut last_device = device.to_string();
+    let mut last_sequence = sequence;
+    let mut transition = resume.and_then(|s| s.cursor_transition);
+    let mut counted = vec![];
+    let mut changes = BTreeMap::new();
+    for row in rows {
+        let event: Event =
+            serde_json::from_str(&row.event_json).map_err(|_| Failure::unavailable())?;
+        if event.device_id.as_str() != last_device {
+            transition = None;
+        }
+        if transition != Some(event.transition) && row.deleted == 0 {
+            counted.push((event.event_id.clone(), event.observed_at_ms));
+            *changes
+                .entry(event.observed_at_ms / UTC_DAY_MS)
+                .or_insert(0) += 1;
+        }
+        last_device = event.device_id.as_str().to_string();
+        last_sequence = event.sequence as i64;
+        transition = Some(event.transition);
+    }
+    let guard = uuid()?;
+    let mut writes = vec![statement(
+        db,
+        sql::SOURCE_GUARD,
+        &[
+            text(&guard),
+            text(participant),
+            number(source.revision),
+            number(generation.revision as i64),
+            text(&source.generation_id),
+        ],
+    )?];
+    let (old_folds, old_days, day_delta) = if let Some(resume) = resume {
+        (
+            resume.folds,
+            resume.days_used,
+            day_change(db, participant, &changes).await?,
+        )
+    } else {
+        (0, 0, changes.len() as i64)
+    };
+    if resume.is_none() {
+        if existing.as_ref().is_some_and(|s| {
+            s.generation_revision == generation.revision && s.generation_id == source.generation_id
+        }) {
+            for table in [
+                "milestone_counted_events",
+                "milestone_days",
+                "milestone_state",
+            ] {
+                writes.push(statement(
+                    db,
+                    &format!("DELETE FROM {table} WHERE participant_id=?1"),
+                    &[text(participant)],
+                )?);
+            }
+        } else {
+            writes.extend(purge(db, participant, false)?);
+        }
+        writes.push(initialize(
+            db,
+            participant,
+            &generation,
+            source.revision,
+            false,
+        )?);
+    }
+    let folds = old_folds + counted.len() as u64;
+    let days = old_days + day_delta as u64;
+    if complete && folds != source.folds {
+        return Err(Failure::conflict());
+    }
+    let change = milestone_projection::Delta {
+        removed: vec![],
+        added: counted,
+        days: changes,
+    };
+    writes.extend(contributions(db, participant, &change)?);
+    let transition = transition
+        .map(|t| {
+            if t == Transition::Open {
+                text("open")
+            } else {
+                text("close")
+            }
+        })
+        .unwrap_or(wasm_bindgen::JsValue::NULL);
+    writes.push(statement(db,"UPDATE milestone_state SET folds=?2,days_used=?3,state=?4,cursor_device_id=?5,cursor_sequence=?6,cursor_transition=?7 WHERE participant_id=?1",&[text(participant),number(folds as i64),number(days as i64),text(if complete {"ready"}else{"building"}),if last_sequence<0 {wasm_bindgen::JsValue::NULL}else{text(&last_device)},if last_sequence<0 {wasm_bindgen::JsValue::NULL}else{number(last_sequence)},transition])?);
+    if complete {
+        writes.extend(grants(db, participant, Some(0))?);
+    }
+    writes.push(statement(
+        db,
+        "DELETE FROM mutation_guards WHERE guard_id=?1",
+        &[text(&guard)],
+    )?);
+    db.batch(writes).await.map_err(|_| Failure::conflict())?;
+    Ok(complete)
+}
+
+pub(crate) async fn dispatch(db: &D1Database) -> Result<(), Failure> {
+    #[derive(Deserialize)]
+    struct Pending {
+        participant_id: String,
+    }
+    let rows=statement(db,"SELECT p.participant_id FROM participants p LEFT JOIN milestone_state s ON s.participant_id=p.participant_id WHERE p.account_state='active' AND p.membership='joined' AND p.restriction='none' AND EXISTS(SELECT 1 FROM epochs e WHERE e.epoch_id=p.epoch_id AND e.participant_id=p.participant_id AND e.closed_at_ms IS NULL) AND (s.participant_id IS NULL OR s.state='building') ORDER BY p.participant_id LIMIT 1",&[])?.all().await.map_err(|_|Failure::unavailable())?.results::<Pending>().map_err(|_|Failure::unavailable())?;
+    for row in rows {
+        for _ in 0..8 {
+            if backfill(db, &row.participant_id).await? {
+                break;
+            }
+        }
+    }
+    Ok(())
+}

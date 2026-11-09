@@ -1,0 +1,20 @@
+delivery_handler: standard_ios
+standard_ios: true
+uses: []
+paths: []
+# Per-app configuration read by fastlane/Fastfile, scripts/app-config.rb and the CI workflows.
+name: __NAME__
+project: __NAME__.xcodeproj
+scheme: __NAME__
+bundle_id: __BUNDLE_ID__
+# Fill in after creating the app in App Store Connect (the number in its URL), then set testflight: true.
+apple_id: ""
+version: 1.0.0
+testflight: false
+testflight_group: Owner Preview
+beta_description: __NAME__ is a private app by Calum Webb.
+profile_name: __NAME__ CI App Store
+swift_package: false
+screenshot_test: __NAME__UITests/ScreenshotTests
+site: __SLUG__
+tips: []

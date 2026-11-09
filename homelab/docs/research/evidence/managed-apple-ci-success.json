@@ -1,0 +1,34 @@
+{
+  "repository": "0x63616c/world-wide-webb",
+  "workflow_run_id": 42449392894,
+  "workflow_commit": "0fbfd9a9c738f1d604a923f5c7c6e4c25fdd43a7",
+  "job_id": 128635202722,
+  "runner_name": "homelab-job-43dba142054549308342c9486695204d",
+  "managed_configuration": "5d1d21f87405994b31d185f76a92465b6b9ca6de",
+  "package": "/nix/store/mf4prsd944xj1ma3d034l1gb2f4vj7c9-homelab-runner-0.1.0",
+  "started_at": "2026-11-08T05:52:10Z",
+  "completed_at": "2026-11-08T05:58:46Z",
+  "duration_seconds": 396,
+  "conclusion": "success",
+  "workflow_conclusion": "success",
+  "host_console_user_after_run": "root",
+  "desktop_login_performed": false,
+  "passed": [
+    "repository-pinned Rust installation", "Xcode selection", "XcodeGen installation",
+    "Swift formatting", "Swift package tests", "Swift and Rust integration",
+    "iPad build and unit tests", "iPhone platform policy tests"
+  ],
+  "cleanup": {
+    "controller_active_attempt": false,
+    "journal_sequence": 123,
+    "exact_vm_directory_absent": true,
+    "github_repository_runner_registration_count": 0,
+    "available_storage_gib": 172
+  },
+  "routing_pull_request": 949,
+  "routing_merge_commit": "ff3edc54ba4929673020d08dacb19187e0b834b3",
+  "limits": [
+    "The host boot proof used a software restart, not a physical power cut.",
+    "Network boundary proof and its IPv6 coverage limits are recorded separately."
+  ]
+}

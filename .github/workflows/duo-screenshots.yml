@@ -1,0 +1,103 @@
+name: Duo screenshots
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/duo-screenshots.yml
+      - scripts/capture-duo-screenshots.sh
+      - scripts/ci/apple-desktop.sh
+      - scripts/duo-simulator.py
+      - scripts/duo-host-control/**
+      - scripts/stage-duo-screenshots.py
+      - scripts/select-duo-xcode.py
+      - scripts/screenshot-build-settings.py
+      - apps/tendr/**
+      - packages/RDesign/**
+  workflow_dispatch:
+    inputs:
+      app:
+        description: 'App folder under apps/'
+        type: string
+        default: tendr
+        required: true
+      developer_dir:
+        description: 'Xcode developer directory containing the Duo simulator'
+        type: string
+        default: '/Applications/Xcode_27.2.app/Contents/Developer'
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: duo-screenshots-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  screenshots:
+    runs-on: [self-hosted, macOS, ARM64, homelab-tart]
+    timeout-minutes: 120
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
+      APP: ${{ inputs.app || 'tendr' }}
+      DUO_HOST_CONTROL: '1'
+      REQUESTED_DEVELOPER_DIR: ${{ inputs.developer_dir || '/Applications/Xcode_27.2.app/Contents/Developer' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select Xcode
+        run: |
+          selected=$(python3 scripts/select-duo-xcode.py "$REQUESTED_DEVELOPER_DIR")
+          echo "DEVELOPER_DIR=$selected" >> "$GITHUB_ENV"
+          echo "Using $selected"
+      - name: Warm up CoreSimulator
+        timeout-minutes: 5
+        run: |
+          xcrun simctl list devices >/dev/null
+          xcrun simctl help >/dev/null
+      - name: List simulator device types and runtimes
+        run: |
+          xcodebuild -version
+          xcrun simctl list devicetypes
+          xcrun simctl list runtimes
+          xcrun simctl list devicetypes --json > "$RUNNER_TEMP/duo-devicetypes.json"
+          python3 - "$RUNNER_TEMP/duo-devicetypes.json" <<'PY'
+          import json, os, sys
+          with open(sys.argv[1]) as file:
+              devices = json.load(file)["devicetypes"]
+          if not any("iphone duo" in device["name"].lower() for device in devices):
+              sys.exit(f"No iPhone Duo simulator device type found in {os.environ['DEVELOPER_DIR']}. Install Xcode 27.1+ with Duo support, then select it with developer_dir.")
+          PY
+      - name: Install XcodeGen for the native display controller
+        run: brew list xcodegen >/dev/null 2>&1 || brew install xcodegen
+      - name: Capture raw Duo screens (light and dark)
+        timeout-minutes: 100
+        run: scripts/ci/apple-desktop.sh scripts/capture-duo-screenshots.sh "$APP" "build/duo-screenshots/$APP/raw" light dark
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Require uploadable inner and outer screenshots
+        run: |
+          python3 -m pip install -r scripts/requirements-screenshots.txt
+          python3 scripts/stage-duo-screenshots.py "apps/$APP/screenshots.json" \
+            "build/duo-screenshots/$APP/raw" "build/duo-screenshots/$APP/staged"
+      - name: Record display support
+        if: always()
+        run: |
+          notes="build/duo-screenshots/$APP/raw/capture-notes.txt"
+          if [[ -f "$notes" ]]; then cat "$notes" >> "$GITHUB_STEP_SUMMARY"; fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: duo-screenshots-${{ env.APP }}
+          path: build/duo-screenshots/${{ env.APP }}/raw
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: duo-screenshot-test-results-${{ env.APP }}
+          path: |
+            build/duo-screenshots/${{ env.APP }}/run.*/*.xcresult
+            build/duo-screenshots/${{ env.APP }}/run.*/*/*.png
+            build/duo-screenshots/${{ env.APP }}/run.*/*.txt
+            build/duo-screenshots/${{ env.APP }}/run.*/*.log
+          if-no-files-found: ignore

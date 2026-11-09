@@ -1,0 +1,24 @@
+name: Select repository units
+description: Resolve verification and delivery inputs from committed paths
+outputs:
+  verify:
+    description: Verification units
+    value: ${{ steps.selection.outputs.verify }}
+  delivery_candidates:
+    description: Changed delivery inputs, requiring separate publication gates
+    value: ${{ steps.selection.outputs.delivery_candidates }}
+runs:
+  using: composite
+  steps:
+    - id: selection
+      shell: bash
+      working-directory: ${{ github.workspace }}
+      env:
+        BASE: ${{ github.event.pull_request.base.sha || github.event.before || github.sha }}
+        HEAD: ${{ github.sha }}
+        EVENT: ${{ github.event_name }}
+      run: |
+        arguments=()
+        if [[ "$EVENT" == workflow_dispatch ]]; then arguments+=(--force); fi
+        if [[ "$EVENT" != pull_request ]]; then EVENT=push; fi
+        python3 scripts/ci/select_units.py "$BASE" "$HEAD" --event "$EVENT" "${arguments[@]}" --output "$RUNNER_TEMP/ci-selection.json"

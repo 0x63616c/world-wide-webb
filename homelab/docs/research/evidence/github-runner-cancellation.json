@@ -1,0 +1,23 @@
+{
+  "observed_at": "2026-11-08T04:15:00Z",
+  "repository": "0x63616c/world-wide-webb",
+  "workflow_run_id": 42441882837,
+  "job_id": 128612654947,
+  "runner_name": "homelab-job-e87913dc59cd4188bbdcacd8736c0f13",
+  "package": "/nix/store/vsa98p7k7g2yd6jaii2z34wc7vahdzhv-homelab-runner-0.1.0",
+  "runner_version": "2.338.2",
+  "job_result": "cancelled",
+  "steps": {
+    "Set up job": "success",
+    "Verify macOS runner": "success",
+    "Hold for isolation and cancellation checks": "cancelled",
+    "Complete job": "success"
+  },
+  "cleanup": {
+    "controller_active_attempt": false,
+    "journal_sequence": 15,
+    "exact_vm_directory_absent": true,
+    "exact_github_runner_registration_matches": 0
+  },
+  "scope": "Real GitHub job in a disposable VM owned by the non-admin system launch daemon. Cancellation was requested through the GitHub API. No production workflow changed."
+}

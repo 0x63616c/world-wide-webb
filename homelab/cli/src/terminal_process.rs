@@ -1,0 +1,961 @@
+//! Native authentication in a bounded PTY; credentials are never logged or persisted.
+use crate::ui::actions::Action;
+use std::cell::RefCell;
+use std::fs::File;
+use std::io::{self, Read, Write};
+use std::os::unix::fs::MetadataExt;
+use std::os::unix::process::{CommandExt, ExitStatusExt};
+use std::path::Path;
+use std::process::{Command, ExitStatus, Output, Stdio};
+use std::time::{Duration, Instant};
+
+use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
+use filedescriptor::FileDescriptor;
+use portable_pty::{CommandBuilder, PtySize, native_pty_system};
+use rustix::fs::{Mode, OFlags, open};
+
+use crate::ui::{self, Role};
+
+#[derive(Clone)]
+struct Context {
+    title: String,
+    host: String,
+    message: String,
+    steps: Vec<(String, Role)>,
+}
+thread_local! { static CONTEXT: RefCell<Option<Context>> = const { RefCell::new(None) }; }
+thread_local! { static DIAGNOSTIC: RefCell<Option<Diagnostic>> = const { RefCell::new(None) }; }
+
+struct Diagnostic {
+    directory: Option<std::path::PathBuf>,
+    code: &'static str,
+    start: Vec<u8>,
+    end: Vec<u8>,
+    pending: Vec<u8>,
+    output: Vec<u8>,
+    active: bool,
+    finished: bool,
+}
+
+#[cfg(test)]
+mod diagnostic_tests {
+    use super::*;
+
+    #[test]
+    fn captures_only_framed_check_output_across_split_reads() {
+        let mut capture = Diagnostic {
+            directory: None,
+            code: "test-check",
+            start: b"BEGIN".to_vec(),
+            end: b"END".to_vec(),
+            pending: Vec::new(),
+            output: Vec::new(),
+            active: false,
+            finished: false,
+        };
+        for byte in b"Password: private-input BEG"
+            .iter()
+            .chain(b"INhealth check failedENDPassword: ignored")
+        {
+            capture.observe(&[*byte]);
+        }
+        assert!(capture.finished);
+        assert_eq!(capture.output, b"health check failed");
+    }
+}
+
+impl Diagnostic {
+    fn observe(&mut self, bytes: &[u8]) {
+        for byte in bytes {
+            if self.finished {
+                break;
+            }
+            self.pending.push(*byte);
+            if !self.active {
+                if self.pending.ends_with(&self.start) {
+                    self.active = true;
+                    self.pending.clear();
+                } else if self.pending.len() > self.start.len() {
+                    self.pending.remove(0);
+                }
+            } else if self.pending.ends_with(&self.end) {
+                let size = self.pending.len() - self.end.len();
+                self.output.extend_from_slice(&self.pending[..size]);
+                self.pending.clear();
+                self.finished = true;
+                if let Some(root) = &self.directory {
+                    crate::bootstrap_diagnostics::record_output(
+                        root,
+                        self.code,
+                        None,
+                        &self.output,
+                    );
+                }
+            } else if self.pending.len() > self.end.len() {
+                if self.output.len() < 16 * 1024 {
+                    self.output.push(self.pending[0]);
+                }
+                self.pending.remove(0);
+            }
+        }
+    }
+}
+
+pub(crate) fn diagnostic_status(
+    command: &mut Command,
+    exchange: Option<crate::setup_auth::Exchange>,
+    start: &str,
+    end: &str,
+    code: &'static str,
+) -> io::Result<(ExitStatus, Vec<u8>)> {
+    struct Clear;
+    impl Drop for Clear {
+        fn drop(&mut self) {
+            DIAGNOSTIC.with(|state| *state.borrow_mut() = None);
+        }
+    }
+    let _clear = Clear;
+    DIAGNOSTIC.with(|state| {
+        *state.borrow_mut() = Some(Diagnostic {
+            directory: crate::enrollment_credentials::state_directory(),
+            code,
+            start: start.as_bytes().to_vec(),
+            end: end.as_bytes().to_vec(),
+            pending: Vec::new(),
+            output: Vec::new(),
+            active: false,
+            finished: false,
+        })
+    });
+    let status = authenticated_status_continuing(command, exchange)?;
+    let bytes = DIAGNOSTIC.with(|state| {
+        let mut state = state.borrow_mut();
+        let capture = state.as_mut().unwrap();
+        if capture.finished {
+            std::mem::take(&mut capture.output)
+        } else {
+            Vec::new()
+        }
+    });
+    Ok((status, bytes))
+}
+
+#[doc(hidden)]
+pub fn within<T>(title: &str, host: &str, operation: impl FnOnce() -> T) -> T {
+    let _execution = crate::process::ExecutionScope::enter(execute_background);
+    struct Restore(Option<Context>);
+    impl Drop for Restore {
+        fn drop(&mut self) {
+            CONTEXT.with(|context| *context.borrow_mut() = self.0.take());
+        }
+    }
+    let previous = CONTEXT.with(|context| {
+        context.replace(Some(Context {
+            title: title.into(),
+            host: host.into(),
+            message: "Working…".into(),
+            steps: Vec::new(),
+        }))
+    });
+    let _restore = Restore(previous);
+    operation()
+}
+
+pub(crate) fn execute_background(
+    command: &mut Command,
+    timeout: Duration,
+    mode: crate::process::OutputMode,
+) -> Result<Output, crate::process::ProcessError> {
+    let context = context();
+    crate::ui::loading::run(
+        || match &context {
+            Some(context) => draw(context, "", ProcessScreen::Waiting),
+            None => crate::ui::redraw(),
+        },
+        || crate::process::supervise_blocking(command, timeout, mode),
+    )
+    .map_err(crate::process::ProcessError::Io)?
+}
+
+fn context() -> Option<Context> {
+    CONTEXT.with(|context| context.borrow().clone())
+}
+
+pub(crate) fn within_checklist<T>(
+    title: &str,
+    host: &str,
+    steps: Vec<(String, Role)>,
+    operation: impl FnOnce() -> T,
+) -> T {
+    within(title, host, || {
+        progress_steps(steps);
+        operation()
+    })
+}
+
+pub(crate) fn progress_steps(steps: Vec<(String, Role)>) {
+    CONTEXT.with(|context| {
+        if let Some(context) = context.borrow_mut().as_mut() {
+            context.steps = steps;
+        }
+    });
+}
+
+pub(crate) fn pause(duration: Duration) -> io::Result<()> {
+    if let Some(context) = context() {
+        crate::ui::loading::run(
+            || draw(&context, "", ProcessScreen::Running),
+            || std::thread::sleep(duration),
+        )
+    } else {
+        std::thread::sleep(duration);
+        Ok(())
+    }
+}
+
+pub(crate) fn progress(message: &str) {
+    CONTEXT.with(|context| {
+        if let Some(context) = context.borrow_mut().as_mut() {
+            context.message = message.into();
+        }
+    });
+    if let Some(context) = context() {
+        let _ = draw(&context, "", ProcessScreen::Running);
+    }
+}
+
+pub(crate) fn phase(title: &str, message: &str) {
+    CONTEXT.with(|context| {
+        if let Some(context) = context.borrow_mut().as_mut() {
+            context.title = title.into();
+        }
+    });
+    progress(message);
+}
+
+fn password_prompt(text: &str) -> bool {
+    text.lines().last().is_some_and(|line| {
+        let line = line.to_ascii_lowercase();
+        line.contains("password:") || line.contains("passphrase")
+    })
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum ProcessScreen {
+    Running,
+    Waiting,
+    Authentication,
+    Failed,
+}
+
+impl ProcessScreen {
+    fn active(text: &str) -> Self {
+        if password_prompt(text) {
+            Self::Authentication
+        } else {
+            Self::Running
+        }
+    }
+}
+
+fn rejected_password(line: &str) -> bool {
+    let line = line.trim().to_ascii_lowercase();
+    line == "sorry, try again." || line == "permission denied, please try again."
+}
+
+fn process_body(
+    context: &Context,
+    text: &str,
+    state: ProcessScreen,
+    height: u16,
+) -> Vec<(String, Role)> {
+    let mut body = vec![
+        (context.host.clone(), Role::Context),
+        (String::new(), Role::Body),
+    ];
+    if state == ProcessScreen::Authentication {
+        let prompt = text.lines().last().unwrap_or_default();
+        let label = if prompt.to_ascii_lowercase().contains("passphrase") {
+            "SSH key passphrase:"
+        } else {
+            "Password:"
+        };
+        // Only the locally generated mask is rendered, never native prompt history.
+        let mask = prompt
+            .chars()
+            .rev()
+            .take_while(|character| *character == '*')
+            .count()
+            .min(48);
+        return ui::components::password_field(
+            &context.host,
+            label,
+            mask,
+            text.lines().rev().skip(1).take(2).any(rejected_password),
+        );
+    }
+    let output: Vec<_> = text
+        .lines()
+        .filter(|line| {
+            !line.trim().is_empty() && !password_prompt(line) && !rejected_password(line)
+        })
+        .collect();
+    if state == ProcessScreen::Failed && height < 18 {
+        let summary = output
+            .last()
+            .copied()
+            .unwrap_or("Step failed. Return to setup to continue.");
+        let mut summary: String = summary.chars().take(120).collect();
+        if output.last().is_some_and(|line| line.chars().count() > 120) {
+            summary.push('…');
+        }
+        return vec![(summary, Role::Warning)];
+    }
+    if !context.steps.is_empty() {
+        if height < 18 {
+            let active = context
+                .steps
+                .iter()
+                .find(|(text, _)| text.starts_with('›') || text.starts_with('!'))
+                .or_else(|| context.steps.last());
+            body.extend(active.cloned());
+        } else {
+            body.extend(context.steps.clone());
+        }
+        body.push((String::new(), Role::Body));
+    }
+    if state == ProcessScreen::Failed {
+        body.push(("Step failed".into(), Role::Warning));
+        body.push((String::new(), Role::Body));
+        // Keep failure acknowledgement readable; the caller owns detailed recovery.
+        // Never replay an entire native transcript as an error screen.
+        let start = output.len().saturating_sub(2);
+        for line in &output[start..] {
+            let mut summary: String = line.chars().take(200).collect();
+            if line.chars().count() > 200 {
+                summary.push('…');
+            }
+            body.push((summary, Role::Body));
+            body.push((String::new(), Role::Body));
+        }
+    } else {
+        body.push((
+            output
+                .last()
+                .map_or_else(|| context.message.clone(), |line| (*line).to_owned()),
+            Role::Working,
+        ));
+    }
+    body
+}
+
+fn process_actions(state: ProcessScreen, stopping: bool) -> Vec<Action> {
+    if stopping && state != ProcessScreen::Authentication && state != ProcessScreen::Failed {
+        vec![Action::Stopping]
+    } else {
+        match state {
+            ProcessScreen::Failed => vec![Action::Primary("Continue".into())],
+            ProcessScreen::Authentication => vec![Action::Submit, Action::Interrupt],
+            ProcessScreen::Waiting => vec![Action::Quit],
+            ProcessScreen::Running => vec![Action::Interrupt],
+        }
+    }
+}
+
+fn draw(context: &Context, text: &str, state: ProcessScreen) -> io::Result<()> {
+    let finished = state == ProcessScreen::Failed;
+    let stopping = crate::quit::requested();
+    let mut body = process_body(context, text, state, crossterm::terminal::size()?.1);
+    if stopping
+        && matches!(state, ProcessScreen::Waiting | ProcessScreen::Running)
+        && let Some((message, _)) = body.last_mut()
+    {
+        *message = "Stopping after this step; progress stays saved.".into();
+    }
+    let actions = process_actions(state, stopping);
+    ui::render(
+        if finished {
+            "Setup needs attention"
+        } else {
+            &context.title
+        },
+        &body,
+        0,
+        &actions,
+    )?;
+    Ok(())
+}
+
+#[doc(hidden)]
+pub fn status(command: &mut Command) -> io::Result<ExitStatus> {
+    if context().is_none() {
+        return command.status();
+    }
+    embedded(
+        command,
+        None,
+        None,
+        Duration::from_secs(90 * 60),
+        None,
+        true,
+    )
+}
+
+pub(crate) fn authenticated_status(
+    command: &mut Command,
+    exchange: Option<crate::setup_auth::Exchange>,
+) -> io::Result<ExitStatus> {
+    if context().is_none() {
+        return command.status();
+    }
+    embedded(
+        command,
+        None,
+        None,
+        Duration::from_secs(90 * 60),
+        exchange,
+        true,
+    )
+}
+
+pub(crate) fn authenticated_status_continuing(
+    command: &mut Command,
+    exchange: Option<crate::setup_auth::Exchange>,
+) -> io::Result<ExitStatus> {
+    if context().is_none() {
+        return command.status();
+    }
+    embedded(
+        command,
+        None,
+        None,
+        Duration::from_secs(90 * 60),
+        exchange,
+        false,
+    )
+}
+
+#[doc(hidden)]
+pub fn status_with_input(command: &mut Command, input: &Path) -> io::Result<ExitStatus> {
+    if context().is_none() {
+        return command.stdin(File::open(input)?).status();
+    }
+    embedded(
+        command,
+        Some(input),
+        None,
+        Duration::from_secs(15 * 60),
+        None,
+        true,
+    )
+}
+
+#[doc(hidden)]
+pub fn capture(
+    command: &mut Command,
+    timeout: Duration,
+) -> Result<Output, crate::process::ProcessError> {
+    if context().is_none() {
+        return crate::process::capture_with_terminal_stderr(command, timeout);
+    }
+    let output = tempfile::NamedTempFile::new()?;
+    let status = embedded(
+        command,
+        Some(Path::new("/dev/null")),
+        Some(output.path()),
+        timeout,
+        None,
+        true,
+    )?;
+    let mut stdout = Vec::new();
+    output
+        .reopen()?
+        .take(16 * 1024 + 1)
+        .read_to_end(&mut stdout)?;
+    if stdout.len() > 16 * 1024 {
+        return Err(crate::process::ProcessError::ExcessiveOutput);
+    }
+    Ok(Output {
+        status,
+        stdout,
+        stderr: Vec::new(),
+    })
+}
+
+fn size() -> io::Result<PtySize> {
+    let (cols, rows) = crossterm::terminal::size()?;
+    Ok(PtySize {
+        rows: rows.saturating_sub(14).clamp(1, 10),
+        cols: cols.saturating_sub(8).clamp(1, 68),
+        pixel_width: 0,
+        pixel_height: 0,
+    })
+}
+
+fn key_bytes(key: KeyEvent) -> Option<Vec<u8>> {
+    if key.kind == KeyEventKind::Release {
+        return None;
+    }
+    if key.modifiers.contains(KeyModifiers::CONTROL) {
+        return match key.code {
+            KeyCode::Char('u') => Some(vec![21]),
+            _ => None,
+        };
+    }
+    match key.code {
+        KeyCode::Char(value) if !key.modifiers.contains(KeyModifiers::ALT) => {
+            Some(value.to_string().into_bytes())
+        }
+        KeyCode::Enter => Some(vec![13]),
+        KeyCode::Backspace => Some(vec![127]),
+        KeyCode::Tab => Some(vec![9]),
+        _ => None,
+    }
+}
+
+fn embedded(
+    command: &Command,
+    input: Option<&Path>,
+    output: Option<&Path>,
+    timeout: Duration,
+    mut auth_exchange: Option<crate::setup_auth::Exchange>,
+    acknowledge_failure: bool,
+) -> io::Result<ExitStatus> {
+    let context = context().ok_or_else(|| io::Error::other("No terminal session"))?;
+    let mut dimensions = size()?;
+    let pair = native_pty_system()
+        .openpty(dimensions)
+        .map_err(io::Error::other)?;
+    #[cfg(not(test))]
+    let mut builder = {
+        let mut builder = CommandBuilder::new(std::env::current_exe()?);
+        builder.arg("terminal-exec");
+        if let Some(input) = input {
+            builder.arg("--input");
+            builder.arg(input);
+        }
+        if let Some(output) = output {
+            builder.arg("--output");
+            builder.arg(output);
+        }
+        builder.arg("--");
+        builder.arg(command.get_program());
+        builder
+    };
+    // libtest owns main; the bridge has its own integration tests.
+    #[cfg(test)]
+    let mut builder = {
+        assert!(input.is_none() && output.is_none());
+        CommandBuilder::new(command.get_program())
+    };
+    builder.args(command.get_args());
+    for (key, value) in command.get_envs() {
+        match value {
+            Some(value) => builder.env(key, value),
+            None => builder.env_remove(key),
+        }
+    }
+    if let Some(directory) = command.get_current_dir() {
+        builder.cwd(directory);
+    } else {
+        builder.cwd(std::env::current_dir()?);
+    }
+    builder.env("TERM", "dumb");
+    let mut reader = FileDescriptor::dup(
+        &pair
+            .master
+            .as_raw_fd()
+            .ok_or_else(|| io::Error::other("PTY unavailable"))?,
+    )
+    .map_err(io::Error::other)?;
+    reader.set_non_blocking(true).map_err(io::Error::other)?;
+    let mut writer = pair.master.take_writer().map_err(io::Error::other)?;
+    // Discard input queued on a previous screen; it must not answer a new prompt.
+    while event::poll(Duration::from_millis(1))? {
+        let _ = event::read()?;
+    }
+    let mut child = pair
+        .slave
+        .spawn_command(builder)
+        .map_err(io::Error::other)?;
+    drop(pair.slave);
+    let mut parser = vt100::Parser::new(dimensions.rows, dimensions.cols, 0);
+    let started = Instant::now();
+    let mut masked_length = 0usize;
+    let result = (|| {
+        let mut exited = None;
+        let mut exited_at = None;
+        let mut drained = false;
+        loop {
+            if let Some(exchange) = &mut auth_exchange {
+                exchange.observe(&[], &mut writer)?;
+            }
+            let mut buffer = [0; 4096];
+            // A noisy child must not starve keyboard handling or redraws.
+            for _ in 0..16 {
+                match reader.read(&mut buffer) {
+                    Ok(0) => {
+                        drained = true;
+                        break;
+                    }
+                    Ok(count) => {
+                        DIAGNOSTIC.with(|state| {
+                            if let Some(capture) = state.borrow_mut().as_mut() {
+                                capture.observe(&buffer[..count]);
+                            }
+                        });
+                        if let Some(exchange) = &mut auth_exchange {
+                            exchange.observe(&buffer[..count], &mut writer)?;
+                        }
+                        parser.process(&buffer[..count]);
+                    }
+                    Err(error) if error.kind() == io::ErrorKind::WouldBlock => break,
+                    Err(error) if error.raw_os_error() == Some(5) => {
+                        drained = true;
+                        break;
+                    }
+                    Err(error) => return Err(error),
+                }
+            }
+            if exited.is_none() {
+                exited = child.try_wait()?;
+                if exited.is_some() {
+                    exited_at = Some(Instant::now());
+                }
+            }
+            if let Some(status) = &exited
+                && drained
+            {
+                if status.signal().is_some() {
+                    return Err(io::Error::other(
+                        "Native command interrupted; outcome unknown",
+                    ));
+                }
+                return Ok(ExitStatus::from_raw((status.exit_code() as i32) << 8));
+            }
+            if started.elapsed() > timeout {
+                return Err(io::Error::new(
+                    io::ErrorKind::TimedOut,
+                    "Native command timed out; outcome unknown",
+                ));
+            }
+            if exited_at.is_some_and(|at| at.elapsed() > Duration::from_secs(2)) {
+                return Err(io::Error::other(
+                    "Native output did not close; outcome unknown",
+                ));
+            }
+            if let Some(path) = output
+                && path.metadata()?.len() > 16 * 1024
+            {
+                return Err(io::Error::other("Protocol output exceeded limit"));
+            }
+            let text = parser.screen().contents();
+            let text = auth_exchange
+                .as_ref()
+                .map_or(text.clone(), |exchange| exchange.display(&text));
+            let authentication = password_prompt(&text);
+            let displayed = if authentication {
+                format!("{text}{}", "*".repeat(masked_length.min(48)))
+            } else {
+                masked_length = 0;
+                text
+            };
+            draw(&context, &displayed, ProcessScreen::active(&displayed))?;
+
+            if event::poll(Duration::from_millis(80))? {
+                match event::read()? {
+                    Event::Key(key) if key.kind != KeyEventKind::Release => {
+                        if key.modifiers.contains(KeyModifiers::CONTROL)
+                            && key.code == KeyCode::Char('c')
+                        {
+                            return Err(io::Error::new(
+                                io::ErrorKind::Interrupted,
+                                "Native command interrupted; outcome unknown",
+                            ));
+                        }
+                        if let Some(mut bytes) = key_bytes(key) {
+                            if let Some(exchange) = &mut auth_exchange
+                                && !exchange.key(key)
+                            {
+                                bytes.fill(0);
+                                continue;
+                            }
+                            if authentication {
+                                masked_length = match key.code {
+                                    KeyCode::Enter => 0,
+                                    KeyCode::Backspace => masked_length.saturating_sub(1),
+                                    KeyCode::Char('u')
+                                        if key.modifiers.contains(KeyModifiers::CONTROL) =>
+                                    {
+                                        0
+                                    }
+                                    KeyCode::Char(_) => masked_length.saturating_add(1),
+                                    _ => masked_length,
+                                };
+                            }
+
+                            let sent = writer.write_all(&bytes).and_then(|()| writer.flush());
+                            bytes.fill(0);
+                            sent?;
+                        }
+                    }
+                    Event::Resize(_, _) => {
+                        dimensions = size()?;
+                        pair.master.resize(dimensions).map_err(io::Error::other)?;
+                        parser.set_size(dimensions.rows, dimensions.cols);
+                    }
+                    _ => {}
+                }
+            }
+        }
+    })();
+    if result.is_err() {
+        let _ = child.kill();
+    }
+    let _ = child.wait();
+    // Never retain a terminal transcript, including across invocations.
+    if acknowledge_failure
+        && result
+            .as_ref()
+            .is_ok_and(|status| !status.success() && status.code().is_some_and(|code| code < 128))
+    {
+        let text = parser.screen().contents();
+        while event::poll(Duration::from_millis(1))? {
+            let _ = event::read()?;
+        }
+        loop {
+            draw(&context, &text, ProcessScreen::Failed)?;
+            if let Event::Key(key) = event::read()?
+                && key.kind != KeyEventKind::Release
+            {
+                let code = crate::quit::handle(key);
+                if crate::quit::requested()
+                    || code == KeyCode::Esc
+                    || (code == KeyCode::Enter && crate::setup_wizard::usable_size()?)
+                {
+                    break;
+                }
+            }
+        }
+    }
+    while event::poll(Duration::from_millis(1))? {
+        let _ = event::read()?;
+    }
+    result
+}
+
+fn private_file(path: &Path, write: bool) -> io::Result<File> {
+    let flags = if write {
+        OFlags::WRONLY
+    } else {
+        OFlags::RDONLY
+    };
+    let file = File::from(open(
+        path,
+        flags | OFlags::NOFOLLOW | OFlags::NONBLOCK | OFlags::CLOEXEC,
+        Mode::empty(),
+    )?);
+    let metadata = file.metadata()?;
+    if !metadata.is_file()
+        || metadata.uid() != rustix::process::geteuid().as_raw()
+        || metadata.mode() & 0o777 != 0o600
+    {
+        return Err(io::Error::other("Invalid private transport file"));
+    }
+    Ok(file)
+}
+
+/// Internal same-user exec bridge. Native SSH/sudo owns the child controlling PTY;
+/// public-key stdin and protocol stdout remain separate from authentication.
+pub fn exec_bridge(
+    input: Option<&Path>,
+    output: Option<&Path>,
+    arguments: &[std::ffi::OsString],
+) -> io::Result<()> {
+    let (program, arguments) = arguments
+        .split_first()
+        .ok_or_else(|| io::Error::other("Missing native command"))?;
+    let mut command = Command::new(program);
+    command.args(arguments);
+    if let Some(path) = input {
+        if path == Path::new("/dev/null") {
+            command.stdin(Stdio::null());
+        } else {
+            command.stdin(private_file(path, false)?);
+        }
+    }
+    if let Some(path) = output {
+        command.stdout(private_file(path, true)?);
+    }
+    Err(command.exec())
+}
+
+/// Shared by the CLI and disposable-VM harness, before their normal entry points.
+#[doc(hidden)]
+pub fn dispatch_bridge() -> Option<std::process::ExitCode> {
+    use clap::Parser;
+    #[derive(Parser)]
+    struct Arguments {
+        #[arg(long)]
+        input: Option<std::path::PathBuf>,
+        #[arg(long)]
+        output: Option<std::path::PathBuf>,
+        #[arg(last = true, required = true)]
+        command: Vec<std::ffi::OsString>,
+    }
+    let arguments: Vec<_> = std::env::args_os().skip(1).collect();
+    if arguments
+        .first()
+        .is_none_or(|argument| argument != "terminal-exec")
+    {
+        return None;
+    }
+    if let Ok(arguments) = Arguments::try_parse_from(arguments) {
+        let _ = exec_bridge(
+            arguments.input.as_deref(),
+            arguments.output.as_deref(),
+            &arguments.command,
+        );
+    }
+    eprintln!("Native authentication transport could not start.");
+    Some(std::process::ExitCode::FAILURE)
+}
+
+#[cfg(test)]
+mod compact_progress_tests {
+    use super::*;
+
+    #[test]
+    fn requested_stop_disables_background_interrupt_footer() {
+        assert_eq!(
+            process_actions(ProcessScreen::Waiting, true),
+            vec![Action::Stopping]
+        );
+        assert_eq!(
+            process_actions(ProcessScreen::Running, true),
+            vec![Action::Stopping]
+        );
+        assert_eq!(
+            process_actions(ProcessScreen::Authentication, true),
+            vec![Action::Submit, Action::Interrupt]
+        );
+    }
+
+    #[test]
+    fn failure_acknowledgement_is_short_and_separated() {
+        let context = Context {
+            title: "Setup".into(),
+            host: "fixture".into(),
+            message: "Working".into(),
+            steps: vec![],
+        };
+        let transcript = format!(
+            "{}\nFixture command failed\nTry the saved setup again.",
+            "old output\n".repeat(100)
+        );
+        let body = process_body(&context, &transcript, ProcessScreen::Failed, 24);
+        assert!(!body.iter().any(|(line, _)| line.contains("old output")));
+        assert!(
+            body.iter()
+                .any(|(line, _)| line == "Fixture command failed")
+        );
+        assert!(body.len() < 12);
+        let message = body
+            .iter()
+            .position(|(line, _)| line == "Fixture command failed")
+            .unwrap();
+        assert!(body[message - 1].0.is_empty() && body[message + 1].0.is_empty());
+    }
+
+    #[test]
+    fn native_failure_and_return_fit_minimum_terminal() {
+        let context = Context {
+            title: "Setup".into(),
+            host: "fixture".into(),
+            message: "Working".into(),
+            steps: vec![("! Mac configuration".into(), Role::Warning)],
+        };
+        let body = process_body(
+            &context,
+            "old progress\nFixture command failed",
+            ProcessScreen::Failed,
+            12,
+        );
+        let mut terminal =
+            ratatui::Terminal::new(ratatui::backend::TestBackend::new(40, 12)).unwrap();
+        terminal
+            .draw(|frame| {
+                ui::render_frame(
+                    frame,
+                    "Setup needs attention",
+                    &body,
+                    0,
+                    &process_actions(ProcessScreen::Failed, false),
+                    false,
+                    None,
+                );
+            })
+            .unwrap();
+        let text: String = terminal
+            .backend()
+            .buffer()
+            .content
+            .iter()
+            .map(|cell| cell.symbol())
+            .collect();
+        assert!(text.contains("Fixture command failed"), "{text}");
+        assert!(text.contains("Press Enter to continue"), "{text}");
+    }
+
+    #[test]
+    fn minimum_window_keeps_the_active_step_and_message_visible() {
+        let context = Context {
+            title: "Setting up your Mac".into(),
+            host: "fixture-mac".into(),
+            message: "Building configuration…".into(),
+            steps: (0..7)
+                .map(|index| {
+                    (
+                        if index == 4 {
+                            "› Mac configuration".into()
+                        } else {
+                            format!("○ Step {index}")
+                        },
+                        Role::Progress,
+                    )
+                })
+                .collect(),
+        };
+        let body = process_body(&context, "", ProcessScreen::Waiting, 12);
+        assert_eq!(
+            body.iter()
+                .filter(|(_, role)| *role == Role::Progress)
+                .count(),
+            1
+        );
+        let mut terminal =
+            ratatui::Terminal::new(ratatui::backend::TestBackend::new(40, 12)).unwrap();
+        terminal
+            .draw(|frame| {
+                ui::render_frame(
+                    frame,
+                    &context.title,
+                    &body,
+                    0,
+                    &[Action::Quit],
+                    false,
+                    None,
+                );
+            })
+            .unwrap();
+        let text: String = terminal
+            .backend()
+            .buffer()
+            .content
+            .iter()
+            .map(|cell| cell.symbol())
+            .collect();
+        assert!(text.contains("Mac configuration"));
+        assert!(text.contains("Building configuration…"));
+    }
+}

@@ -1,4 +1,4 @@
-name: Deploy Mac mini
+name: Promote Control Center image
 on:
   workflow_run:
     workflows: [CI]
@@ -7,31 +7,38 @@ on:
   workflow_dispatch:
     inputs:
       ci_run_id:
-        description: Successful main CI run to deploy
+        description: Successful main CI run containing the tested immutable image
         type: string
         required: true
+defaults:
+  run:
+    working-directory: apps/control-center
 permissions:
   contents: read
   actions: read
 concurrency:
-  group: deploy-mini
+  group: control-center-image-promotion
   cancel-in-progress: false
 jobs:
   source:
+    name: Control Center source
     if: >-
-      vars.MINI_DEPLOY_ENABLED == 'true' &&
+      github.ref == 'refs/heads/main' && vars.CONTROL_CENTER_PROMOTION_ENABLED == 'true' &&
       (github.event_name == 'workflow_dispatch' ||
        (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'))
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, ARM64, homelab-linux]
+    timeout-minutes: 5
     outputs:
       sha: ${{ steps.source.outputs.sha }}
-      generation: ${{ steps.source.outputs.generation }}
+      ci_run_id: ${{ steps.source.outputs.run_id }}
+      ci_attempt: ${{ steps.source.outputs.attempt }}
       image: ${{ steps.selection.outputs.image }}
       image_ref: ${{ steps.image.outputs.image }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
+      - uses: ./.github/actions/github-cli
       - id: source
         env:
           GH_TOKEN: ${{ github.token }}
@@ -40,13 +47,14 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: ci-selection
+          path: apps/control-center
           run-id: ${{ steps.source.outputs.run_id }}
           github-token: ${{ github.token }}
       - id: selection
         run: |
           python3 - <<'PY'
           import json,os
-          value=json.load(open('ci-selection.json'))['image']
+          value=json.load(open('ci-selection.json'))['publish_image']
           assert isinstance(value,bool)
           with open(os.environ['GITHUB_OUTPUT'],'a') as out:out.write('image='+str(value).lower()+'\n')
           PY
@@ -54,6 +62,7 @@ jobs:
         if: steps.selection.outputs.image == 'true'
         with:
           name: ci-image
+          path: apps/control-center
           run-id: ${{ steps.source.outputs.run_id }}
           github-token: ${{ github.token }}
       - id: image
@@ -61,47 +70,23 @@ jobs:
         env:
           SOURCE_SHA: ${{ steps.source.outputs.sha }}
         run: python3 tools/ci_image.py select "$SOURCE_SHA"
-  release:
+  promote:
+    name: Control Center image pin
     needs: source
     if: needs.source.outputs.image == 'true'
-    runs-on: ubuntu-24.04-arm
-    timeout-minutes: 30
+    runs-on: [self-hosted, Linux, ARM64, homelab-linux]
+    timeout-minutes: 10
     environment: production
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
-          ref: ${{ needs.source.outputs.sha }}
-          persist-credentials: false
-      - uses: ./.github/actions/install-sops
-      - name: Load deployment credentials once
-        env:
-          SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
-        run: sops exec-env secrets/vault.yaml 'python3 tools/ci_deploy_env.py'
-      - uses: tailscale/github-action@v4
-        with:
-          oauth-client-id: ${{ env.TS_CLIENT_ID }}
-          oauth-secret: ${{ env.TS_CLIENT_SECRET }}
-          tags: tag:ci
-      - name: Deploy tested image and operations together
+          fetch-depth: 0
+          ssh-key: ${{ secrets.CONTROL_CENTER_PROMOTION_DEPLOY_KEY }}
+          persist-credentials: true
+      - name: Record the tested image in homelab desired state
+        working-directory: .
         env:
           IMAGE: ${{ needs.source.outputs.image_ref }}
           REVISION: ${{ needs.source.outputs.sha }}
-          GENERATION: ${{ needs.source.outputs.generation }}
-          MINI_KNOWN_HOSTS: ${{ vars.MINI_KNOWN_HOSTS }}
-        run: |
-          set -euo pipefail
-          test -n "$MINI_KNOWN_HOSTS"
-          printf '%s\n' "$MINI_KNOWN_HOSTS" > "$RUNNER_TEMP/mini-known-hosts"
-          remote=calum@homelab.tail8c014d.ts.net
-          options=(-i "$RUNNER_TEMP/mini-key" -o BatchMode=yes -o IdentitiesOnly=yes
-            -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$RUNNER_TEMP/mini-known-hosts")
-          stage=$(ssh "${options[@]}" "$remote" 'mktemp -d /Users/calum/www-control-center/candidate.XXXXXX')
-          [[ "$stage" =~ ^/Users/calum/www-control-center/candidate\.[[:alnum:]]+$ ]]
-          # shellcheck disable=SC2029 # The validated staging path must expand locally.
-          cleanup() { ssh "${options[@]}" "$remote" "rm -rf -- '$stage'"; }
-          trap cleanup EXIT
-          files=(release.sh recover.sh compose.yaml sqlite_preflight.py sqlite_snapshot.py tailscale_serve.py backup.py nas-upload.py publish-apple-release.py)
-          for file in "${files[@]}"; do scp "${options[@]}" "deploy/mini/$file" "$remote:$stage/$file"; done
-          # shellcheck disable=SC2029 # Pass locally validated paths and release identity.
-          ssh "${options[@]}" "$remote" \
-            "WWW_CODE_DIR='$stage' bash '$stage/release.sh' '$IMAGE' '$REVISION' '$GENERATION'"
+          CI_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ needs.source.outputs.ci_run_id }}/attempts/${{ needs.source.outputs.ci_attempt }}
+        run: python3 scripts/homelab/promote_control_center.py --source "$REVISION" --image "$IMAGE" --ci-run-url "$CI_RUN_URL"

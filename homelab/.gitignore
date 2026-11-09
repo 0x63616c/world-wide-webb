@@ -1,0 +1,15 @@
+.env
+.env.*
+!.env.example
+*.agekey
+key.txt
+result
+result-*
+__pycache__/
+.DS_Store
+host/target/
+runner/target/
+
+/linux-image-build.json
+
+/linux-image-cache.tar.gz

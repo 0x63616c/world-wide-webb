@@ -1,0 +1,11 @@
+#!/bin/sh
+set -eu
+cd "$(dirname "$0")"
+export RUSTUP_TOOLCHAIN=1.99.1
+if ! cargo install --list | rg -q '^worker-build v0\.8\.7:$'; then
+  echo 'Use pinned worker-build 0.8.7.' >&2
+  exit 1
+fi
+cargo fmt --check
+cargo check --target wasm32-unknown-unknown --locked
+"${CARGO_HOME:-$HOME/.cargo}/bin/worker-build" --release --no-opt

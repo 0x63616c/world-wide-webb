@@ -1,0 +1,83 @@
+name: Callkeep CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: callkeep-ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+jobs:
+  selection:
+    name: Callkeep selection
+    runs-on: [self-hosted, Linux, ARM64, homelab-linux]
+    timeout-minutes: 5
+    outputs:
+      verify: ${{ steps.select.outputs.verify }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          sparse-checkout: |
+            .github/actions/select
+            scripts/ci
+          persist-credentials: true
+      - id: select
+        uses: ./.github/actions/select
+      - uses: actions/upload-artifact@v4
+        with:
+          name: callkeep-selection
+          path: ${{ runner.temp }}/ci-selection.json
+          retention-days: 14
+          if-no-files-found: error
+  tooling:
+    name: Callkeep release invariants
+    needs: selection
+    if: contains(fromJSON(needs.selection.outputs.verify), 'callkeep.native')
+    runs-on: [self-hosted, Linux, ARM64, homelab-linux]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - run: |
+          python3 apps/callkeep/Scripts/test-release.py
+          python3 apps/callkeep/Scripts/test-release-notes.py
+          python3 -m unittest discover -s scripts/distribution -p 'test*.py'
+  native:
+    name: Callkeep native
+    needs: selection
+    if: contains(fromJSON(needs.selection.outputs.verify), 'callkeep.native')
+    runs-on: [self-hosted, macOS, ARM64, homelab-tart]
+    timeout-minutes: 60
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
+    defaults:
+      run:
+        working-directory: apps/callkeep
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - run: ../../scripts/ci/apple-desktop.sh Scripts/test.sh
+  gate:
+    name: Callkeep checks
+    needs: [selection, tooling, native]
+    if: always() && !cancelled()
+    runs-on: [self-hosted, Linux, ARM64, homelab-linux]
+    timeout-minutes: 5
+    steps:
+      - env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          python3 - <<'PYTHON'
+          import json, os
+          results = json.loads(os.environ['RESULTS'])
+          assert results['selection']['result'] == 'success', 'Selection failed'
+          selected = json.loads(results['selection']['outputs']['verify'])
+          expected = 'success' if 'callkeep.native' in selected else 'skipped'
+          for name in ['native', 'tooling']:
+              assert results[name]['result'] == expected, 'Callkeep checks did not complete as selected'
+          PYTHON

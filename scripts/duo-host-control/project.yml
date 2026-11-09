@@ -1,0 +1,32 @@
+name: DuoCaptureHost
+options:
+  bundleIdPrefix: com.calumwebb.tests
+settings:
+  base:
+    SWIFT_VERSION: '6.0'
+    MACOSX_DEPLOYMENT_TARGET: '15.0'
+    CODE_SIGN_IDENTITY: '-'
+    GENERATE_INFOPLIST_FILE: YES
+targets:
+  DuoCaptureHost:
+    type: application
+    platform: macOS
+    sources: [Host]
+  DuoHostControlTests:
+    type: bundle.ui-testing
+    platform: macOS
+    sources: [Tests]
+    settings:
+      base:
+        CODE_SIGN_ENTITLEMENTS: HostControl.entitlements
+        DUO_HOST_CONTROL_DIRECTORY: $(TEMP_DIR)/DuoHostControl
+    dependencies:
+      - target: DuoCaptureHost
+schemes:
+  DuoCaptureHost:
+    build:
+      targets:
+        DuoCaptureHost: all
+        DuoHostControlTests: [test]
+    test:
+      targets: [DuoHostControlTests]

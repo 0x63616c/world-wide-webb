@@ -1,0 +1,535 @@
+{
+  "schema_version": 1,
+  "reducer_version": 1,
+  "cases": [
+    {
+      "name": "normal_pair",
+      "events_in_arrival_order": [
+        {
+          "schema_version": 1,
+          "device_id": "11111111-1111-4111-8111-111111111111",
+          "generation": {
+            "revision": 0,
+            "reset_id": "00000000-0000-0000-0000-000000000000"
+          },
+          "timezone_id": "UTC",
+          "is_test": false,
+          "competition_epoch_id": "33333333-3333-4333-8333-333333333333",
+          "event_id": "00000000-0000-4000-8000-000000000001",
+          "sequence": 1,
+          "transition": "open",
+          "observed_at_ms": 1000
+        },
+        {
+          "schema_version": 1,
+          "device_id": "11111111-1111-4111-8111-111111111111",
+          "generation": {
+            "revision": 0,
+            "reset_id": "00000000-0000-0000-0000-000000000000"
+          },
+          "timezone_id": "UTC",
+          "is_test": false,
+          "competition_epoch_id": "33333333-3333-4333-8333-333333333333",
+          "event_id": "00000000-0000-4000-8000-000000000002",
+          "sequence": 2,
+          "transition": "close",
+          "observed_at_ms": 61000
+        }
+      ],
+      "expected": {
+        "folds": 2,
+        "opens": 1,
+        "closes": 1,
+        "cycles": 1,
+        "complete_duration_ms": 60000,
+        "incomplete_sessions": 0
+      }
+    },
+    {
+      "name": "same_event_retry",
+      "events_in_arrival_order": [
+        {
+          "schema_version": 1,
+          "device_id": "11111111-1111-4111-8111-111111111111",
+          "generation": {
+            "revision": 0,
+            "reset_id": "00000000-0000-0000-0000-000000000000"
+          },
+          "timezone_id": "UTC",
+          "is_test": false,
+          "competition_epoch_id": "33333333-3333-4333-8333-333333333333",
+          "event_id": "00000000-0000-4000-8000-000000000001",
+          "sequence": 1,
+          "transition": "open",
+          "observed_at_ms": 1000
+        },
+        {
+          "schema_version": 1,
+          "device_id": "11111111-1111-4111-8111-111111111111",
+          "generation": {
+            "revision": 0,
+            "reset_id": "00000000-0000-0000-0000-000000000000"
+          },
+          "timezone_id": "UTC",
+          "is_test": false,
+          "competition_epoch_id": "33333333-3333-4333-8333-333333333333",
+          "event_id": "00000000-0000-4000-8000-000000000001",
+          "sequence": 1,
+          "transition": "open",
+          "observed_at_ms": 1000
+        },
+        {
+          "schema_version": 1,
+          "device_id": "11111111-1111-4111-8111-111111111111",
+          "generation": {
+            "revision": 0,
+            "reset_id": "00000000-0000-0000-0000-000000000000"
+          },
+          "timezone_id": "UTC",
+          "is_test": false,
+          "competition_epoch_id": "33333333-3333-4333-8333-333333333333",
+          "event_id": "00000000-0000-4000-8000-000000000002",
+          "sequence": 2,
+          "transition": "close",
+          "observed_at_ms": 61000
+        },
+        {
+          "schema_version": 1,
+          "device_id": "11111111-1111-4111-8111-111111111111",
+          "generation": {
+            "revision": 0,
+            "reset_id": "00000000-0000-0000-0000-000000000000"
+          },
+          "timezone_id": "UTC",
+          "is_test": false,
+          "competition_epoch_id": "33333333-3333-4333-8333-333333333333",
+          "event_id": "00000000-0000-4000-8000-000000000002",
+          "sequence": 2,
+          "transition": "close",
+          "observed_at_ms": 61000
+        }
+      ],
+      "expected": {
+        "folds": 2,
+        "opens": 1,
+        "closes": 1,
+        "cycles": 1,
+        "complete_duration_ms": 60000,
+        "incomplete_sessions": 0
+      }
+    },
+    {
+      "name": "reverse_arrival",
+      "events_in_arrival_order": [
+        {
+          "schema_version": 1,
+          "device_id": "11111111-1111-4111-8111-111111111111",
+          "generation": {
+            "revision": 0,
+            "reset_id": "00000000-0000-0000-0000-000000000000"
+          },
+          "timezone_id": "UTC",
+          "is_test": false,
+          "competition_epoch_id": "33333333-3333-4333-8333-333333333333",
+          "event_id": "00000000-0000-4000-8000-000000000002",
+          "sequence": 2,
+          "transition": "close",
+          "observed_at_ms": 61000
+        },
+        {
+          "schema_version": 1,
+          "device_id": "11111111-1111-4111-8111-111111111111",
+          "generation": {
+            "revision": 0,
+            "reset_id": "00000000-0000-0000-0000-000000000000"
+          },
+          "timezone_id": "UTC",
+          "is_test": false,
+          "competition_epoch_id": "33333333-3333-4333-8333-333333333333",
+          "event_id": "00000000-0000-4000-8000-000000000001",
+          "sequence": 1,
+          "transition": "open",
+          "observed_at_ms": 1000
+        }
+      ],
+      "expected": {
+        "folds": 2,
+        "opens": 1,
+        "closes": 1,
+        "cycles": 1,
+        "complete_duration_ms": 60000,
+        "incomplete_sessions": 0
+      }
+    },
+    {
+      "name": "repeated_open_candidate",
+      "events_in_arrival_order": [
+        {
+          "schema_version": 1,
+          "device_id": "11111111-1111-4111-8111-111111111111",
+          "generation": {
+            "revision": 0,
+            "reset_id": "00000000-0000-0000-0000-000000000000"
+          },
+          "timezone_id": "UTC",
+          "is_test": false,
+          "competition_epoch_id": "33333333-3333-4333-8333-333333333333",
+          "event_id": "00000000-0000-4000-8000-000000000001",
+          "sequence": 1,
+          "transition": "open",
+          "observed_at_ms": 1000
+        },
+        {
+          "schema_version": 1,
+          "device_id": "11111111-1111-4111-8111-111111111111",
+          "generation": {
+            "revision": 0,
+            "reset_id": "00000000-0000-0000-0000-000000000000"
+          },
+          "timezone_id": "UTC",
+          "is_test": false,
+          "competition_epoch_id": "33333333-3333-4333-8333-333333333333",
+          "event_id": "00000000-0000-4000-8000-000000000002",
+          "sequence": 2,
+          "transition": "open",
+          "observed_at_ms": 2000
+        },
+        {
+          "schema_version": 1,
+          "device_id": "11111111-1111-4111-8111-111111111111",
+          "generation": {
+            "revision": 0,
+            "reset_id": "00000000-0000-0000-0000-000000000000"
+          },
+          "timezone_id": "UTC",
+          "is_test": false,
+          "competition_epoch_id": "33333333-3333-4333-8333-333333333333",
+          "event_id": "00000000-0000-4000-8000-000000000003",
+          "sequence": 3,
+          "transition": "close",
+          "observed_at_ms": 62000
+        }
+      ],
+      "expected": {
+        "folds": 2,
+        "opens": 1,
+        "closes": 1,
+        "cycles": 0,
+        "complete_duration_ms": 60000,
+        "incomplete_sessions": 1
+      }
+    },
+    {
+      "name": "unmatched_close",
+      "events_in_arrival_order": [
+        {
+          "schema_version": 1,
+          "device_id": "11111111-1111-4111-8111-111111111111",
+          "generation": {
+            "revision": 0,
+            "reset_id": "00000000-0000-0000-0000-000000000000"
+          },
+          "timezone_id": "UTC",
+          "is_test": false,
+          "competition_epoch_id": "33333333-3333-4333-8333-333333333333",
+          "event_id": "00000000-0000-4000-8000-000000000001",
+          "sequence": 1,
+          "transition": "close",
+          "observed_at_ms": 1000
+        }
+      ],
+      "expected": {
+        "folds": 1,
+        "opens": 0,
+        "closes": 1,
+        "cycles": 0,
+        "complete_duration_ms": 0,
+        "incomplete_sessions": 0
+      }
+    },
+    {
+      "name": "repeated_close",
+      "events_in_arrival_order": [
+        {
+          "schema_version": 1,
+          "device_id": "11111111-1111-4111-8111-111111111111",
+          "generation": {
+            "revision": 0,
+            "reset_id": "00000000-0000-0000-0000-000000000000"
+          },
+          "timezone_id": "UTC",
+          "is_test": false,
+          "competition_epoch_id": "33333333-3333-4333-8333-333333333333",
+          "event_id": "00000000-0000-4000-8000-000000000001",
+          "sequence": 1,
+          "transition": "close",
+          "observed_at_ms": 1000
+        },
+        {
+          "schema_version": 1,
+          "device_id": "11111111-1111-4111-8111-111111111111",
+          "generation": {
+            "revision": 0,
+            "reset_id": "00000000-0000-0000-0000-000000000000"
+          },
+          "timezone_id": "UTC",
+          "is_test": false,
+          "competition_epoch_id": "33333333-3333-4333-8333-333333333333",
+          "event_id": "00000000-0000-4000-8000-000000000002",
+          "sequence": 2,
+          "transition": "close",
+          "observed_at_ms": 2000
+        }
+      ],
+      "expected": {
+        "folds": 1,
+        "opens": 0,
+        "closes": 1,
+        "cycles": 0,
+        "complete_duration_ms": 0,
+        "incomplete_sessions": 0
+      }
+    },
+    {
+      "name": "tests_excluded",
+      "events_in_arrival_order": [
+        {
+          "schema_version": 1,
+          "device_id": "11111111-1111-4111-8111-111111111111",
+          "generation": {
+            "revision": 0,
+            "reset_id": "00000000-0000-0000-0000-000000000000"
+          },
+          "timezone_id": "UTC",
+          "is_test": true,
+          "competition_epoch_id": "33333333-3333-4333-8333-333333333333",
+          "event_id": "00000000-0000-4000-8000-000000000001",
+          "sequence": 1,
+          "transition": "open",
+          "observed_at_ms": 1000
+        },
+        {
+          "schema_version": 1,
+          "device_id": "11111111-1111-4111-8111-111111111111",
+          "generation": {
+            "revision": 0,
+            "reset_id": "00000000-0000-0000-0000-000000000000"
+          },
+          "timezone_id": "UTC",
+          "is_test": true,
+          "competition_epoch_id": "33333333-3333-4333-8333-333333333333",
+          "event_id": "00000000-0000-4000-8000-000000000002",
+          "sequence": 2,
+          "transition": "close",
+          "observed_at_ms": 2000
+        }
+      ],
+      "expected": {
+        "folds": 0,
+        "opens": 0,
+        "closes": 0,
+        "cycles": 0,
+        "complete_duration_ms": 0,
+        "incomplete_sessions": 0
+      }
+    },
+    {
+      "name": "clock_backwards",
+      "events_in_arrival_order": [
+        {
+          "schema_version": 1,
+          "device_id": "11111111-1111-4111-8111-111111111111",
+          "generation": {
+            "revision": 0,
+            "reset_id": "00000000-0000-0000-0000-000000000000"
+          },
+          "timezone_id": "UTC",
+          "is_test": false,
+          "competition_epoch_id": "33333333-3333-4333-8333-333333333333",
+          "event_id": "00000000-0000-4000-8000-000000000001",
+          "sequence": 1,
+          "transition": "open",
+          "observed_at_ms": 10000
+        },
+        {
+          "schema_version": 1,
+          "device_id": "11111111-1111-4111-8111-111111111111",
+          "generation": {
+            "revision": 0,
+            "reset_id": "00000000-0000-0000-0000-000000000000"
+          },
+          "timezone_id": "UTC",
+          "is_test": false,
+          "competition_epoch_id": "33333333-3333-4333-8333-333333333333",
+          "event_id": "00000000-0000-4000-8000-000000000002",
+          "sequence": 2,
+          "transition": "close",
+          "observed_at_ms": 9000
+        }
+      ],
+      "expected": {
+        "folds": 2,
+        "opens": 1,
+        "closes": 1,
+        "cycles": 0,
+        "complete_duration_ms": 0,
+        "incomplete_sessions": 1
+      }
+    },
+    {
+      "name": "equal_time",
+      "events_in_arrival_order": [
+        {
+          "schema_version": 1,
+          "device_id": "11111111-1111-4111-8111-111111111111",
+          "generation": {
+            "revision": 0,
+            "reset_id": "00000000-0000-0000-0000-000000000000"
+          },
+          "timezone_id": "UTC",
+          "is_test": false,
+          "competition_epoch_id": "33333333-3333-4333-8333-333333333333",
+          "event_id": "00000000-0000-4000-8000-000000000001",
+          "sequence": 1,
+          "transition": "open",
+          "observed_at_ms": 1000
+        },
+        {
+          "schema_version": 1,
+          "device_id": "11111111-1111-4111-8111-111111111111",
+          "generation": {
+            "revision": 0,
+            "reset_id": "00000000-0000-0000-0000-000000000000"
+          },
+          "timezone_id": "UTC",
+          "is_test": false,
+          "competition_epoch_id": "33333333-3333-4333-8333-333333333333",
+          "event_id": "00000000-0000-4000-8000-000000000002",
+          "sequence": 2,
+          "transition": "close",
+          "observed_at_ms": 1000
+        }
+      ],
+      "expected": {
+        "folds": 2,
+        "opens": 1,
+        "closes": 1,
+        "cycles": 1,
+        "complete_duration_ms": 0,
+        "incomplete_sessions": 0
+      }
+    },
+    {
+      "name": "restored_interruption_prevents_invented_session",
+      "events_in_arrival_order": [
+        {
+          "schema_version": 1,
+          "device_id": "11111111-1111-4111-8111-111111111111",
+          "generation": {
+            "revision": 0,
+            "reset_id": "00000000-0000-0000-0000-000000000000"
+          },
+          "timezone_id": "UTC",
+          "is_test": false,
+          "competition_epoch_id": "33333333-3333-4333-8333-333333333333",
+          "event_id": "00000000-0000-4000-8000-000000000002",
+          "sequence": 2,
+          "transition": "close",
+          "observed_at_ms": 61000
+        },
+        {
+          "schema_version": 1,
+          "device_id": "11111111-1111-4111-8111-111111111111",
+          "generation": {
+            "revision": 0,
+            "reset_id": "00000000-0000-0000-0000-000000000000"
+          },
+          "timezone_id": "UTC",
+          "is_test": false,
+          "competition_epoch_id": "33333333-3333-4333-8333-333333333333",
+          "event_id": "00000000-0000-4000-8000-000000000001",
+          "sequence": 1,
+          "transition": "open",
+          "observed_at_ms": 1000
+        }
+      ],
+      "interruptions": [
+        {
+          "interruption_id": "88888888-8888-4888-8888-888888888888",
+          "device_id": "11111111-1111-4111-8111-111111111111",
+          "generation": {
+            "revision": 0,
+            "reset_id": "00000000-0000-0000-0000-000000000000"
+          },
+          "after_sequence": 1,
+          "reason": "device_restart",
+          "observed_at_ms": 2000
+        }
+      ],
+      "expected": {
+        "folds": 2,
+        "opens": 1,
+        "closes": 1,
+        "cycles": 0,
+        "complete_duration_ms": 0,
+        "incomplete_sessions": 1
+      }
+    },
+    {
+      "name": "interruption_preserves_fold_deduplication",
+      "events_in_arrival_order": [
+        {
+          "schema_version": 1,
+          "device_id": "11111111-1111-4111-8111-111111111111",
+          "generation": {
+            "revision": 0,
+            "reset_id": "00000000-0000-0000-0000-000000000000"
+          },
+          "timezone_id": "UTC",
+          "is_test": false,
+          "competition_epoch_id": "33333333-3333-4333-8333-333333333333",
+          "event_id": "00000000-0000-4000-8000-000000000001",
+          "sequence": 1,
+          "transition": "open",
+          "observed_at_ms": 1000
+        },
+        {
+          "schema_version": 1,
+          "device_id": "11111111-1111-4111-8111-111111111111",
+          "generation": {
+            "revision": 0,
+            "reset_id": "00000000-0000-0000-0000-000000000000"
+          },
+          "timezone_id": "UTC",
+          "is_test": false,
+          "competition_epoch_id": "33333333-3333-4333-8333-333333333333",
+          "event_id": "00000000-0000-4000-8000-000000000002",
+          "sequence": 2,
+          "transition": "open",
+          "observed_at_ms": 61000
+        }
+      ],
+      "interruptions": [
+        {
+          "interruption_id": "88888888-8888-4888-8888-888888888888",
+          "device_id": "11111111-1111-4111-8111-111111111111",
+          "generation": {
+            "revision": 0,
+            "reset_id": "00000000-0000-0000-0000-000000000000"
+          },
+          "after_sequence": 1,
+          "reason": "device_restart",
+          "observed_at_ms": 2000
+        }
+      ],
+      "expected": {
+        "folds": 1,
+        "opens": 1,
+        "closes": 0,
+        "cycles": 0,
+        "complete_duration_ms": 0,
+        "incomplete_sessions": 1
+      }
+    }
+  ]
+}

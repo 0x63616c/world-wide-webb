@@ -1,0 +1,36 @@
+name: Retire discontinued apps in ASC
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Report only, expire builds and delete profiles, or delete retired bundle IDs'
+        type: choice
+        default: report
+        options: [report, retire, delete-ids]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: asc-retire
+  cancel-in-progress: false
+
+jobs:
+  retire:
+    runs-on: [self-hosted, Linux, ARM64, homelab-linux]
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install API authentication dependency
+        run: python3 -m pip install 'PyJWT[crypto]==2.10.1'
+      - name: Run guarded retirement
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
+          MODE: ${{ inputs.mode }}
+        run: python3 scripts/asc-retire.py --mode "$MODE"

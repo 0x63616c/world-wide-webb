@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "operation_id": "44444444-4444-4444-8444-444444444444",
+  "epoch_id": "33333333-3333-4333-8333-333333333333",
+  "events": [
+    {
+      "schema_version": 1,
+      "device_id": "11111111-1111-4111-8111-111111111111",
+      "generation": {
+        "revision": 0,
+        "reset_id": "00000000-0000-0000-0000-000000000000"
+      },
+      "timezone_id": "UTC",
+      "is_test": false,
+      "competition_epoch_id": "33333333-3333-4333-8333-333333333333",
+      "event_id": "00000000-0000-4000-8000-000000000001",
+      "sequence": 1,
+      "transition": "open",
+      "observed_at_ms": 1000
+    },
+    {
+      "schema_version": 1,
+      "device_id": "11111111-1111-4111-8111-111111111111",
+      "generation": {
+        "revision": 0,
+        "reset_id": "00000000-0000-0000-0000-000000000000"
+      },
+      "timezone_id": "UTC",
+      "is_test": false,
+      "competition_epoch_id": "33333333-3333-4333-8333-333333333333",
+      "event_id": "00000000-0000-4000-8000-000000000002",
+      "sequence": 2,
+      "transition": "close",
+      "observed_at_ms": 61000
+    }
+  ]
+}

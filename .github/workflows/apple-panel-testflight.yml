@@ -4,6 +4,9 @@ on:
     workflows: [CI]
     types: [completed]
     branches: [main]
+defaults:
+  run:
+    working-directory: apps/control-center
 permissions:
   contents: read
   actions: read
@@ -12,14 +15,15 @@ concurrency:
   cancel-in-progress: false
 jobs:
   selection:
-    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
-    runs-on: ubuntu-latest
+    if: vars.PANEL_DELIVERY_ENABLED == 'true' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
+    runs-on: [self-hosted, Linux, ARM64, homelab-linux]
     outputs:
       apple: ${{ steps.selection.outputs.apple }}
     steps:
       - uses: actions/download-artifact@v4
         with:
           name: ci-selection
+          path: apps/control-center
           run-id: ${{ github.event.workflow_run.id }}
           github-token: ${{ github.token }}
       - id: selection
@@ -33,7 +37,7 @@ jobs:
   upload:
     needs: selection
     if: needs.selection.outputs.apple == 'true'
-    runs-on: macos-26
+    runs-on: [self-hosted, macOS, ARM64, homelab-tart]
     timeout-minutes: 45
     environment: production
     steps:
@@ -49,7 +53,7 @@ jobs:
         run: python3 tools/ci_apple_receipt.py
       - name: Select supported Xcode
         if: steps.receipt.outputs.uploaded != 'true'
-        run: echo "DEVELOPER_DIR=$(python3 .github/scripts/apple-toolchain.py)" >> "$GITHUB_ENV"
+        run: echo "DEVELOPER_DIR=$(python3 ../../.github/scripts/apple-toolchain.py)" >> "$GITHUB_ENV"
       - run: brew install sops
       - run: brew install xcodegen
         if: steps.receipt.outputs.uploaded != 'true' 
@@ -57,21 +61,21 @@ jobs:
         if: steps.receipt.outputs.uploaded != 'true'
         env:
           SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
-        run: sops exec-env secrets/vault.yaml 'python3 tools/ci_signing_env.py'
+        run: sops exec-env ../../secrets/vault.yaml 'python3 tools/ci_signing_env.py'
       - name: Load only publication credentials for an existing upload
         if: steps.receipt.outputs.uploaded == 'true'
         env:
           SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
-        run: sops exec-env secrets/vault.yaml 'python3 tools/ci_deploy_env.py'
-      - uses: ruby/setup-ruby@v1
+        run: sops exec-env ../../secrets/vault.yaml 'python3 tools/ci_deploy_env.py'
+      - uses: ./.github/actions/ruby-tools
         if: steps.receipt.outputs.uploaded != 'true'
         with:
           ruby-version: '3.4'
           bundler-cache: true
-          working-directory: apple
+          working-directory: apps/control-center/apple
       - name: Build and upload tested native revision
         if: steps.receipt.outputs.uploaded != 'true'
-        working-directory: apple
+        working-directory: apps/control-center/apple
         env:
           PANEL_SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
         run: bundle exec fastlane release_native
@@ -88,7 +92,7 @@ jobs:
         if: steps.receipt.outputs.uploaded != 'true'
         with:
           name: panel-testflight-${{ github.event.workflow_run.head_sha }}
-          path: testflight-receipt.json
+          path: apps/control-center/testflight-receipt.json
           retention-days: 90
       - uses: tailscale/github-action@v4
         with:

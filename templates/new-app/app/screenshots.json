@@ -1,0 +1,6 @@
+{
+  "shots": [
+    { "screen": "home", "appearance": "dark", "eyebrow": "__NAME__", "headline": "A short headline\nfor the app." },
+    { "screen": "settings", "appearance": "light", "eyebrow": "Privacy", "headline": "Private\nby design." }
+  ]
+}

@@ -1,0 +1,33 @@
+name: Nix checks
+on:
+  # Private validation runs in the disposable Mac until self-hosted CI is ready.
+  workflow_dispatch:
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+jobs:
+  darwin:
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Require native Apple silicon
+        run: test "$(uname -m)" = arm64
+      - uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a
+      - name: Require reviewed lockfile
+        run: test -s flake.lock
+      - name: Validate scripts with the pinned Python runtime
+        run: |
+          nix develop --no-update-lock-file --command bash -n bootstrap.sh
+          nix develop --no-update-lock-file --command python3 -m unittest discover -s tests -v
+      - name: Check and build both hosts without activation
+        run: nix flake check --no-update-lock-file --print-build-logs
+      - name: Check Rust formatting and diagnostics
+        run: |
+          nix develop --no-update-lock-file --command cargo fmt --manifest-path host/Cargo.toml --check
+          nix develop --no-update-lock-file --command cargo clippy --manifest-path host/Cargo.toml --locked --all-targets -- -D warnings

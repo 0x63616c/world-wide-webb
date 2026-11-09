@@ -1,0 +1,99 @@
+name: Folding toolchain
+description: Prepare pinned product tools without credentials
+inputs:
+  target:
+    description: contracts, backend, deploy or apple
+    required: true
+runs:
+  using: composite
+  steps:
+    - id: pins
+      shell: bash
+      working-directory: ${{ github.workspace }}
+      run: |
+        python3 - <<'PYTHON' >> "$GITHUB_OUTPUT"
+        import json
+        pins = json.load(open("apps/folding/tool-versions.json"))
+        pins.update(json.load(open("apps/folding/backend/tool-versions.json")))
+        for key, value in pins.items():
+            if isinstance(value, str):
+                print(f"{key}={value}")
+        PYTHON
+    - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+      with:
+        python-version: ${{ steps.pins.outputs.python }}
+    - if: inputs.target == 'contracts'
+      shell: bash
+      working-directory: apps/folding
+      run: |
+        python3 -m venv .venv/contracts
+        .venv/contracts/bin/python -m pip install -r scripts/requirements-contracts.txt
+    - if: inputs.target == 'backend' || inputs.target == 'deploy'
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ steps.pins.outputs.node }}
+    - if: runner.os == 'Linux' && (inputs.target == 'backend' || inputs.target == 'deploy')
+      uses: ./.github/actions/archive-tools
+    - if: inputs.target == 'backend' || inputs.target == 'deploy'
+      uses: oven-sh/setup-bun@v2
+      with:
+        bun-version: ${{ steps.pins.outputs.bun }}
+    - if: inputs.target == 'backend'
+      shell: bash
+      env:
+        RUST_VERSION: ${{ steps.pins.outputs.rust }}
+        WORKER_BUILD_VERSION: ${{ steps.pins.outputs.worker_build }}
+      run: |
+        export PATH="$HOME/.cargo/bin:$PATH"
+        rustup toolchain install "$RUST_VERSION" --profile minimal --target wasm32-unknown-unknown
+        if ! worker-build --version 2>/dev/null | grep -Fq "$WORKER_BUILD_VERSION"; then
+          cargo +"$RUST_VERSION" install worker-build --version "$WORKER_BUILD_VERSION" --locked
+        fi
+        cd apps/folding/backend
+        bun install --frozen-lockfile
+    - if: inputs.target == 'backend'
+      name: Prepare pinned WebAssembly helpers
+      shell: bash
+      working-directory: ${{ github.workspace }}
+      run: |
+        python3 apps/folding/scripts/test-worker-tools.py
+        python3 apps/folding/scripts/prepare-worker-tools.py --root "$RUNNER_TEMP/folding-worker-tools" --output "$GITHUB_ENV"
+    - if: inputs.target == 'apple' || inputs.target == 'deploy'
+      name: Use UTF-8 for release metadata
+      shell: bash
+      run: |
+        if [[ "$RUNNER_OS" == macOS ]]; then
+          folding_locale=en_US.UTF-8
+        else
+          folding_locale=C.UTF-8
+        fi
+        printf 'LANG=%s\nLC_ALL=%s\n' "$folding_locale" "$folding_locale" >> "$GITHUB_ENV"
+    - if: inputs.target == 'apple' || inputs.target == 'deploy'
+      uses: ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199 # v1
+      with:
+        ruby-version: ${{ steps.pins.outputs.ruby }}
+        bundler: ${{ steps.pins.outputs.bundler }}
+        working-directory: apps/folding
+    - if: inputs.target == 'apple' || inputs.target == 'deploy'
+      shell: bash
+      working-directory: apps/folding
+      env:
+        RUBY_VERSION: ${{ steps.pins.outputs.ruby }}
+        BUNDLER_VERSION: ${{ steps.pins.outputs.bundler }}
+      run: |
+        [[ "$(ruby -e 'print RUBY_VERSION')" == "$RUBY_VERSION" ]]
+        gem install bundler --version "$BUNDLER_VERSION" --no-document
+        bundle config set --local path "$RUNNER_TEMP/folding-bundle"
+        BUNDLE_FROZEN=true bundle install
+    - if: inputs.target == 'deploy'
+      shell: bash
+      working-directory: apps/folding/backend
+      run: bun install --frozen-lockfile
+    - if: inputs.target == 'apple'
+      name: Install the Apple project generator
+      shell: bash
+      working-directory: apps/folding
+      run: |
+        brew list xcodegen >/dev/null 2>&1 || brew install xcodegen
+        # The environment check below rejects a different product-pinned version.
+        python3 scripts/apple-build-environment.py --create-device

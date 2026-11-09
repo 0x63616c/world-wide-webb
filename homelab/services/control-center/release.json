@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 2,
+  "sourceRepository": "0x63616c/world-wide-webb",
+  "sourceRevision": "72f9533c84cc9362b9a3df9a5fe3f079411c638d",
+  "image": "ghcr.io/0x63616c/www-control-center-mini@sha256:b99bced2cd96c21b225e2017c1b296651b2c820690d7b983c7257a6b88410f59",
+  "databaseEngine": "sqlite"
+}

@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "cases": [
+    {
+      "name": "sign_in_purpose_matches",
+      "challenge_request": {
+        "purpose": "sign_in"
+      },
+      "exchange_request_purpose": "sign_in",
+      "expected_purpose_match": true
+    },
+    {
+      "name": "reauth_cannot_reuse_sign_in_challenge",
+      "challenge_request": {
+        "purpose": "sign_in"
+      },
+      "exchange_request_purpose": "reauthenticate",
+      "expected_purpose_match": false
+    },
+    {
+      "name": "deletion_lost_response",
+      "steps": [
+        "delete_accepted_session_revoked",
+        "response_lost",
+        "fresh_apple_challenge_recover_deletion",
+        "verify_same_subject_and_operation",
+        "issue_new_deletion_receipt"
+      ],
+      "expected_profile_recreated": false
+    },
+    {
+      "name": "marker_commit_before_mirror_crash",
+      "steps": [
+        "commit_interruption_and_mirror_work",
+        "process_terminated",
+        "reopen_and_drain_mirror_work",
+        "import_duplicate_marker"
+      ],
+      "expected_interruption_count": 1
+    }
+  ]
+}

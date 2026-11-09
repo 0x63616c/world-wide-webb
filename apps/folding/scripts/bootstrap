@@ -1,0 +1,19 @@
+#!/bin/sh
+set -eu
+cd "$(dirname "$0")/.."
+for tool in swift tofu python3 git; do
+  if ! command -v "$tool" >/dev/null 2>&1; then
+    echo "Missing required tool: $tool" >&2
+    exit 1
+  fi
+done
+python3 -m venv .venv/contracts
+.venv/contracts/bin/python -m pip install -r scripts/requirements-contracts.txt
+lefthook install
+echo 'Contract environment and shared repository hooks ready. No credentials or cloud resources accessed.'
+if [ "${1:-}" = "--apple" ]; then
+  python3 scripts/apple-build-environment.py --create-device
+  bundle check || BUNDLE_FROZEN=true bundle install
+  xcodegen generate --spec apps/ios/project.yml
+  echo 'Apple build dependencies resolved. Run bundle exec fastlane ios verify.'
+fi

@@ -1,0 +1,62 @@
+# Git manages each Mac
+
+Comin watches this private repository's `main` branch every 30 seconds, builds
+the matching `darwinConfigurations.<host>`, and activates it. Each Mac uses its
+own read-only SSH deploy key. GitHub's reviewed SSH host key is pinned; nodes
+receive no GitHub account token and do not query Actions to authorize deployment.
+
+The interval is explicit in [`modules/updates.nix`](../modules/updates.nix):
+`poller.period = 30` (seconds). Change it through Git, like other host settings.
+
+**Merging is deployment authorization.** Use repository reviews and checks before
+merging. The host applies the resulting commit automatically after enrollment.
+The checked-in host recipes enable Comin; this branch has not been deployed to
+the real Macs. Disposable enrollment and Comin handover passed; the separate
+native scheduled-update test is still pending. See [VM evidence](vm-validation.md).
+
+## During setup
+
+1. The CLI creates a protected hold before first activation.
+2. Launchd loads Comin through a small Rust startup check. It cannot start while
+   that hold exists or before a verified enrollment completion receipt exists.
+3. The wizard verifies the approved configuration, Tailscale, services and reboot.
+4. It records completion, releases the hold, and waits for Comin to fetch and
+   activate `main`. Only a matching successful reconciliation produces Ready.
+
+If the connection drops, resume the saved host. The approved revision is saved
+locally before installation; changes on `main` do not replace an in-progress
+claimed installation. Once enrollment is released, a failed reconciliation check
+means updates are running but unconfirmed—it does not pause Comin again.
+
+## Restarts and recovery
+
+Launchd starts the updater at boot, retries failures, and checks every minute for
+a stopped process. That also covers Comin's successful exit when its configuration
+changes. Comin owns Git polling, builds and deployments; the Rust wrapper only
+protects first enrollment. It is not a general pause switch for a running updater.
+
+Comin logs to `/var/log/comin.log`. Its status API is restricted to root through
+`/var/lib/homelab/comin.sock`, inside the bootstrap-owned root `0700` directory;
+metrics bind to localhost. The startup gate checks that directory before starting
+Comin. The native macOS `/run` directory is group-writable and is not used for RPC.
+The wizard reads bounded status JSON without printing raw commit messages or errors.
+
+Application backup and restore remain separate workflows. Comin does not provide
+the former custom updater's backup-before-activation or application rollback
+transaction. Current host manifests enable no application services; migration and
+restore rehearsals must establish their operational workflow before cutover.
+
+## Pinned upstream
+
+The configuration selects Comin `0.14.0` at
+[`004a55c`](https://github.com/nlewo/comin/tree/004a55ced41d72340373ebc6774e29a417512638).
+The [Darwin profile patch](../packages/comin-darwin-profile.patch) makes updates
+advance the standard macOS system profile before activation. Without it, the boot
+daemon can restore old settings even after Comin reports a successful deployment.
+Retention uses the same profile, preserves active/history generations and delegates
+deletion to Nix's locked profile operation. Unrelated profiles are excluded.
+Completion checks the boot profile and live `/etc/static` against the current system.
+The startup check avoids relying on its suspend/resume behavior across restart.
+The former Python updater is removed. Comin cannot be enabled alongside stateful
+container or Home Assistant workloads until their backup/deployment workflow is
+reviewed; the Nix assertion prevents silently losing those protections.

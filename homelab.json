@@ -1,0 +1,44 @@
+{
+  "$schema": "urn:homelab:configuration:v3",
+  "schema": 3,
+  "onePassword": {
+    "backupVault": "homelab"
+  },
+  "hosts": {
+    "homelab-mac-mini": {
+      "adminUser": "admin",
+      "adminUID": 501,
+      "authorizedKeys": [
+        "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHZ7LV/EOeunWFi71s4dNzLnwsusY9RlMj37TaPecurE"
+      ],
+      "services": [
+        "control-center",
+        "bambuddy",
+        "hindsight",
+        "cloudflared",
+        "penpot",
+        "beszel",
+        "home-assistant"
+      ]
+    },
+    "homelab-macbook": {
+      "adminUser": "admin",
+      "adminUID": 501,
+      "authorizedKeys": [
+        "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHZ7LV/EOeunWFi71s4dNzLnwsusY9RlMj37TaPecurE"
+      ],
+      "services": []
+    }
+  },
+  "tailscale": {
+    "tag": "tag:homelab",
+    "oauth": {
+      "vault": "homelab",
+      "item": "Homelab Tailscale OAuth"
+    }
+  },
+  "deployment": {
+    "repository": "0x63616c/world-wide-webb",
+    "branch": "deploy/homelab"
+  }
+}

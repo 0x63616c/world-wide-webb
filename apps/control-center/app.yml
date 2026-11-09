@@ -1,0 +1,8 @@
+name: Control Center
+delivery_handler: control_center
+platform: ios
+testflight: true
+ci_workflow: ci.yml
+release_workflow: apple-panel-testflight.yml
+uses: []
+paths: []

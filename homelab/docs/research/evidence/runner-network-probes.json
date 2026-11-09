@@ -1,0 +1,18 @@
+{
+  "observed_at": "2026-11-08T03:47:00Z",
+  "environment": "Disposable stock Xcode VM under the system launchd _runner service with Softnet isolation",
+  "guest": "homelab-image-audit-59cd13735a964a139ba0f3550ecb5d23",
+  "public_dns": ["1.1.1.1", "9.9.9.9"],
+  "checks": [
+    {"name": "guest public HTTPS", "endpoint": "https://api.github.com", "http_status": 200},
+    {"name": "LAN router TCP", "endpoint": "192.168.0.1:443", "host_control_exit": 0, "guest_probe_exit": 1},
+    {"name": "physical host TCP", "endpoint": "192.168.0.44:22", "host_control_exit": 0, "guest_probe_exit": 1},
+    {"name": "tailnet DNS TCP", "endpoint": "100.100.100.100:53", "host_control_exit": 0, "guest_probe_exit": 1},
+    {"name": "inbound guest SSH", "endpoint": "192.168.39.218:22", "guest_loopback_control_exit": 0, "host_probe_exit": 1}
+  ],
+  "limits": [
+    "TCP probes establish the tested endpoints only; they are not exhaustive network policy verification.",
+    "Peer VM and IPv6 isolation are not established by these probes.",
+    "The earlier physical-host address 192.168.0.238 was stale and was excluded; the current address had a successful positive control."
+  ]
+}
