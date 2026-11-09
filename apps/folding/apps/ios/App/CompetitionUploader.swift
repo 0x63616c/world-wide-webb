@@ -2,17 +2,28 @@ import FoldingData
 import FoldingDomain
 import Foundation
 
+enum CompetitionUploadAttempt: String, Sendable {
+  case never, preparing, running, busy, idle, accepted, deferred, cancelled
+  case notJoined = "not_joined"
+  case unconfigured
+  case queueError = "queue_error"
+  case runtimeError = "runtime_error"
+}
+
 actor CompetitionUploader {
   private var running = false
 
-  func upload(from store: TrackingStore, transport: CompetitionTransport) async {
-    guard !running else { return }
+  func upload(from store: TrackingStore, transport: CompetitionTransport) async
+    -> CompetitionUploadAttempt
+  {
+    guard !running else { return .busy }
     running = true
     defer { running = false }
     do {
       guard let work = try await store.leaseCompetitionUpload(nowMS: TrackingRuntime.nowMS) else {
-        return
+        return .idle
       }
+      await FoldingDiagnostics.record(store, .uploadStarted, count: work.eventIDs.count)
       do {
         if work.isReset {
           struct Response: Decodable, Sendable {
@@ -61,12 +72,22 @@ actor CompetitionUploader {
           try await store.acknowledgeCompetitionUpload(
             work, dispositions: response.events.map(\.disposition))
         }
+        await FoldingDiagnostics.record(store, .uploadAccepted, count: work.eventIDs.count)
+        return .accepted
       } catch is CancellationError {
         // Account leases and transport revisions fence abandoned account work.
+        await FoldingDiagnostics.record(store, .uploadCancelled)
+        return .cancelled
       } catch {
+        await FoldingDiagnostics.record(
+          store, .uploadDeferred, error: error, count: work.eventIDs.count)
         await handle(error, work: work, store: store, transport: transport)
+        return .deferred
       }
-    } catch {}
+    } catch {
+      await FoldingDiagnostics.record(store, .uploadQueueFailed, error: error)
+      return .queueError
+    }
   }
   private func handle(
     _ error: Error, work: CompetitionUpload, store: TrackingStore, transport: CompetitionTransport

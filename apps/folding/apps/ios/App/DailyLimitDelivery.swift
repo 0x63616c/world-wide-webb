@@ -27,7 +27,16 @@ actor DailyLimitDelivery {
 
   func deliver(from store: TrackingStore) async {
     do {
+      // A quiet tracking run must not wait for an OS service when there is no alert work.
+      guard try await store.dailyLimitNotificationIdentifier() != nil else { return }
+      await FoldingDiagnostics.record(store, .notificationCheck)
       let status = await center.notificationSettings().authorizationStatus
+      if FoldingDiagnostics.enabled {
+        try? await store.appendDiagnostic(
+          TrackingDiagnosticEntry(
+            atMS: TrackingRuntime.nowMS, event: .notificationAuthorization, detail: status.rawValue)
+        )
+      }
       guard status == .authorized || status == .provisional || status == .ephemeral,
         let lease = try await store.leaseDailyLimitNotification(nowMS: TrackingRuntime.nowMS)
       else { return }
@@ -53,8 +62,10 @@ actor DailyLimitDelivery {
             throw error
           }
         }
+        await FoldingDiagnostics.record(store, .notificationScheduled)
         try await store.acknowledgeDailyLimitNotification(lease)
       } catch {
+        await FoldingDiagnostics.record(store, .notificationFailed, error: error)
         try? await store.retryDailyLimitNotification(lease, atMS: TrackingRuntime.nowMS + 30_000)
       }
     } catch {

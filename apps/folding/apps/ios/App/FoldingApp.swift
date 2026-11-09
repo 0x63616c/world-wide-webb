@@ -44,11 +44,15 @@ import SwiftUI
     }
     .task { await updatePolicy.refresh() }
     .onChange(of: scenePhase) { _, phase in
-      if phase == .active { Task { await updatePolicy.refresh() } }
+      Task {
+        await controller.recordLifecycle(phase)
+        if phase == .active { await updatePolicy.refresh() }
+      }
     }
     .onOpenURL { controller.presentation.openWidgetURL($0) }
     .task { controller.attachPushDelegate(pushDelegate) }
     .task { TipStore.shared.start() }
+    .task { await controller.recordLifecycle(scenePhase) }
     .task { await controller.restoreCompetition() }
     .task(id: scenePhase) {
       guard scenePhase == .active else { return }

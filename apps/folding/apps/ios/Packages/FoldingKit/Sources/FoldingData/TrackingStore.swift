@@ -1427,6 +1427,126 @@ public actor TrackingStore {
     }
   }
 
+  /// Bounded diagnostic metadata; never exposes event bodies, identifiers or credentials.
+  public func competitionUploadQueueState(nowMS: Int64) throws -> CompetitionUploadQueueState {
+    try validateTime(nowMS)
+    return try journalTransaction(write: false) {
+      guard let epoch = try competitionEpoch() else { return .notJoined }
+      if try !database.rows("SELECT value FROM settings WHERE key='competition_upload_suspended'")
+        .isEmpty
+      {
+        return .paused
+      }
+      if let raw = try database.rows("SELECT value FROM settings WHERE key='competition_upload'")
+        .first?["value"]
+      {
+        guard let work = try? decode(raw) as CompetitionUpload else { return .unreadable }
+        let current = try generation()
+        if work.epochID == epoch && work.generation == current {
+          if work.leaseUntilMS > nowMS { return .leased }
+          if work.nextAttemptMS > nowMS { return .retryWait }
+          return .ready
+        }
+      }
+      let pending = try database.rows(
+        "SELECT 1 FROM work_outbox WHERE kind IN ('competition_event','competition_history','competition_reset') AND state='pending' LIMIT 1"
+      )
+      if pending.isEmpty { return .empty }
+      let reset = try database.rows(
+        "SELECT 1 FROM work_outbox WHERE kind='competition_reset' AND state='pending' LIMIT 1")
+      if reset.isEmpty,
+        let raw = try database.rows(
+          "SELECT value FROM settings WHERE key='competition_upload_not_before'"
+        ).first?["value"],
+        let deadline = Int64(raw), deadline > nowMS
+      {
+        return .retryWait
+      }
+      return .ready
+    }
+  }
+
+  /// Keeps a bounded local history without invalidating personal-statistics caches.
+  public func appendDiagnostic(_ entry: TrackingDiagnosticEntry) throws {
+    try validateTime(entry.atMS)
+    try journalTransaction {
+      let raw = try database.rows("SELECT value FROM settings WHERE key='tracking_diagnostics_v1'")
+        .first?["value"]
+      var entries = raw.flatMap { try? decode($0) as [TrackingDiagnosticEntry] } ?? []
+      entries.append(entry)
+      entries = Array(entries.suffix(128))
+      try database.execute(
+        "INSERT INTO settings(key,value) VALUES('tracking_diagnostics_v1',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+        [.text(try encode(entries))])
+    }
+  }
+
+  public func clearDiagnostics() throws {
+    try journalTransaction {
+      try database.execute("DELETE FROM settings WHERE key='tracking_diagnostics_v1'")
+    }
+  }
+
+  public func diagnosticReport(nowMS: Int64) throws -> String {
+    let queue = try competitionUploadQueueState(nowMS: nowMS)
+    return try journalTransaction(write: false) {
+      var lines = ["queue=\(queue.rawValue)", "generation_revision=\(try generation().revision)"]
+      for (name, sql) in [
+        ("schema_version", "PRAGMA user_version"),
+        ("sqlite_version", "SELECT sqlite_version() AS value"),
+        (
+          "pending_uploads",
+          "SELECT COUNT(*) AS value FROM work_outbox WHERE kind IN ('competition_event','competition_history','competition_reset') AND state='pending'"
+        ),
+        (
+          "pending_captures",
+          "SELECT COUNT(*) AS value FROM captured_observations WHERE state='pending'"
+        ),
+        (
+          "quarantined_captures",
+          "SELECT COUNT(*) AS value FROM captured_observations WHERE state='quarantined'"
+        ),
+        (
+          "pending_mirror",
+          "SELECT COUNT(*) AS value FROM work_outbox WHERE kind LIKE 'mirror_%' AND state IN ('pending','leased')"
+        ),
+      ] {
+        let row = try database.rows(sql).first
+        lines.append("\(name)=\(row?["value"] ?? row?["user_version"] ?? "unknown")")
+      }
+      if let raw = try database.rows(
+        "SELECT value FROM settings WHERE key='competition_upload_not_before'"
+      ).first?["value"],
+        let deadline = Int64(raw)
+      {
+        lines.append("next_batch_seconds=\(deadline > nowMS ? (deadline - nowMS) / 1000 : 0)")
+      }
+      if let raw = try database.rows(
+        "SELECT value FROM settings WHERE key='competition_upload_suspended'"
+      ).first?["value"] {
+        lines.append(
+          "pause_reason=\(TrackingDiagnosticEntry.Reason(rawValue: raw)?.rawValue ?? "service")")
+      }
+      if let raw = try database.rows("SELECT value FROM settings WHERE key='competition_upload'")
+        .first?["value"],
+        let work = try? decode(raw) as CompetitionUpload
+      {
+        lines.append(
+          "leased_seconds=\(work.leaseUntilMS > nowMS ? (work.leaseUntilMS - nowMS) / 1000 : 0)")
+        lines.append(
+          "retry_seconds=\(work.nextAttemptMS > nowMS ? (work.nextAttemptMS - nowMS) / 1000 : 0)")
+        lines.append("batch_events=\(work.eventIDs.count)")
+        lines.append("attempts=\(work.attempts ?? 0)")
+      }
+      let raw = try database.rows("SELECT value FROM settings WHERE key='tracking_diagnostics_v1'")
+        .first?["value"]
+      let entries = raw.flatMap { try? decode($0) as [TrackingDiagnosticEntry] } ?? []
+      lines.append("\nRecent activity (\(entries.count))")
+      lines.append(contentsOf: entries.map(\.line))
+      return lines.joined(separator: "\n")
+    }
+  }
+
   public func leaseCompetitionUpload(nowMS: Int64) throws -> CompetitionUpload? {
     try validateTime(nowMS)
     return try journalTransaction {
@@ -1975,6 +2095,7 @@ public actor TrackingStore {
       "INSERT INTO reset_markers VALUES (?,?,?)",
       [.text(marker.resetID.canonical), .integer(marker.revision), .integer(nowMS)])
     guard marker > old else { return }
+    try database.execute("DELETE FROM settings WHERE key='tracking_diagnostics_v1'")
     exportPurgePending = true
     try database.execute("DELETE FROM settings WHERE key='competition_upload'")
     try cancelDailyLimitWorkInTransaction()

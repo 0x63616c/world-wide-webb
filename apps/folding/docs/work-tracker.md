@@ -364,7 +364,54 @@ enrollment, and drains 34 pending live folds plus 32 newly discovered historical
 the 21 previously accepted folds, without reset or
 rewriting records. It failed before the fix and passes afterward; 19 focused
 history/tracking checks and all 114 core tests pass. This proves recovery of the persisted-pause case,
-not the original error on the owner's phone. Device reconciliation and internal
-TestFlight distribution remain unverified until the updated app is installed.
+not the original error on the owner's phone. Device reconciliation remains unverified until the updated app is installed.
 
 The leaderboard omits the pending-upload count at the owner’s request.
+
+
+### Upload recovery delivered internally — November 9
+
+[PR #979](https://github.com/0x63616c/world-wide-webb/pull/979) merged after all
+required and selected checks passed at `dce556abaf0a9a477deaedec4f7af64cbc3c9641`.
+[Main Folding CI](https://github.com/0x63616c/world-wide-webb/actions/runs/42686705141)
+passed contracts, localization, backend, storage and native app validation.
+[Automatic delivery](https://github.com/0x63616c/world-wide-webb/actions/runs/42689828634)
+then archived, uploaded and distributed **1.0.0 (16)**. The immutable release
+manifest records Apple build `7a3af840-bd22-4e15-b62b-1945c8e66c0d`, processing
+state `VALID`, and verified Folding Internal assignment at `2026-11-09T20:17:14Z`.
+The release remains an authenticated draft. It includes upload recovery and removal
+of the leaderboard pending count in every locale. Production health remains `ok`
+at the existing compatible backend revision `8ed02ee`; this app-only delivery
+reused its verified backend receipt and did not deploy another Worker.
+
+The owner confirmed build 16 still shows 97 personal folds versus 21 on the
+leaderboard. Read-only production observations showed successful leaderboard reads
+but no event, history or attestation requests after reopening. The initial recovery
+change did not resolve the handset failure; its stopping point remains unverified.
+
+### Foreground upload and TestFlight diagnostics — November 9
+
+The follow-up runs the existing uploader before a first-page leaderboard refresh,
+then invalidates cached community reads. The actual controller/runtime/transport
+regression fixture first failed with only GET requests and 21 folds; with the
+change it preserves a pending operation, uploads 34 live observations, then imports
+32 original history observations across refreshes (55 then 87). This fixture proves
+the foreground path, not the owner's private device reconciliation.
+
+TestFlight/debug Settings adds a bounded, persistent local diagnostics report with
+Copy, Share, Clear logs and an explicit connection check. It records closed metadata
+for capture processing, upload queue/leases/retries, session and attestation state,
+HTTP outcomes and correlation IDs, iCloud, widgets, notifications, lifecycle,
+build/OS/layout and cached personal/leaderboard totals. Reports omit credentials,
+raw errors, names, photo data and captured event bodies. Genuine history reset
+clears the logs; repeated reset markers preserve them. Diagnostics reads do not
+wait for background upload or replay.
+
+The shared metric value uses larger Dynamic Type-aware text, and empty leaderboards
+retain all three podium placeholders. Publication and Apple delivery of this
+follow-up are pending. Local validation passed 116 package tests, 75 app-hosted
+tests on the pinned Duo runtime, 48 backend Rust tests and 30 actual Worker/D1
+runtime tests, strict Swift formatting and localization (236 keys across ten
+locales plus ten regression checks). Direct production-view renders verified the
+large value and empty podium; the owned simulator was shut down and deleted.
+Existing App Store and physical-device acceptance deferrals remain open.

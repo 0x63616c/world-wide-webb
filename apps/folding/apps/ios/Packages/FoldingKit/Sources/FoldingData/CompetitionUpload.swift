@@ -15,3 +15,9 @@ public struct CompetitionUpload: Codable, Sendable {
   public var attempts: Int? = nil
   public var isHistory: Bool? = nil
 }
+
+public enum CompetitionUploadQueueState: String, Sendable {
+  case notJoined = "not_joined"
+  case paused, leased, ready, empty, unreadable
+  case retryWait = "retry_wait"
+}

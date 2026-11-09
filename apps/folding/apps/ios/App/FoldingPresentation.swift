@@ -340,6 +340,9 @@ enum ExportChoice { case json, csv }
   /// Verified per-OS/localized instructions, supplied by composition rather than invented by views.
   var openingInstructions: String?
   var closingInstructions: String?
+  var loadDiagnostics: (() async throws -> String)?
+  var clearDiagnostics: (() async throws -> Void)?
+  var checkDiagnostics: (() async throws -> Void)?
 }
 
 @MainActor @Observable final class FoldingPresentation {

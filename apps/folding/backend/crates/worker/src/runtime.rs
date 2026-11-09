@@ -39,6 +39,46 @@ async fn fetch(request: Request, env: Env, context: Context) -> Result<Response>
         .ok()
         .flatten()
         .and_then(|value| crate::client_policy::parse_build(&value));
+    // Only closed diagnostic states are logged, never arbitrary header values or event data.
+    let upload_worker = request
+        .headers()
+        .get("X-Folding-Upload-Worker")
+        .ok()
+        .flatten()
+        .filter(|value| {
+            matches!(
+                value.as_str(),
+                "never"
+                    | "preparing"
+                    | "running"
+                    | "busy"
+                    | "idle"
+                    | "accepted"
+                    | "deferred"
+                    | "cancelled"
+                    | "not_joined"
+                    | "unconfigured"
+                    | "queue_error"
+                    | "runtime_error"
+            )
+        });
+    let upload_queue = request
+        .headers()
+        .get("X-Folding-Upload-Queue")
+        .ok()
+        .flatten()
+        .filter(|value| {
+            matches!(
+                value.as_str(),
+                "not_joined"
+                    | "paused"
+                    | "leased"
+                    | "ready"
+                    | "empty"
+                    | "unreadable"
+                    | "retry_wait"
+            )
+        });
     let started = js_sys::Date::now();
     let version = env
         .var("WORKER_VERSION")
@@ -58,7 +98,7 @@ async fn fetch(request: Request, env: Env, context: Context) -> Result<Response>
     };
     let status = result.as_ref().map(|r| r.status_code()).unwrap_or(500);
     // Object-valued console entries are indexed as fields by Workers Logs.
-    let event = serde_json::json!({"event":"request","request_id":id,"worker_version":version,"client_build":client_build,"route":route,"outcome":format!("http_{status}"),"status":status,"duration_ms":(js_sys::Date::now()-started).max(0.0) as u64});
+    let event = serde_json::json!({"event":"request","request_id":id,"worker_version":version,"client_build":client_build,"upload_worker":upload_worker,"upload_queue":upload_queue,"route":route,"outcome":format!("http_{status}"),"status":status,"duration_ms":(js_sys::Date::now()-started).max(0.0) as u64});
     if let Ok(event) = js_sys::JSON::parse(&event.to_string()) {
         web_sys::console::log_1(&event);
     }

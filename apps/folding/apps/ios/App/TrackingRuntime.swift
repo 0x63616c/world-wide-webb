@@ -8,6 +8,8 @@ import WidgetKit
 actor TrackingRuntime {
   static let shared = TrackingRuntime()
   private let competitionUploader = CompetitionUploader()
+  private var uploadAttempt = CompetitionUploadAttempt.never
+  private var observedLifecycle: TrackingDiagnosticEntry.Event?
   private var cloudConnection: CloudTrackingConnection?
   private var accountRevision = UUID()
   private var accountSuspended = false
@@ -125,7 +127,9 @@ actor TrackingRuntime {
     let revision = accountRevision
     do {
       _ = try await store()
+      await FoldingDiagnostics.record(journal, .syncStarted)
       try await cloudConnection?.synchronize()
+      await FoldingDiagnostics.record(journal, .syncCompleted)
       guard revision == accountRevision else { return }
       privateSyncFailed = false
       await uploadCompetition()
@@ -134,7 +138,10 @@ actor TrackingRuntime {
       await publishWidgets()
       changed()
     } catch {
-      if revision == accountRevision { privateSyncFailed = true }
+      if revision == accountRevision {
+        privateSyncFailed = true
+        await FoldingDiagnostics.record(journal, .syncFailed, error: error)
+      }
       // A cloud outage never changes a committed local observation into a failure.
     }
   }
@@ -185,6 +192,7 @@ actor TrackingRuntime {
         // exits before processing starts or before acknowledgement completes.
         Task {
           guard revision == self.accountRevision, !self.accountSuspended else { return }
+          await FoldingDiagnostics.record(current, .captureSaved, count: 1)
           await DailyLimitDelivery.shared.cancel(captured.cancelledNotificationIdentifier)
           guard revision == self.accountRevision, !self.accountSuspended else { return }
           await self.replayCapturedObservations(in: current)
@@ -253,6 +261,8 @@ actor TrackingRuntime {
   private func processCapturedObservations(in current: TrackingStore) async {
     let revision = accountRevision
     var committed = false
+    var processed = 0
+    let started = ProcessInfo.processInfo.systemUptime
     for _ in 0..<25 {
       guard !Task.isCancelled, revision == accountRevision, !accountSuspended else { break }
       let lease: CaptureLease
@@ -261,7 +271,11 @@ actor TrackingRuntime {
           break
         }
         lease = next
-      } catch { break }
+        if processed == 0 { await FoldingDiagnostics.record(current, .processingStarted) }
+      } catch {
+        await FoldingDiagnostics.record(current, .processingFailed, error: error)
+        break
+      }
       guard !Task.isCancelled, revision == accountRevision, !accountSuspended else { break }
       do {
         let receipt = try await current.commitCapturedObservation(lease, nowMS: Self.nowMS)
@@ -273,6 +287,7 @@ actor TrackingRuntime {
         guard !Task.isCancelled, revision == accountRevision, !accountSuspended else { break }
         try await current.acknowledgeCapturedObservation(lease)
         committed = true
+        processed += 1
       } catch CaptureError.invalidLease { break } catch {
         let permanent =
           error as? StoreError == .identityConflict || error as? StoreError == .invalidInput
@@ -281,6 +296,9 @@ actor TrackingRuntime {
       }
     }
     if committed, revision == accountRevision, !accountSuspended {
+      await FoldingDiagnostics.record(
+        current, .processingCompleted, count: processed,
+        durationMS: Int((ProcessInfo.processInfo.systemUptime - started) * 1000))
       await DailyLimitDelivery.shared.deliver(from: current)
       await scheduleCompetitionUpload(from: current)
       // Upload and iCloud outboxes were committed with each event. Existing workers
@@ -345,24 +363,89 @@ actor TrackingRuntime {
     }
   }
 
-  func uploadCompetition() async {
+  @discardableResult
+  func uploadCompetition(using suppliedTransport: CompetitionTransport? = nil) async
+    -> CompetitionUploadAttempt
+  {
+    uploadAttempt = .preparing
     if let uploadOverride {
       await uploadOverride()
-      return
+      uploadAttempt = .idle
+      return uploadAttempt
     }
     do {
       let current = try await store()
-      guard try await current.currentCompetitionEpoch() != nil,
-        let text = Bundle.main.object(forInfoDictionaryKey: "FoldingAPIOrigin") as? String,
-        let origin = URL(string: text),
-        let deployment = Bundle.main.object(forInfoDictionaryKey: "FoldingEnvironment") as? String
-      else { return }
-      let transport = try await CompetitionTransportPool.shared.client(
-        origin: origin, deployment: deployment,
-        deviceID: current.deviceID,
-        bundleID: Bundle.main.bundleIdentifier ?? "app.getfolding.Folding")
-      await competitionUploader.upload(from: current, transport: transport)
-    } catch {}
+      guard try await current.currentCompetitionEpoch() != nil else {
+        uploadAttempt = .notJoined
+        return uploadAttempt
+      }
+      let transport: CompetitionTransport
+      if let suppliedTransport {
+        transport = suppliedTransport
+      } else {
+        guard let text = Bundle.main.object(forInfoDictionaryKey: "FoldingAPIOrigin") as? String,
+          let origin = URL(string: text),
+          let deployment = Bundle.main.object(forInfoDictionaryKey: "FoldingEnvironment") as? String
+        else {
+          uploadAttempt = .unconfigured
+          return uploadAttempt
+        }
+        transport = try await CompetitionTransportPool.shared.client(
+          origin: origin, deployment: deployment,
+          deviceID: current.deviceID,
+          bundleID: Bundle.main.bundleIdentifier ?? "app.getfolding.Folding")
+      }
+      await FoldingDiagnostics.attach(to: transport, store: current)
+      uploadAttempt = .running
+      uploadAttempt = await competitionUploader.upload(from: current, transport: transport)
+    } catch {
+      uploadAttempt = .runtimeError
+      await FoldingDiagnostics.record(journal, .uploadRuntimeFailed, error: error)
+    }
+    return uploadAttempt
+  }
+
+  func uploadDiagnostics() async -> (worker: String, queue: String) {
+    let queue = (try? await journal?.competitionUploadQueueState(nowMS: Self.nowMS)) ?? .unreadable
+    return (uploadAttempt.rawValue, queue.rawValue)
+  }
+
+  func diagnosticReport() async -> String {
+    let availability = await cloudConnection?.availability ?? .localOnly
+    var lines = [
+      "Folding diagnostics",
+      "environment=\(Bundle.main.object(forInfoDictionaryKey: "FoldingEnvironment") as? String ?? "development")",
+      "lifecycle=\(observedLifecycle?.rawValue ?? "unknown")",
+      "cloud_availability=\(String(describing: availability))",
+      "version=\(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "unknown") (\(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "unknown"))",
+      "os=\(ProcessInfo.processInfo.operatingSystemVersionString)",
+      "locale=\(Locale.current.identifier)",
+      "home_timezone=\(localPreferences().homeTimezone)",
+      "worker=\(uploadAttempt.rawValue)",
+      "account_suspended=\(accountSuspended)",
+      "capture_processing=\(captureReplay != nil)",
+      "scheduled_upload=\(scheduledUpload != nil)",
+      "cloud_sync_running=\(synchronizing)",
+      "cloud_sync_failed=\(privateSyncFailed)",
+    ]
+    do {
+      // A support read must not wait for replay, network, widgets or notification delivery.
+      let current = try await localCaptureStore()
+      lines.append(try await current.diagnosticReport(nowMS: Self.nowMS))
+    } catch {
+      let failure = FoldingDiagnostics.errorInfo(error)
+      lines.append("journal_error=\(failure.0.rawValue) detail=\(failure.1 ?? 0)")
+    }
+    return lines.joined(separator: "\n")
+  }
+
+  func recordLifecycle(_ event: TrackingDiagnosticEntry.Event) async {
+    observedLifecycle = event
+    await FoldingDiagnostics.record(journal, event)
+  }
+
+  func clearDiagnostics() async throws {
+    try await localCaptureStore().clearDiagnostics()
   }
 
   private func localPreferences() -> FoldingPreferences {
@@ -427,8 +510,10 @@ actor TrackingRuntime {
           folds: today.folds, unfoldedMS: today.completeDurationMS + today.runningDurationMS,
           dailyLimit: preferences.dailyLimit, trend: snapshot.days.map(\.folds),
           accent: "monochrome", setupComplete: setup.step == .complete))
+      await FoldingDiagnostics.record(store, .widgetSnapshotWritten)
       WidgetCenter.shared.reloadAllTimelines()
     } catch {
+      await FoldingDiagnostics.record(suppliedStore ?? journal, .widgetFailed, error: error)
       // Widget maintenance must never make a committed observation report failure.
       clearWidgets()
     }
