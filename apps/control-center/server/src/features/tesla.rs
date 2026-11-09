@@ -329,20 +329,18 @@ fn snapshot(ids: &BTreeMap<String, &Entity>) -> Result<Snapshot> {
             data.extras.insert("driveState".into(), json!(v));
         }
     }
-    if let Some(e) = ids.get("chargeLimit") {
-        if attr(e, "unit_of_measurement") == Some("%") {
-            if let Ok(n) = number(e) {
-                if (0.0..=100.0).contains(&n) {
-                    data.extras.insert("chargeLimitPercent".into(), json!(n));
-                }
-            }
-        }
+    if let Some(e) = ids.get("chargeLimit")
+        && attr(e, "unit_of_measurement") == Some("%")
+        && let Ok(n) = number(e)
+        && (0.0..=100.0).contains(&n)
+    {
+        data.extras.insert("chargeLimitPercent".into(), json!(n));
     }
-    if let Some(e) = ids.get("chargeCompleteAt") {
-        if let Ok(t) = chrono::DateTime::parse_from_rfc3339(&e.state) {
-            data.extras
-                .insert("chargeCompleteAt".into(), json!(t.to_rfc3339()));
-        }
+    if let Some(e) = ids.get("chargeCompleteAt")
+        && let Ok(t) = chrono::DateTime::parse_from_rfc3339(&e.state)
+    {
+        data.extras
+            .insert("chargeCompleteAt".into(), json!(t.to_rfc3339()));
     }
     if let Some(e) = ids.get("softwareUpdate") {
         let progress = e.attributes.get("in_progress");

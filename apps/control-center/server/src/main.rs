@@ -109,18 +109,18 @@ async fn healthcheck() -> Result<(), Box<dyn std::error::Error>> {
         }
         let body: serde_json::Value =
             serde_json::from_slice(&response[split + 4..]).map_err(std::io::Error::other)?;
-        if let Ok(mode) = env::var("WORKER_CYCLES") {
-            if body["cycles"]["enabled"].as_bool() != Some(mode == "on") {
-                return Err(std::io::Error::other("unexpected worker ownership"));
-            }
+        if let Ok(mode) = env::var("WORKER_CYCLES")
+            && body["cycles"]["enabled"].as_bool() != Some(mode == "on")
+        {
+            return Err(std::io::Error::other("unexpected worker ownership"));
         }
         if body["database"] != "ok" {
             return Err(std::io::Error::other("database is not ready"));
         }
-        if let Ok(expected) = env::var("EXPECTED_REVISION") {
-            if body["build"].as_str() != Some(expected.as_str()) {
-                return Err(std::io::Error::other("unexpected server revision"));
-            }
+        if let Ok(expected) = env::var("EXPECTED_REVISION")
+            && body["build"].as_str() != Some(expected.as_str())
+        {
+            return Err(std::io::Error::other("unexpected server revision"));
         }
         Ok::<_, std::io::Error>(())
     })

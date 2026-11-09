@@ -115,12 +115,11 @@ fn room(e: &Entity, all: &[Entity], calibration: &BTreeMap<String, i64>) -> Valu
                 result[out] = json!(n);
             }
         }
-        if result.get("position").is_some() {
-            if let Some(t) = attr(playback, "media_position_updated_at")
+        if result.get("position").is_some()
+            && let Some(t) = attr(playback, "media_position_updated_at")
                 .and_then(|s| chrono::DateTime::parse_from_rfc3339(s).ok())
-            {
-                result["positionAt"] = json!(t.with_timezone(&chrono::Utc).to_rfc3339());
-            }
+        {
+            result["positionAt"] = json!(t.with_timezone(&chrono::Utc).to_rfc3339());
         }
     }
     result

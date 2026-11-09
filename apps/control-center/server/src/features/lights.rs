@@ -399,11 +399,11 @@ pub async fn command(State(s): State<AppState>, Json(c): Json<Command>) -> Resul
         super::climate::set_fan(&s, mode).await?;
         return get(State(s)).await;
     }
-    if let Command::Toggle { ref key, on } = c {
-        if key == "fan" {
-            super::climate::set_fan(&s, if on { "on" } else { "auto" }.into()).await?;
-            return get(State(s)).await;
-        }
+    if let Command::Toggle { ref key, on } = c
+        && key == "fan"
+    {
+        super::climate::set_fan(&s, if on { "on" } else { "auto" }.into()).await?;
+        return get(State(s)).await;
     }
     let _gate = s.light_gate.lock().await;
     let old = rows(&s).await?;
@@ -684,14 +684,14 @@ pub async fn party(s: &AppState, clock: &mut PartyClock) -> Result<()> {
                 .fetch_optional(&mut *tx)
                 .await?
                 .flatten();
-        if let Some(mut light) = parse(desired.as_deref())? {
-            if light.on {
-                light.color = Some(json!({"xy":xy(PARTY[(i+clock.tick)%PARTY.len()])}));
-                light.transition_seconds = Some(fade);
-                let stamp = now();
-                sqlx::query("UPDATE device_state SET desired_state=?,desired_at_utc=?,updated_at_utc=? WHERE entity_id=?")
+        if let Some(mut light) = parse(desired.as_deref())?
+            && light.on
+        {
+            light.color = Some(json!({"xy":xy(PARTY[(i+clock.tick)%PARTY.len()])}));
+            light.transition_seconds = Some(fade);
+            let stamp = now();
+            sqlx::query("UPDATE device_state SET desired_state=?,desired_at_utc=?,updated_at_utc=? WHERE entity_id=?")
     .bind(serde_json::to_string(&light).map_err(|_|unavailable())?).bind(&stamp).bind(&stamp).bind(e.entity).execute(&mut *tx).await?;
-            }
         }
     }
     tx.commit().await?;

@@ -162,10 +162,10 @@ pub async fn snapshot(s: &AppState, now: DateTime<Utc>) -> Result<Json<Value>> {
     for a in alarms {
         let def = definition(&a.definition)?;
         zones.insert(a.id.clone(), def.time_zone.clone());
-        if a.enabled {
-            if let Some(at) = &a.next_fire_at {
-                nexts.push(json!({"id":a.id,"label":def.label,"at":at,"timeZone":def.time_zone}));
-            }
+        if a.enabled
+            && let Some(at) = &a.next_fire_at
+        {
+            nexts.push(json!({"id":a.id,"label":def.label,"at":at,"timeZone":def.time_zone}));
         }
         let mut v = serde_json::to_value(def).map_err(|_| ApiError::bad("Invalid alarm"))?;
         v["id"] = json!(a.id);

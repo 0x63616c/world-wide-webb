@@ -293,23 +293,22 @@ pub async fn reconcile(s: &AppState, last_fan: &mut Option<String>) -> Result<()
                 }
                 if wanted.mode != "off" {
                     if wanted.mode == "heat_cool" {
-                        if let Some((low, high)) = wanted.target_low.zip(wanted.target_high) {
-                            if reported.target_low != Some(low)
-                                || reported.target_high != Some(high)
-                            {
-                                ha.call("climate","set_temperature",json!({"entity_id":entity.entity_id,"target_temp_low":low,"target_temp_high":high})).await.map_err(|_|unavailable())?;
-                            }
+                        if let Some((low, high)) = wanted.target_low.zip(wanted.target_high)
+                            && (reported.target_low != Some(low)
+                                || reported.target_high != Some(high))
+                        {
+                            ha.call("climate","set_temperature",json!({"entity_id":entity.entity_id,"target_temp_low":low,"target_temp_high":high})).await.map_err(|_|unavailable())?;
                         }
-                    } else if let Some(target) = wanted.target {
-                        if reported.target != Some(target) {
-                            ha.call(
-                                "climate",
-                                "set_temperature",
-                                json!({"entity_id":entity.entity_id,"temperature":target}),
-                            )
-                            .await
-                            .map_err(|_| unavailable())?;
-                        }
+                    } else if let Some(target) = wanted.target
+                        && reported.target != Some(target)
+                    {
+                        ha.call(
+                            "climate",
+                            "set_temperature",
+                            json!({"entity_id":entity.entity_id,"temperature":target}),
+                        )
+                        .await
+                        .map_err(|_| unavailable())?;
                     }
                 }
                 if fresh_fan {

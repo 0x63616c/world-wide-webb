@@ -1443,3 +1443,25 @@ and timeout remain unchanged. On the same native host, fixture setup fell from 5
 1,059 ms; all 30 runtime tests pass in 10.38 seconds. Astra independently approved this delta.
 Replacement source CI remains required; neither this local result nor runner adoption is a green
 PR claim. Signing/delivery/infrastructure acceptance and old-repository retirement remain open.
+
+### Fresh SQLite advisory corrected without disabling the gate
+
+Replacement CI job `129102252671` passed the Control Center server tests, then failed the
+actual dependency check on `RUSTSEC-2026-0459` / `CVE-2026-119375`. Bundled SQLite before
+3.54.0 can expose uninitialized page-cache memory for a crafted database/WAL pair. No live
+database or file ownership changed during this finding.
+
+SQLx 0.9.0's published SQLite constraint still excludes the patched library. The upstream
+[compatibility correction](https://github.com/launchbadge/sqlx/commit/10462fa4414c6c7f1ed1d39bb31678e3b726878c)
+permits SQLite sys 0.39; pin that exact official revision and package version rather than
+suppressing the advisory or introducing a local database fork. The lockfile selects
+`libsqlite3-sys 0.39.1` (SQLite 3.54.1). The source policy permits only that official Git
+repository; all other unknown Git sources remain denied. Return to a registry release when
+it includes the fix. Control Center's declared Rust minimum is 1.94 for SQLx 0.9; its existing
+actual CI/compiler pin remains 1.99. Raising the minimum enables Clippy's let-chain guidance,
+so mechanical equivalent condition collapses were applied without changing feature behavior.
+
+All 30 Rust tests pass with the locked graph. All-target Clippy/fmt pass, and the actual
+advisories, bans, license and source checks all pass. The real isolated Swift client/Rust
+server round trip also passes. These are local checks, not replacement private CI acceptance.
+The correction remains local until final independent review and the combined publication gate.
