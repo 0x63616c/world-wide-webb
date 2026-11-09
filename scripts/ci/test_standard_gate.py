@@ -16,7 +16,7 @@ class StandardGateTests(unittest.TestCase):
     def test_linux_storefront_recovery_installs_its_github_client_before_credentials(self):
         jobs = yaml.safe_load((ROOT / '.github/workflows/storefront-status.yml').read_text())['jobs']
         job = jobs['public-availability']
-        self.assertEqual(job['runs-on'], ['self-hosted', 'Linux', 'ARM64', 'homelab-linux'])
+        self.assertEqual(job['runs-on'], 'ubuntu-24.04-arm')
         steps = job['steps']
         installed = next(index for index, step in enumerate(steps) if step.get('uses') == './.github/actions/github-cli')
         for index, step in enumerate(steps):
