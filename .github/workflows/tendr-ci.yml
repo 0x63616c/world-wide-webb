@@ -115,7 +115,7 @@ jobs:
           go-version: '1.24'
       - name: Actionlint
         run: |
-          go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
+          go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
           "$(go env GOPATH)/bin/actionlint"
       - name: Shell scripts
         run: |
