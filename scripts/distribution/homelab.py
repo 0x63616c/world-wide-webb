@@ -6,7 +6,7 @@ import hashlib
 import json
 import os
 import re
-import subprocess
+import shutil
 import tarfile
 import tomllib
 from pathlib import Path
@@ -41,8 +41,6 @@ def checked_source():
         "head_sha": source, "status": "completed", "conclusion": "success"
     }.items()):
         raise ValueError("The exact portable CLI build was not verified")
-    if json.loads(prepare.run("gh", "repo", "view", publish.REPOSITORY, "--json", "visibility"))["visibility"] != "PRIVATE":
-        raise ValueError("CLI artifacts require the private destination")
     return source
 
 
@@ -71,16 +69,22 @@ def unpack(archive, checksums, target):
     prepare.fingerprint(target)
 
 
-def formula(version, revision):
-    if not re.fullmatch(r"\d+\.\d+\.\d+", version) or not re.fullmatch(r"[a-f0-9]{40}", revision):
-        raise ValueError("Expected a CLI version and immutable artifact revision")
-    return f'''class Homelab < Formula
+def formula(version, checksum):
+    if not re.fullmatch(r"\d+\.\d+\.\d+", version) or not re.fullmatch(r"[a-f0-9]{64}", checksum):
+        raise ValueError("Expected a CLI version and archive SHA-256")
+    return rf'''class Homelab < Formula
   desc "Guided Mac setup from your Git configuration"
   homepage "https://github.com/{publish.REPOSITORY}/tree/main/homelab/cli"
-  url "{publish.REMOTE}", using: :git,
-      tag: "dist/homelab/v{version}", revision: "{revision}"
+  url "https://github.com/{publish.REPOSITORY}/releases/download/homelab%2Fv{version}/homelab-{version}.tar.gz"
+  sha256 "{checksum}"
   version "{version}"
   license "MIT"
+
+  livecheck do
+    url "https://github.com/{publish.REPOSITORY}/releases"
+    regex(%r{{/releases/tag/homelab(?:%2F|/)v?(\d+(?:\.\d+)+)}}i)
+    strategy :page_match
+  end
 
   depends_on "age"
   depends_on arch: :arm64
@@ -114,33 +118,16 @@ def main():
     source = checked_source()
     if args.verify_download:
         record = json.loads((args.output / "release.json").read_text())
-        if record["source_sha"] != source or publish.remote_commit(publish.REMOTE, record["tag"]) != record["commit"]:
-            raise ValueError("The retained CLI artifact identity differs")
+        if record["source_sha"] != source:
+            raise ValueError("CLI release belongs to a different source")
+        downloaded = args.output / "downloaded.tar.gz"
+        prepare.run("curl", "--fail", "--silent", "--show-error", "--location", record["url"], "--output", str(downloaded))
+        if hashlib.sha256(downloaded.read_bytes()).hexdigest() != record["sha256"]:
+            raise ValueError("Public CLI archive differs from the tested build")
         stage = args.output / "stage"
-        receipt = stage / "artifact-receipt.json"
-        if receipt.is_symlink() or not receipt.is_file() or not {"bin", "share", "artifact-receipt.json"} <= {p.name for p in stage.iterdir()} <= {"bin", "share", "artifact-receipt.json", ".git"}:
-            raise ValueError("Unexpected Homebrew CLI staging entries")
-        if hashlib.sha256(receipt.read_bytes()).hexdigest() != record["receipt_sha256"]:
-            raise ValueError("Downloaded CLI receipt differs")
-        expected = json.loads(receipt.read_text())
-        actual = {}
-        for name in ("bin", "share"):
-            directory = stage / name
-            if directory.is_symlink() or not directory.is_dir():
-                raise ValueError("CLI payload directories must be regular directories")
-            actual.update({name + "/" + entry: value for entry, value in prepare.fingerprint(directory).items()})
-        if actual != expected["payload"]:
-            raise ValueError("Downloaded CLI bytes or modes differ")
-        environment = dict(os.environ)
-        for name in ("GH_TOKEN", "GITHUB_TOKEN", "HOMEBREW_GITHUB_API_TOKEN", "GIT_ASKPASS", "GIT_CONFIG_PARAMETERS"):
-            environment.pop(name, None)
-        environment.update(GIT_CONFIG_GLOBAL="/dev/null", GIT_CONFIG_NOSYSTEM="1", GIT_CONFIG_COUNT="0", GIT_TERMINAL_PROMPT="0")
-        anonymous = subprocess.run(["git", "-c", "credential.helper=", "-c", "http.extraHeader=", "ls-remote",
-                                    "--refs", publish.REMOTE, "refs/tags/" + record["tag"]],
-                                   env=environment, capture_output=True, text=True, check=False)
-        if anonymous.returncode == 0 or not any(message in anonymous.stderr.lower() for message in
-                ("repository not found", "authentication failed", "terminal prompts disabled")):
-            raise ValueError("Anonymous denial of the CLI artifact is not confirmed")
+        if stage.exists():
+            shutil.rmtree(stage)
+        unpack(downloaded, args.artifact / "SHA256SUMS", stage)
         if args.tap:
             path = args.tap / "Formula/homelab.rb"
             current = path.read_text()
@@ -150,11 +137,11 @@ def main():
             if len(set(versions)) != 1:
                 raise ValueError("Cannot establish the existing tap version")
             old, new = (tuple(map(int, version.split("."))) for version in (versions[0], record["version"]))
-            rendered = formula(record["version"], record["commit"])
-            if old > new or (old == new and current != rendered):
+            rendered = formula(record["version"], record["sha256"])
+            if old > new:
                 raise ValueError("Refuse an older or conflicting CLI installation recipe")
             path.write_text(rendered)
-        print("Verified exact authenticated CLI transport and anonymous denial.")
+        print("Verified public CLI archive checksum and payload.")
         return
     version = tomllib.loads((prepare.ROOT / "homelab/cli/Cargo.toml").read_text())["package"]["version"]
     payload = args.output / "payload"
@@ -163,14 +150,33 @@ def main():
         expected = "homelab-host" if binary == "homelab-host" else "homelab"
         if prepare.run(str(payload / "bin" / binary), "--version") != f"{expected} {version}":
             raise ValueError("The prebuilt CLI and helper versions do not agree")
-    timestamp = prepare.run("git", "show", "-s", "--format=%ct", source, cwd=prepare.ROOT)
-    prepared = prepare.assemble(payload, args.output / "prepared", source=source, timestamp=timestamp,
-                                product="homelab", version=version)
-    publish.publish(prepared)
-    record = dict(prepared, version=version)
+    tag = f"homelab/v{version}"
+    existing = publish.remote_commit(publish.REMOTE, tag)
+    if existing and existing != source:
+        raise ValueError("CLI version already belongs to another source; bump Cargo.toml before releasing")
+    archive = args.output / f"homelab-{version}.tar.gz"
+    shutil.copyfile(args.artifact / "homelab-prebuilt.tar.gz", archive)
+    checksum = hashlib.sha256(archive.read_bytes()).hexdigest()
+    info = prepare.run("gh", "api", "--paginate", "--slurp", f"repos/{publish.REPOSITORY}/releases?per_page=100")
+    matches = [release for page in json.loads(info) for release in page if release["tag_name"] == tag]
+    if not matches:
+        prepare.run("gh", "release", "create", tag, "--repo", publish.REPOSITORY, "--target", source,
+                    "--draft", "--title", f"Homelab CLI {version}", "--notes", "Install: `brew install 0x63616c/tap/homelab`.")
+        assets = []
+    else:
+        assets = matches[0]["assets"]
+    asset = next((asset for asset in assets if asset["name"] == archive.name), None)
+    if asset:
+        if asset.get("digest") != "sha256:" + checksum:
+            raise ValueError("Existing CLI release asset differs; never overwrite a released version")
+    else:
+        prepare.run("gh", "release", "upload", tag, str(archive), "--repo", publish.REPOSITORY)
+    prepare.run("gh", "release", "edit", tag, "--repo", publish.REPOSITORY, "--draft=false", "--latest=false")
+    record = {"source_sha": source, "version": version, "tag": tag, "sha256": checksum,
+              "url": f"https://github.com/{publish.REPOSITORY}/releases/download/homelab%2Fv{version}/{archive.name}"}
     (args.output / "release.json").write_text(json.dumps(record, indent=2) + "\n")
-    (args.output / "homelab.rb").write_text(formula(version, prepared["commit"]))
-    print(f"Published immutable CLI {version}; authenticated staging must pass before the tap changes.")
+    (args.output / "homelab.rb").write_text(formula(version, checksum))
+    print(f"Published CLI {version} from the exact tested build.")
 
 
 if __name__ == "__main__":

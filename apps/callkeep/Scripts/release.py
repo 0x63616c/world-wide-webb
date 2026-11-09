@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Callkeep's single CI writer: reserve, seal, reuse and privately promote an app."""
+"""Callkeep's single CI writer: reserve, seal, reuse and publish an app."""
 
 import argparse
 import hashlib
@@ -17,10 +17,9 @@ ROOT = Path(__file__).resolve().parents[3]
 PRODUCT = ROOT / "apps/callkeep"
 sys.path.insert(0, str(ROOT / "scripts/distribution"))
 import prepare  # noqa: E402
-import publish  # noqa: E402
 
 REPOSITORY = "0x63616c/world-wide-webb"
-MINIMUM_COUNTER = 25  # Recheck/seed from the drained legacy writer at activation.
+MINIMUM_COUNTER = 25  # Last legacy release: v1.0.25; WWW begins at 1.0.26.
 TAG = re.compile(r"callkeep/v1\.0\.([1-9]\d*)")
 
 
@@ -59,8 +58,6 @@ def trusted_source():
     source = prepare.run("git", "rev-parse", "HEAD", cwd=ROOT)
     if prepare.run("git", "status", "--porcelain", cwd=ROOT):
         raise RuntimeError("Commit the verified source before publishing Callkeep")
-    if json.loads(prepare.run("gh", "repo", "view", REPOSITORY, "--json", "visibility"))["visibility"] != "PRIVATE":
-        raise RuntimeError("Private history/artifacts require the private repository")
     url = os.environ["CALLKEEP_SOURCE_CI_RUN_URL"]
     match = re.fullmatch(r"https://github\.com/0x63616c/world-wide-webb/actions/runs/(\d+)/attempts/(\d+)", url)
     if not match:
@@ -126,7 +123,7 @@ class Release:
                 "--title",
                 self.tag,
                 "--notes",
-                "Immutable private Callkeep release records.",
+                "Callkeep release records and signed artifacts.",
             )
         except subprocess.CalledProcessError:
             if not self.info():
@@ -227,7 +224,7 @@ def reserve(source):
                 record = release.latest()
                 if (
                     record
-                    and record.get("artifact_commit") == delivered["artifact_commit"]
+                    and record.get("archive_sha256") == delivered["archive_sha256"]
                     and record.get("state") != "complete"
                 ):
                     release.save(dict(record, state="complete"))
@@ -376,26 +373,8 @@ def promote(release, record):
         payload.mkdir()
         safe_extract(output / record["candidates"]["archive"]["name"], payload)
     prepare.validate_payload(payload, "callkeep", source=record["source_sha"], version=record["version"])
-    prepared_dir = output / "prepared"
-    if (prepared_dir / "prepared.json").exists():
-        prepared = json.loads((prepared_dir / "prepared.json").read_text())
-    else:
-        prepared = prepare.assemble(
-            payload,
-            prepared_dir,
-            source=record["source_sha"],
-            timestamp=prepare.run("git", "show", "-s", "--format=%ct", record["source_sha"], cwd=ROOT),
-            product="callkeep",
-            version=record["version"],
-        )
-    if prepared["source_sha"] != record["source_sha"] or prepared["tag"] != "dist/callkeep/v" + record["version"]:
-        raise ValueError("Prepared artifact belongs to another source/product/version")
-    if record.get("artifact_commit") and record["artifact_commit"] != prepared["commit"]:
-        raise ValueError("Prepared immutable artifact differs from the recorded artifact")
-    commit = publish.publish(prepared)
     record = release.save(
-        dict(record, state="artifact_published", artifact_commit=commit, artifact_tag=prepared["tag"],
-             artifact_receipt_sha256=prepared["receipt_sha256"])
+        dict(record, state="artifact_published", archive_sha256=record["candidates"]["archive"]["sha256"])
     )
     from release_notes import release_notes
 
@@ -414,40 +393,12 @@ def promote(release, record):
             record["source_sha"],
             previous_tag=previous["tag"] if previous else baseline if baseline_exists else None,
         )
-        + "\nInstall: `brew install --cask 0x63616c/tap/callkeep` with authorized GitHub access.\n"
+        + "\nInstall: `brew install --cask 0x63616c/tap/callkeep`.\n"
     )
     prepare.run(
-        "gh", "release", "edit", record["tag"], "--repo", REPOSITORY, "--draft=false", "--notes-file", str(notes)
+        "gh", "release", "edit", record["tag"], "--repo", REPOSITORY, "--draft=false", "--latest=false", "--notes-file", str(notes)
     )
     return record
-
-
-def validate_download_stage(stage, record):
-    # Homebrew's Git strategy stages its checkout metadata and the root receipt too.
-    names = {path.name for path in stage.iterdir()}
-    if not {"Callkeep.app", "artifact-receipt.json"} <= names or not names <= {
-        "Callkeep.app", "artifact-receipt.json", ".git"
-    }:
-        raise ValueError("Unexpected Homebrew transport entries")
-    app = stage / "Callkeep.app"
-    receipt_path = stage / "artifact-receipt.json"
-    if app.is_symlink() or not app.is_dir() or receipt_path.is_symlink() or not receipt_path.is_file():
-        raise ValueError("Expected regular artifact receipt and application directory")
-    if sha(receipt_path) != record["artifact_receipt_sha256"]:
-        raise ValueError("Downloaded artifact receipt differs")
-    receipt = json.loads(receipt_path.read_text())
-    if (
-        receipt.get("version") != 1
-        or receipt.get("product") != "callkeep"
-        or receipt.get("product_version") != record["version"]
-        or receipt.get("source_repository") != REPOSITORY
-        or receipt.get("source_sha") != record["source_sha"]
-    ):
-        raise ValueError("Downloaded artifact identity differs")
-    actual = {"Callkeep.app/" + name: entry for name, entry in prepare.fingerprint(app).items()}
-    if actual != receipt.get("payload"):
-        raise ValueError("Downloaded application bytes or modes differ")
-    prepare.validate_callkeep_app(app, record["source_sha"], record["version"])
 
 
 def fence_promotion(record):
@@ -464,61 +415,30 @@ def fence_promotion(record):
             raise ValueError("Refuse older or unrelated Callkeep promotion")
         if int(record["version"].rsplit(".", 1)[1]) < int(previous["version"].rsplit(".", 1)[1]):
             raise ValueError("Refuse a lower Callkeep release counter")
-        if previous["artifact_commit"] == record["artifact_commit"]:
+        if previous["archive_sha256"] == record["archive_sha256"]:
             return
     pointer.ensure(record["source_sha"])
-    pointer.save({key: record[key] for key in ("source_sha", "version", "tag", "artifact_commit")}, "promotion")
+    pointer.save({key: record[key] for key in ("source_sha", "version", "tag", "archive_sha256")}, "promotion")
 
 
 def verify_download(release, record):
     if record["state"] != "artifact_published":
         raise ValueError("Publish the immutable artifact before its download canary")
-    with tempfile.TemporaryDirectory(prefix="callkeep-private-download-") as temporary:
+    archive = record["candidates"]["archive"]
+    url = f"https://github.com/{REPOSITORY}/releases/download/callkeep%2Fv{record['version']}/{archive['name']}"
+    with tempfile.TemporaryDirectory(prefix="callkeep-public-download-") as temporary:
         folder = Path(temporary)
-        state = folder / "release.json"
-        atomic_json(state, record)
-        prepare.run("brew", "ruby", str(PRODUCT / "Scripts/verify-homebrew-download.rb"), str(state), str(folder))
-        validate_download_stage(folder / "stage", record)
-        environment = dict(os.environ)
-        for name in ("GH_TOKEN", "GITHUB_TOKEN", "HOMEBREW_GITHUB_API_TOKEN", "GIT_ASKPASS", "GIT_CONFIG_PARAMETERS"):
-            environment.pop(name, None)
-        environment.update(
-            GIT_CONFIG_GLOBAL="/dev/null", GIT_CONFIG_NOSYSTEM="1", GIT_CONFIG_COUNT="0", GIT_TERMINAL_PROMPT="0"
-        )
-        anonymous = subprocess.run(
-            [
-                "git",
-                "-c",
-                "credential.helper=",
-                "-c",
-                "http.extraHeader=",
-                "ls-remote",
-                "--refs",
-                publish.REMOTE,
-                "refs/tags/" + record["artifact_tag"],
-            ],
-            env=environment,
-            cwd=folder,
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        denied = any(
-            message in anonymous.stderr.lower()
-            for message in ("repository not found", "authentication failed", "terminal prompts disabled")
-        )
-        if anonymous.returncode == 0 or not denied:
-            raise ValueError("Anonymous denial is not confirmed; do not change install authority")
-    return release.save(
-        dict(
-            record,
-            download_verified={
-                "source_sha": record["source_sha"],
-                "artifact_commit": record["artifact_commit"],
-                "anonymous_denied": True,
-            },
-        )
-    )
+        downloaded = folder / archive["name"]
+        prepare.run("curl", "--fail", "--silent", "--show-error", "--location", url, "--output", str(downloaded))
+        if sha(downloaded) != archive["sha256"]:
+            raise ValueError("Public archive checksum differs from the sealed build")
+        stage = folder / "stage"
+        stage.mkdir()
+        safe_extract(downloaded, stage)
+        prepare.validate_callkeep_app(stage / "Callkeep.app", record["source_sha"], record["version"])
+    return release.save(dict(record, download_verified={
+        "source_sha": record["source_sha"], "archive_sha256": record["archive_sha256"], "public_download": True,
+    }))
 
 
 def require_download_proof(record):
@@ -527,10 +447,10 @@ def require_download_proof(record):
     proof = record.get("download_verified", {})
     if (
         proof.get("source_sha") != record["source_sha"]
-        or proof.get("artifact_commit") != record["artifact_commit"]
-        or proof.get("anonymous_denied") is not True
+        or proof.get("archive_sha256") != record["archive_sha256"]
+        or proof.get("public_download") is not True
     ):
-        raise ValueError("The authenticated download and anonymous-denial canary must pass first")
+        raise ValueError("The public archive download must match the sealed build first")
 
 
 def complete(release, record, tap):
@@ -548,7 +468,7 @@ def complete(release, record, tap):
         "python3",
         str(PRODUCT / "Scripts/homebrew-cask.py"),
         record["version"],
-        record["artifact_commit"],
+        record["archive_sha256"],
         str(expected),
     )
     remote = prepare.run("git", "show", "origin/main:Casks/callkeep.rb", cwd=tap)
@@ -559,8 +479,7 @@ def complete(release, record, tap):
         "source_sha": record["source_sha"],
         "version": record["version"],
         "tag": record["tag"],
-        "artifact_commit": record["artifact_commit"],
-        "archive_sha256": record["candidates"]["archive"]["sha256"],
+        "archive_sha256": record["archive_sha256"],
         "tap_commit": prepare.run("git", "rev-parse", "origin/main", cwd=tap),
     }
     pointer = Release("callkeep-delivery")
@@ -569,7 +488,7 @@ def complete(release, record, tap):
     if (
         not previous
         or previous["source_sha"] != record["source_sha"]
-        or previous["artifact_commit"] != record["artifact_commit"]
+        or previous["archive_sha256"] != record["archive_sha256"]
     ):
         pointer.save(receipt, "delivery")
     return release.save(dict(record, state="complete"))
@@ -606,7 +525,7 @@ def main():
                 "python3",
                 str(PRODUCT / "Scripts/homebrew-cask.py"),
                 state["version"],
-                state["artifact_commit"],
+                state["archive_sha256"],
                 str(args.tap / "Casks/callkeep.rb"),
             )
         elif args.command == "complete":
@@ -616,7 +535,7 @@ def main():
     atomic_json(args.state, state)
     if os.environ.get("GITHUB_OUTPUT"):
         with open(os.environ["GITHUB_OUTPUT"], "a") as output:
-            for key in ("needed", "build", "version", "artifact_commit"):
+            for key in ("needed", "build", "version", "archive_sha256"):
                 if key in state:
                     output.write(f"{key}={str(state[key]).lower() if isinstance(state[key], bool) else state[key]}\n")
     print("Confirmed Callkeep release step: " + args.command)

@@ -4,7 +4,6 @@ import io
 import json
 import os
 import shutil
-import subprocess
 import sys
 import tarfile
 import tempfile
@@ -94,33 +93,35 @@ class CliDeliveryTests(unittest.TestCase):
             root = Path(temporary)
             archive, checksum = self.archive(root)
             delivery.unpack(archive, checksum, root / "payload")
-            record = delivery.prepare.assemble(root / "payload", root / "prepared", source="a" * 40,
-                                               timestamp="1794160000", product="homelab", version="0.4.2")
             output = root / "output"
-            shutil.copytree(record["repository"], output / "stage", symlinks=True)
-            record["version"] = "0.4.2"
+            output.mkdir()
+            record = {"source_sha": "a" * 40, "version": "0.4.2",
+                      "sha256": hashlib.sha256(archive.read_bytes()).hexdigest(),
+                      "url": "https://github.com/0x63616c/world-wide-webb/releases/download/homelab%2Fv0.4.2/homelab-0.4.2.tar.gz"}
             (output / "release.json").write_text(json.dumps(record))
             tap = root / "tap"
             (tap / "Formula").mkdir(parents=True)
             formula = tap / "Formula/homelab.rb"
-            original = 'url "https://github.com/0x63616c/homelab-cli/releases/download/v0.4.1/homelab.tar.gz"\n'
+            original = 'version "0.4.1"\n'
             formula.write_text(original)
-            anonymous = subprocess.CompletedProcess([], 128, "", "fatal: authentication failed")
+            def download(*args):
+                shutil.copyfile(archive, args[-1])
+                return ""
             with patch.object(sys, "argv", ["homelab.py", str(root), str(output), "--verify-download", "--tap", str(tap)]), \
                  patch.object(delivery, "checked_source", return_value="a" * 40), \
-                 patch.object(delivery.publish, "remote_commit", return_value=record["commit"]), \
-                 patch.object(delivery.subprocess, "run", return_value=anonymous):
+                 patch.object(delivery.prepare, "run", side_effect=download):
                 delivery.main()
-                self.assertEqual(formula.read_text(), delivery.formula("0.4.2", record["commit"]))
+                self.assertEqual(formula.read_text(), delivery.formula("0.4.2", record["sha256"]))
                 formula.write_text('version "0.5.0"\n')
                 with self.assertRaises(ValueError):
                     delivery.main()
                 self.assertEqual(formula.read_text(), 'version "0.5.0"\n')
                 formula.write_text(original)
-                (output / "stage/bin/homelab-host").write_bytes(b"changed")
+                archive.write_bytes(b"changed archive")
                 with self.assertRaises(ValueError):
                     delivery.main()
                 self.assertEqual(formula.read_text(), original)
+
 
 
 if __name__ == "__main__":

@@ -108,9 +108,9 @@ class ReleaseTests(unittest.TestCase):
     def test_late_older_source_does_not_roll_back_a_completed_release(self):
         state = release.reserve(self.second)
         store = release.Release(state["tag"])
-        store.save(dict(store.latest(), state="artifact_published", artifact_commit="a" * 40))
+        store.save(dict(store.latest(), state="artifact_published", archive_sha256="a" * 64))
         pointer = release.Release("callkeep-delivery")
-        pointer.save({"source_sha": self.second, "tag": state["tag"], "artifact_commit": "a" * 40}, "delivery")
+        pointer.save({"source_sha": self.second, "tag": state["tag"], "archive_sha256": "a" * 64}, "delivery")
         self.assertFalse(release.reserve(self.first)["needed"])
         self.assertFalse(release.reserve(self.second)["needed"])
         self.assertEqual(store.latest()["state"], "complete", "Reconcile a lost final-record response")
@@ -118,17 +118,17 @@ class ReleaseTests(unittest.TestCase):
 
     def test_tap_pushed_but_delivery_pointer_lost_cannot_allow_older_source(self):
         newer = release.reserve(self.second)
-        newer.update(state="artifact_published", artifact_commit="b" * 40)
+        newer.update(state="artifact_published", archive_sha256="b" * 64)
         newer["download_verified"] = {
-            "source_sha": self.second, "artifact_commit": "b" * 40, "anonymous_denied": True,
+            "source_sha": self.second, "archive_sha256": "b" * 64, "public_download": True,
         }
         release.fence_promotion(newer)
         # Tap push succeeds, but the job dies before complete writes its delivery pointer.
         self.assertIsNone(release.Release("callkeep-delivery").latest("delivery"))
         self.assertFalse(release.reserve(self.first)["needed"])
-        older = dict(newer, source_sha=self.first, version="1.0.25", artifact_commit="a" * 40)
+        older = dict(newer, source_sha=self.first, version="1.0.25", archive_sha256="a" * 64)
         older["download_verified"] = {
-            "source_sha": self.first, "artifact_commit": "a" * 40, "anonymous_denied": True,
+            "source_sha": self.first, "archive_sha256": "a" * 64, "public_download": True,
         }
         with self.assertRaisesRegex(ValueError, "older"):
             release.fence_promotion(older)
@@ -141,9 +141,9 @@ class ReleaseTests(unittest.TestCase):
         sealed = store.save(dict(store.latest(), archive_attempt_started=True, state="sealed", candidates=candidates))
         store.store["assets"].update({item["name"]: b"fixture" for item in candidates.values()})
         older = release.reserve(self.first)
-        older.update(state="artifact_published", artifact_commit="a" * 40)
+        older.update(state="artifact_published", archive_sha256="a" * 64)
         older["download_verified"] = {
-            "source_sha": self.first, "artifact_commit": "a" * 40, "anonymous_denied": True,
+            "source_sha": self.first, "archive_sha256": "a" * 64, "public_download": True,
         }
         release.fence_promotion(older)
         replacement = release.reserve(self.second)
@@ -153,74 +153,34 @@ class ReleaseTests(unittest.TestCase):
         self.assertTrue(replacement["build"])
         self.assertEqual(store.latest(), sealed, "Never relabel or discard the sealed lower-version bytes")
 
-    def test_homebrew_metadata_is_separate_from_strict_artifact_payload(self):
-        stage = self.root / "stage"
-        app = stage / "Callkeep.app"
-        app.mkdir(parents=True)
-        (app / "executable").write_bytes(b"app")
-        (app / "executable").chmod(0o755)
-        (stage / ".git").mkdir()
-        receipt = {
-            "version": 1, "product": "callkeep", "product_version": "1.0.26",
-            "source_repository": release.REPOSITORY, "source_sha": self.first,
-            "payload": {"Callkeep.app/" + name: entry for name, entry in release.prepare.fingerprint(app).items()},
-        }
-        path = stage / "artifact-receipt.json"
-        path.write_text(json.dumps(receipt))
-        record = {"source_sha": self.first, "version": "1.0.26", "artifact_receipt_sha256": release.sha(path)}
-        with patch.object(release.prepare, "validate_callkeep_app") as validate:
-            release.validate_download_stage(stage, record)
-            validate.assert_called_once_with(app, self.first, "1.0.26")
-            with self.assertRaisesRegex(ValueError, "prebuilt"):
-                release.prepare.validate_payload(stage, "callkeep", source=self.first, version="1.0.26")
-            (stage / "extra").write_text("unexpected")
-            with self.assertRaisesRegex(ValueError, "transport"):
-                release.validate_download_stage(stage, record)
-            (stage / "extra").unlink()
-            (app / "executable").chmod(0o644)
-            with self.assertRaisesRegex(ValueError, "modes"):
-                release.validate_download_stage(stage, record)
-            (app / "executable").chmod(0o755)
-            path.write_text(json.dumps(dict(receipt, source_sha=self.second)))
-            with self.assertRaisesRegex(ValueError, "receipt"):
-                release.validate_download_stage(stage, record)
-
     def test_manifest_compare_and_set_rejects_a_stale_writer_before_upload(self):
         store = REAL_RELEASE("callkeep/v1.0.26")
         with patch.object(store, "latest", return_value={"revision": 2}):
             with self.assertRaisesRegex(RuntimeError, "concurrently"):
                 store.save({"revision": 1, "source_sha": self.first})
 
-    def test_install_authority_requires_the_exact_authenticated_download_proof(self):
-        record = {"state": "artifact_published", "source_sha": self.first, "artifact_commit": "a" * 40}
-        with self.assertRaisesRegex(ValueError, "canary"):
+    def test_install_authority_requires_the_exact_public_download_proof(self):
+        record = {"state": "artifact_published", "source_sha": self.first, "archive_sha256": "a" * 64}
+        with self.assertRaisesRegex(ValueError, "sealed build"):
             release.require_download_proof(record)
-        record["download_verified"] = {"source_sha": self.first, "artifact_commit": "a" * 40, "anonymous_denied": True}
+        record["download_verified"] = {"source_sha": self.first, "archive_sha256": "a" * 64, "public_download": True}
         release.require_download_proof(record)
-        record["download_verified"]["artifact_commit"] = "b" * 40
-        with self.assertRaisesRegex(ValueError, "canary"):
+        record["download_verified"]["archive_sha256"] = "b" * 64
+        with self.assertRaisesRegex(ValueError, "sealed build"):
             release.require_download_proof(record)
 
-    def test_promotion_rejects_cross_product_prepared_state_before_any_publication(self):
-        record = release.reserve(self.first)
-        store = release.Release(record["tag"])
-        candidates = {
-            name: {"name": name + ".zip", "sha256": release.hashlib.sha256(b"fixture").hexdigest()}
-            for name in ("archive", "dsym", "notary")
-        }
-        record = store.save(dict(store.latest(), candidates=candidates))
-        store.store["assets"].update({item["name"]: b"fixture" for item in candidates.values()})
-        with patch.object(release, "PRODUCT", self.root / "product"):
-            output = release.directory(record)
-            (output / "promotion-payload").mkdir()
-            (output / "prepared").mkdir()
-            (output / "prepared/prepared.json").write_text(
-                json.dumps({"source_sha": self.first, "tag": "dist/homelab/v0.4.2", "commit": "a" * 40})
-            )
-            with patch.object(release.prepare, "validate_payload"), patch.object(release.publish, "publish") as publish:
-                with self.assertRaisesRegex(ValueError, "another source/product"):
-                    release.promote(store, record)
-                publish.assert_not_called()
+    def test_public_download_rejects_changed_archive_before_extraction(self):
+        record = {"state": "artifact_published", "version": "1.0.26", "source_sha": self.first,
+                  "archive_sha256": "a" * 64,
+                  "candidates": {"archive": {"name": "Callkeep-1.0.26.zip", "sha256": "a" * 64}}}
+        def download(*args):
+            self.assertEqual(args[0], "curl")
+            self.assertIn("callkeep%2Fv1.0.26", args[-3])
+            Path(args[-1]).write_bytes(b"changed bytes")
+        with patch.object(release.prepare, "run", side_effect=download), patch.object(release, "safe_extract") as extract:
+            with self.assertRaisesRegex(ValueError, "checksum"):
+                release.verify_download(release.Release("callkeep/v1.0.26"), record)
+            extract.assert_not_called()
 
     def test_archive_path_and_symlink_escape_are_rejected_before_extraction(self):
         import stat
