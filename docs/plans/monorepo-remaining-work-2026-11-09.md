@@ -6,29 +6,31 @@ and verification requirements in earlier migration documents.
 ## Already done
 
 - Source consolidation is merged into WWW. WWW is public.
-- GitHub-hosted runner changes are merged; homelab code remains here.
-- Both Macs follow WWW and run the latest host configuration at `0b046d9`.
-  Later `cf8734b` changes agent documentation only. The bedroom-switch worker is live.
+- Hosted runner changes are merged, with Xcode 27.2 jobs currently routed to homelab.
+  GitHub’s `xcode-27` image also includes Xcode 27.2 and Duo; homelab is not required for that toolchain.
+- Both Macs follow WWW; the handover was verified at `0b046d9`. Subsequent host changes
+  follow their normal updater. The bedroom-switch worker was verified live.
 - The old homelab repository is archived.
+- Folding **1.0.0 (15)** is VALID and available in Folding Internal; future main delivery
+  is enabled. App Store submission/device acceptance remain separate product work.
 
-## 1. Cloudflare and sites first
+## Cloudflare and sites — complete
 
-- Point existing infrastructure and website workflows at the source paths in WWW.
-- Move the remaining credentials, state references and deployment ownership that still depend
-  on old repositories. Reuse existing resources and state; import retained resources if needed.
-- Switch off each old deployment writer when its replacement takes over.
-- Publish affected sites and check their existing URLs, including support/privacy pages.
-  Keep the old apps Pages host if installed apps still need those URLs.
+[PR #972](https://github.com/0x63616c/world-wide-webb/pull/972) handed publication to WWW.
+[Sites](https://github.com/0x63616c/world-wide-webb/actions/runs/42649259019) published
+legacy Pages assets and both Folding sites. Existing support/privacy URLs and Folding routes
+were checked. The old apps site writer is disabled; its Pages host remains for installed URLs.
+[Home Cloudflare apply](https://github.com/0x63616c/world-wide-webb/actions/runs/42649263710/attempts/2)
+passed using the existing encrypted state and resources. No replacement state or infrastructure was created.
 
-Finish this as one working batch. Use the existing build/plan checks, inspect infrastructure
-changes before applying, and check the affected live URLs. Preserve unrelated resources.
-
-## 2. Finish remaining references and cleanup
+## Finish remaining references and cleanup
 
 - Fix remaining app, CLI and Homebrew source/release references. Use the existing pipelines;
   account for WWW now being public rather than implementing the old private-download proposal.
 - Update README, AGENTS and release instructions to describe the working setup.
-- Archive superseded repositories once their workflows, downloads and consumers use WWW.
+- Retire superseded source writers once their workflows, downloads, issues and recovery readers
+  use WWW. Keep the apps Pages repository writable while WWW publishes retained installed URLs.
+  Keep Folding’s historical artifact repository available while legacy records reference it.
   Keep dotfiles and homebrew-tap separate; leave the agreed excluded projects alone.
 
 ## What counts as finished
@@ -43,3 +45,10 @@ not block repository cleanup. No new shared UI library or CI redesign is part of
 
 Backup/deployment redesign is tracked in #970 and service-scoped updates in #965.
 Encrypted signing review is tracked in #967. These are separate follow-ups.
+
+## Hosted Apple runner correction
+
+The earlier claim that GitHub cannot provide Xcode 27.2 was incorrect: `macos-26` was checked
+instead of the dedicated `xcode-27` label. The [current image inventory](https://github.com/actions/runner-images/blob/main/images/macos/xcode-27-arm64-Readme.md)
+lists Xcode 27.2 (27B52) and Duo on iOS 27.2. Current homelab routing is a workflow choice,
+not a GitHub toolchain limitation. Changing runner labels is separate from lightening CI.

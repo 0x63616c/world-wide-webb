@@ -2,16 +2,31 @@
 
 ## Current status — November 9, 2026
 
-Use [Finish the migration](monorepo-remaining-work-2026-11-09.md) for the remaining work.
-Cloudflare and sites come first, followed by remaining references, documentation and old-repo
-cleanup. That short plan supersedes the older execution contract and acceptance checklists.
+Use [Finish the migration](monorepo-remaining-work-2026-11-09.md) for remaining delivery
+references, documentation and old-repository cleanup. It supersedes the older execution contract.
 
-Source consolidation and the GitHub-hosted CI switch are merged. WWW is public. Both Macs
-follow WWW at checked host revision `0b046d9b6d20bd80a94951f26b22a9e105e490cf`; the newer
-`cf8734b` commit changes agent documentation only. Both host activations completed, their
-updaters are loaded and operation locks are idle. The mini's backup has COMPLETE/NAS_VERIFIED,
-and its bedroom-switch worker is live with zero reported failures. A physical flip was not
-independently observed. The old homelab repository is archived.
+Source consolidation is merged and WWW is public. Both Macs follow WWW; their source handover
+was independently verified at `0b046d9b6d20bd80a94951f26b22a9e105e490cf`. Subsequent host changes
+continue through their normal updaters. The old homelab repository is archived. Earlier mini
+backup and bedroom-switch readbacks remain recorded below; no new physical-switch check is claimed.
+
+Cloudflare and sites handed over in [#972](https://github.com/0x63616c/world-wide-webb/pull/972):
+[Sites publication](https://github.com/0x63616c/world-wide-webb/actions/runs/42649259019) and
+[home infrastructure apply](https://github.com/0x63616c/world-wide-webb/actions/runs/42649263710/attempts/2)
+passed. Existing website URLs work, old site deployment is disabled, and the legacy Pages host
+is retained. Existing encrypted infrastructure state and resources were reused.
+
+Folding delivery preparation is in [#974](https://github.com/0x63616c/world-wide-webb/pull/974).
+Signed **1.0.0 (15)** is **VALID** and confirmed in **Folding Internal**; future main delivery
+is enabled. The [release checkpoint](../../apps/folding/docs/experiments/monorepo-testflight-2026-11-09.md)
+records source, CI, immutable artifacts and remaining device/store deferrals. Production
+serves the exact main-CI-tested
+Worker `8ed02ee38473f91580c74b6466fcdf47411d334c`, with all 23 checksum migrations and a verified
+provider-version receipt. Live staging history-import and badge queue checks used temporary
+synthetic accounts, removed afterward; they do not establish Apple enrollment or APNs delivery.
+
+GitHub’s hosted `xcode-27` image supports Xcode 27.2 and Duo. Earlier claims that the toolchain
+required homelab were wrong; current 27.2 routing is configuration, not provider availability.
 
 Normal relevant CI and checks of changed sites/infrastructure are sufficient for the remaining
 migration. Product releases happen when needed; extra release, screenshot, restore and review

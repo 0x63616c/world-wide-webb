@@ -1,6 +1,6 @@
 # Deferred shipping work
 
-The active goal covers live iCloud and Cloudflare integration. This list also preserves broader shipping tasks for later. CI, storefront/visual review, submission, and post-submission device checks remain deferred.
+Internal TestFlight shipping has resumed; see the [current delivery checkpoint](experiments/monorepo-testflight-2026-11-09.md). The chronological checklist below preserves broader shipping work and earlier reports. Final storefront/visual acceptance, App Store submission and post-submission device checks remain open; native/backend CI is now running in WWW.
 
 - [x] Install the owner-selected white twin-panel logo on black in the app and website; all three icon appearance assets are reproducibly generated from the selected source (`ccdaf43`). Final Home Screen appearance review remains deferred.
 - [x] Create/save the approved CloudKit management token, expiring November 7, 2027. Saved in Folding's 1Password vault on November 7, 2026.

@@ -1,8 +1,12 @@
 # Folding work tracker
 
-## Current scope: live integration
+## Current scope: internal TestFlight, then App Store preparation
 
-The coding checklist below is complete. The active goal is live iCloud and Cloudflare setup and integration evidence for staging and production. Implementation is primary-agent only; subagents may review independently. The remaining shipping tasks and owner deferrals are in [deferred shipping work](deferred-shipping-work.md).
+Implementation and live infrastructure are present. The current owner request is to test the
+latest app through internal TestFlight, make product changes, then prepare App Store submission.
+See the [November 9 delivery checkpoint](experiments/monorepo-testflight-2026-11-09.md). Existing
+provider/device and final-store deferrals remain in [deferred shipping work](deferred-shipping-work.md).
+Delegated reviews require an explicit owner request.
 
 - [x] App Attest enrollment recovery
 - [x] Immediate account-change privacy fencing
@@ -20,10 +24,13 @@ The coding checklist below is complete. The active goal is live iCloud and Cloud
 
 
 Local evidence: [coding completion](experiments/coding-completion.md). Broader shipping acceptance remains open.
-The latest internal preview is [TestFlight 0.1.10 (build 11)](experiments/shortcuts-partition-busy-2026-11-08.md). Signed app/Shortcuts metadata, local compilation, localization, core checks, backend health and internal distribution passed. Startup/setup behavior and protected Join on the physical Duo remain unverified or failing; the live issue checklists keep those open.
-The chronological shipping checkpoints below remain evidence. Live integration has resumed under the active goal; CI, storefront/visual review, submission, and post-submission device checks remain deferred.
+The latest verified internal distribution is **1.0.0 (15)** in **Folding Internal**, with
+Apple VALID/group readback in the November 9 checkpoint; earlier
+versioned entries below remain historical evidence. A signed archive or upload alone does not
+establish Apple processing, internal-group assignment or physical-device behavior. Full storefront,
+App Store submission and owner-deferred device checks remain separate from internal beta delivery.
 
-[Folding — Ship v1](https://github.com/users/0x63616c/projects/9) is the live delivery board, with 33 linked deliverables under the original work orders. GitHub Issues hold acceptance criteria and evidence. Current execution is primary-agent implementation; subagents are limited to independent review. Physical-device evidence is deferred to F13 after submission by owner instruction.
+[Folding — Ship v1](https://github.com/users/0x63616c/projects/9) is the live delivery board, with 33 linked deliverables under the original work orders. GitHub Issues hold acceptance criteria and evidence. Current execution is primary-agent implementation; delegated reviews require explicit owner authorization. Physical-device evidence is deferred to F13 after submission by owner instruction.
 
 Update issue-body checkboxes as individual requirements are verified, with commit/evidence links. Progress comments supplement these checklists. Close fully accepted issues and tick their work-order entries below; partial or deferred work remains unchecked. These rules are enforced as agent instructions in `AGENTS.md`.
 
