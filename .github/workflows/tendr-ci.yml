@@ -25,6 +25,7 @@ jobs:
       rdesign: ${{ steps.detect.outputs.rdesign }}
       template: ${{ steps.detect.outputs.template }}
       tooling: ${{ steps.detect.outputs.tooling }}
+      backends: ${{ steps.backends.outputs.apps }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
@@ -36,6 +37,34 @@ jobs:
           base: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
           intent: verify
           only: standard_ios
+
+      - id: backends
+        env:
+          APPS: ${{ steps.detect.outputs.apps }}
+        run: echo "apps=$(python3 scripts/check-app-backends.py --apps "$APPS" --list)" >> "$GITHUB_OUTPUT"
+
+  backends:
+    needs: changes
+    if: needs.changes.outputs.backends != '[]' || needs.changes.outputs.template == 'true'
+    runs-on: [self-hosted, Linux, ARM64, homelab-linux]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '26.13.0'
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.4.4'
+      - name: Verify selected Cloudflare backends and generated template
+        env:
+          APPS: ${{ needs.changes.outputs.backends }}
+          TEMPLATE: ${{ needs.changes.outputs.template }}
+          WRANGLER_SEND_METRICS: 'false'
+        run: |
+          args=(--apps "$APPS")
+          if [ "$TEMPLATE" = true ]; then args+=(--template); fi
+          python3 scripts/check-app-backends.py "${args[@]}"
 
   tooling:
     needs: changes
@@ -168,7 +197,7 @@ jobs:
   gate:
     name: Standard iOS checks
     if: always() && !cancelled()
-    needs: [changes, tooling, rdesign, app, template]
+    needs: [changes, tooling, rdesign, app, template, backends]
     runs-on: [self-hosted, Linux, ARM64, homelab-linux]
     timeout-minutes: 5
     steps:
@@ -182,6 +211,7 @@ jobs:
           selection = results['changes']['outputs']
           for job, selected in (
               ('tooling', selection['tooling'] == 'true'),
+              ('backends', bool(json.loads(selection['backends'])) or selection['template'] == 'true'),
               ('rdesign', selection['rdesign'] == 'true'),
               ('template', selection['template'] == 'true'),
               ('app', bool(json.loads(selection['apps']))),

@@ -8,7 +8,7 @@ usage() {
   cat <<'HELP'
 Usage: scripts/dev <command>
   apps                         List app folders
-  new <Name> <bundle-suffix>    Create an independent SwiftUI app
+  new <Name> <bundle-suffix> [--backend cloudflare]   Create an independent app
   check <app>                  Run the product's local checks
   affected <base> [options]    Resolve affected apps (verification by default)
   doctor                       Check shared local tools without signing in
@@ -28,7 +28,7 @@ case "$command_name" in
     exec ruby scripts/app-config.rb --list
     ;;
   new)
-    (($# == 2)) || fail 'new needs <Name> <bundle-suffix>'
+    (($# == 2 || $# == 4)) || fail 'new needs <Name> <bundle-suffix> [--backend cloudflare]'
     exec bash scripts/new-app.sh "$@"
     ;;
   affected)
@@ -60,6 +60,9 @@ case "$command_name" in
     app=$1
     [[ "$app" =~ ^[a-z][a-z0-9-]*$ ]] || fail 'use an app folder name from scripts/dev apps'
     [[ -f "apps/$app/app.yml" && ! -L "apps/$app" ]] || fail "unknown app: $app"
+    if [[ -f "apps/$app/backend/wrangler.jsonc" ]]; then
+      (cd "apps/$app/backend" && bun install --frozen-lockfile && bun run check)
+    fi
     handler=$(ruby scripts/app-config.rb "$app" delivery_handler)
     case "$handler" in
       standard_ios)

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Scaffolds a new -r app from templates/new-app.
-#   scripts/new-app.sh <Name> <bundle-suffix>
+#   scripts/new-app.sh <Name> <bundle-suffix> [--backend cloudflare]
 #   scripts/new-app.sh Samplr samplr      → apps/samplr, bundle ID com.calumwebb.samplr, sites/samplr
 #
 # Creates the XcodeGen project (native SwiftUI, launch screen, placeholder icon, Home and Settings with
@@ -13,7 +13,9 @@ cd "$(dirname "$0")/.."
 fail() { printf 'error: %s\n' "$*" >&2; exit 1; }
 raw=${1:-}
 suffix=${2:-}
-[[ -n "$raw" && -n "$suffix" ]] || fail "usage: scripts/new-app.sh <Name> <bundle-suffix>"
+[[ $# == 2 || ( $# == 4 && "$3" == --backend && "$4" == cloudflare ) ]] || fail "usage: scripts/new-app.sh <Name> <bundle-suffix> [--backend cloudflare]"
+backend=${4:-none}
+[[ -n "$raw" && -n "$suffix" ]] || fail "Name and bundle suffix are required"
 [[ "$raw" =~ ^[A-Za-z][A-Za-z0-9]*$ ]] || fail "Name must be letters and digits, starting with a letter (for example Samplr)"
 [[ "$suffix" =~ ^[a-z0-9][a-z0-9.-]*$ ]] || fail "Bundle suffix must be lowercase letters, digits, dots or hyphens"
 
@@ -26,9 +28,15 @@ dest="apps/$slug"
 pages="https://0x63616c.github.io/apps/$slug/"
 
 cp -R templates/new-app/app "$dest"
+if [[ "$backend" == cloudflare ]]; then
+  mkdir "$dest/backend"
+  for item in src tests package.json bun.lock wrangler.jsonc .gitignore README.md; do
+    cp -R "templates/cloudflare-backend/$item" "$dest/backend/$item"
+  done
+fi
 cp -R templates/new-app/site "sites/$slug"
 printf '%s\n' "$slug" >> sites/.pages
-find "$dest" "sites/$slug" -type f \( -name '*.swift' -o -name '*.yml' -o -name '*.json' -o -name '*.txt' -o -name '*.md' -o -name '*.html' -o -name '*.plist' \) -print0 |
+find "$dest" "sites/$slug" -type f \( -name '*.swift' -o -name '*.yml' -o -name '*.json' -o -name '*.txt' -o -name '*.md' -o -name '*.html' -o -name '*.plist' -o -name '*.ts' -o -name '*.jsonc' \) -print0 |
   while IFS= read -r -d '' file; do
     sed -i.bak \
       -e "s#__NAME__#$name#g" -e "s#__SLUG__#$slug#g" -e "s#__BUNDLE_ID__#$bundle#g" \
@@ -65,3 +73,13 @@ Remaining setup (the agent can complete supported account/API steps):
      $dest/screenshots.json, and review sites/$slug/privacy before publishing (scripts/publish-site.sh).
   6. Commit and push: CI builds the app; TestFlight uploads start once testflight is true.
 EOF
+
+if [[ "$backend" == cloudflare ]]; then
+  cat <<EOF
+
+Cloudflare backend: $dest/backend (separate staging/production, no resources provisioned).
+  cd $dest/backend && bun install --frozen-lockfile && bun run check
+  bun run dev starts the staging Worker locally.
+Follow backend/README.md for account setup, product authentication, bindings and promotion.
+EOF
+fi

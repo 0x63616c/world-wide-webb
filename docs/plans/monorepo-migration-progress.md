@@ -1117,3 +1117,21 @@ no credentials/flags/hosts were changed. Consumer release/apply adaptation remai
 boundary tests, route tests and the exact-source helper test pass. Clippy and workflow lint pass.
 Independent final review accepted the runtime changes and verified the wording/source-proof fixes.
 Private CLI publication remains a separate reviewed local candidate; neither batch expands PR959.
+
+### New-app Cloudflare preset (local follow-up)
+
+The existing new-app command accepts optional `--backend cloudflare`, keeping the default
+independent SwiftUI scaffold intact. The backend belongs to the generated app: a TypeScript
+Worker, frozen Bun/Wrangler dependencies, separate staging/production names, no public routes
+by default, health/version response and route tests. Selected standard apps with this preset
+receive Linux tests, two environment bundle checks and a real local workerd health probe;
+template changes exercise a fresh isolated scaffold. The shared aggregate requires these
+checks only when selected. This adds no shared product UI library or resource/account writer.
+
+The real isolated default/Cloudflare generation, substitutions, duplicate/invalid refusal,
+lockfile preservation, frozen install, route tests, both dry-run bundles and workerd startup
+pass locally. Existing impact fixtures and all17 CI/gate tests pass; ShellCheck, actionlint
+and diff checks pass. Independent final review found an outdated gate fixture, now corrected
+and independently verified. Docs describe the working commands and remaining account/resource,
+authentication and automatic production-promotion acceptance honestly. No live backend was
+provisioned or published; this follow-up remains separate from PR959.

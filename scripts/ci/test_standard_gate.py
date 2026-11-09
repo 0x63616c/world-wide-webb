@@ -29,11 +29,11 @@ class StandardGateTests(unittest.TestCase):
         jobs = yaml.safe_load((ROOT / '.github/workflows/tendr-ci.yml').read_text())['jobs']
         gate = jobs['gate']
         self.assertEqual(gate['if'], 'always() && !cancelled()')
-        self.assertEqual(set(gate['needs']), {'changes', 'tooling', 'rdesign', 'app', 'template'})
+        self.assertEqual(set(gate['needs']), {'changes', 'tooling', 'rdesign', 'app', 'template', 'backends'})
         script = gate['steps'][0]['run']
         base = {
-            'changes': {'result': 'success', 'outputs': {'apps': '[]', 'tooling': 'false', 'rdesign': 'false', 'template': 'false'}},
-            **{job: {'result': 'skipped'} for job in ('tooling', 'rdesign', 'app', 'template')},
+            'changes': {'result': 'success', 'outputs': {'apps': '[]', 'tooling': 'false', 'rdesign': 'false', 'template': 'false', 'backends': '[]'}},
+            **{job: {'result': 'skipped'} for job in ('tooling', 'rdesign', 'app', 'template', 'backends')},
         }
 
         def succeeds(results):
@@ -42,13 +42,27 @@ class StandardGateTests(unittest.TestCase):
                                   capture_output=True).returncode == 0
 
         self.assertTrue(succeeds(base))
-        for job, field, value in (('app', 'apps', '["tendr"]'), ('tooling', 'tooling', 'true'),
-                                  ('rdesign', 'rdesign', 'true'), ('template', 'template', 'true')):
+        for field, value, required in (
+            ('apps', '["tendr"]', {'app'}),
+            ('tooling', 'true', {'tooling'}),
+            ('rdesign', 'true', {'rdesign'}),
+            ('template', 'true', {'template', 'backends'}),
+            ('backends', '["samplr"]', {'backends'}),
+        ):
             selected = copy.deepcopy(base)
             selected['changes']['outputs'][field] = value
-            for result in ('success', 'failure', 'cancelled', 'skipped'):
-                selected[job]['result'] = result
-                self.assertEqual(succeeds(selected), result == 'success', (job, result))
+            for job in required:
+                selected[job]['result'] = 'success'
+            self.assertTrue(succeeds(selected), field)
+            for job in required:
+                for result in ('success', 'failure', 'cancelled', 'skipped'):
+                    variant = copy.deepcopy(selected)
+                    variant[job]['result'] = result
+                    self.assertEqual(succeeds(variant), result == 'success', (field, job, result))
+        for job in ('tooling', 'rdesign', 'app', 'template', 'backends'):
+            unexpected = copy.deepcopy(base)
+            unexpected[job]['result'] = 'success'
+            self.assertFalse(succeeds(unexpected), job)
         failed_selection = copy.deepcopy(base)
         failed_selection['changes']['result'] = 'failure'
         self.assertFalse(succeeds(failed_selection))

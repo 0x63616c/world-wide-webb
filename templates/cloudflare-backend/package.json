@@ -1,0 +1,13 @@
+{
+  "name": "app-backend-template",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev --env staging",
+    "test": "bun test",
+    "check": "bun test && wrangler deploy --dry-run --env staging && wrangler deploy --dry-run --env production"
+  },
+  "devDependencies": {
+    "wrangler": "4.158.0"
+  }
+}
