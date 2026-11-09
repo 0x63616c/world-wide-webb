@@ -84,14 +84,31 @@ struct Progress {
 pub struct Journal {
     directory: PathBuf,
     progress: Progress,
-    _lock: File,
+    _lock: JournalLock,
 }
 
-impl Drop for Journal {
+struct JournalLock(File);
+
+impl JournalLock {
+    fn acquire(path: &Path) -> Result<Self, StateError> {
+        let lock = private_file(path, true)?;
+        flock(&lock, FlockOperation::NonBlockingLockExclusive).map_err(|error| {
+            if error == rustix::io::Errno::WOULDBLOCK {
+                StateError::Busy
+            } else {
+                StateError::UnsafeLocation
+            }
+        })?;
+        Ok(Self(lock))
+    }
+}
+
+impl Drop for JournalLock {
     fn drop(&mut self) {
-        // A concurrent fork can retain a descriptor until exec. Closing our
-        // copy alone would prolong the lock beyond this journal's lifetime.
-        let _ = flock(&self._lock, FlockOperation::Unlock);
+        // A concurrent fork can retain a descriptor until exec. Unlock on every
+        // exit, including a mismatch before a Journal is constructed, so repair
+        // can immediately reopen the same state using the new revision.
+        let _ = flock(&self.0, FlockOperation::Unlock);
     }
 }
 
@@ -448,14 +465,7 @@ impl Journal {
                 .and_then(|directory| directory.sync_all())
                 .map_err(|_| StateError::SaveFailed)?;
         }
-        let lock = private_file(&state_directory.join("bootstrap.lock"), true)?;
-        flock(&lock, FlockOperation::NonBlockingLockExclusive).map_err(|error| {
-            if error == rustix::io::Errno::WOULDBLOCK {
-                StateError::Busy
-            } else {
-                StateError::UnsafeLocation
-            }
-        })?;
+        let lock = JournalLock::acquire(&state_directory.join("bootstrap.lock"))?;
         let path = state_directory.join("progress.json");
         let existing = match fs::symlink_metadata(&path) {
             Ok(_) => true,
@@ -584,13 +594,33 @@ mod tests {
     use super::*;
 
     #[test]
+    fn rejected_open_unlocks_before_retry_even_with_an_inherited_descriptor() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("bootstrap.lock");
+        let mut inherited = None;
+        let reject = (|| -> Result<(), StateError> {
+            let lock = JournalLock::acquire(&path)?;
+            // A fork shares the same open file description before exec closes it.
+            inherited = Some(lock.0.try_clone().unwrap());
+            Err(StateError::Mismatch)
+        })();
+        assert_eq!(reject, Err(StateError::Mismatch));
+        let retried = JournalLock::acquire(&path)
+            .expect("a rejected open must release its own lock before repair retries");
+        assert!(inherited.as_ref().unwrap().metadata().is_ok());
+        assert!(matches!(JournalLock::acquire(&path), Err(StateError::Busy)));
+        drop(retried);
+        drop(inherited);
+    }
+
+    #[test]
     fn dropping_journal_unlocks_even_when_a_duplicate_descriptor_survives() {
         let directory = tempfile::tempdir().unwrap();
         let path = directory.path().join("state");
         let open = || Journal::start_or_resume(&path, "example/config", "test-mac", "revision");
         let journal = open().unwrap();
         // A retained descriptor models another process sharing the open file description.
-        let retained = journal._lock.try_clone().unwrap();
+        let retained = journal._lock.0.try_clone().unwrap();
 
         assert!(matches!(open(), Err(StateError::Busy)));
         drop(journal);

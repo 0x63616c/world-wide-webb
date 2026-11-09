@@ -1069,7 +1069,7 @@ extraction and atomic installation. Four isolated tests cover exact tools/cache 
 failure before execution, wrong versions and path-escape refusal.
 
 A real native preparation downloaded both exact upstream artifacts through API, then the unchanged
-complete `scripts/check-backend` passed Rust tests, release Wasm compilation/optimization and all30
+complete `scripts/check-backend` passed Rust tests, release Wasm compilation/optimization and all 30
 compiled-Worker runtime tests. Its log confirms worker-build used both prepared overrides. This is
 native-host proof; the replacement Linux job remains required. External receipts are
 `/tmp/monorepo-worker-tools-native-prepare.log` and
@@ -1369,3 +1369,56 @@ Keep the automatic writer disabled until those remaining handover requirements a
 Source refresh fetched all six repositories successfully; remote main revisions were unchanged,
 and dirty originals/branches were preserved. The current review-approved recovery implementation
 is committed locally as `5bc50cd7d`; this subsequent receipt/documentation update changes no code.
+
+### Real Folding signing and two reproduced CI defects
+
+A local read-only Match canary cloned WWW's consolidated `signing/folding` branch,
+imported its existing production app/widget profiles and signed a native archive
+and IPA using a temporary keychain. The product's existing binary inspection
+verified both packaged and archived identities, distribution entitlements, source,
+backend configuration and exclusion of screenshot/development code. The keychain
+was deleted. This used build 14 only as an unsubmitted signing canary, without
+a reservation, upload or release record; it is not a new beta or reusable
+reserved release. IPA SHA256 is
+`8fb2e3bd93c47da5774a8a5a8dd1d5d956fc7bd3181d3e7135d7520eca90c60f`.
+Receipt: `/tmp/monorepo-folding-signing-canary-receipt.json`.
+
+PR #959 at `803d334e1` reached 41 successful checks, but two independent defects block green
+acceptance (plus their failed aggregate). Folding's Linux VM stopped before the
+controller issued DeleteVm; GitHub later reported lost communication without a
+final build log. The actual Apple Virtualization service crash reports at 23:03:45
+and 00:28:42 both trap on `com.apple.virtualization.virtio.vsock-device:0`, matching
+[the upstream Linux connection leak](https://github.com/openai/tart-guest-agent/issues/81).
+An isolated developer VM using the exact production image reproduced the leak
+and crash after 240 completed probes plus measurement/readiness calls. With the
+idle-connection correction it survived 640 calls with bounded socket counts.
+A native RPC regression goes red before the fix; active commands remain alive.
+The pinned Linux source-build recipe passes its complete RPC/vsock tests and
+produces the same tested ARM64 binary hash. Image publication/host adoption and
+replacement real CI remain unverified; no production image/policy was changed.
+
+Separately, Darwin's Nix check reproduced the intermittent repair journal error
+after 29 other bootstrap tests passed. The existing unlock-on-drop covered a
+constructed Journal but omitted an early mismatch return before construction.
+A concurrent fork can retain that file description and transiently block the
+immediate repair reopen. A deterministic retained-descriptor regression now
+reproduces Busy on the earlier ownership and passes when a private lock guard
+owns every return path. The whole CLI suite passes 424 tests (three explicit
+opt-in tests ignored), all 30 bootstrap tests pass, and all-target Clippy/fmt pass.
+No recovery guard, lock exclusion or interrupted-activation rule is weakened.
+
+The correction batch remains local, alongside the previously reviewed delivery
+follow-up. Since a new source CI run is already required for the real Nix fix,
+integrate that reviewed follow-up at the same publication boundary after final
+review and runner correction, avoiding a second full migration CI cycle. Keep
+all release/host/infrastructure flags off until their actual acceptance work.
+
+The complete correction batch passed final Astra review after fixing its one publication finding:
+refreshing the same image repository leaves both old and new cached digests, so publication now
+identifies exactly the newly populated digest rather than requiring a one-image namespace.
+Three filesystem-layout tests reproduce the earlier failure and pass with the correction,
+including no-new/ambiguous refusal. All 134 homelab operations tests pass (one explicit skip).
+The checked-in source recipe completed in a separate real Linux VM and produced the exact tested
+agent bytes; its build unit exited successfully and the VM was stopped/reaped. The first recipe
+attempt's Go read-only cache cleanup failure was corrected within the task-owned temporary cache.
+Publication and host activation have not yet occurred.

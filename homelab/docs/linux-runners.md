@@ -172,3 +172,32 @@ When retiring future isolated validation inventories, check their lifecycle and 
 production cache before removing redundant caches. APFS clone sizes can overstate reclaimable
 bytes; measure actual free space before/after. Keep scheduled work, resource reservations and
 emergency reserves intact; do not use global image GC as an unscoped cleanup shortcut.
+
+## Linux guest control-connection correction — November 9
+
+The currently deployed `c1d4c31b…` image contains guest agent 0.15.0. Long-running
+CI exposed [upstream issue 81](https://github.com/openai/tart-guest-agent/issues/81):
+completed control RPCs leave Linux virtual sockets open until the VM service
+asserts at roughly 248 connections. Two production crash reports match the
+`virtio.vsock-device:0` fault; this is separate from application test failures.
+A separate developer VM reproduced increasing socket counts and the crash after
+240 successful probes plus readiness/measurement calls, without concurrent CI.
+
+The local correction pins the same upstream source, adds gRPC idle-connection
+cleanup and preserves active long-running RPCs. A regression test fails before
+the change and passes afterward; the complete RPC/vsock suites pass. The fixed
+VM survived 640 real control calls with bounded socket counts. The checked-in
+source/Go checksum recipe built the same Linux ARM64 bytes as the tested binary:
+`62a4bf118b926a04f7f92d44c0343619bbe680e351879bb9540a46bdc28179fe`.
+No agent timer/restart workaround runs during CI jobs.
+
+`build-image.py --refresh-guest-agent` amends only the pinned validated runner
+image's agent; ordinary builds also install the fix. Registry credentials remain
+host-only for private base cloning and publication. Provisioning runs in its
+separate trusted unit, can restart the control agent, and retries status reads
+without replaying provisioning. A private Go cache is removed before success;
+the upstream license is retained in the image.
+
+The corrected image still needs reviewed publication, cache verification, a
+normal host image-pin activation and real replacement CI. Do not mark the old
+image fixed or retire its recovery cache based on these local tests.
