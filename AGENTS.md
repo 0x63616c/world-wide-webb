@@ -8,9 +8,8 @@ read the linked accepted plan before changing delivery, infrastructure or reposi
 
 Use `wtp add -b codex/<task> origin/main` before edits; use absolute worktree paths.
 Keep the main checkout, other worktrees and branches intact. The primary agent implements;
-subagents are allowed for independent final review only. Keep the complete relevant candidate,
-checks, fixes and Conventional Commits local until final review, then publish, pass required
-checks, merge and verify delivery. Never bypass a required check.
+subagents are allowed for independent final review only. Use Conventional Commits, pass required
+checks before merging and verify delivery. Never bypass a required check.
 
 Progress updates include an estimated overall completion percentage and current stage; distinguish estimates from verified delivery.
 

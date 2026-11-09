@@ -42,6 +42,7 @@ pub struct StepReport {
     pub reason: &'static str,
     pub changed: bool,
     pub executed: bool,
+    pub admission: serde_json::Value,
 }
 impl<B: EngineBackend, S: Persistence> Engine<B, S> {
     pub fn open(store: S, backend: B) -> Result<Self, StoreError> {
@@ -64,6 +65,33 @@ impl<B: EngineBackend, S: Persistence> Engine<B, S> {
     pub async fn step(&mut self, config: &Config, now: u64) -> Result<StepReport, StoreError> {
         let observed = self.backend.observe(config, &self.journal, now).await;
         let decision = scheduler::decide(config, &self.journal, &observed, now);
+        let mut blockers = observed.admission_blockers.clone();
+        if self
+            .journal
+            .attempts()
+            .filter(|a| a.platform == crate::config::Platform::MacosArm64)
+            .count()
+            >= config.max_macos_guests
+            && observed.candidates.iter().any(|c| {
+                crate::config::Platform::resolve(&c.labels)
+                    == Some(crate::config::Platform::MacosArm64)
+            })
+        {
+            blockers.push("macos_guest_limit");
+        }
+        let admission = serde_json::json!({
+            "blockers": blockers,
+            "queued_candidates": observed.candidates.len(),
+            "revalidated_candidates": observed.revalidated.len(),
+            "admission_safe": observed.admission_safe,
+            "free_bytes": observed.free_bytes,
+            "max_jobs": config.max_concurrent_jobs,
+            "max_macos_guests": config.max_macos_guests,
+            "cpu_budget": config.cpu_budget,
+            "memory_budget_mib": config.memory_budget_mib,
+            "retry_after": self.journal.retry_after,
+            "capacity": decision.capacity,
+        });
         let mut changed = decision.next != self.journal;
         if changed {
             // If this fails, no external effect is permitted, even if rename may have succeeded.
@@ -106,6 +134,7 @@ impl<B: EngineBackend, S: Persistence> Engine<B, S> {
             reason: decision.reason,
             changed,
             executed,
+            admission,
         })
     }
 }
@@ -322,8 +351,10 @@ mod tests {
         assert_eq!(attempt.assigned.as_ref().unwrap().job_id, 99);
         assert_eq!(attempt.candidate.job_id, 2);
         engine.backend.guest = crate::scheduler::GuestObservation::Exited;
+        let mut draining = config();
+        draining.admission_enabled = false;
         for _ in 0..6 {
-            engine.step(&config(), 20).await.unwrap();
+            engine.step(&draining, 20).await.unwrap();
         }
         assert!(engine.journal().active.is_none());
         assert_eq!(
