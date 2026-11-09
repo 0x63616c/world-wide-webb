@@ -268,8 +268,10 @@ rollback or stale generation restart is added.
 
 ## 6. Reduce CI/build cost after host scope is correct
 
-First add trusted Nix binary-cache publication/substitution for existing checked
-outputs and observe host cache hits. Build output reuse must be tied to derivations,
+Defer additional Nix binary-cache publication until a bounded implementation shows
+a net end-to-end benefit. The initial GitHub cache integration encountered throttling
+and spent nearly 15 minutes in its post-step after checks passed; remove that integration
+from this rollout. Native Nix local/upstream substitution remains. Future output reuse must be tied to derivations,
 trusted signatures and existing secret-free package inputs; preserve an independent
 off-host recovery build route. No cache credential goes to a disposable guest that
 does not need it, or into a Nix derivation. Do not equate a successful cache upload
@@ -346,19 +348,21 @@ the development-loop addition; implementation remains subject to local verificat
 
 ## Implementation working note
 
-- Implemented locally: pure generation planner and fixtures; evaluated per-service
+- Implemented in #973: pure generation planner and fixtures; evaluated per-service
   inputs with filename/content identity; old-generation fallback; scoped local capture
   and retention; independent NAS publisher; two-child reconciliation/probes/uploads;
   sequential admitted image pre-pulls; transaction/capture/publication timings;
-  focused developer command and CI Nix caching/service-only build selection.
+  focused developer command and service-only CI build selection.
 - The fast entrypoint is `bash scripts/dev homelab [planner|activation|backup|all]`.
   Full local homelab tests currently finish in under a second. Automation tests run
   separately through existing `scripts/homelab` discovery. Full required CI remains.
 - Image pulls deliberately stay sequential with snapshots because combined peak disk
   demand is not established; host and VM reserve checks run before each pull.
-- Nix caching is private GitHub Actions caching. It does not create a new host cache
-  service; hosts keep native local/upstream substitution and independent build recovery.
-  Service-only CI still evaluates the full flake and builds both actual host outputs
+- The optional GitHub Nix cache is removed following a post-step taking about
+  14 minutes 35 seconds in run 42672720821. The pinned action awaits its finish request without
+  an HTTP timeout before reaching its daemon shutdown timeout. No CI speedup is claimed.
+  Hosts keep native local/upstream substitution and independent build recovery.
+  Service-only CI evaluates the full flake and builds both actual host outputs
   plus the descriptor isolation check. Shared changes build the full check set.
 - Independent final code review found a missing inherited descriptor on scoped capture
   health and a filename omission in fingerprints. Both are fixed. A real subprocess
@@ -370,6 +374,15 @@ the development-loop addition; implementation remains subject to local verificat
 - Local verification: complete homelab Python/automation suites, targeted Python lint,
   workflow syntax, and a real Nix mini-system/descriptor build in private staging.
   These are local/pre-publication observations, not production delivery evidence.
-- Next: pass required PR/main CI, merge the one complete PR, observe normal Comin
-  acceptance on both hosts, and verify new scoped capture/NAS recovery in isolation.
-  Keep application/infra writer flags unchanged and retain old recovery generations.
+- Production: both hosts accepted #973 at `3a48163d`. The transition's full backup
+  took 392.28 seconds, activation 4.47 seconds and reconciliation 7.29 seconds.
+  A Control Center-only capture took 16.38 seconds for 564,537,075 bytes. After the
+  NAS protocol correction in #977, publication/read-back took 21.98 seconds; an
+  independent NAS download passed SQLite integrity/foreign keys and all 136 photo
+  references matched media. These different scopes are not a matched speed benchmark.
+- Protocol lesson: test both whole-request and per-item errors in batch transport
+  fixtures. DSM can return outer success with nested file-absence error 408; that
+  must permit upload while other errors and mismatched existing bytes fail closed.
+- Remaining: pass the corrected main CI and accept its exact source on both hosts.
+  Required PR CI passed; later main runs encountered GitHub internal orchestration
+  failures and the cache post-step stall. Keep writer flags and recovery generations.
