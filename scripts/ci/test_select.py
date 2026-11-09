@@ -65,6 +65,14 @@ class SelectionTests(unittest.TestCase):
         self.assertEqual(result["verify"], ["homelab.cli", "homelab.config"])
         self.assertEqual(result["delivery_candidates"], ["homelab.cli"])
 
+    def test_host_automation_and_app_pin_have_separate_delivery_authority(self):
+        tooling = selection.select(["scripts/homelab/promote_control_center.py"], CONFIG)
+        self.assertEqual(tooling["verify"], ["homelab.config"])
+        self.assertEqual(tooling["delivery_candidates"], [])
+        pin = selection.select(["homelab/services/control-center/release.json"], CONFIG)
+        self.assertEqual(pin["verify"], ["homelab.config"])
+        self.assertEqual(pin["delivery_candidates"], ["homelab.config"])
+
     def test_product_credentials_cannot_activate_hosts_or_ship_apps(self):
         result = selection.select(["secrets/vault.yaml"], CONFIG)
         self.assertEqual(set(result["verify"]), {"credentials.home", "control-center.server", "cloudflare.home"})

@@ -12,9 +12,6 @@ pub fn authorized(
     jobs: &[GithubJob],
 ) -> bool {
     let pair = match run.get("path").and_then(Value::as_str) {
-        Some(".github/workflows/deploy-mini.yml") => {
-            ("Control Center source", "Control Center release")
-        }
         Some(".github/workflows/cloudflare.yml") => ("Cloudflare source", "Cloudflare apply"),
         Some(".github/workflows/homelab-operations-canary.yml") => {
             ("Operations source", "Operations canary")
@@ -65,16 +62,16 @@ mod tests {
     pub fn fixture() -> (Value, GithubJob, GithubJob) {
         let run = json!({"id":7,"run_attempt":3,"head_sha":"a".repeat(40),"head_branch":"main",
             "head_repository":{"full_name":"allowed/repo"},"event":"workflow_run",
-            "path":".github/workflows/deploy-mini.yml"});
+            "path":".github/workflows/cloudflare.yml"});
         let candidate: GithubJob =
             serde_json::from_value(json!({"id":9,"run_id":7,"run_attempt":3,
-            "status":"queued","name":"Control Center release","head_sha":"a".repeat(40),
+            "status":"queued","name":"Cloudflare apply","head_sha":"a".repeat(40),
             "labels":["self-hosted","Linux","ARM64","homelab-operations"],
             "created_at":"2026-11-01T00:00:00Z","operations_authorized":true}))
             .unwrap();
         let prerequisite: GithubJob =
             serde_json::from_value(json!({"id":8,"run_id":7,"run_attempt":3,
-            "status":"completed","conclusion":"success","name":"Control Center source",
+            "status":"completed","conclusion":"success","name":"Cloudflare source",
             "head_sha":"a".repeat(40),"labels":["self-hosted","Linux","ARM64","homelab-linux"],
             "created_at":"2026-11-01T00:00:00Z"}))
             .unwrap();
@@ -99,6 +96,7 @@ mod tests {
             ("id", json!(99)),
             ("head_repository", json!({"full_name":"foreign/repo"})),
             ("path", json!(".github/workflows/unapproved.yml")),
+            ("path", json!(".github/workflows/deploy-mini.yml")),
         ] {
             let mut changed = run.clone();
             changed[key] = value;

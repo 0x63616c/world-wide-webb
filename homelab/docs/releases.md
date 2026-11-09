@@ -41,12 +41,35 @@ candidate. These are not evidence that either host now consumes WWW. Preserve th
 source/update authority until the replacement's exact revision, saved-profile/reboot/recovery
 and scoped Git access pass acceptance.
 
-The old `Deploy Mac mini` workflow is held off and still targets the retired user/runtime.
-Do not re-enable it. Its image/source checks can be reused, but deployment must use the installed
-homelab runtime, lock, backups, single worker and private Serve ownership. The local operations
-profile/canary is also held off pending actual network policy and transport acceptance.
-Durable image/source ordering and rejection of delayed old authorities remain required before
-activating app delivery. A zero-exit stale-release skip is not delivery evidence.
+The local `Promote Control Center image` candidate replaces the old SSH-copy deployment in
+`deploy-mini.yml`. It consumes the successful trusted-main CI image receipt, then commits only
+`homelab/services/control-center/release.json`. This uses a dedicated repository-scoped
+`CONTROL_CENTER_PROMOTION_DEPLOY_KEY`, so the Git push can start normal main CI. A workflow-token
+push would suppress that trigger. Prove the scoped-key push/CI canary before enabling the writer;
+keep its key in the approved recovery store and out of ordinary build guests.
+
+The pin commit records the exact image source/digest and CI run/attempt provenance. It preserves
+concurrent authoring changes, rejects older/divergent sources and changed bytes for an already
+pinned source, and reconciles lost push responses by reading Git back. Retries do not create a
+second pin commit. It reports a pin publication, never a completed deployment.
+
+The normal main Homelab CI and `deploy/homelab` promoter then verify/publish the resulting desired
+state. The installed updater's existing stateful generation transaction owns its backup, runtime
+reconcile and health gate. This preserves one image pin and one host activation owner; no app
+workflow copies Compose, backup scripts, launchd definitions or Serve configuration onto the mini.
+There is no temporary runtime override that a later host update could accidentally undo.
+
+`CONTROL_CENTER_IMAGE_DELIVERY_ENABLED`, `CONTROL_CENTER_PROMOTION_ENABLED` and
+`HOMELAB_DELIVERY_ENABLED` must be enabled only after their source/host canaries. The old
+`MINI_DEPLOY_ENABLED` flag no longer enables this replacement. Source-authority handover remains
+necessary before the mini can consume the new pin. Preserve old release generation records;
+the new epoch uses the existing forward Git promotion and serialized Nix system generations,
+not the old workflow run number. Delayed old pipelines must remain disabled.
+
+Cloudflare continues to use the scoped operations SSH route; app image publication no longer
+needs that route. The controller therefore does not grant operations capacity to `deploy-mini.yml`.
+The local candidate and its Git race/retry tests do not prove a live deployment, scoped-key event
+trigger, unchanged backup ownership or restore. Those acceptance steps remain outstanding.
 
 For a release, consume the successful trusted-main immutable image rather than rebuilding it.
 Prove the live digest/source, retained integrations and SQLite/media, unchanged shared backup

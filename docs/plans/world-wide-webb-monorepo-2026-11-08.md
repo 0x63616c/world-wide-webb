@@ -224,7 +224,7 @@ Reconciliation resumes **verified immutable candidates**, not arbitrary current 
 
 Use one **product allocator lock** across all channels/environments sharing a build ledger. Folding production/staging and TestFlight/store requests cannot independently reserve the same number. Reuse a stored artifact for later store promotion. Manual/local entrypoints obey the same allocator; GitHub concurrency alone does not protect local invocations. Polling Apple and long-lived review happens outside the scarce build slot. PR verification can cancel superseded runs; publication/apply does not cancel mid-operation. Do not assume an unlimited FIFO queue.
 
-Control Center deployment ordering currently uses workflow `run_number` and silently skips stale generations. Preserve its existing CI workflow identity where possible, but still migrate to a durable source/digest-bound generation allocated under its deployment lock, seeded above live state. Reject obsolete publisher epochs. Never reset the on-mini generation or call a zero-exit no-op a verified deployment. Test retry, lower workflow counter, delayed old request and exact live digest/health.
+Control Center's retired SSH deployer used workflow `run_number` and silently skipped stale generations. The landed homelab runtime now owns its immutable app pin, service reconcile and stateful generation transaction. Reuse that owner: a successful trusted-main app-image check commits only the release pin, with exact source/digest and CI run/attempt provenance; normal Homelab CI and ordered `deploy/homelab` promotion activate it under the installed host operation lock. Preserve legacy generation records and retire that publisher epoch rather than resetting its counter. Ordering uses forward source ancestry and the existing serialized Nix system generations, independently of workflow numbering. Reject delayed older image pins and changed bytes for the same source. A committed pin or zero-exit no-op is not live deployment evidence. Test retry/concurrent authoring/lost responses/stale sources, then prove exact live digest/health and retained backup ownership.
 
 ## 5. Homelab updates must not follow every app merge
 
@@ -525,3 +525,15 @@ candidate delivers the private consolidated app layout, build/CI compatibility a
 paths; deeper lifecycle/enrollment improvements and retirement follow. This changes execution order,
 not permission to lose data, skip relevant checks, publish private history publicly, enable conflicting
 writers, or mark the full goal complete before its remaining acceptance requirements are met.
+
+
+## Implemented runtime ownership refinement — November 8, local candidate
+
+Inspecting the completed homelab dependency confirmed that its installed reconciler and health gate
+both read `homelab/services/control-center/release.json`. The app delivery adapter therefore writes
+that existing desired-state pin instead of introducing an SSH-owned override or a second deployment
+engine. A dedicated scoped SSH deploy key lets the one-file main push trigger normal CI. The current
+candidate keeps all enable flags off pending final review and live key/host acceptance. Cloudflare
+still uses the already-planned restricted operations profile and pinned ordinary SSH transport.
+The source checks, ordered promotion, stateful backup/reconcile transaction, single worker and actual
+live/restore acceptance remain required; no app-only repository move rewrites production data.

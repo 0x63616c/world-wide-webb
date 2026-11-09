@@ -10,9 +10,10 @@ preload a Tailscale identity, SSH key, vault, registry credential or controller 
 The controller creates this capacity only for an allowlisted main workflow/job after its named
 normal-Linux source job succeeds at the same workflow SHA/run/attempt. It checks that evidence
 again during job observation. Pull-request workflows and unknown paths do not authorize capacity.
-The initial allowlist names the Control Center release, Cloudflare apply and operations canary;
-the Control Center consumer remains on its disabled legacy path. The local Cloudflare consumer
-now uses the named source/apply jobs and operations credentials; it remains disabled until proven.
+The allowlist names Cloudflare apply and the operations canary. The local Cloudflare consumer
+uses the named source/apply jobs and operations credentials; it remains disabled until proven.
+Control Center image publication now updates the existing homelab release pin through normal
+Git promotion, so `deploy-mini.yml` no longer authorizes operations capacity.
 
 This admission check is not exclusive job affinity. GitHub may assign another matching job to
 an authorized runner before controller revalidation. The label therefore must never itself grant

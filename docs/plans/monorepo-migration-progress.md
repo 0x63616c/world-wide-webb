@@ -1239,3 +1239,30 @@ pinned transport, cleanup on failures and refusal to use an invalid staging path
 refusal fixes the reproduced Bash3 conditional/errexit behavior. All four and the15 existing CI
 policy tests pass, with workflow lint/diff checks. The apply flag remains off; actual restricted
 network canary, state-owner/restore acceptance and source ordering remain unverified.
+
+### Control Center image publication follows the installed homelab owner (local)
+
+The completed homelab dependency already pins and health-checks the app image through its own
+release manifest. The local replacement for `Deploy Mac mini` therefore consumes the trusted-main
+CI immutable image receipt and commits only that pin using a dedicated scoped Git deploy key.
+Normal Homelab CI/promotion and the existing host stateful generation transaction then own deployment.
+No retired-user SSH copy, backup/schedule reinstall or runtime-only image override remains in the
+replacement workflow. The new writer has a separate disabled flag; the old flag cannot activate it.
+Cloudflare keeps the scoped operations SSH route; the retired app deployment is removed from its
+controller allowlist. No live key, flag, source authority or service changed.
+
+Seven real-Git promotion tests pass: a one-file edit with untouched caller checkout, idempotent retry,
+immutable source/digest, stale image rejection, unmerged source rejection, concurrent unrelated edits,
+concurrently newer image pins and lost successful push responses. The commit retains exact source,
+digest and successful CI run/attempt provenance. Source verification now checks the actual CI workflow
+path, completed status and valid numeric run/attempt identity. The new host-automation ownership
+regression failed before its manifest mapping and passes after: automation verifies only homelab
+without activating it; the app image pin selects only homelab verification/promotion, not another app
+release. All19 selection/gate tests,25 host automation tests, source test and seven relevant controller/
+scheduler operations tests pass; Rust fmt, Python lint/format and workflow lint pass.
+
+A wrong system-Python test invocation lacked PyYAML and shadowed stdlib select; rerunning with the
+existing pinned tooling environment passed. This is local acceptance only. Scoped-key event triggering,
+actual checked host source handover, live digest/worker/backup ownership and NAS restore still need
+proof. Preserve old generation records; the new source epoch uses ordered Git and Nix generations,
+never the old workflow counter. Independent final review is the next publication gate for this batch.

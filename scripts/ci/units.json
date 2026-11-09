@@ -303,7 +303,8 @@
         "flake.lock",
         ".sops.yaml",
         "secrets/*.sops.yaml",
-        "bootstrap/**"
+        "bootstrap/**",
+        "scripts/homelab/**"
       ],
       "exclude": [
         "homelab/cli/**"
@@ -318,7 +319,8 @@
         "**/BuildTests/**",
         "**/ScreenshotTests/**",
         "**/StorefrontTests/**",
-        ".sops.yaml"
+        ".sops.yaml",
+        "scripts/homelab/**"
       ]
     },
     "homelab.cli": {

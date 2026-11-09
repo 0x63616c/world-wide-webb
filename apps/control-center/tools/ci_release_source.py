@@ -9,18 +9,21 @@ import urllib.request
 
 
 def verify(run, repository):
+    path = run.get("path")
     if not (
         run.get("name") == "CI"
+        and isinstance(path, str)
+        and path.split("@", 1)[0] == ".github/workflows/ci.yml"
+        and run.get("status") == "completed"
         and run.get("conclusion") == "success"
         and run.get("event") == "push"
         and run.get("head_branch") == "main"
         and run.get("head_repository", {}).get("full_name") == repository
         and re.fullmatch("[a-f0-9]{40}", run.get("head_sha", ""))
-        and isinstance(run.get("run_number"), int)
-        and run["run_number"] > 0
+        and all(type(run.get(key)) is int and run[key] > 0 for key in ("id", "run_number", "run_attempt"))
     ):
         raise ValueError("a successful trusted main CI run is required")
-    return dict(sha=run["head_sha"], generation=run["run_number"], run_id=run["id"])
+    return dict(sha=run["head_sha"], generation=run["run_number"], run_id=run["id"], attempt=run["run_attempt"])
 
 
 def main():

@@ -983,12 +983,12 @@ mod tests {
     async fn operations_get_job_derives_trust_from_its_exact_run_and_source_check() {
         let source = "a".repeat(40);
         let mut candidate = job(9);
-        candidate["name"] = serde_json::json!("Control Center release");
+        candidate["name"] = serde_json::json!("Cloudflare apply");
         candidate["head_sha"] = serde_json::json!(source);
         candidate["labels"] =
             serde_json::json!(["self-hosted", "Linux", "ARM64", "homelab-operations"]);
         let mut prerequisite = job(8);
-        prerequisite["name"] = serde_json::json!("Control Center source");
+        prerequisite["name"] = serde_json::json!("Cloudflare source");
         prerequisite["head_sha"] = serde_json::json!(source);
         prerequisite["status"] = serde_json::json!("completed");
         prerequisite["conclusion"] = serde_json::json!("success");
@@ -996,7 +996,7 @@ mod tests {
             serde_json::json!(["self-hosted", "Linux", "ARM64", "homelab-linux"]);
         let run = serde_json::json!({"id":7,"run_attempt":3,"head_sha":source,"head_branch":"main",
             "head_repository":{"full_name":"allowed/repo"},"event":"workflow_run",
-            "path":".github/workflows/deploy-mini.yml"});
+            "path":".github/workflows/cloudflare.yml"});
         let (mut api, handle) = fixture(vec![
             reply("GET /repos/allowed/repo/actions/jobs/9 HTTP", candidate),
             reply(
