@@ -24,13 +24,16 @@ execution, including where they are stricter than the stored goal wording:
   current stage. Completion requires actual delivery, retained integrations/data/media and
   applicable restore evidence; local wiring or successful uploads alone do not prove it.
 
-Overall estimate is approximately 47%; current stage is private publication and real CI for the usable app-development repository.
+Overall estimate is approximately 49%; current stage is private publication and real CI for the usable app-development repository.
 Live release channels, infrastructure/host handovers and retirement remain separate acceptance work.
 
 ## Current candidate
 
 Local branch `codex/monorepo-consolidation`, created from WWW `242eb8f4a0c3dc1ca336c20682e610128f914ac9`.
-Migration candidate not published; repository visibility is unchanged. Original working copies remain untouched.
+WWW is private (provider readback verified before publishing imported history). The reviewed
+candidate is published as PR #959; real selective homelab CI is running. Original working
+copies remain untouched. Cloudflare apply, Control Center image publication and the obsolete
+Mini deploy writer are explicitly held off; other migration delivery flags remain unset/off.
 The obsolete Mini deployment trigger was disabled separately; the running service remained healthy.
 
 Non-squashed local history imports:
@@ -42,8 +45,9 @@ Non-squashed local history imports:
 
 ## Work remaining
 
-- Finish the usable private app-development milestone: apply reviewed writer holds, publish the
-  reviewed source privately, pass real selective CI, merge and verify a fresh checkout.
+- Finish the usable private app-development milestone: pass PR #959 real selective CI,
+  fix discovered runner/build issues, merge and verify a fresh checkout. Reviewed writer
+  holds, private visibility and private source publication are complete.
 - After that milestone, integrate/validate host promotion, preserve-state repository migration,
   enrollment coordination and destination-scoped host Git-key handover.
 - Finish private CLI release/installation authority and source/update/schema/help references;
@@ -56,8 +60,9 @@ Non-squashed local history imports:
   Cloudflare app/site/state ownership and no-unintended-change/backup/restore acceptance.
 - Finish new-app command/onboarding/backend preset and product/home documentation from working code;
   preserve all original active snapshots and refresh again immediately before handover.
-- Perform integrated final Astra review, make WWW private before publishing private history,
-  then PR/green CI checks/merge/live verification. The owner declined branch protections and Pro.
+- The usable-source integrated Astra review and privacy/publication gates are complete.
+  Finish green CI/merge/checkout verification, then review each substantial remaining live
+  handover at its publication boundary. The owner declined branch protections and Pro.
 - Archive eligible old authorities only after proven handover. Retain old apps as a publication host
   while installed URLs need it; preserve excluded repos and separate deletion decisions.
 
@@ -675,3 +680,34 @@ Read-only GitHub checks confirm WWW has no Pages site, remains public at this ob
 only its AGE_PRIVATE_KEY secret is configured. Private-history publication must follow verified
 private visibility. All new channel flags are absent/off; MINI_DEPLOY_ENABLED is false. Account
 upgrade/branch-protection support is not a prerequisite by the owner's explicit decision.
+
+## Private publication and first real CI — approximately 49% overall
+
+WWW visibility was changed to private and independently read back before publishing imported
+history. Reviewed source `c13c3e243` is published in PR #959. The HTTPS OAuth identity lacked
+workflow-update scope; the existing SSH GitHub identity successfully published the same source.
+No account upgrade, new login or branch-protection requirement was introduced.
+
+The pre-push Rust/operations checks passed. Actual Linux executions completed the Callkeep and
+Icon/launch-screen selectors successfully. The first Mac Duo job checked out the private source
+successfully, then correctly failed because the installed image contains Xcode26.4.1/iOS26.4
+and no Duo device type. This is real image compatibility evidence, not an app screenshot pass.
+The controller acknowledged an explicit drain as idle. Its hold remains active while the pinned
+Xcode27.2 candidate downloads with automatic cache pruning disabled; the previous image remains
+available. Toolchain/runtime, native builds, capture and mixed-pool acceptance are still pending.
+
+Existing account material was transferred directly from the primary credential session into
+WWW Actions secrets. A read-only Apple API request returned HTTP200. Live inventory confirms
+Tendr's Owner Preview, Folding's Folding Internal and Control Center's me internal groups;
+Folding staging has no build/group yet. The production Folding group variable is configured.
+Callkeep's existing Developer ID certificate matches the profile's pinned fingerprint and expires
+November26,2027; its installed profile passes the production iCloud authorization validator.
+A dedicated write key scoped to homebrew-tap is installed for WWW and backed up in 1Password.
+
+The existing encrypted Folding Match identity was fetched without changing its source repository.
+Its private key and certificate match, use the preserved Apple team, and expire November7,2027.
+The same identity was repackaged with a protected export password for standard iOS delivery;
+recovery is stored in 1Password. No Apple certificate was created or revoked. Standard Apple,
+Callkeep and Folding Match/contact inputs are prepared, but no signed archive, notarization,
+Apple upload, tap update or production release is claimed by credential preparation. Folding
+runtime/deploy/signing Git access and immutable legacy-ledger transfer remain channel work.
