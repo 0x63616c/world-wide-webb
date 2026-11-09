@@ -25,6 +25,14 @@ bundle="com.calumwebb.$suffix"
 dest="apps/$slug"
 [[ ! -e "$dest" ]] || fail "$dest already exists"
 [[ ! -e "sites/$slug" ]] || fail "sites/$slug already exists"
+# Standard delivery requires an explicit unit; unknown paths authorize verification only.
+python3 - "$slug" <<'PYTHON'
+import json, sys
+from pathlib import Path
+config = json.loads(Path('scripts/ci/units.json').read_text())
+assert config['version'] == 1
+assert sys.argv[1] + '.native' not in config['units'], 'App CI unit already exists'
+PYTHON
 pages="https://0x63616c.github.io/apps/$slug/"
 
 cp -R templates/new-app/app "$dest"
@@ -49,6 +57,29 @@ marker='<!-- apps: scripts/new-app.sh adds a card per app above this line -->'
 card="<a class=\"card\" href=\"./$slug/\"><h2>$name</h2><span>New app</span></a>"
 sed -i.bak "s#$marker#$card\\
 $marker#" sites/index.html && rm -f sites/index.html.bak
+
+python3 - "$slug" <<'PYTHON'
+import json, sys
+from pathlib import Path
+slug = sys.argv[1]
+path = Path('scripts/ci/units.json')
+config = json.loads(path.read_text())
+prefix = 'apps/' + slug + '/'
+config['units'][slug + '.native'] = {
+    'paths': [prefix + '**'],
+    'delivery': 'testflight',
+    'delivery_paths': [prefix + part for part in (
+        'App/**', 'Sources/**', 'Packages/*/Sources/**', 'Packages/*/Package.swift',
+        'Packages/*/Package.resolved', 'project.yml', 'Package.swift', 'Package.resolved',
+        'app.yml', 'fastlane/metadata/**', 'screenshots.json',
+    )],
+    'delivery_exclude': [
+        '**/Tests/**', '**/tests/**', '**/test_*', '**/*_test.*', '**/fixtures/**',
+        '**/BuildTests/**', '**/ScreenshotTests/**', '**/StorefrontTests/**',
+    ],
+}
+path.write_text(json.dumps(config, indent=2) + '\n')
+PYTHON
 
 if command -v xcodegen >/dev/null; then
   (cd "$dest" && xcodegen generate --quiet)

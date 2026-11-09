@@ -12,7 +12,8 @@ The display name determines the lowercase folder; the suffix creates `com.calumw
 The current scaffold creates a standalone SwiftUI/XcodeGen app with local components, Home and
 Settings, a launch glyph/icon, a synthetic screenshot test, app.yml, listing/frame configuration
 and public privacy/support page placeholders. It registers the static website in `sites/.pages`
-and generates the Xcode project when XcodeGen is installed. TestFlight starts disabled.
+and registers an explicit native CI/delivery unit, then generates the Xcode project when
+XcodeGen is installed. Backend-only inputs do not select a native release. TestFlight starts disabled.
 
 Implement the primary journey and replace placeholders. Review the app's actual data collection,
 privacy/support copy, accessibility and offline/error behavior. Preserve independent styling.

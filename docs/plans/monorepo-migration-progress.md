@@ -1135,3 +1135,8 @@ and diff checks pass. Independent final review found an outdated gate fixture, n
 and independently verified. Docs describe the working commands and remaining account/resource,
 authentication and automatic production-promotion acceptance honestly. No live backend was
 provisioned or published; this follow-up remains separate from PR959.
+
+The scaffold also registers the explicit native delivery unit required by the consolidated
+selector. Native source nominates only that product; backend-only and UI-test changes do not
+nominate a native release. These boundaries are exercised against the actual shared selector
+using freshly generated manifests. TestFlight remains disabled pending account/signing acceptance.

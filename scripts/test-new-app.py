@@ -18,7 +18,8 @@ def main():
     args = parser.parse_args()
     with tempfile.TemporaryDirectory(prefix='new-app-check-') as temporary:
         root = Path(temporary)
-        (root / 'scripts').mkdir()
+        (root / 'scripts/ci').mkdir(parents=True)
+        (root / 'scripts/ci/units.json').write_text('{"version":1,"units":{}}')
         shutil.copy2(ROOT / 'scripts/new-app.sh', root / 'scripts/new-app.sh')
         shutil.copytree(ROOT / 'templates', root / 'templates',
                         ignore=shutil.ignore_patterns('node_modules', '.wrangler', '*.xcodeproj'))
@@ -56,6 +57,15 @@ def main():
         scaffold('Samplr', 'samplr', '--backend', 'cloudflare', success=False)
         scaffold('Invalidr', 'invalidr', '--backend', 'unknown', success=False)
         assert not (root / 'apps/invalidr').exists()
+        units = json.loads((root / 'scripts/ci/units.json').read_text())['units']
+        assert set(units) == {'plainr.native', 'samplr.native'}
+        spec = importlib.util.spec_from_file_location('unit_selection', ROOT / 'scripts/ci/select.py')
+        selection = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(selection)
+        configuration = {'version': 1, 'units': units}
+        assert selection.select(['apps/samplr/App/App.swift'], configuration)['delivery_candidates'] == ['samplr.native']
+        assert selection.select(['apps/samplr/backend/src/index.ts'], configuration)['delivery_candidates'] == []
+        assert selection.select(['apps/samplr/UITests/Test.swift'], configuration)['delivery_candidates'] == []
         assert (root / 'sites/.pages').read_text().splitlines() == ['plainr', 'samplr']
         if args.backend_check:
             spec = importlib.util.spec_from_file_location('backends', ROOT / 'scripts/check-app-backends.py')
