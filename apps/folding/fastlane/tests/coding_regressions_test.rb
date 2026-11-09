@@ -3,6 +3,35 @@ require_relative "../lib/release_operations"
 require_relative "../lib/tip_products"
 
 class CodingRegressionsTest < Minitest::Test
+  def test_public_source_artifacts_stay_in_authenticated_drafts
+    remote = FoldingRelease::GitHubArtifacts.new("folding/build-42")
+    commands = []
+    FoldingRelease.stub(:run, ->(*args) { commands << args; "" }) do
+      remote.stub(:info, {"isDraft" => true}) do
+        remote.upload("candidate.ipa")
+        remote.publish
+      end
+      assert_equal 1, commands.length
+      assert_equal ["gh", "release", "upload"], commands.first.first(3)
+      remote.stub(:info, {"isDraft" => false}) do
+        assert_raises(RuntimeError) { remote.upload("private.ipa") }
+        assert_raises(RuntimeError) { remote.publish }
+      end
+      remote.stub(:info, nil) { assert_raises(RuntimeError) { remote.publish } }
+      assert_equal 1, commands.length
+    end
+  end
+
+  def test_explicit_main_ci_run_can_supply_beta_checks_but_other_branches_cannot
+    run = {"head_sha" => "source", "path" => ".github/workflows/folding-ci.yml", "status" => "completed", "conclusion" => "success", "run_attempt" => 1, "event" => "workflow_dispatch", "head_branch" => "main", "head_repository" => {"full_name" => "0x63616c/world-wide-webb"}}
+    check = {"kind" => "ci", "name" => "contracts", "commit_sha" => "source", "conclusion" => "success", "run_url" => "https://github.com/0x63616c/world-wide-webb/actions/runs/1"}
+    FoldingRelease.stub(:run, ->(*args) { JSON.generate(args.last.include?("jobs?") ? [{"jobs" => [{"name" => "Folding contracts", "head_sha" => "source", "status" => "completed", "conclusion" => "success"}]}] : run) }) do
+      FoldingRelease::CheckEvidence.validate!(check, source: "source", base: ".")
+      run["head_branch"] = "feature"
+      assert_raises(RuntimeError) { FoldingRelease::CheckEvidence.validate!(check, source: "source", base: ".") }
+    end
+  end
+
   def test_workflow_recovery_uses_its_actor_without_the_user_only_api
     previous = ENV.values_at("GITHUB_ACTIONS", "GITHUB_ACTOR")
     ENV["GITHUB_ACTIONS"] = "true"

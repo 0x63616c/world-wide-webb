@@ -1,6 +1,6 @@
 # Folding release operations
 
-This is implemented orchestration, not live release acceptance. Run through the primary agent's existing credential session or a trusted release runner. Never put key values on command lines or in repository files. Monorepo workflows are prepared locally. Automatic delivery stays off until private-source, credentials, ledger and live runner/provider acceptance pass.
+This is implemented orchestration, not live release acceptance. Run through the primary agent's existing credential session or a trusted release runner. Never put key values on command lines or in repository files. Monorepo workflows are prepared locally. Automatic delivery stays off until credentials, ledger and live runner/provider acceptance pass.
 
 ## Inputs and identity
 
@@ -12,7 +12,7 @@ This is implemented orchestration, not live release acceptance. Run through the 
 - `FOLDING_TESTFLIGHT_GROUPS`: explicit comma-separated internal group names.
 - Review contact environment names are in `release-config.json`. Contact details are sent to Apple, never inserted into a public listing.
 
-`reserve` requires a clean committed checkout on trusted main history and a private artifact repository. Globally serialize all distribution workflows using `folding-release`, with cancellation disabled. The central immutable draft-release reservation ledger also rejects concurrent revision writes. Allocation is above both registered apps' Apple maximum and every prior ledger reservation. The same commit/version/configuration key belongs to one release tag; retries reuse that record. A different binary needs a new reservation and build number, never an overwritten IPA.
+`reserve` requires a clean committed checkout on trusted main history and authenticated draft artifact storage. Drafts must remain unpublished even after Apple releases the app; publishing a GitHub release would expose its artifacts in a public repository. Globally serialize all distribution workflows using `folding-release`, with cancellation disabled. The central immutable draft-release reservation ledger also rejects concurrent revision writes. Allocation is above both registered apps' Apple maximum and every prior ledger reservation. The same commit/version/configuration key belongs to one release tag; retries reuse that record. A different binary needs a new reservation and build number, never an overwritten IPA.
 
 Each release record revision is a new immutable GitHub release asset. Metadata, screenshots, IPA, archive and dSYMs are preserved in the private draft release. Readback verifies SHA-256 before reuse. Manifest revisions use optimistic compare-and-set by unique asset filename; a competing writer fails and reloads the latest remote record.
 
@@ -31,7 +31,7 @@ bundle exec fastlane ios submit tag:folding/build-N evidence:/absolute/path/evid
 
 The initial preflight checks named local or CI evidence, backend capability/version readback, public pages and recorded account prerequisites. Final preflight additionally requires screenshot/final-review runs, reviewed metadata/screenshots, product-readiness evidence, completed privacy/age-rating answers, exact processed Apple build and every artifact hash. The final review gate must complete before submission. Device checks remain explicitly deferred to F13, never represented as passing.
 
-Evidence JSON contains `commit_sha`, `required_checks` entries (`name`, `run_url`, `conclusion`, `commit_sha`), `account_prerequisites_confirmed`; final evidence also contains `metadata_reviewed`, `screenshots_reviewed`, `app_privacy_complete`, `age_rating_complete`, `products` (`product_id`, `state`) and `final_review` (`state: approved`, `commit_sha`, `evidence_url`). Required check names are in `release-config.json`. CI evidence is bound to an allowlisted workflow path and exact job name, read back through GitHub for the exact commit and current run attempt. Whole-run success alone is insufficient. Product/account/privacy evidence must be prepared from actual App Store Connect readback by the account integration; this helper does not pretend Boolean evidence discovers or creates those Apple settings.
+Evidence JSON contains `commit_sha`, `required_checks` entries (`name`, `run_url`, `conclusion`, `commit_sha`), `account_prerequisites_confirmed`; final evidence also contains `metadata_reviewed`, `screenshots_reviewed`, `app_privacy_complete`, `age_rating_complete`, `products` (`product_id`, `state`) and `final_review` (`state: approved`, `commit_sha`, `evidence_url`). Required check names are in `release-config.json`. CI evidence may come from a main push or explicit main dispatch and is bound to an allowlisted workflow path and exact job name, read back through GitHub for the exact commit and current run attempt. Whole-run success alone is insufficient. Product/account/privacy evidence must be prepared from actual App Store Connect readback by the account integration; this helper does not pretend Boolean evidence discovers or creates those Apple settings.
 
 Only production can submit. Staging can archive/TestFlight using isolated registered identifiers and backend origin. **Both** TestFlight environments use Apple's distribution values: CloudKit `Production`, App Attest `production`, APNs `production`. The backend's staging environment is independent of Apple's distribution signing environment.
 
@@ -39,7 +39,7 @@ A 0.x preview archive and distribution require the configured preview capabiliti
 
 `beta` never submits to App Review. It uploads the stored IPA once, then resolves only its exact version/build; repeat the lane to observe processing and distribute to the explicit internal groups. It never rebuilds. If an upload might have succeeded but no build is visible, it stops for Apple reconciliation rather than uploading blindly.
 
-`submit` first associates metadata/screenshots with the exact processed build. Before the external submission attempt it persists an attempt marker. Resuming an ambiguous attempt only reads Apple. Success requires the selected build, `AFTER_APPROVAL`, a review-submission ID and `WAITING_FOR_REVIEW` or `IN_REVIEW`; only then does it publish the GitHub release record. Apple performs automatic public release after approval. Post-approval/live monitoring and physical-device acceptance remain F12/F13 work.
+`submit` first associates metadata/screenshots with the exact processed build. Before the external submission attempt it persists an attempt marker. Resuming an ambiguous attempt only reads Apple. Success requires the selected build, `AFTER_APPROVAL`, a review-submission ID and `WAITING_FOR_REVIEW` or `IN_REVIEW`; the GitHub artifact record remains an authenticated draft. Apple performs automatic public release after approval. Post-approval/live monitoring and physical-device acceptance remain F12/F13 work.
 
 ## Screenshots and localization
 
@@ -166,7 +166,7 @@ configuration intent reuses its build. Historical `v…` records read from the c
 artifact repository and reject create/upload/publish operations; namespaced new records use WWW.
 Keep that original repository available while those records are referenced. Reading legacy assets
 in an owner session requires its existing access; the WWW workflow token has no cross-repo grant.
-WWW must be private, and historical ledger/build maxima must be reconciled before its writer starts.
+Artifact releases stay authenticated drafts whether WWW source is public or private. The writer rejects published records and never publishes drafts. Reconcile historical ledger/build maxima before its writer starts.
 
 Internal TestFlight builds may use the app's current marketing version independently of the
 first App Store launch acceptance. Full storefront/submission checks and recorded device/provider
@@ -212,7 +212,7 @@ for Apple's processing before explicit internal-group distribution. A retry read
 retained artifacts; it does not blindly upload again. Store submission retains its existing
 full capability, screenshot, listing and final-review prerequisites.
 
-The consolidated delivery workflow reads the encrypted `signing/folding` branch in private WWW
+The consolidated delivery workflow reads the encrypted `signing/folding` branch in WWW
 with its short-lived built-in GitHub token. Match clones that branch directly and stays readonly;
 no additional signing-repository SSH key is needed. The source store remains preserved until a
 real signed archive proves this consumer handover. Local operations can still override
