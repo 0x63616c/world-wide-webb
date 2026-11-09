@@ -1443,3 +1443,29 @@ and timeout remain unchanged. On the same native host, fixture setup fell from 5
 1,059 ms; all 30 runtime tests pass in 10.38 seconds. Astra independently approved this delta.
 Replacement source CI remains required; neither this local result nor runner adoption is a green
 PR claim. Signing/delivery/infrastructure acceptance and old-repository retirement remain open.
+
+### Scoped Folding CI credentials and encrypted recovery
+
+The owner approved the 1Password retry; all access reused the primary persistent shell.
+Recovered bootstrap state stayed encrypted. The first full plan exposed only a list-order
+change to the existing owner policy; aligning the same policy/resource sets with provider
+readback yielded a reviewed plan with exactly two creates and no existing-resource mutations.
+Astra approved the complete source and redacted plan before the exact saved plan was applied.
+
+Separate deployment and published-build policy tokens are now active, saved in the Folding
+vault and installed as `FOLDING_DEPLOY_TOKEN` and `FOLDING_RELEASE_POLICY_TOKEN` in WWW.
+Worker deployment/version reads and a read-only D1 query passed with each identity; provider
+metadata confirmed their permission/resource scopes. Neither CI token receives DNS, Access,
+R2/state storage or token-minter privileges. Updated encrypted bootstrap state replaced its
+existing vault recovery document; a separate download matched the new encrypted state bytes.
+Token values remained in session memory and direct secret-store inputs, outside Git/logs.
+Redacted receipts: `/tmp/monorepo-folding-bootstrap-identities-plan-summary.json`,
+`/tmp/monorepo-folding-ci-identities-verification.json` and the two CI vault metadata receipts.
+
+`FOLDING_PRODUCTION_WORKER_CONFIG` and live staging/readiness acceptance remain open. Both
+live Workers still advertise only the previously accepted `profiles.milestones` at `091b09f`.
+The imported backend adds history import and badge notification behavior; existing source-bound
+configuration correctly rejects an unreviewed input change. Preserve live flags/resources/claims,
+use the product's staging acceptance/readiness procedure, and retain device-only deferrals.
+No application deployment, database migration, TestFlight upload or delivery flag was activated
+by this credential operation. The credential source batch is local pending its publication gate.

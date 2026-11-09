@@ -25,9 +25,10 @@ The bootstrap root also owns `cloudflare_account_token.deployment`. Its token-mi
 ## Application delivery credentials
 
 `bootstrap/ci-identities.tf` defines separate WWW deployment and published-build policy
-identities. This source is preparation until its reviewed encrypted plan is applied and the
-credentials are saved in the approved vault and corresponding GitHub secrets. The owner-operated
-infrastructure token remains separate.
+identities. On November 9 the reviewed encrypted plan created exactly those two tokens;
+the existing owner identity and state bucket were unchanged. Both tokens are saved in the
+Folding vault and the corresponding WWW GitHub secrets. The owner-operated infrastructure
+token remains separate. Automatic delivery is still held for source/readiness acceptance.
 
 The deploy identity edits existing Workers, applies checksum-fenced D1 migrations and configures
 Queue consumers. Its route permissions cover only the Folding zone; it has no DNS, Access or
@@ -43,3 +44,12 @@ empty replacement state or reuse the owner identity in CI. Save the updated encr
 to its existing recovery document before activating delivery. Runtime configuration remains
 source-bound: preserve live flags, resources and accepted claims and use the existing staging
 acceptance/readiness generator for changed backend inputs.
+
+Verified token recovery references: deployment `o6wdqovsjw4vw4ghcbqnr7gvzq`; published-build
+policy `4xugt4o46euaezdnu6pswshs4u`. The updated encrypted bootstrap state was saved back to
+its existing recovery document and downloaded separately with an exact byte comparison.
+Both identities passed active-status, production Worker deployment/version metadata and
+read-only D1 query probes. Provider policy readback confirmed the defined permission/resource
+sets; these probes do not claim a deployment or published-build registration. Cloudflare may
+return policy/group lists in a different order: review permission/resource sets before any
+bootstrap reconciliation rather than treating list order as a scope change.
