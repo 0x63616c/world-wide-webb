@@ -69,3 +69,9 @@ publisher sends generated static assets only; preserve that legacy host while th
 needed. Folding retains getfolding.app. See `sites/README.md` for flags, ownership and live canaries.
 Archive old source authorities only after consumers and recovery move; deletion is a separate
 agreed cleanup decision. Preserve every excluded repository and active worktree.
+
+
+Control Center image publication additionally requires `CONTROL_CENTER_IMAGE_DELIVERY_ENABLED`.
+Keep it off during source handover; Docker build and local runtime checks still run. The existing
+`OPEN_TOFU_DEPLOY_ENABLED` and `MINI_DEPLOY_ENABLED` switches also stay off until their separate
+handover acceptance. Imported paths alone do not authorize a production apply or image publication.

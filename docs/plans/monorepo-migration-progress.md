@@ -24,8 +24,8 @@ execution, including where they are stricter than the stored goal wording:
   current stage. Completion requires actual delivery, retained integrations/data/media and
   applicable restore evidence; local wiring or successful uploads alone do not prove it.
 
-Overall estimate is approximately 47%; current stage is local host/CLI handover implementation
-and runtime canary preparation. The complete candidate is not yet ready for publication or live cutover.
+Overall estimate is approximately 47%; current stage is private publication and real CI for the usable app-development repository.
+Live release channels, infrastructure/host handovers and retirement remain separate acceptance work.
 
 ## Current candidate
 
@@ -42,8 +42,10 @@ Non-squashed local history imports:
 
 ## Work remaining
 
-- Integrate and validate the implemented ordered `deploy/homelab` promoter and enrollment lease,
-  preserve-state repository migration and destination-scoped host Git-key handover.
+- Finish the usable private app-development milestone: apply reviewed writer holds, publish the
+  reviewed source privately, pass real selective CI, merge and verify a fresh checkout.
+- After that milestone, integrate/validate host promotion, preserve-state repository migration,
+  enrollment coordination and destination-scoped host Git-key handover.
 - Finish private CLI release/installation authority and source/update/schema/help references;
   prove existing-profile resume/reboot/recovery and retain an off-host recovery route.
 - Adapt Control Center delivery to current homelab-owned runtime/locks/backups/Serve, replacing
@@ -61,8 +63,10 @@ Non-squashed local history imports:
 
 ## Dependencies and preservation
 
-Homelab main advanced to `ae2b14e2df6575712802522a1d0ff1a01a0370a8` (Beszel merge).
-Linux runners and CLI recovery still have active work. Main merges do not prove live activation.
+Homelab main is now `4fd1937e59a091e804c4ee941ea4777dcf4c7524`, including final Linux
+main-CI evidence; its history and two-file evidence delta are imported. Running controller readback
+confirms four total/two Mac slots and enabled admission. Its Mac image is still the older pinned
+Xcode26.4.1 base; Folding's Xcode27.2 runtime acceptance remains open.
 Folding has uncommitted product/design changes; apps has Air Miles branch work and an untracked
 Tendr requirements document. Do not silently discard or freeze these; refresh before handover.
 
@@ -649,3 +653,25 @@ Next milestone: refresh app sources, inspect the complete usable app/CI/release 
 resolve concrete cutover failures, make WWW private before any private-history push, publish
 reviewed source, pass checks and verify the app workflows. Defer new enrollment features and
 old-repo retirement from that usability milestone, while retaining them in the full active goal.
+
+
+## Integrated usable-candidate review and source refresh
+
+Astra completed one integrated review through `93a827db1`, accepting source preservation/layout
+subject to writer holds and real private CI. Report `/tmp/monorepo-usable-candidate-final-astra-review.md`.
+Primary added an initially-off Control Center image-publication flag to login/push/receipt only;
+Docker build/runtime checks stay active. Current summaries now follow the owner’s usable-first
+instruction. The existing Cloudflare apply flag was found enabled and must be held before merge.
+
+Latest upstream main refs for Folding/apps/Callkeep/CLI remain unchanged; homelab advanced to
+`4fd1937` and is imported without squashing. Original active feature branches are older forks:
+their whole trees are not replacements for newer main. Stable protected local snapshots preserve
+their current dirty changes/untracked files at `/tmp/monorepo-active-source-20261108-imphnfa3`;
+Folding has527 untracked source/skill/design files, apps2, homelab6. Original files remain untouched.
+The CLI original patch hash still exactly matches the source snapshot already imported. Refresh
+again at working-branch handover; this preservation snapshot does not freeze ongoing development.
+
+Read-only GitHub checks confirm WWW has no Pages site, remains public at this observation, and
+only its AGE_PRIVATE_KEY secret is configured. Private-history publication must follow verified
+private visibility. All new channel flags are absent/off; MINI_DEPLOY_ENABLED is false. Account
+upgrade/branch-protection support is not a prerequisite by the owner's explicit decision.

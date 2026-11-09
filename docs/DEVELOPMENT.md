@@ -76,8 +76,8 @@ verification without authorizing publication. Forced checks are verification-onl
 
 The standard iOS resolver also discovers independent `standard_ios` app manifests. Product
 workflows retain their existing handlers for Folding, Callkeep and Control Center. Always-reporting
-gates fail selected failed/cancelled/skipped jobs; required-check configuration is a separate
-cutover prerequisite. Publication uses trusted exact-source evidence and immutable artifacts.
+gates fail selected failed/cancelled/skipped jobs; review and successful checks remain part of the publication process. The owner chose
+automation gates without GitHub branch protections or a Pro upgrade. Publication uses trusted exact-source evidence and immutable artifacts.
 
 Cloudflare Workers/static assets, D1 and R2 are the default for a new hosted backend when needed.
 Offline apps get no backend by default. Folding's working Rust Worker and Control Center's
