@@ -1,9 +1,10 @@
 # World Wide Webb
 
-A private home for independent apps, websites and homelab operations.
+Independent apps, websites and homelab operations in one repository.
 
-The consolidation is in progress on a local candidate. Production still follows its existing
-sources until the verified handovers in the [migration tracker](docs/plans/monorepo-migration-progress.md).
+Source consolidation is merged. Homelab configuration, home Cloudflare infrastructure and
+website publication follow WWW. The [migration tracker](docs/plans/monorepo-migration-progress.md)
+records completed handovers and remaining release/reference cleanup. WWW is currently public.
 
 ## Products
 
@@ -15,7 +16,7 @@ sources until the verified handovers in the [migration tracker](docs/plans/monor
 
 `sites/` contains public website sources. `infra/cloudflare/` contains retained infrastructure.
 [Homelab](homelab/README.md) contains host configuration, runners, services and the CLI.
-Root enrollment files preserve the installer contract; live source handover is pending.
+Root enrollment files preserve the installer contract; both Macs follow WWW.
 App components stay with their own products; shared tooling standardizes checks and delivery.
 
 ## Work locally
@@ -37,10 +38,11 @@ describe the shared lifecycle and current handler boundaries.
 
 ## Delivery and migration
 
-The [accepted plan](docs/plans/world-wide-webb-monorepo-2026-11-08.md) defines selective CI,
-immutable delivery, private Homebrew installation, home ownership and repo retirement.
+The [current finish plan](docs/plans/monorepo-remaining-work-2026-11-09.md) covers remaining
+delivery references and old-repository cleanup. Earlier private-repository proposals are historical.
 The selection policy in `scripts/ci/units.json` separates verification from delivery candidates;
-selection alone never authorizes publication. Current pipelines are being adapted and verified.
+selection alone never authorizes publication. Use each product’s release instructions and
+channel flags; documentation changes do not request a product release.
 
 Keep original repositories and worktrees until their imports, active changes, releases, issues,
 compatibility URLs and recovery paths are accounted for. Excluded personal projects/data remain separate.

@@ -1,8 +1,8 @@
 # Releases
 
-Use the product's release handler and exact verified source. The monorepo candidate is still
-local; channel flags, credentials and live runner/account checks must be completed before the
-new workflows become production authority. Current evidence is in the migration tracker.
+Use the product’s release handler and exact verified source. Source consolidation is merged;
+channel flags determine which publishers are active. Home Cloudflare and site handovers are
+complete. Current delivery evidence and remaining handovers are in the migration tracker.
 
 ## Product handlers
 
@@ -29,8 +29,9 @@ and provider configuration, exact processed builds and confirmed internal-group 
 Existing source-bound shipping/device deferrals remain explicit. Preview captures are separate
 from the full App Store screenshot matrix and cannot satisfy its evidence requirements.
 
-Callkeep owns signed universal archives, Apple notarization/symbol receipts, monotonic source
-reservations and immutable private Git artifacts. `CALLKEEP_DELIVERY_ENABLED` remains gated on
+Callkeep owns signed universal archives, Apple notarization/symbol receipts and monotonic
+source reservations. Its prepared private Git-artifact transport needs a visibility/consumer
+decision for public WWW before activation. `CALLKEEP_DELIVERY_ENABLED` remains gated on
 actual signing/private Homebrew install and upgrade acceptance. The tap is the update authority;
 no public appcast or public release download is needed. Older-source promotion is fenced before
 changing the tap, including interrupted and ambiguous publication outcomes.
@@ -49,19 +50,23 @@ unrelated product credentials. Signing and publication secrets enter only the st
 Use one primary-agent credential session; pass values directly to operations without displaying
 or saving them in Git. Existing protected recovery material stays in its approved store.
 
-Homebrew recipes pin private orphan artifact tags and exact commits in WWW. Authorized Git
-access is required for artifact fetches separately from access to the tap. Preserve aliases,
-app data, modes/symlinks and recovery artifacts. Fresh authorized install/upgrade and unauthorized
-uncached rejection must pass before the tap switches. Source/tag checkout filtering prevents
-source CI from downloading unrelated binary history.
+The earlier private Homebrew proposal pins orphan artifact tags and exact commits. Those tags
+are not private in public WWW. Resolve artifact visibility and remaining release references
+before activating that transport or switching the tap. Preserve aliases, app data, modes/symlinks
+and recovery artifacts; keep homebrew-tap separate. Source/tag checkout filtering avoids
+fetching unrelated binary history but is not an access-control boundary.
 
 ## Verification and public pages
 
 Required checks must be green for the exact source before delivery. Confirm Apple's processing
 and group assignment, signed/notarized installation, current service revision/worker ownership,
 retained data and backup/restore as applicable. An archive/upload alone is insufficient.
-Independent final review precedes migration publication. WWW must be private before private
-history is pushed, with successful CI and reviewed publication. The owner chose no GitHub branch protections or Pro upgrade;
+Review the candidate before publication; delegated reviews require an explicit owner request.
+WWW is public. Folding’s signed artifacts and manifests remain authenticated GitHub draft
+releases permanently, including after Apple submission. Ordinary Git branches/orphan tags do
+not provide private storage in a public repository; the earlier private Homebrew artifact
+proposal remains a separate unresolved consumer handover. The owner chose no GitHub branch
+protections or Pro upgrade;
 GitHub does not enforce those automation gates against direct pushes.
 
 Tendr's installed privacy/support URLs remain under the old apps Pages endpoint. The scoped
@@ -72,6 +77,7 @@ agreed cleanup decision. Preserve every excluded repository and active worktree.
 
 
 Control Center image publication additionally requires `CONTROL_CENTER_IMAGE_DELIVERY_ENABLED`.
-Keep it off during source handover; Docker build and local runtime checks still run. The existing
-`OPEN_TOFU_DEPLOY_ENABLED` and `MINI_DEPLOY_ENABLED` switches also stay off until their separate
-handover acceptance. Imported paths alone do not authorize a production apply or image publication.
+Docker build and local runtime checks still run. `OPEN_TOFU_DEPLOY_ENABLED` is enabled after
+the verified home infrastructure handover. Other channel flags require their own handover;
+do not infer their live state from source alone. Imported paths alone do not authorize a
+production apply or image publication.

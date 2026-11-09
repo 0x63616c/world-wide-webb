@@ -2,7 +2,11 @@
 
 A free, native iPhone Duo folding tracker: personal statistics, guided Shortcuts setup, iCloud sync, widgets, and optional competition.
 
-**Status:** shipping goal active; account setup and implementation are now authorized. The Swift tracking domain, durable journal and private infrastructure-state bootstrap are implemented; the app, backend and release pipeline remain in progress. The owner selected **Folding** as the final product name. App Store name registration is pending. The owner has purchased **getfolding.app**. Source is being consolidated into private World Wide Webb under `apps/folding`; the [original repository](https://github.com/0x63616c/folding) retains historical records until verified handover.
+**Status:** **1.0.0 (15)** is available in **Folding Internal** on TestFlight. Native source,
+the live Rust Worker and future automatic main deliveries use WWW. App Store submission and
+final device/provider acceptance remain open. The registered app is Folding (`app.getfolding.Folding`), at **getfolding.app**. Source lives here;
+the [original repository](https://github.com/0x63616c/folding) retains historical artifacts and
+shipping issues. See the [current delivery checkpoint](docs/experiments/monorepo-testflight-2026-11-09.md).
 
 ## Start here
 
@@ -31,12 +35,16 @@ These documents consolidate the planning conversation through November 7, 2026. 
 
 ## Local development
 
-Run `scripts/bootstrap` to prepare the contract validator and repository-local Git hooks, then `scripts/check` for implemented personal-core/contract checks. `scripts/format` formats owned Swift and OpenTofu files without staging them. These are initial checks; backend, simulator and release CI gates are still being added.
+Run `scripts/bootstrap` to prepare the contract validator and shared repository hooks, then
+`scripts/check` for contracts, personal core, localization and formatting. `scripts/format`
+formats owned Swift and OpenTofu files without staging them. Use `scripts/check-backend`
+for the Worker and `bundle exec fastlane ios verify_app` for native simulator checks; root
+Folding CI selects these independently.
 
 ## Monorepo automation
 
 Run product commands from `apps/folding`. Root `folding-ci.yml` selects its checks independently
 from other products. PR previews use five English outer-display scenes; full App Store captures
 retain all locales/displays and separate evidence. Both use the native Device Hub controller
-inside an isolated Mac guest. See [release operations](fastlane/RELEASE.md) for the prepared
-automatic TestFlight/Worker flow, immutable retry behavior and remaining activation acceptance.
+inside an isolated Mac guest. See [release operations](fastlane/RELEASE.md) for the
+TestFlight/Worker flow, immutable retry behavior and live channel configuration.

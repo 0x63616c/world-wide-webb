@@ -14,7 +14,7 @@ Start with [README.md](README.md) and the relevant product README.
 - `scripts`, `fastlane`, `templates`: imported Tendr delivery/scaffolding handlers, being adapted.
 - `sites`: static website source; installed legacy URLs are retained until replacement proof.
 - `infra/cloudflare`: retained home infrastructure; separate home and Folding state roots with preserved resource addresses.
-- `.github`: selective product pipelines and shared actions. Folding and Callkeep CI use Linux/Mac homelab routes; live runner/release cutovers are pending.
+- `.github`: selective product pipelines and shared actions, with product pins and configured hosted/homelab routes. The migration tracker records live channel ownership.
 - `.agents/skills`: pinned Apple and Matt Pocock guidance; provenance in `SOURCES.md`.
 
 [Migration progress](docs/plans/monorepo-migration-progress.md) distinguishes local evidence from

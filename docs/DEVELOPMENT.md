@@ -13,8 +13,9 @@ Callkeep, Air Miles and Control Center keep their own components and packages.
 5. Publish the reviewed candidate, pass required checks and merge. Verify the affected release,
    live service or user journey. Record deferrals and keep incomplete acceptance open.
 
-During the consolidation, the complete migration candidate stays local until final review.
-The migration tracker distinguishes source preparation from live ownership and delivery.
+Keep each complete candidate local until reviewed, then publish, pass required checks and merge.
+Delegated reviews require an explicit owner request. The migration tracker records live ownership
+and delivery separately from source consolidation.
 Agents perform routine setup, fixes, checks, publication and verification within the authorized
 scope. Owner involvement is reserved for unavoidable account/2FA/legal/hardware facts or purchases.
 Prepare those concrete decisions together; a small code change needs no ticket ceremony.
@@ -44,9 +45,10 @@ Apple runtime availability and credentials remain the relevant workflow's respon
 - Rust workspaces keep their own lock/toolchain and fmt/clippy/tests; dependency policy follows
   the product. Bun is the JavaScript installation/tooling default with frozen locks. Preserve
   Node for tools and suites that require it.
-- Python environments and pinned requirements, ShellCheck and actionlint. Explicit Linux/Mac
-  homelab labels select disposable guests. Runtime/client setup is part of the job contract;
-  a guest is not assumed to contain the hosted runner's tool inventory.
+- Python environments and pinned requirements, ShellCheck and actionlint. Use explicit hosted
+  or homelab labels and product pins. GitHub’s `xcode-27` image includes Xcode 27.2 and Duo;
+  those requirements alone do not require a homelab guest. Runtime/client setup is part of
+  the job contract; do not assume an image’s default tool versions match the product pins.
 - OpenTofu owns durable Cloudflare resources; Wrangler owns Worker code/assets and explicit D1
   operations. Keep one owner for each resource/property. SOPS/age and 1Password retain their roles.
 
