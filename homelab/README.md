@@ -1,4 +1,31 @@
-# homelab
+# Homelab
+
+Desired configuration for the MacBook and Mac mini, colocated with the setup CLI in
+[`cli`](cli/README.md). This is the imported monorepo candidate. Live hosts still follow their
+existing repository until the [migration handover](../docs/plans/monorepo-migration-progress.md)
+is verified; the historical instructions below describe that existing authority.
+
+Use repository-root `flake.nix`, `flake.lock`, `homelab.json`, `bootstrap/installer.json`
+and host ciphertext in `secrets/` for enrollment. These are regular compatibility files.
+`flake-outputs.nix` owns the implementation. The CLI and private host tools build from
+filtered local sources; unrelated app files are excluded from those package inputs.
+
+From the monorepo root:
+
+```sh
+nix flake check --no-update-lock-file --print-build-logs
+nix develop --command python3 -m unittest discover -s homelab/tests
+cargo test --locked --manifest-path homelab/cli/Cargo.toml
+cargo test --locked --manifest-path homelab/host/Cargo.toml
+cargo test --locked --manifest-path homelab/runner/Cargo.toml
+```
+
+These checks do not activate a host. `Homelab CI` selects configuration/controller/operations
+checks for host changes and CLI checks for CLI changes. CLI changes also verify host compatibility.
+Promotion, private CLI distribution and preserve-state repository rebind are pending; source imports
+alone do not transfer deployment ownership. Existing dirty source work remains in its original checkout.
+
+## Historical deployment documentation
 
 Private configuration for the macOS homelab. The MacBook is enrolled and configured
 for disposable CI runners. Application migration remains disabled; the Mac mini

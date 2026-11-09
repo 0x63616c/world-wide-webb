@@ -14,7 +14,8 @@ sources until the verified handovers in the [migration tracker](docs/plans/monor
 - [Control Center](apps/control-center/README.md): native home controls and private Rust/SQLite service.
 
 `sites/` contains public website sources. `infra/cloudflare/` contains retained infrastructure.
-Homelab and CLI sources will join after their active runner/recovery changes land.
+[Homelab](homelab/README.md) contains host configuration, runners, services and the CLI.
+Root enrollment files preserve the installer contract; live source handover is pending.
 App components stay with their own products; shared tooling standardizes checks and delivery.
 
 ## Work locally

@@ -6,7 +6,7 @@ rust-version = "1.89"
 publish = false
 
 [dependencies]
-homelab-client = { git = "https://github.com/0x63616c/homelab-cli.git", rev = "c949c7201cc1f39bfa51f0e7534ede5a57d65919" }
+homelab-client = { path = "../cli" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "2"

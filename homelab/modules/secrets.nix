@@ -1,7 +1,7 @@
 { config, lib, ... }:
 let
   host = config.networking.hostName;
-  path = ../secrets + "/${host}.sops.yaml";
+  path = ../../secrets + "/${host}.sops.yaml";
   exists = builtins.pathExists path;
   services = config.homelab.containers.services;
   selected = name: config.homelab.containers.enable && builtins.elem name services;

@@ -1,14 +1,17 @@
 { pkgs }:
 let
-  # The private service crate and installed bootstrap share one public revision.
-  dependency = (builtins.fromTOML (builtins.readFile ../host/Cargo.toml)).dependencies.homelab-client;
-  source = builtins.fetchGit { url = dependency.git; rev = dependency.rev; };
+  source = pkgs.lib.fileset.toSource {
+    root = ../cli;
+    fileset = pkgs.lib.fileset.unions [
+      ../cli/Cargo.toml ../cli/Cargo.lock ../cli/build.rs
+      ../cli/src ../cli/tests ../cli/schema ../cli/examples
+    ];
+  };
 in pkgs.rustPlatform.buildRustPackage {
   pname = "homelab";
-  version = (builtins.fromTOML (builtins.readFile (source + "/Cargo.toml"))).package.version;
-
+  version = (builtins.fromTOML (builtins.readFile ../cli/Cargo.toml)).package.version;
   src = source;
-  cargoLock.lockFile = source + "/Cargo.lock";
+  cargoLock.lockFile = ../cli/Cargo.lock;
   nativeBuildInputs = [ pkgs.makeWrapper ];
   nativeCheckInputs = [ pkgs.shellcheck pkgs.git pkgs.openssh pkgs.age pkgs.sops ];
   postInstall = ''

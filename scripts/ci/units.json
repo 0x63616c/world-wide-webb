@@ -234,23 +234,6 @@
         "apps/control-center/tools/test_state_backend.py"
       ]
     },
-    "sites.tendr": {
-      "paths": [
-        "sites/tendr/**",
-        "sites/.legacy-root/**"
-      ],
-      "delivery": "site",
-      "delivery_exclude": [
-        "**/Tests/**",
-        "**/tests/**",
-        "**/test_*",
-        "**/*_test.*",
-        "**/fixtures/**",
-        "**/BuildTests/**",
-        "**/ScreenshotTests/**",
-        "**/StorefrontTests/**"
-      ]
-    },
     "sites.folding": {
       "paths": [
         "sites/folding/**"
@@ -361,6 +344,25 @@
         "scripts/new-app.sh"
       ],
       "delivery": null
+    },
+    "sites.pages": {
+      "paths": [
+        "sites/**"
+      ],
+      "delivery": "site",
+      "delivery_exclude": [
+        "**/Tests/**",
+        "**/tests/**",
+        "**/test_*",
+        "**/*_test.*",
+        "**/fixtures/**",
+        "**/BuildTests/**",
+        "**/ScreenshotTests/**",
+        "**/StorefrontTests/**"
+      ],
+      "exclude": [
+        "sites/folding/**"
+      ]
     }
   }
 }

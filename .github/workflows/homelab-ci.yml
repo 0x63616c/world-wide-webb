@@ -1,0 +1,153 @@
+name: Homelab CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: homelab-ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+jobs:
+  selection:
+    name: Homelab selection
+    runs-on: [self-hosted, Linux, ARM64, homelab-linux]
+    timeout-minutes: 5
+    outputs:
+      verify: ${{ steps.select.outputs.verify }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          filter: blob:none
+          persist-credentials: true
+      - id: select
+        uses: ./.github/actions/select
+      - uses: actions/upload-artifact@v4
+        with:
+          name: homelab-selection
+          path: ${{ runner.temp }}/ci-selection.json
+          retention-days: 14
+          if-no-files-found: error
+  operations:
+    name: Homelab operations
+    needs: selection
+    if: contains(fromJSON(needs.selection.outputs.verify), 'homelab.config')
+    runs-on: [self-hosted, Linux, ARM64, homelab-linux]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.15.2'
+      - run: python3 -m pip install PyYAML==6.0.3
+      - run: python3 -m unittest discover -s homelab/tests
+      - run: bash -n homelab/bootstrap.sh
+  linux:
+    name: Homelab Linux controller
+    needs: selection
+    if: contains(fromJSON(needs.selection.outputs.verify), 'homelab.config')
+    runs-on: [self-hosted, Linux, ARM64, homelab-linux]
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: homelab/runner
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
+        with:
+          toolchain: 1.99.0
+          components: rustfmt, clippy
+      - run: cargo fmt --check
+      - run: cargo test --locked
+      - run: cargo clippy --locked --all-targets -- -D warnings
+  darwin:
+    name: Homelab Darwin configuration
+    needs: selection
+    if: contains(fromJSON(needs.selection.outputs.verify), 'homelab.config')
+    runs-on: [self-hosted, macOS, ARM64, homelab-tart]
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a
+      - name: Build and test both configurations without activation
+        run: nix flake check --no-update-lock-file --print-build-logs
+      - name: Check local host operations
+        run: |
+          nix develop --no-update-lock-file --command cargo fmt --manifest-path homelab/host/Cargo.toml --check
+          nix develop --no-update-lock-file --command cargo clippy --manifest-path homelab/host/Cargo.toml --locked --all-targets -- -D warnings
+  cli:
+    name: Homelab CLI
+    needs: selection
+    if: contains(fromJSON(needs.selection.outputs.verify), 'homelab.cli')
+    runs-on: [self-hosted, macOS, ARM64, homelab-tart]
+    timeout-minutes: 35
+    defaults:
+      run:
+        working-directory: homelab/cli
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
+        with:
+          toolchain: 1.99.0
+          components: rustfmt, clippy
+      - run: brew install age sops shellcheck
+      - run: |
+          cargo fmt --check
+          cargo clippy --locked --all-targets -- -D warnings
+          shellcheck src/probe.sh src/remote/*.sh src/first-access/*.sh
+          cargo test --locked
+      - name: Verify the packaged schema and build portable binaries
+        run: |
+          cargo run --locked --bin homelab -- config schema > "$RUNNER_TEMP/homelab-schema.json"
+          diff -u schema/homelab-v2.schema.json "$RUNNER_TEMP/homelab-schema.json"
+          cargo build --locked --release --bins
+          for binary in homelab homelab-host; do
+            file "target/release/$binary" | grep -Eq 'Mach-O 64-bit executable arm64'
+            otool -L "target/release/$binary" | awk 'NR > 1 && $1 !~ /^\/(usr\/lib\/|System\/Library\/)/ { bad=1 } END { exit bad }'
+            otool -l "target/release/$binary" | awk '$1 == "cmd" && $2 == "LC_RPATH" { bad=1 } END { exit bad }'
+          done
+          mkdir -p build/artifact/bin build/artifact/share/homelab
+          cp target/release/homelab target/release/homelab-host build/artifact/bin/
+          ln -s homelab build/artifact/bin/hl
+          cp -R schema examples docs build/artifact/share/homelab/
+          cp README.md LICENSE build/artifact/share/homelab/
+          tar -czf build/homelab-prebuilt.tar.gz -C build/artifact bin share
+          shasum -a 256 build/homelab-prebuilt.tar.gz > build/SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: homelab-cli-${{ github.sha }}
+          path: |
+            homelab/cli/build/homelab-prebuilt.tar.gz
+            homelab/cli/build/SHA256SUMS
+          retention-days: 14
+          if-no-files-found: error
+  gate:
+    name: Homelab checks
+    if: always()
+    needs: [selection, operations, linux, darwin, cli]
+    runs-on: [self-hosted, Linux, ARM64, homelab-linux]
+    timeout-minutes: 5
+    steps:
+      - env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          python3 - <<'PYTHON'
+          import json, os
+          results = json.loads(os.environ['RESULTS'])
+          assert results['selection']['result'] == 'success', 'Selection failed'
+          selected = json.loads(results['selection']['outputs']['verify'])
+          for job in ('operations', 'linux', 'darwin', 'cli'):
+              unit = 'homelab.cli' if job == 'cli' else 'homelab.config'
+              expected = 'success' if unit in selected else 'skipped'
+              assert results[job]['result'] == expected, f'{job}: expected {expected}'
+          PYTHON

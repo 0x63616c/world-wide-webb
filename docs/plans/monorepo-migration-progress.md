@@ -422,3 +422,63 @@ create a missing Duo device only after its exact pinned runtime/build is availab
 substitutes a runtime or mutates existing devices. Three portable device-policy tests pass,
 and the actual local Xcode/SDK/Swift/XcodeGen/device check passes. New image boot/runtime/Ruby
 and capture verification remains pending; this is preparation, not a live runner upgrade.
+
+### Homelab compatibility and verification — approximately 40% overall
+
+Root flake/lock, manifest, installer pin and host ciphertext are canonical regular files.
+The thin root flake delegates to `homelab/flake-outputs.nix`; ordered host-specific SOPS rules
+precede the existing generic product rule. Ciphertext bytes and recipient sets are preserved.
+Private host operations now depend on the colocated CLI by path; its lock changes only the
+local package identity. Both Nix packages use explicit source sets instead of fetching the
+old public CLI repo or incorporating app source/assets.
+
+The new always-reporting `Homelab CI` gate selects Linux operations/controller checks and
+nonactivating Darwin configuration builds for host changes. CLI changes additionally run its
+native checks/schema/portable release build, preserving executable/symlink modes inside a tar
+artifact. No host promotion or CLI publication is enabled by this workflow.
+
+Evidence: 127 operations tests, 16 host tests (one separate container restore test remains
+explicitly ignored), 162 CLI library tests (one existing test ignored), host fmt/clippy and
+workflow lint pass. On the MacBook, isolated candidate `nix flake check --no-build` evaluates
+all configurations/packages/check derivations successfully. Actual Nix source paths for both
+CLI and host tools remain identical after adding an unrelated synthetic app input. These are
+evaluation/input-isolation proofs, not successful Nix package builds or live activation.
+Temporary source/logs are outside Git at `/tmp/monorepo-nix-validation-20261108` and
+`/tmp/monorepo-nix-validation.log` on the MacBook; no deployment ref/Serve/state changed.
+Full Nix builds, explicit deploy-ref/repository rebind, new private CLI distribution and active
+source repair integration remain outstanding. The complete local batch is awaiting Astra review.
+
+### Public site boundary and compatibility fixes
+
+The previous shared site builder recursively copied Folding's build/source/docs into public
+Pages output and the workflow targeted the new source repository rather than the installed
+legacy endpoint. The replacement explicitly registers public static roots in `sites/.pages`,
+rejects unexpected private inputs/symlinks, and builds Folding assets independently. New-app
+scaffolding registers its static pages and preserves the actual `/apps/<app>/` URL prefix.
+
+Legacy publication uses a separate old-apps `gh-pages` checkout with a narrowly scoped SSH
+key, generated assets only, no source history/worktree deletion/forced push, tested-artifact
+comparison, retained-page policy and source-ancestry rollback prevention. Automatic publication
+is disabled pending credential handover/draining the old writer and live Pages acceptance.
+The old apps repository may remain a static publication host while installed privacy/support
+links depend on it; it cannot simply be deleted or archived while updates still require writes.
+
+Real local Git publication fixtures cover retention, fresh-build priority, no-op, private-source
+exclusion, prepared-artifact mismatch, private-file rejection and late older-source preservation.
+All13 shared selection/input tests pass using the pinned Python environment, workflow lint and
+shell checks pass, and actual Tendr static output plus both Folding site builds succeed locally.
+Folding site automatic promotion is still outstanding; no public endpoint was changed.
+
+The imported homelab batch passed independent Astra review; its report is outside Git at
+`/tmp/monorepo-homelab-import-astra-review.md`. The correct-key SOPS
+integrity verification now passes for both imported host ciphertexts using the existing protected
+operator recovery store. No key values or decrypted contents were displayed. The original root hook always used the WWW key and mislabeled the
+new host recipients as corrupt. It now accepts session-supplied identities, keeps the blocking
+decryption/MAC check and private temporary diagnostics, and emits a sanitized ownership-aware
+error. Primary 1Password authorization timed out, so the existing approved local recovery file was passed
+directly to SOPS instead; no new authentication or persisted secret was needed.
+
+
+The site batch also passed final independent Astra review after fixing source-authority advance
+for identical newer output and refusing an unconfirmed ahead checkout after a failed push. The
+full report is outside Git at `/tmp/monorepo-sites-astra-review.md`. Public endpoints remain unchanged.

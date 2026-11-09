@@ -9,6 +9,7 @@ Start with [README.md](README.md) and the relevant product README.
 - `apps/callkeep`: macOS recording/transcription source, packages and release scripts.
 - `apps/control-center`: complete native Swift/Rust/SQLite product. Read its
   [source map](apps/control-center/CODEBASE_OVERVIEW.md) before changing it.
+- `homelab`: desired host state, operations, runners and local CLI; root flake/enrollment files delegate here.
 - `scripts/ci`: repository-wide input selection and isolation tests. Test-only changes verify without delivery.
 - `scripts`, `fastlane`, `templates`: imported Tendr delivery/scaffolding handlers, being adapted.
 - `sites`: static website source; installed legacy URLs are retained until replacement proof.

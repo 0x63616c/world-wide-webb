@@ -23,11 +23,11 @@ bundle="com.calumwebb.$suffix"
 dest="apps/$slug"
 [[ ! -e "$dest" ]] || fail "$dest already exists"
 [[ ! -e "sites/$slug" ]] || fail "sites/$slug already exists"
-repo=$(basename -s .git "$(git remote get-url origin 2>/dev/null || echo apps)")
-pages="https://0x63616c.github.io/$repo/$slug/"
+pages="https://0x63616c.github.io/apps/$slug/"
 
 cp -R templates/new-app/app "$dest"
 cp -R templates/new-app/site "sites/$slug"
+printf '%s\n' "$slug" >> sites/.pages
 find "$dest" "sites/$slug" -type f \( -name '*.swift' -o -name '*.yml' -o -name '*.json' -o -name '*.txt' -o -name '*.md' -o -name '*.html' -o -name '*.plist' \) -print0 |
   while IFS= read -r -d '' file; do
     sed -i.bak \
