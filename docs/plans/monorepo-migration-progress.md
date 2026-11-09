@@ -1140,3 +1140,33 @@ The scaffold also registers the explicit native delivery unit required by the co
 selector. Native source nominates only that product; backend-only and UI-test changes do not
 nominate a native release. These boundaries are exercised against the actual shared selector
 using freshly generated manifests. TestFlight remains disabled pending account/signing acceptance.
+
+### Release authority inventory and native delivery preparation
+
+Read-only provider inspection still finds active original Apps TestFlight/App Store workflows
+and Callkeep's original build/test/release workflow. They have not been disabled or archived.
+WWW's image/mini/Cloudflare writer flags remain false; the imported delivery flags are unset.
+Workflow availability alone is not proof of an active upload or an enabled automatic channel.
+Drain original publishers and reconcile durable counters/records at the relevant live cutover.
+
+The Folding native delivery phase now explicitly installs XcodeGen and resolves the exact
+pinned Apple environment/device before signing/archive. Its earlier `target: deploy` bootstrap
+prepares backend/Ruby tools, unlike `target: apple`, so native delivery could otherwise repeat
+the missing-generator/device failure after merge. Preparation runs only when native delivery
+is selected; backend-only publication does not acquire this Apple setup dependency. Existing
+strict product-pin checks remain in force. No release flag or provider state changed.
+
+The compatibility audit found historical Folding `v…` records were still read from the new
+repository. The artifact module now routes those reads to the configured original artifact
+repository and rejects every create/upload/publish operation there before provider access.
+Namespaced build/backend/reservation records keep using WWW. Regression tests reproduced the
+wrong-repository read and unsafe historical write path before the correction; all36 release
+tests/676 assertions pass after it. An actual read through the corrected module confirmed old
+`v0.1.13`, processed build14/source091b09f359526cb81cf9b16de13fb750803eb579, without mutation.
+The original repo remains required for those historical assets; do not delete it on source cutover.
+
+Callkeep's provider release inventory currently ends atv1.0.25, matching the prepared allocation
+floor. No original Apps or Callkeep workflow was in progress at inspection. These observations
+are not a writer drain or a ledger migration; recheck queued/running work and reconcile exact
+records when activating each replacement channel. This release-preparation/compatibility batch
+remains local pending its integrated final review and live acceptance.

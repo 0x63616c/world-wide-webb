@@ -103,6 +103,11 @@ jobs:
       - name: Prepare exact-source native CI evidence
         if: steps.native.outputs.beta == 'true'
         run: bundle exec ruby scripts/continuous-delivery.rb evidence
+      - name: Prepare pinned Apple tools for this native delivery
+        if: steps.native.outputs.beta == 'true'
+        run: |
+          brew list xcodegen >/dev/null 2>&1 || brew install xcodegen
+          python3 scripts/apple-build-environment.py --create-device
       - name: Authorize the private consolidated signing branch
         env:
           GH_TOKEN: ${{ github.token }}

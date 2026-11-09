@@ -162,8 +162,11 @@ for exact source, artifact/readback identities and remaining shipping gates.
 New records use an immutable `folding/build-N` identity. A single append-only reservation
 ledger allocates global build numbers across environments, channels and local/CI publishers.
 Its asset revision is a compare-and-set; a race reloads the winner, and the same source/version/
-configuration intent reuses its build. Historical `v…` records remain readable. WWW must be
-private, and the historical ledger/build maxima must be migrated before its new writer starts.
+configuration intent reuses its build. Historical `v…` records read from the configured original
+artifact repository and reject create/upload/publish operations; namespaced new records use WWW.
+Keep that original repository available while those records are referenced. Reading legacy assets
+in an owner session requires its existing access; the WWW workflow token has no cross-repo grant.
+WWW must be private, and historical ledger/build maxima must be reconciled before its writer starts.
 
 Internal TestFlight builds may use the app's current marketing version independently of the
 first App Store launch acceptance. Full storefront/submission checks and recorded device/provider

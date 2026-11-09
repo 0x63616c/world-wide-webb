@@ -111,14 +111,16 @@ module FoldingRelease
   end
 
   class GitHubArtifacts
-    attr_reader :tag
+    attr_reader :tag, :repository
     def initialize(tag)
       raise "Invalid release tag" unless tag.match?(/\A(?:v\d+\.\d+\.\d+(?:-[A-Za-z0-9.-]+)?|folding\/build-[1-9]\d*|folding\/backend-(?:production|staging)|folding-build-reservations)\z/)
       @tag = tag
+      @historical = tag.start_with?("v")
+      @repository = CONFIG.fetch(@historical ? "historical_repository" : "repository")
     end
 
     def info
-      output, error, status = Open3.capture3("gh", "release", "view", tag, "--repo", CONFIG.fetch("repository"), "--json", "tagName,isDraft,assets", chdir: ROOT)
+      output, error, status = Open3.capture3("gh", "release", "view", tag, "--repo", repository, "--json", "tagName,isDraft,assets", chdir: ROOT)
       unless status.success?
         return nil if error.include?("release not found")
         raise "Could not inspect GitHub release; do not assume it is absent"
@@ -127,8 +129,9 @@ module FoldingRelease
     end
 
     def ensure_exists(commit)
+      writable!
       return if info
-      FoldingRelease.run("gh", "release", "create", tag, "--repo", CONFIG.fetch("repository"), "--target", commit, "--draft", "--title", tag, "--notes", "Folding immutable release artifacts. Preparation is in progress.")
+      FoldingRelease.run("gh", "release", "create", tag, "--repo", repository, "--target", commit, "--draft", "--title", tag, "--notes", "Folding immutable release artifacts. Preparation is in progress.")
     end
 
     def latest(prefix)
@@ -138,17 +141,19 @@ module FoldingRelease
         .grep(/\A#{Regexp.escape(prefix)}-r\d{8}\.json\z/).max
       return nil unless name
       Dir.mktmpdir("folding-release-read") do |directory|
-        FoldingRelease.run("gh", "release", "download", tag, "--repo", CONFIG.fetch("repository"), "--pattern", name, "--dir", directory)
+        FoldingRelease.run("gh", "release", "download", tag, "--repo", repository, "--pattern", name, "--dir", directory)
         FoldingRelease.read_json(File.join(directory, name))
       end
     end
 
     def upload(path)
+      writable!
       # No --clobber: a duplicate revision/artifact name is a failed compare-and-set, not an overwrite.
-      FoldingRelease.run("gh", "release", "upload", tag, path, "--repo", CONFIG.fetch("repository"))
+      FoldingRelease.run("gh", "release", "upload", tag, path, "--repo", repository)
     end
 
     def upload_artifact(path)
+      writable!
       existing = info&.fetch("assets")&.any? { |asset| asset.fetch("name") == File.basename(path) }
       if existing
         Dir.mktmpdir("folding-artifact-compare") do |directory|
@@ -162,11 +167,18 @@ module FoldingRelease
 
     def download(name, directory)
       raise "Invalid artifact name" unless File.basename(name) == name
-      FoldingRelease.run("gh", "release", "download", tag, "--repo", CONFIG.fetch("repository"), "--pattern", name, "--dir", directory)
+      FoldingRelease.run("gh", "release", "download", tag, "--repo", repository, "--pattern", name, "--dir", directory)
     end
 
     def publish
-      FoldingRelease.run("gh", "release", "edit", tag, "--repo", CONFIG.fetch("repository"), "--draft=false")
+      writable!
+      FoldingRelease.run("gh", "release", "edit", tag, "--repo", repository, "--draft=false")
+    end
+
+    private
+
+    def writable!
+      raise "Historical Folding artifacts are read-only; create a namespaced build record" if @historical
     end
   end
 
