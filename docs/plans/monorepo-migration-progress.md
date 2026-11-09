@@ -1075,3 +1075,26 @@ native-host proof; the replacement Linux job remains required. External receipts
 `/tmp/monorepo-worker-tools-native-prepare.log` and
 `/tmp/monorepo-folding-worker-overrides-check.log`. The old source's product build checks have now
 completed; this collected correction batch is ready for final review and replacement CI.
+
+### Private CLI publication candidate (local follow-up)
+
+The next coherent local batch adds `Homelab CLI delivery`, consuming the exact portable binaries
+already built by successful main `Homelab CI`. It checks source/event/branch/repository/attempt,
+the named successful CLI job, private visibility, archive checksum and bounded allowed tar entries,
+then validates the CLI/helper versions and reuses the existing immutable orphan-artifact publisher.
+Real Homebrew fetch/staging, receipt/payload comparison, anonymous denial and monotonic formula
+checks precede a tap update. The first private CLI version is0.4.2; public0.4.1 remains preserved.
+
+Distribution tooling selects its Callkeep/CLI consumers for verification without delivering apps;
+CLI docs/test-only changes no longer nominate a CLI release. The seventeen selector/input/gate
+checks and eleven distribution tests pass, including unsafe tar members, trusted-source rejection,
+transport preservation and recipe downgrade/changed-byte rejection. Locked CLI binary compilation,
+workflow lint and generated Ruby syntax pass. Independent Astra final review found no blockers.
+The existing tap-scoped deploy key is reused, with no additional credential request.
+
+CLI docs now describe private Git/Homebrew upgrades and point local source links at the relocated
+fixtures. Historical schema IDs/helper pins and original saved profiles are untouched. Additional
+setup/deployment coordination code stays parked; this batch changes no host enrollment behavior.
+The delivery flag remains off. Installation, brew tests, existing-profile/recovery acceptance and
+actual private publication remain unverified. Keep this follow-up local while the published app
+candidate110fc2f2c finishes its existing CI, avoiding another cancellation of useful captures.

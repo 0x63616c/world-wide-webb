@@ -1,0 +1,111 @@
+name: Homelab CLI delivery
+on:
+  workflow_run:
+    workflows: [Homelab CI]
+    types: [completed]
+    branches: [main]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  selection:
+    if: >-
+      vars.HOMELAB_CLI_DELIVERY_ENABLED == 'true' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: [self-hosted, Linux, ARM64, homelab-linux]
+    timeout-minutes: 5
+    outputs:
+      publish: ${{ steps.select.outputs.publish }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: homelab-selection
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+      - id: select
+        env:
+          SOURCE: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          python3 - <<'PY'
+          import json, os
+          value = json.load(open('ci-selection.json'))
+          assert value['head'] == os.environ['SOURCE'] and value['event'] == 'push'
+          assert isinstance(value['delivery_candidates'], list)
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              output.write('publish=' + str('homelab.cli' in value['delivery_candidates']).lower() + '\n')
+          PY
+  publish:
+    needs: selection
+    if: needs.selection.outputs.publish == 'true'
+    runs-on: [self-hosted, macOS, ARM64, homelab-tart]
+    timeout-minutes: 20
+    concurrency:
+      group: homelab-cli-distribution
+      cancel-in-progress: false
+    permissions:
+      contents: write
+      actions: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      HOMEBREW_GITHUB_API_TOKEN: ${{ github.token }}
+      HOMEBREW_NO_AUTO_UPDATE: '1'
+      HOMEBREW_NO_ANALYTICS: '1'
+      SOURCE_RUN_ID: ${{ github.event.workflow_run.id }}
+      SOURCE_RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.15.2'
+      - uses: actions/download-artifact@v4
+        with:
+          name: homelab-cli-${{ github.event.workflow_run.head_sha }}
+          path: ${{ runner.temp }}/homelab-tested-build
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+      - name: Publish the tested immutable CLI payload
+        run: |
+          python3 scripts/distribution/homelab.py "$RUNNER_TEMP/homelab-tested-build" "$RUNNER_TEMP/homelab-distribution"
+      - name: Verify the actual private Homebrew transport
+        run: |
+          git config --global credential.https://github.com.helper '!gh auth git-credential'
+          brew ruby scripts/distribution/verify-homelab-download.rb "$RUNNER_TEMP/homelab-distribution/release.json" "$RUNNER_TEMP/homelab-distribution"
+          python3 scripts/distribution/homelab.py "$RUNNER_TEMP/homelab-tested-build" "$RUNNER_TEMP/homelab-distribution" --verify-download
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: 0x63616c/homebrew-tap
+          ssh-key: ${{ secrets.CALLKEEP_HOMEBREW_TAP_DEPLOY_KEY }}
+          path: build/homebrew-tap
+      - name: Update only the CLI installation recipe
+        run: |
+          python3 scripts/distribution/homelab.py "$RUNNER_TEMP/homelab-tested-build" "$RUNNER_TEMP/homelab-distribution" --verify-download --tap "$GITHUB_WORKSPACE/build/homebrew-tap"
+          ruby -c build/homebrew-tap/Formula/homelab.rb
+          cd build/homebrew-tap
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add Formula/homelab.rb
+          if ! git diff --cached --quiet; then
+            git commit -m 'chore(homelab): publish verified private CLI'
+            for attempt in 1 2 3; do
+              git pull --rebase origin main
+              if git push origin HEAD:main; then break; fi
+              [[ "$attempt" != 3 ]] || exit 1
+            done
+          fi
+          git fetch origin main
+          git show origin/main:Formula/homelab.rb > "$RUNNER_TEMP/homelab-confirmed.rb"
+          cmp "$RUNNER_TEMP/homelab-confirmed.rb" "$RUNNER_TEMP/homelab-distribution/homelab.rb"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: homelab-cli-delivery-${{ github.event.workflow_run.head_sha }}
+          path: |
+            ${{ runner.temp }}/homelab-distribution/release.json
+            ${{ runner.temp }}/homelab-distribution/homelab.rb
+          if-no-files-found: ignore
+          retention-days: 30

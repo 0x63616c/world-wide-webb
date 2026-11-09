@@ -132,7 +132,8 @@
     },
     "callkeep.native": {
       "paths": [
-        "apps/callkeep/**"
+        "apps/callkeep/**",
+        "scripts/distribution/**"
       ],
       "delivery": "homebrew",
       "delivery_paths": [
@@ -322,7 +323,8 @@
     },
     "homelab.cli": {
       "paths": [
-        "homelab/cli/**"
+        "homelab/cli/**",
+        "scripts/distribution/**"
       ],
       "verify_dependents": [
         "homelab.config"
@@ -337,6 +339,13 @@
         "**/BuildTests/**",
         "**/ScreenshotTests/**",
         "**/StorefrontTests/**"
+      ],
+      "delivery_paths": [
+        "homelab/cli/src/**",
+        "homelab/cli/Cargo.toml",
+        "homelab/cli/Cargo.lock",
+        "homelab/cli/build.rs",
+        "homelab/cli/schema/**"
       ]
     },
     "templates": {

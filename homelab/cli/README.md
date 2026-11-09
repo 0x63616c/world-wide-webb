@@ -25,8 +25,8 @@ Nix runs on the target Mac. You do not need Nix on your personal laptop.
 
 ![Your laptop enrolls each Mac once. Each node runs SSH, Tailscale, Nix, nix-darwin and Comin. Comin pulls configuration from your private GitHub repo. Optional containers and runner VMs are configured separately.](docs/images/architecture.svg)
 
-The public CLI contains the installer and tests. **Your own repository contains
-hosts, services, Nix configuration and encrypted secrets.** This enrollment flow
+The CLI and its tests live here in private WWW, beside the host configuration.
+The setup interface can still attach another compatible configuration repository. This enrollment flow
 requires Comin for updates: checked host changes are promoted from authoring `main` to
 `deploy/homelab`; that ref authorizes the next deployment. Historical schema1/2
 configurations retain their original main policy until explicitly migrated.
@@ -47,7 +47,8 @@ The target receives its own scoped credentials; it does not receive your
 
 ## Get started
 
-Install the published CLI:
+After the private distribution handover, install with GitHub access to WWW configured
+for HTTPS Git (for example, `gh auth setup-git` after signing in):
 
 ```sh
 brew install 0x63616c/tap/homelab
@@ -98,10 +99,8 @@ Profiles separate repository selection, SSH key selection and recovery progress.
 They share installed tools, external sign-ins and SSH host trust. This is the real
 wizard, not a dry run; use `hl-dev preview` for screens without setup operations.
 
-The footer shows the installed version. Interactive setup checks the public GitHub
-release endpoint in the background, at most once every six hours, and shows newer
-versions without installing them. It sends no setup data or credentials. Set
-`HOMELAB_NO_UPDATE_CHECK=1` to disable this check; previews never perform it.
+The footer shows the installed version. Homebrew handles upgrades with
+`brew upgrade 0x63616c/tap/homelab`. The CLI does not poll a public release endpoint.
 
 With Rust and Just installed (`brew install just`), run `just dev` once from this checkout. It
 installs `homelab-dev` and `hl-dev` launchers that build the CLI and matching helper
@@ -159,6 +158,7 @@ never belong in the manifest.
 - [Configuration contract](docs/configuration.md) — connect your private Nix repository.
 - [Example manifest](examples/homelab.json) — host facts and credential references, not a complete flake.
 - [Testing](docs/testing.md) — automated checks and disposable macOS rehearsals.
+- [Private releases](docs/releases.md) — tested artifacts, authenticated Homebrew and handover acceptance.
 - [Contributing](CONTRIBUTING.md) — build, test and propose changes.
 
 ## License

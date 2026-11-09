@@ -47,7 +47,7 @@ The built system must supply:
   of the built system. Completion checks this against Comin's actual deployment.
 
 Comin is required by this flow. This is a macOS/Nix contract, not a runner for
-arbitrary setup scripts. The [synthetic VM flake](https://github.com/0x63616c/homelab-cli/blob/main/tests/fixtures/vm-config/flake.nix)
+arbitrary setup scripts. The [synthetic VM flake](../tests/fixtures/vm-config/flake.nix)
 shows the integration contract; its test credentials and health checks must not
 be used for production.
 
