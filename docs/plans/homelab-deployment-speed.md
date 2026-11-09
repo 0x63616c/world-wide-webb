@@ -270,7 +270,7 @@ rollback or stale generation restart is added.
 
 Defer additional Nix binary-cache publication until a bounded implementation shows
 a net end-to-end benefit. The initial GitHub cache integration encountered throttling
-and spent over 15 minutes in its post-step after checks passed; remove that integration
+and spent nearly 15 minutes in its post-step after checks passed; remove that integration
 from this rollout. Native Nix local/upstream substitution remains. Future output reuse must be tied to derivations,
 trusted signatures and existing secret-free package inputs; preserve an independent
 off-host recovery build route. No cache credential goes to a disposable guest that
@@ -358,8 +358,8 @@ the development-loop addition; implementation remains subject to local verificat
   separately through existing `scripts/homelab` discovery. Full required CI remains.
 - Image pulls deliberately stay sequential with snapshots because combined peak disk
   demand is not established; host and VM reserve checks run before each pull.
-- The optional GitHub Nix cache is removed following a post-step stall exceeding
-  15 minutes in run 42672720821. The pinned action awaits its finish request without
+- The optional GitHub Nix cache is removed following a post-step taking about
+  14 minutes 35 seconds in run 42672720821. The pinned action awaits its finish request without
   an HTTP timeout before reaching its daemon shutdown timeout. No CI speedup is claimed.
   Hosts keep native local/upstream substitution and independent build recovery.
   Service-only CI evaluates the full flake and builds both actual host outputs
