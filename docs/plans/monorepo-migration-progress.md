@@ -24,7 +24,7 @@ execution, including where they are stricter than the stored goal wording:
   current stage. Completion requires actual delivery, retained integrations/data/media and
   applicable restore evidence; local wiring or successful uploads alone do not prove it.
 
-Overall estimate is approximately 51%; current stage is private publication and real CI for the usable app-development repository.
+Overall estimate is approximately 52%; current stage is private publication and real CI for the usable app-development repository.
 Live release channels, infrastructure/host handovers and retirement remain separate acceptance work.
 
 ## Current candidate
@@ -1345,3 +1345,27 @@ suite pass; the synthetic Linux-container restore remains explicitly ignored loc
 run through the relocated workflow. Independent Astra final review approved this complete batch.
 Private temporary plans and the copied state were removed after retaining redacted receipts in
 the owner evidence directory; the original encrypted state and credentials stayed in place.
+
+### Actual encrypted Cloudflare NAS round trip
+
+Using the existing approved encrypted host recovery store, the primary operation read only its
+NAS credential field directly into the uploader; no vault prompt, credential output or plaintext
+credential file was created. A unique NAS folder received the encrypted state, private variables,
+exact home HCL/provider lock/version and a hash manifest. The original state matched the earlier
+proved SHA256 before upload. The pinned uploader verified remote bytes, then a separate actual
+download was saved and all eight archive members were checked against their original hashes.
+
+The downloaded files were transferred into a separate private mini backend. Initialization
+passed; the wrong passphrase was rejected; the correct existing owner credentials produced a
+no-change plan. Downloaded and production state hashes stayed unchanged. No apply or service
+restart occurred. Redacted receipts are `/tmp/monorepo-home-infra-nas-receipt.json` and
+`/tmp/monorepo-home-infra-nas-restore-receipt.json`; private snapshots stay outside Git.
+The successful archive payload SHA256 is
+`a93d15913bc60e910f97f1d9e5cdc9570ad9a98d35f9455c807b137494ab52fe` (44,847 bytes).
+
+This supersedes the earlier absence of an actual NAS-copy restore proof, but does not close
+automatic owner-scoped backup coverage or separately recovered passphrase/provider access.
+Keep the automatic writer disabled until those remaining handover requirements are satisfied.
+Source refresh fetched all six repositories successfully; remote main revisions were unchanged,
+and dirty originals/branches were preserved. The current review-approved recovery implementation
+is committed locally as `5bc50cd7d`; this subsequent receipt/documentation update changes no code.

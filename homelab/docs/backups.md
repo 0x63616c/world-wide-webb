@@ -67,12 +67,20 @@ The November 9 candidate passed a read-only plan against the existing encrypted
 state: all 15 managed resources were no-ops. An independent encrypted file copy
 also initialized as an isolated backend, rejected a deliberately wrong
 passphrase and produced a no-change plan using the correct owner credentials.
-The production state hash stayed unchanged. This proves the copied state is
-usable; it is **not** a NAS download/restore or off-host key recovery test.
+The production state hash stayed unchanged. This first check established that
+the copied state was usable; it did not test NAS or off-host key recovery.
+
+A subsequent owner-authorized check uploaded an encrypted state/configuration
+archive to a unique private NAS destination, downloaded the actual archive,
+and verified all eight members against their saved hashes. The downloaded
+state then initialized as another isolated backend, rejected the wrong
+passphrase and produced a no-change plan. Production state remained unchanged.
+This proves that one NAS copy restores with current owner credentials. It does
+not establish automatic backup coverage or separately recovered credentials.
 
 Before enabling the relocated automatic writer or retiring old recovery paths,
-add an owner-scoped encrypted state/configuration NAS backup, verify the actual
-download, and repeat isolated restoration with separately recovered credentials.
+establish automatic owner-scoped encrypted state/configuration NAS backups and
+repeat isolated restoration with separately recovered credentials.
 Keep resource addresses, remote IDs and retained routes unchanged. Never upload
 plaintext state, plans, decrypted provider output or passphrases.
 
