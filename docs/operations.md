@@ -1,5 +1,18 @@
 # Stateful operation coordination
 
+## Bedroom wall switch
+
+The mini sets `homelab.containers.controlCenter.bedroomSwitchInput` to the existing verified
+`binary_sensor.shelly_bedroom_input_0`. The service launcher and direct reconciliation command
+both export the binding plus `BEDROOM_SWITCH_INPUT_ENABLED=true` and
+`BEDROOM_SWITCH_INPUT_VERIFIED=true`, matching the native server's configuration parser.
+Normal reconciliation recreates the app container when its environment changes; a plain restart
+does not reload settings. Set the option to `null` to disable the binding again.
+After activation, `/healthz` should include `bedroom-switch-input`; flip the physical switch
+to confirm the bedside lamps and Mirror respond. Other hosts leave the binding disabled.
+
+## Shared operation lock
+
 `homelab-operation -- COMMAND ...` holds one host-wide exclusive lock while its
 child runs. General service reconciliation and HA Compose use this wrapper.
 Backup jobs and the update transaction also use this shared lock; creating an
