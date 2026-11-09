@@ -131,10 +131,13 @@ module FoldingRelease
       record.save("signing_attempts" => attempts)
       begin
         context.create_keychain(name: keychain, password: password, default_keychain: false, unlock: true, timeout: 3600, lock_when_sleeps: true)
-        context.match(type: "appstore", readonly: true, app_identifier: [identity.fetch("bundle_id"), identity.fetch("widget_bundle_id")],
+        signing = {type: "appstore", readonly: true, app_identifier: [identity.fetch("bundle_id"), identity.fetch("widget_bundle_id")],
           git_url: ENV.fetch("FOLDING_SIGNING_GIT_URL", "git@github.com:0x63616c/folding-signing.git"),
-          git_private_key: ENV["FOLDING_SIGNING_GIT_PRIVATE_KEY"], api_key: FoldingRelease.api_key, team_id: record.data.fetch("apple_team_id"),
-          keychain_name: keychain, keychain_password: password)
+          api_key: FoldingRelease.api_key, team_id: record.data.fetch("apple_team_id"),
+          keychain_name: keychain, keychain_password: password}
+        private_key = ENV["FOLDING_SIGNING_GIT_PRIVATE_KEY"]
+        signing[:git_private_key] = private_key unless private_key.to_s.strip.empty?
+        context.match(**signing)
         app_profile = ENV.fetch("sigh_#{identity.fetch('bundle_id')}_appstore_profile-name")
         widget_profile = ENV.fetch("sigh_#{identity.fetch('widget_bundle_id')}_appstore_profile-name")
         settings = {

@@ -103,15 +103,14 @@ jobs:
       - name: Prepare exact-source native CI evidence
         if: steps.native.outputs.beta == 'true'
         run: bundle exec ruby scripts/continuous-delivery.rb evidence
-      - name: Trust GitHub signing host keys from its HTTPS metadata
+      - name: Authorize the private consolidated signing branch
         env:
           GH_TOKEN: ${{ github.token }}
         if: steps.native.outputs.beta == 'true'
         run: |
-          mkdir -p "$HOME/.ssh"
-          gh api meta --jq '.ssh_keys[] | "github.com " + .' >> "$HOME/.ssh/known_hosts"
-          chmod 700 "$HOME/.ssh"
-          chmod 600 "$HOME/.ssh/known_hosts"
+          authorization=$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 | tr -d '\n')
+          echo "::add-mask::$authorization"
+          printf 'MATCH_GIT_BASIC_AUTHORIZATION=%s\n' "$authorization" >> "$GITHUB_ENV"
       - name: Archive once and deliver the exact processed internal beta
         env:
           GH_TOKEN: ${{ github.token }}
@@ -120,7 +119,9 @@ jobs:
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
           ASC_PRIVATE_KEY: ${{ secrets.FOLDING_ASC_PRIVATE_KEY }}
           MATCH_PASSWORD: ${{ secrets.FOLDING_MATCH_PASSWORD }}
-          FOLDING_SIGNING_GIT_PRIVATE_KEY: ${{ secrets.FOLDING_SIGNING_GIT_PRIVATE_KEY }}
+          FOLDING_SIGNING_GIT_URL: https://github.com/${{ github.repository }}.git
+          MATCH_GIT_BRANCH: signing/folding
+          MATCH_CLONE_BRANCH_DIRECTLY: 'true'
           FOLDING_TESTFLIGHT_GROUPS: ${{ vars.FOLDING_TESTFLIGHT_GROUPS }}
         if: steps.native.outputs.beta == 'true'
         run: |

@@ -799,9 +799,22 @@ under `_runner`; its pinned manifest, 24GB disk and every authenticated chunk pa
 (disk SHA256 `734c48bbb378617ea91c8f5c6596004591b5e67bc6cea9a9f02f9db086cef165`).
 The first restoration attempts failed before import because shell input redirection conflicted
 with sudo authentication; separating the password input from the root-opened archive fixed it.
-No product data was affected. Installed old-authority importer backport remains to be published;
-this successful restore used the reviewed patched importer without changing host authority.
+No product data was affected. Old-authority importer backport was independently reviewed and merged as homelab PR38;
+installed revision readback still showed the previous revision at the next observation.
+This successful restore used the reviewed patched importer without changing host authority.
 
 The existing Duo job reached its native orientation-control loop on the real runner. This is
 progress beyond the earlier missing-testmanagerd failure, but complete screenshots and all
 selected app checks are still unverified. Overall migration remains approximately 50%.
+
+
+### Consolidated Folding signing consumer
+
+The delivery workflow now configures Match against private WWW's preserved `signing/folding`
+branch, directly cloned using its short-lived same-repository GitHub token. Its derived Basic
+header is masked before export to later steps. No additional signing SSH key is introduced;
+local SSH overrides still work and empty private-key values are omitted. Fastlane2.241.2's
+actual implementation supports these branch/authentication environment variables. The12 existing
+release regression tests pass (70 assertions), actionlint passes, and independent Astra final
+review found no actionable issues. This is source wiring only: the delivery flag stays off and
+a real readonly signed archive remains required before retiring the old signing store.

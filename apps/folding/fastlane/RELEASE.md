@@ -209,9 +209,13 @@ for Apple's processing before explicit internal-group distribution. A retry read
 retained artifacts; it does not blindly upload again. Store submission retains its existing
 full capability, screenshot, listing and final-review prerequisites.
 
-The existing readonly signing store remains the initial signing backend. `FOLDING_SIGNING_GIT_URL`
-can later point to the verified consolidated encrypted store. Current required secrets are listed
-in `folding-release.yml`; they enter runner memory/environment and temporary files only.
+The consolidated delivery workflow reads the encrypted `signing/folding` branch in private WWW
+with its short-lived built-in GitHub token. Match clones that branch directly and stays readonly;
+no additional signing-repository SSH key is needed. The source store remains preserved until a
+real signed archive proves this consumer handover. Local operations can still override
+`FOLDING_SIGNING_GIT_URL` and supply a nonempty `FOLDING_SIGNING_GIT_PRIVATE_KEY` for SSH.
+Current required secrets are listed in `folding-release.yml`; they enter runner memory/environment
+and temporary files only.
 Cloudflare Time Travel bookmark commands are documented at
 https://developers.cloudflare.com/d1/reference/time-travel/ . Live restore acceptance remains required.
 
