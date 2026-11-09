@@ -364,7 +364,26 @@ enrollment, and drains 34 pending live folds plus 32 newly discovered historical
 the 21 previously accepted folds, without reset or
 rewriting records. It failed before the fix and passes afterward; 19 focused
 history/tracking checks and all 114 core tests pass. This proves recovery of the persisted-pause case,
-not the original error on the owner's phone. Device reconciliation and internal
-TestFlight distribution remain unverified until the updated app is installed.
+not the original error on the owner's phone. Device reconciliation remains unverified until the updated app is installed.
 
 The leaderboard omits the pending-upload count at the owner’s request.
+
+
+### Upload recovery delivered internally — November 9
+
+[PR #979](https://github.com/0x63616c/world-wide-webb/pull/979) merged after all
+required and selected checks passed at `dce556abaf0a9a477deaedec4f7af64cbc3c9641`.
+[Main Folding CI](https://github.com/0x63616c/world-wide-webb/actions/runs/42686705141)
+passed contracts, localization, backend, storage and native app validation.
+[Automatic delivery](https://github.com/0x63616c/world-wide-webb/actions/runs/42689828634)
+then archived, uploaded and distributed **1.0.0 (16)**. The immutable release
+manifest records Apple build `7a3af840-bd22-4e15-b62b-1945c8e66c0d`, processing
+state `VALID`, and verified Folding Internal assignment at `2026-11-09T20:17:14Z`.
+The release remains an authenticated draft. It includes upload recovery and removal
+of the leaderboard pending count in every locale. Production health remains `ok`
+at the existing compatible backend revision `8ed02ee`; this app-only delivery
+reused its verified backend receipt and did not deploy another Worker.
+
+Actual phone totals after installing/reopening build 16 and the original error
+that paused its queue remain unverified. Existing App Store and physical-device
+acceptance deferrals remain open.
