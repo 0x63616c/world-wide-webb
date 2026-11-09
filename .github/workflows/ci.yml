@@ -126,7 +126,7 @@ jobs:
       - name: Build and exercise iPad target
         env:
           APPLE_DERIVED_DATA: ${{ runner.temp }}/apple-derived
-        run: bash tools/test_apple.sh
+        run: ../../scripts/ci/apple-desktop.sh bash tools/test_apple.sh
       - uses: actions/cache/save@v4
         if: always() && steps.apple-cache.outputs.cache-hit != 'true'
         with:

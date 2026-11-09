@@ -125,4 +125,4 @@ jobs:
         if: steps.native.outputs.beta == 'true'
         run: |
           version=$(ruby ../../scripts/app-config.rb folding version)
-          bundle exec fastlane ios continuous_beta "version:$version" "evidence:$FOLDING_BETA_EVIDENCE"
+          ../../scripts/ci/apple-desktop.sh bundle exec fastlane ios continuous_beta "version:$version" "evidence:$FOLDING_BETA_EVIDENCE"

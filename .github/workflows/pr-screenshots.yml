@@ -87,7 +87,7 @@ jobs:
         timeout-minutes: 30
         run: |
           for app in ${{ needs.changes.outputs.apps }}; do
-            scripts/capture-screenshots.sh "$app" "build/pr-screenshots/$app" light
+            scripts/ci/apple-desktop.sh scripts/capture-screenshots.sh "$app" "build/pr-screenshots/$app" light
           done
       - name: Screenshot failure details
         if: failure() && needs.changes.outputs.apps != ''

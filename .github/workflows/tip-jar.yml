@@ -54,7 +54,7 @@ jobs:
             xcrun simctl status_bar "$UDID" override --time "9:41" --dataNetwork wifi --wifiMode active --wifiBars 3 \
               --cellularMode active --cellularBars 4 --operatorName "" --batteryState discharging --batteryLevel 100
             mkdir -p "build/tip-jar/$appearance"
-            TEST_RUNNER_SCREENSHOT_DIR="$PWD/build/tip-jar/$appearance" xcodebuild test-without-building \
+            TEST_RUNNER_SCREENSHOT_DIR="$PWD/build/tip-jar/$appearance" scripts/ci/apple-desktop.sh xcodebuild test-without-building \
               -project apps/tendr/Still.xcodeproj -scheme Still -destination "id=$UDID" -derivedDataPath build/DerivedData \
               -only-testing:StillUITests/TipJarTests -test-timeouts-enabled YES -default-test-execution-time-allowance 300 -maximum-test-execution-time-allowance 600 -resultBundlePath "build/tip-jar/TipJarTests-$appearance.xcresult" 2>&1 \
               | grep -E "Test Case|error:|failed|TEST (SUCC|FAIL)" || true
@@ -68,7 +68,7 @@ jobs:
           xcrun simctl io "$UDID" recordVideo --codec=h264 --force build/tip-jar/tip-jar-purchase.mp4 &
           recorder=$!
           sleep 2
-          xcodebuild test-without-building -project apps/tendr/Still.xcodeproj -scheme Still -destination "id=$UDID" \
+          scripts/ci/apple-desktop.sh xcodebuild test-without-building -project apps/tendr/Still.xcodeproj -scheme Still -destination "id=$UDID" \
             -derivedDataPath build/DerivedData -only-testing:StillUITests/TipJarTests/testTipPurchaseCelebratesThenCloses -test-timeouts-enabled YES -default-test-execution-time-allowance 300 -maximum-test-execution-time-allowance 600 -quiet || status=$?
           kill -INT "$recorder"
           wait "$recorder" || true

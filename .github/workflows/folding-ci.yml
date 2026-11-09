@@ -132,7 +132,7 @@ jobs:
       - uses: ./.github/actions/folding-tools
         with:
           target: apple
-      - run: bundle exec fastlane ios verify_app
+      - run: ../../scripts/ci/apple-desktop.sh bundle exec fastlane ios verify_app
       - uses: actions/upload-artifact@v4
         if: failure()
         with:

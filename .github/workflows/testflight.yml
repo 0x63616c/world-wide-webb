@@ -200,9 +200,9 @@ jobs:
           python3 -m pip install -r scripts/requirements-screenshots.txt
           selected=$(python3 scripts/select-duo-xcode.py "$DEVELOPER_DIR")
           export DEVELOPER_DIR="$selected"
-          scripts/capture-screenshots.sh "$APP"
+          scripts/ci/apple-desktop.sh scripts/capture-screenshots.sh "$APP"
           scripts/frame-screenshots.sh "$APP"
-          scripts/capture-duo-screenshots.sh "$APP"
+          scripts/ci/apple-desktop.sh scripts/capture-duo-screenshots.sh "$APP"
           python3 scripts/stage-duo-screenshots.py "apps/$APP/screenshots.json" \
             "build/duo-screenshots/$APP/raw" "apps/$APP/fastlane/screenshots/en-US"
       - name: Upload listing, verify Apple received images, and submit app with purchases

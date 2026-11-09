@@ -755,3 +755,30 @@ attempts and retained new cache. No guest, current cache or Nix generation was r
 retains the old immutable image reference and previous generation, requiring a cache pull if
 selected again. Physical free space increased from241823813632 to242856464384 bytes; shared
 image storage meant this reclaimed only about1GB. Capacity/reserve settings were not relaxed.
+
+### Desktop-session bridge and encrypted signing copies
+
+The corrected-runtime Duo job reached the native host UI test, then failed to connect to
+`com.apple.testmanagerd.control`. An isolated minimal macOS UI test reproduced that same
+failure when supervised in the runner's System bootstrap session. The identical compiled test
+passed in the existing Aqua session. Testing the actual desktop helper from a System daemon
+also passed, retaining UID501, a public environment sentinel and an argument containing spaces.
+This is a real process-context comparison, not a mocked UI-test success. The exact diagnostic
+VMs were stopped/deleted; their owned hold is released only after fresh token/inventory checks.
+
+`scripts/ci/apple-desktop.sh` passes through an existing desktop command, or enters the same
+user's existing desktop before dropping back to that user and executing the command. It retains
+step environment, explicit tool PATH, literal arguments and working directory. Capture/Apple
+XCTest entrypoints use it; controller services, host identity, capacity and isolation are unchanged.
+Shellcheck, actionlint,16 shared selector/gate checks,15 Control Center CI checks,6 release-policy
+tests/35 assertions and the local argument/environment probe pass. Full product CI/capture still
+must pass before this source milestone is merged. No further per-fix review cycle is added.
+
+Both encrypted signing histories are now copied to private WWW with exact remote readback:
+`signing/folding` =85dcb487173509652d7ee9c9521df4a1e4b76716 (2commits/6unique encrypted blobs),
+`signing/certificates` =404dc2c649a48d69b25377c0145b8ff26b9f9920 (7commits/11encrypted blobs).
+All certificate/key/profile blobs across those histories have Match encrypted envelopes. No
+plaintext credential was committed, source store overwritten, certificate revoked or release
+channel enabled. Readonly signed archives and consumer-reference handover remain acceptance work.
+Existing Control Center health still reports ok at build72f9533c84cc9362b9a3df9a5fe3f079411c638d,
+with no consecutive/storage worker failures; this does not replace the later data/restore audit.

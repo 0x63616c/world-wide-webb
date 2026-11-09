@@ -59,7 +59,7 @@ jobs:
           echo "User processes: $(ps -U "$USER" | wc -l)"
       - name: Render galleries
         timeout-minutes: 30
-        run: scripts/capture-snapshots.sh "$APP" "build/snapshots/$APP" ${TEST_ID:+"$TEST_ID"}
+        run: scripts/ci/apple-desktop.sh scripts/capture-snapshots.sh "$APP" "build/snapshots/$APP" ${TEST_ID:+"$TEST_ID"}
       - uses: actions/upload-artifact@v4
         with:
           name: component-snapshots-${{ env.APP }}

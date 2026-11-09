@@ -5,6 +5,7 @@ on:
     paths:
       - .github/workflows/duo-screenshots.yml
       - scripts/capture-duo-screenshots.sh
+      - scripts/ci/apple-desktop.sh
       - scripts/duo-simulator.py
       - scripts/duo-host-control/**
       - scripts/stage-duo-screenshots.py
@@ -70,7 +71,7 @@ jobs:
         run: brew list xcodegen >/dev/null 2>&1 || brew install xcodegen
       - name: Capture raw Duo screens (light and dark)
         timeout-minutes: 100
-        run: scripts/capture-duo-screenshots.sh "$APP" "build/duo-screenshots/$APP/raw" light dark
+        run: scripts/ci/apple-desktop.sh scripts/capture-duo-screenshots.sh "$APP" "build/duo-screenshots/$APP/raw" light dark
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'

@@ -4,7 +4,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: FILEFolding App Store checks-${{ github.ref }}
+  group: folding-store-checks-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   selection:
@@ -41,10 +41,10 @@ jobs:
       - uses: ./.github/actions/folding-tools
         with:
           target: apple
-      - run: bundle exec fastlane ios screenshots environment:production
+      - run: ../../scripts/ci/apple-desktop.sh bundle exec fastlane ios screenshots environment:production
       - uses: actions/upload-artifact@v4
         with:
-          name: FILEFolding App Store checks-${{ github.sha }}-${{ github.run_attempt }}
+          name: folding-store-checks-${{ github.sha }}-${{ github.run_attempt }}
           path: |
             apps/folding/build/store-assets/**/assets/screenshots
             apps/folding/build/store-assets/**/assets/*manifest.json

@@ -84,12 +84,12 @@ jobs:
           fi
       - name: Capture and frame App Store screenshots
         run: |
-          scripts/capture-screenshots.sh "$APP"
+          scripts/ci/apple-desktop.sh scripts/capture-screenshots.sh "$APP"
           scripts/frame-screenshots.sh "$APP"
       - name: Capture and stage Duo App Store screenshots
         run: |
           if ruby scripts/app-config.rb "$APP" duo_screenshot_test >/dev/null 2>&1; then
-            scripts/capture-duo-screenshots.sh "$APP"
+            scripts/ci/apple-desktop.sh scripts/capture-duo-screenshots.sh "$APP"
             python3 scripts/stage-duo-screenshots.py "apps/$APP/screenshots.json" \
               "build/duo-screenshots/$APP/raw" "apps/$APP/fastlane/screenshots/en-US"
           fi
