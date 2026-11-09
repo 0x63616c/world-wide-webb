@@ -1491,13 +1491,6 @@ private struct LeaderboardScreen: View {
             .frame(minWidth: 44, minHeight: 44)
             .accessibilityLabel(String(localized: "results.share", defaultValue: "Share result"))
           }
-          if value.pendingFolds > 0 {
-            Text(
-              String(
-                localized: "leaderboard.pending", defaultValue: "\(value.pendingFolds) pending")
-            )
-            .font(.caption).foregroundStyle(.secondary)
-          }
         }
         .padding(.horizontal, 16).padding(.vertical, 12)
         .background(.bar)

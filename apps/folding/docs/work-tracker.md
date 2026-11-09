@@ -360,8 +360,11 @@ change or the specific `restricted` reason cleared the pause, so relaunch/sign-i
 could leave both original-history import and new folds permanently stopped.
 
 The regression reproduces a stopped queue across journal reopen, confirms the same
-enrollment, and drains 66 synthetic historical plus 21 live folds without reset or
+enrollment, and drains 34 pending live folds plus 32 newly discovered historical folds, retaining
+the 21 previously accepted folds, without reset or
 rewriting records. It failed before the fix and passes afterward; 19 focused
 history/tracking checks and all 114 core tests pass. This proves recovery of the persisted-pause case,
 not the original error on the owner's phone. Device reconciliation and internal
 TestFlight distribution remain unverified until the updated app is installed.
+
+The leaderboard omits the pending-upload count at the owner’s request.

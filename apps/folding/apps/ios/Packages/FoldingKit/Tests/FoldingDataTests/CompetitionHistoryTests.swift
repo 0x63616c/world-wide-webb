@@ -167,7 +167,7 @@ private func historyDirectory() throws -> URL {
   let installation = UUID()
   let epoch = UUID()
   let store = try TrackingStore(directory: directory, installationID: installation)
-  for index in 0..<66 {
+  for index in 0..<32 {
     _ = try await store.record(
       Observation(
         id: UUID(), generation: .initial,
@@ -175,31 +175,35 @@ private func historyDirectory() throws -> URL {
         observedAtMS: Int64(index + 1), timezoneID: "UTC"), nowMS: Int64(index + 1))
   }
   try await store.setCompetitionEpoch(epoch)
-  try await store.configureCompetitionHistory(beforeJoinedAtMS: 100)
-  for index in 0..<21 {
+  for index in 0..<55 {
     _ = try await store.record(
       Observation(
         id: UUID(), generation: .initial,
         transition: index.isMultiple(of: 2) ? .open : .close,
         observedAtMS: Int64(101 + index), timezoneID: "UTC", competitionEpochID: epoch),
       nowMS: Int64(101 + index))
+    if index == 20 {
+      let accepted = try #require(await store.leaseCompetitionUpload(nowMS: 1000))
+      try await store.acknowledgeCompetitionUpload(
+        accepted, dispositions: Array(repeating: "accepted", count: 21))
+    }
   }
-  let history = try #require(await store.leaseCompetitionUpload(nowMS: 1000))
-  #expect(history.isHistory == true && history.eventIDs.count == 66)
-  try await store.stopCompetitionUpload(history, reason: "identity_conflict")
+  let pending = try #require(await store.leaseCompetitionUpload(nowMS: 61_000))
+  #expect(pending.isHistory != true && pending.eventIDs.count == 34)
+  try await store.stopCompetitionUpload(pending, reason: "identity_conflict")
   let reopened = try TrackingStore(directory: directory, installationID: installation)
-  #expect(try await reopened.leaseCompetitionUpload(nowMS: 90_000) == nil)
-  // The app has fetched /me again and confirmed the same current tracking enrollment.
+  #expect(try await reopened.leaseCompetitionUpload(nowMS: 121_000) == nil)
+  // /me confirms the same enrollment and enables history import after the app update.
   try await reopened.setCompetitionEpoch(epoch)
   try await reopened.configureCompetitionHistory(beforeJoinedAtMS: 100)
-  let resumed = try #require(await reopened.leaseCompetitionUpload(nowMS: 90_000))
-  #expect(resumed.operationID == history.operationID && resumed.body == history.body)
+  let resumed = try #require(await reopened.leaseCompetitionUpload(nowMS: 121_000))
+  #expect(resumed.operationID == pending.operationID && resumed.body == pending.body)
   try await reopened.acknowledgeCompetitionUpload(
-    resumed, dispositions: Array(repeating: "accepted", count: 66))
-  let live = try #require(await reopened.leaseCompetitionUpload(nowMS: 150_000))
-  #expect(live.isHistory != true && live.eventIDs.count == 21)
+    resumed, dispositions: Array(repeating: "accepted", count: 34))
+  let history = try #require(await reopened.leaseCompetitionUpload(nowMS: 181_000))
+  #expect(history.isHistory == true && history.eventIDs.count == 32)
   try await reopened.acknowledgeCompetitionUpload(
-    live, dispositions: Array(repeating: "accepted", count: 21))
+    history, dispositions: Array(repeating: "accepted", count: 32))
   #expect(try await reopened.summary().folds == 87)
   #expect(try await reopened.pendingCompetitionEventCount() == 0)
 }

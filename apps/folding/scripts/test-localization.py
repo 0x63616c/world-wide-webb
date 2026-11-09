@@ -29,14 +29,25 @@ class LocalizationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'English default'):
             localization.validate(self.catalog, self.sources)
 
+    def plural_fixture(self):
+        self.sources['test.count'] = '%lld items'
+        self.catalog['strings']['test.count'] = {
+            'comment': 'Synthetic plural validation fixture',
+            'localizations': {locale: {'variations': {'plural': {
+                category: {'stringUnit': {'state': 'translated', 'value': '%lld items'}}
+                for category in ('one', 'other')
+            }}} for locale in localization.LOCALES},
+        }
+        return self.catalog['strings']['test.count']['localizations']
+
     def test_plural_placeholder_type(self):
-        entry = self.catalog['strings']['leaderboard.pending']['localizations']['de']
+        entry = self.plural_fixture()['de']
         entry['variations']['plural']['one']['stringUnit']['value'] = '%@ ausstehend'
         with self.assertRaisesRegex(ValueError, 'placeholder mismatch'):
             localization.validate(self.catalog, self.sources)
 
     def test_plural_missing_other(self):
-        entry = self.catalog['strings']['leaderboard.pending']['localizations']['ja']
+        entry = self.plural_fixture()['ja']
         del entry['variations']['plural']['other']
         with self.assertRaisesRegex(ValueError, 'missing other'):
             localization.validate(self.catalog, self.sources)

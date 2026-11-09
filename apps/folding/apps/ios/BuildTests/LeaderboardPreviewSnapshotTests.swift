@@ -27,7 +27,7 @@ import XCTest
         approvedAvatarData: UIImage(cgImage: image).pngData())
     }
     let board = LeaderboardPresentation(
-      periodTitle: "This Week", entries: entries, currentUser: entries[3], pendingFolds: 0,
+      periodTitle: "This Week", entries: entries, currentUser: entries[3],
       updatedAt: Date(timeIntervalSince1970: 1_794_153_600), population: 124)
     let model = FoldingPresentation()
     model.hasLoadedInitialState = true
