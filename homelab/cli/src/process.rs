@@ -132,8 +132,15 @@ pub fn run_silent(command: &mut Command, timeout: Duration) -> Result<ExitStatus
     supervise(command, timeout, OutputMode::Discard).map(|output| output.status)
 }
 
+/// Discard stdout and retain only a bounded stderr tail. Diagnostic volume must
+/// never turn a completed mutation into an excessive-output failure.
+pub fn run_diagnostic(command: &mut Command, timeout: Duration) -> Result<Output, ProcessError> {
+    supervise(command, timeout, OutputMode::Diagnostic)
+}
+
 pub(crate) enum OutputMode {
     Capture,
+    Diagnostic,
     Discard,
     TerminalStderr,
     Status,
@@ -173,6 +180,7 @@ pub(crate) fn supervise_blocking(
     let streams = match mode {
         OutputMode::Capture | OutputMode::Status => (Stdio::piped(), Stdio::piped()),
         OutputMode::Discard => (Stdio::null(), Stdio::null()),
+        OutputMode::Diagnostic => (Stdio::null(), Stdio::piped()),
         OutputMode::TerminalStderr => (Stdio::piped(), Stdio::inherit()),
     };
     let limit = if matches!(mode, OutputMode::Status) {
@@ -211,8 +219,35 @@ pub(crate) fn supervise_blocking(
                     read_available(stdout, &mut captured_stdout, &mut combined_size, limit)?;
             }
             if !stderr_closed && let Some(stderr) = &mut child.stderr {
-                stderr_closed =
-                    read_available(stderr, &mut captured_stderr, &mut combined_size, limit)?;
+                if matches!(mode, OutputMode::Diagnostic) {
+                    // Drain bursts promptly while retaining only the final bounded bytes.
+                    for _ in 0..16 {
+                        let mut buffer = [0; 4096];
+                        match stderr.read(&mut buffer) {
+                            Ok(0) => {
+                                stderr_closed = true;
+                                break;
+                            }
+                            Ok(count) => {
+                                captured_stderr.extend_from_slice(&buffer[..count]);
+                                let excess = captured_stderr.len().saturating_sub(OUTPUT_LIMIT);
+                                captured_stderr.drain(..excess);
+                            }
+                            Err(error)
+                                if matches!(
+                                    error.kind(),
+                                    io::ErrorKind::WouldBlock | io::ErrorKind::Interrupted
+                                ) =>
+                            {
+                                break;
+                            }
+                            Err(error) => return Err(error.into()),
+                        }
+                    }
+                } else {
+                    stderr_closed =
+                        read_available(stderr, &mut captured_stderr, &mut combined_size, limit)?;
+                }
             }
             if !exited {
                 exited = waitid(
@@ -302,6 +337,27 @@ mod tests {
         command.arg("20").stdin(Stdio::null());
         let result = run_silent(&mut command, Duration::from_millis(30));
         assert!(matches!(result, Err(ProcessError::Timeout)));
+    }
+
+    #[test]
+    fn diagnostics_discard_stdout_and_bound_stderr_without_changing_exit_status() {
+        let mut command = Command::new("/bin/sh");
+        command.args(["-c", "i=0; while [ $i -lt 3000 ]; do printf 'stdout-ignored-12345678901234567890\n'; printf 'diagnostic-noise-12345678901234567890\n' >&2; i=$((i+1)); done; printf 'final-failure-cause\n' >&2; exit 7"]);
+        let output = run_diagnostic(&mut command, Duration::from_secs(10)).unwrap();
+        assert_eq!(output.status.code(), Some(7));
+        assert!(output.stdout.is_empty());
+        assert!(output.stderr.len() <= OUTPUT_LIMIT);
+        assert!(output.stderr.ends_with(b"final-failure-cause\n"));
+    }
+
+    #[test]
+    fn diagnostic_mode_still_enforces_timeout() {
+        let mut command = Command::new("/bin/sleep");
+        command.arg("20");
+        assert!(matches!(
+            run_diagnostic(&mut command, Duration::from_millis(30)),
+            Err(ProcessError::Timeout)
+        ));
     }
 
     #[test]

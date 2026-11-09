@@ -102,8 +102,16 @@ impl GitHub {
         } else {
             None
         };
-        let output = crate::process::capture(&mut command, Duration::from_secs(60))
-            .map_err(|_| Error::Access)?;
+        let operation = if method == "GET" {
+            crate::provider_diagnostics::Operation::GitHubRead
+        } else {
+            crate::provider_diagnostics::Operation::GitHubWrite
+        };
+        let output = crate::provider_diagnostics::observe(
+            operation,
+            crate::process::capture(&mut command, Duration::from_secs(60)),
+        )
+        .map_err(|_| Error::Access)?;
         drop(input);
         if !output.status.success() {
             return Err(
@@ -119,7 +127,14 @@ impl GitHub {
 }
 impl Api for GitHub {
     fn json(&self, method: &str, path: &str, body: Option<Value>) -> Result<Value, Error> {
-        serde_json::from_slice(&self.request(method, path, body, false)?).map_err(|_| Error::Access)
+        serde_json::from_slice(&self.request(method, path, body, false)?).map_err(|_| {
+            crate::provider_diagnostics::invalid_response(if method == "GET" {
+                crate::provider_diagnostics::Operation::GitHubRead
+            } else {
+                crate::provider_diagnostics::Operation::GitHubWrite
+            });
+            Error::Access
+        })
     }
     fn raw(&self, path: &str) -> Result<Vec<u8>, Error> {
         self.request("GET", path, None, true)

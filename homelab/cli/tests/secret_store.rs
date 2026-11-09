@@ -381,3 +381,24 @@ fn real_onepassword_roundtrip() {
     assert!(status.success(), "synthetic item cleanup failed");
     assert_eq!(repeated.unwrap(), id);
 }
+
+#[test]
+fn denied_access_can_return_then_retry_without_losing_or_reissuing_identity() {
+    let directory = directory();
+    let receipt = directory.path().join("receipt");
+    let mut store = Fake {
+        locked: true,
+        ..Fake::new()
+    };
+    assert_eq!(
+        ensure(&store, VAULT, &backup(), &receipt),
+        Err(Error::Access)
+    );
+    assert_eq!(store.creates.get(), 0);
+    assert!(!receipt.exists());
+    store.locked = false;
+    assert_eq!(ensure(&store, VAULT, &backup(), &receipt).unwrap(), ID);
+    assert_eq!(ensure(&store, VAULT, &backup(), &receipt).unwrap(), ID);
+    assert_eq!(store.creates.get(), 1);
+    assert!(!fs::read_to_string(receipt).unwrap().contains(SECRET));
+}

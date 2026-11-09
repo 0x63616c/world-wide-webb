@@ -668,7 +668,15 @@ fn diagnostics_record_codes_without_credentials_or_process_output() {
     );
     for line in content.lines() {
         let event: serde_json::Value = serde_json::from_str(line).unwrap();
-        assert_eq!(event.as_object().unwrap().len(), 3);
+        let fields = event.as_object().unwrap();
+        assert!(
+            ["timestamp", "phase", "code"]
+                .iter()
+                .all(|name| fields.contains_key(*name))
+        );
+        assert!(fields.keys().all(|name| {
+            ["timestamp", "phase", "code", "output", "exit_code"].contains(&name.as_str())
+        }));
     }
 }
 
@@ -806,4 +814,23 @@ fn followup_build_repair_preserves_keys_and_checks_both_ancestries() {
     assert_eq!(state["repairedFrom"], original);
     assert_eq!(state["repairedVia"], serde_json::json!([previous]));
     assert_eq!(state["phase"], "Activated");
+}
+
+#[test]
+fn transient_clone_failure_retries_in_fresh_storage_before_installation() {
+    let fixture = Fixture::new(true);
+    fixture.flag("clone-transient");
+    assert!(fixture.run().is_ok());
+    assert_eq!(
+        fixture
+            .events()
+            .iter()
+            .filter(|e| *e == "fetch-transient")
+            .count(),
+        1
+    );
+    assert_eq!(
+        fixture.events().iter().filter(|e| *e == "activate").count(),
+        1
+    );
 }

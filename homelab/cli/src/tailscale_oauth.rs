@@ -168,12 +168,20 @@ pub fn resolve_credentials(
             "json",
         ])
         .stdin(Stdio::null());
-    let output = process::capture(&mut command, Duration::from_secs(90))
-        .map_err(|_| Error::ItemUnavailable)?;
+    let output = crate::provider_diagnostics::observe(
+        crate::provider_diagnostics::Operation::OpRead,
+        process::capture(&mut command, Duration::from_secs(90)),
+    )
+    .map_err(|_| Error::ItemUnavailable)?;
     if !output.status.success() {
         return Err(Error::ItemUnavailable);
     }
-    let item: Item = serde_json::from_slice(&output.stdout).map_err(|_| Error::InvalidItem)?;
+    let item: Item = serde_json::from_slice(&output.stdout).map_err(|_| {
+        crate::provider_diagnostics::invalid_response(
+            crate::provider_diagnostics::Operation::OpRead,
+        );
+        Error::InvalidItem
+    })?;
     let identity = ResolvedIdentity {
         vault: item.vault.id.clone(),
         item: item.id.clone(),
@@ -309,7 +317,13 @@ impl IssuedKey {
             .delete(&format!("{}/{}", self.keys_url, self.id))
             .header("Authorization", &format!("Bearer {}", self.access_token))
             .call()
-            .map_err(|_| Error::Revocation)
+            .map_err(|error| {
+                crate::provider_diagnostics::http(
+                    crate::provider_diagnostics::Operation::TailscaleRevoke,
+                    &error,
+                );
+                Error::Revocation
+            })
             .and_then(|response| {
                 if response.status().is_success() {
                     Ok(())
@@ -363,8 +377,19 @@ fn issue(
             ("scope", "auth_keys"),
             ("tags", tag),
         ])
-        .map_err(|_| Error::Authorization)?;
-    let token: AccessToken = json_body(response).map_err(|_| Error::Authorization)?;
+        .map_err(|error| {
+            crate::provider_diagnostics::http(
+                crate::provider_diagnostics::Operation::TailscaleToken,
+                &error,
+            );
+            Error::Authorization
+        })?;
+    let token: AccessToken = json_body(response).map_err(|_| {
+        crate::provider_diagnostics::invalid_response(
+            crate::provider_diagnostics::Operation::TailscaleToken,
+        );
+        Error::Authorization
+    })?;
     // RFC 6749 permits omitted scope only when it equals the explicitly requested scope.
     if !token_value(&token.access_token)
         || !token.token_type.eq_ignore_ascii_case("bearer")
@@ -388,8 +413,19 @@ fn issue(
         .header("Authorization", &format!("Bearer {}", token.access_token))
         .header("Content-Type", "application/json")
         .send(body.as_slice())
-        .map_err(|_| Error::IssuanceUnknown)?;
-    let key: KeyResponse = json_body(response).map_err(|_| Error::IssuanceUnknown)?;
+        .map_err(|error| {
+            crate::provider_diagnostics::http(
+                crate::provider_diagnostics::Operation::TailscaleCreate,
+                &error,
+            );
+            Error::IssuanceUnknown
+        })?;
+    let key: KeyResponse = json_body(response).map_err(|_| {
+        crate::provider_diagnostics::invalid_response(
+            crate::provider_diagnostics::Operation::TailscaleCreate,
+        );
+        Error::IssuanceUnknown
+    })?;
     let expires_at =
         time::OffsetDateTime::parse(&key.expires, &time::format_description::well_known::Rfc3339)
             .map_err(|_| Error::IssuanceUnknown)?

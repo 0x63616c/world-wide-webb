@@ -24,8 +24,8 @@ execution, including where they are stricter than the stored goal wording:
   current stage. Completion requires actual delivery, retained integrations/data/media and
   applicable restore evidence; local wiring or successful uploads alone do not prove it.
 
-Overall estimate remains approximately 36%; current stage is local release-adapter review
-and fixes. The complete candidate is not yet ready for publication or live cutover.
+Overall estimate is approximately 44%; current stage is local host/CLI handover implementation
+and runtime canary preparation. The complete candidate is not yet ready for publication or live cutover.
 
 ## Current candidate
 
@@ -42,15 +42,22 @@ Non-squashed local history imports:
 
 ## Work remaining
 
-- Finish target layout and product command/release adapters. Air Miles and 27 Matt Pocock skills imported; RDesign is Tendr-local.
-- Verify selective CI and gate; connect actual product checks and release evidence.
-- Implement and canary Apple delivery, private Homebrew artifacts and screenshot access.
-- Refresh/import homelab and CLI only after their active source work lands; preserve setup state.
-- Transfer scoped Cloudflare/home operations and verify state, login, data, backups and recovery.
-- Complete documentation, templates and encrypted signing ownership.
-- Independent final Astra review, grouped fixes, relevant checks and integrated verification.
-- Make WWW private before pushing private history; publish, pass required checks, merge and verify delivery.
-- Retire old authorities/archive eligible repos after replacement proofs. Preserve every exclusion.
+- Implement protected `deploy/homelab` promotion, bounded enrollment/rebind coordination,
+  preserve-state repository migration and destination-scoped host Git-key handover.
+- Finish private CLI release/installation authority and source/update/schema/help references;
+  prove existing-profile resume/reboot/recovery and retain an off-host recovery route.
+- Adapt Control Center delivery to current homelab-owned runtime/locks/backups/Serve, replacing
+  the disabled retired-user SSH deployment without overwriting shared operations.
+- Validate the Xcode27.2 image/runtime/Ruby and actual Linux/native job capabilities, then run
+  isolated Folding/Tendr screenshots, signing/Apple processing/groups and private Homebrew canaries.
+- Drain/seed old writers, immutable ledgers/artifacts and scoped credentials; complete separate
+  Cloudflare app/site/state ownership and no-unintended-change/backup/restore acceptance.
+- Finish new-app command/onboarding/backend preset and product/home documentation from working code;
+  preserve all original active snapshots and refresh again immediately before handover.
+- Resolve private-repository protection support, perform integrated final Astra review, make WWW
+  private before publishing private history, then PR/green required checks/merge/live verification.
+- Archive eligible old authorities only after proven handover. Retain old apps as a publication host
+  while installed URLs need it; preserve excluded repos and separate deletion decisions.
 
 ## Dependencies and preservation
 
@@ -498,8 +505,8 @@ Shared tooling no longer runs on every unrelated app change. Forced selection ve
 standard products without enabling publication, while shared/unknown paths conservatively
 verify. Real Git impact/source fixtures, fifteen shared tests, fifteen Control Center CI tests,
 release-lane/state tests and workflow-route checks pass. Astra independently cleared this
-batch after the storefront-resume GitHub client dependency was fixed. The additional activation
-flags are awaiting final fix recheck: `STANDARD_IOS_DELIVERY_ENABLED` and
+batch after the storefront-resume GitHub client dependency was fixed. The activation guards and
+scheduled-resume bypass fix also passed its final recheck: `STANDARD_IOS_DELIVERY_ENABLED` and
 `PANEL_DELIVERY_ENABLED` hold new automatic writers until old writers/credentials/canaries hand over.
 
 Root development/contributing, release and new-app guides now describe the actual independent
@@ -508,3 +515,41 @@ explicit channel ownership, optional backend, low-touch onboarding and actual ac
 Unimplemented wrapper/backend-preset/rebind/distribution capabilities are labeled pending.
 Historical docs remain historical, with their stale layout/runner claims explicitly superseded.
 No new framework or shared UI package was introduced.
+
+
+## Preserved CLI recovery snapshot — approximately 44% overall
+
+Latest remote heads for Folding/apps/Callkeep/CLI remain unchanged at the previously recorded
+SHAs. The CLI's committed local `95eb53b298d97c6caed01aeba43eeaab45897252` was merged with
+its history, then a stable byte-identical snapshot of its existing dirty recovery/diagnostic
+work was copied into the candidate. Original checkout, keys, profiles and uncommitted files
+remain untouched. Snapshot evidence is outside Git at `/tmp/monorepo-cli-source-snapshot-20261108`;
+refresh/compare it again before final source handover rather than assuming this freezes the owner.
+
+Independent Astra and security reviews found and cleared two issues before integration: untrusted
+SSH/Git/provider error bodies could survive a blacklist redactor, and selecting a new SSH agent
+identity invalidated the already verified authentication scope. Diagnostics now retain fixed
+failure classes plus typed HTTP/I/O metadata only; unknown banners, payloads and truncated key
+bodies are omitted. Scope refresh proves a fresh selected-key connection to the original pinned
+peer and rejects every other target/peer change. A single write-failure notice and valid log path
+make diagnostic failures discoverable. Informational screens preserve one Back action.
+
+All non-opt-in CLI suites pass: 411 tests across27 harness summaries, three explicit ignored tests,
+plus separately opt-in VM/authentication harnesses left unrun where their private fixture is
+required. fmt/clippy pass. The existing terminal regression passes after preserving its read-only
+footer; no assertion was weakened. Reports/logs are outside Git at
+`/tmp/monorepo-cli-recovery-astra-review.md`, `/tmp/monorepo-cli-recovery-security-review.md` and
+`/tmp/monorepo-cli-recovery-all-tests.log`. Live credentials, enrollment and recovery remain unproved.
+
+A further selector boundary now assigns the product/home vault to credential verification only:
+it verifies Control Center and Cloudflare without activating a host or shipping an app. Host SOPS
+ciphertext remains a host input; a global encryption-rule edit alone does not activate hosts.
+Sixteen shared selector/gate/input tests pass. This is local policy proof, not live CI acceptance.
+
+### Folding preview runtime attempt
+
+Actual local preview execution at `14af3485a` generated the project and booted its temporary Duo,
+then correctly refused the already-running shared DeviceHub session. It removed its temporary
+simulator (remaining Folding capture devices: zero). The existing desktop session was preserved.
+No screenshot manifest or preview success is claimed. Log: `/tmp/monorepo-folding-preview-14af3485a.log`.
+The required capture canary remains on an isolated Mac guest with the new pinned image.

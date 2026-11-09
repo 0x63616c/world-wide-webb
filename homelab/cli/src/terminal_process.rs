@@ -300,6 +300,17 @@ fn process_body(
             !line.trim().is_empty() && !password_prompt(line) && !rejected_password(line)
         })
         .collect();
+    if state == ProcessScreen::Failed && height < 18 {
+        let summary = output
+            .last()
+            .copied()
+            .unwrap_or("Step failed. Return to setup to continue.");
+        let mut summary: String = summary.chars().take(120).collect();
+        if output.last().is_some_and(|line| line.chars().count() > 120) {
+            summary.push('…');
+        }
+        return vec![(summary, Role::Warning)];
+    }
     if !context.steps.is_empty() {
         if height < 18 {
             let active = context
@@ -316,7 +327,17 @@ fn process_body(
     if state == ProcessScreen::Failed {
         body.push(("Step failed".into(), Role::Warning));
         body.push((String::new(), Role::Body));
-        body.extend(output.into_iter().map(|line| (line.to_owned(), Role::Body)));
+        // Keep failure acknowledgement readable; the caller owns detailed recovery.
+        // Never replay an entire native transcript as an error screen.
+        let start = output.len().saturating_sub(2);
+        for line in &output[start..] {
+            let mut summary: String = line.chars().take(200).collect();
+            if line.chars().count() > 200 {
+                summary.push('…');
+            }
+            body.push((summary, Role::Body));
+            body.push((String::new(), Role::Body));
+        }
     } else {
         body.push((
             output
@@ -328,19 +349,30 @@ fn process_body(
     body
 }
 
+fn process_actions(state: ProcessScreen, stopping: bool) -> Vec<Action> {
+    if stopping && state != ProcessScreen::Authentication && state != ProcessScreen::Failed {
+        vec![Action::Stopping]
+    } else {
+        match state {
+            ProcessScreen::Failed => vec![Action::Primary("Continue".into())],
+            ProcessScreen::Authentication => vec![Action::Submit, Action::Interrupt],
+            ProcessScreen::Waiting => vec![Action::Quit],
+            ProcessScreen::Running => vec![Action::Interrupt],
+        }
+    }
+}
+
 fn draw(context: &Context, text: &str, state: ProcessScreen) -> io::Result<()> {
     let finished = state == ProcessScreen::Failed;
-    let authentication = state == ProcessScreen::Authentication;
-    let body = process_body(context, text, state, crossterm::terminal::size()?.1);
-    let actions = if finished {
-        vec![Action::Primary("Continue".into())]
-    } else if authentication {
-        vec![Action::Submit, Action::Interrupt]
-    } else if state == ProcessScreen::Waiting {
-        vec![Action::Quit]
-    } else {
-        vec![Action::Interrupt]
-    };
+    let stopping = crate::quit::requested();
+    let mut body = process_body(context, text, state, crossterm::terminal::size()?.1);
+    if stopping
+        && matches!(state, ProcessScreen::Waiting | ProcessScreen::Running)
+        && let Some((message, _)) = body.last_mut()
+    {
+        *message = "Stopping after this step; progress stays saved.".into();
+    }
+    let actions = process_actions(state, stopping);
     ui::render(
         if finished {
             "Setup needs attention"
@@ -792,6 +824,88 @@ pub fn dispatch_bridge() -> Option<std::process::ExitCode> {
 #[cfg(test)]
 mod compact_progress_tests {
     use super::*;
+
+    #[test]
+    fn requested_stop_disables_background_interrupt_footer() {
+        assert_eq!(
+            process_actions(ProcessScreen::Waiting, true),
+            vec![Action::Stopping]
+        );
+        assert_eq!(
+            process_actions(ProcessScreen::Running, true),
+            vec![Action::Stopping]
+        );
+        assert_eq!(
+            process_actions(ProcessScreen::Authentication, true),
+            vec![Action::Submit, Action::Interrupt]
+        );
+    }
+
+    #[test]
+    fn failure_acknowledgement_is_short_and_separated() {
+        let context = Context {
+            title: "Setup".into(),
+            host: "fixture".into(),
+            message: "Working".into(),
+            steps: vec![],
+        };
+        let transcript = format!(
+            "{}\nFixture command failed\nTry the saved setup again.",
+            "old output\n".repeat(100)
+        );
+        let body = process_body(&context, &transcript, ProcessScreen::Failed, 24);
+        assert!(!body.iter().any(|(line, _)| line.contains("old output")));
+        assert!(
+            body.iter()
+                .any(|(line, _)| line == "Fixture command failed")
+        );
+        assert!(body.len() < 12);
+        let message = body
+            .iter()
+            .position(|(line, _)| line == "Fixture command failed")
+            .unwrap();
+        assert!(body[message - 1].0.is_empty() && body[message + 1].0.is_empty());
+    }
+
+    #[test]
+    fn native_failure_and_return_fit_minimum_terminal() {
+        let context = Context {
+            title: "Setup".into(),
+            host: "fixture".into(),
+            message: "Working".into(),
+            steps: vec![("! Mac configuration".into(), Role::Warning)],
+        };
+        let body = process_body(
+            &context,
+            "old progress\nFixture command failed",
+            ProcessScreen::Failed,
+            12,
+        );
+        let mut terminal =
+            ratatui::Terminal::new(ratatui::backend::TestBackend::new(40, 12)).unwrap();
+        terminal
+            .draw(|frame| {
+                ui::render_frame(
+                    frame,
+                    "Setup needs attention",
+                    &body,
+                    0,
+                    &process_actions(ProcessScreen::Failed, false),
+                    false,
+                    None,
+                );
+            })
+            .unwrap();
+        let text: String = terminal
+            .backend()
+            .buffer()
+            .content
+            .iter()
+            .map(|cell| cell.symbol())
+            .collect();
+        assert!(text.contains("Fixture command failed"), "{text}");
+        assert!(text.contains("Press Enter to continue"), "{text}");
+    }
 
     #[test]
     fn minimum_window_keeps_the_active_step_and_message_visible() {

@@ -320,7 +320,9 @@ impl OnePassword<'_> {
             }
             None => crate::process::capture(&mut command, Duration::from_secs(90)),
         };
-        let mut output = result.map_err(|_| Error::Access)?;
+        let mut output =
+            crate::provider_diagnostics::observe(crate::provider_diagnostics::op(args), result)
+                .map_err(|_| Error::Access)?;
         output.stderr.zeroize();
         let bytes = Zeroizing::new(std::mem::take(&mut output.stdout));
         if !output.status.success() {
@@ -381,7 +383,12 @@ impl Store for OnePassword<'_> {
             return Err(Error::Configuration);
         }
         let bytes = self.run(&["vault", "get", reference, "--format", "json"], None)?;
-        let vault: RawVault = serde_json::from_slice(&bytes).map_err(|_| Error::Access)?;
+        let vault: RawVault = serde_json::from_slice(&bytes).map_err(|_| {
+            crate::provider_diagnostics::invalid_response(
+                crate::provider_diagnostics::Operation::OpVault,
+            );
+            Error::Access
+        })?;
         if !identifier(&vault.id) {
             return Err(Error::Access);
         }
@@ -394,7 +401,12 @@ impl Store for OnePassword<'_> {
             ],
             None,
         )?;
-        let items: Vec<RawItem> = serde_json::from_slice(&bytes).map_err(|_| Error::Access)?;
+        let items: Vec<RawItem> = serde_json::from_slice(&bytes).map_err(|_| {
+            crate::provider_diagnostics::invalid_response(
+                crate::provider_diagnostics::Operation::OpList,
+            );
+            Error::Access
+        })?;
         items
             .into_iter()
             .map(|item| {
@@ -418,7 +430,12 @@ impl Store for OnePassword<'_> {
             ],
             None,
         )?;
-        let raw: RawItem = serde_json::from_slice(&bytes).map_err(|_| Error::Access)?;
+        let raw: RawItem = serde_json::from_slice(&bytes).map_err(|_| {
+            crate::provider_diagnostics::invalid_response(
+                crate::provider_diagnostics::Operation::OpRead,
+            );
+            Error::Access
+        })?;
         if raw.category != "LOGIN" {
             return Err(Error::Conflict);
         }

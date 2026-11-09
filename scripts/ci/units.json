@@ -301,7 +301,7 @@
         "flake.nix",
         "flake.lock",
         ".sops.yaml",
-        "secrets/**",
+        "secrets/*.sops.yaml",
         "bootstrap/**"
       ],
       "exclude": [
@@ -316,7 +316,8 @@
         "**/fixtures/**",
         "**/BuildTests/**",
         "**/ScreenshotTests/**",
-        "**/StorefrontTests/**"
+        "**/StorefrontTests/**",
+        ".sops.yaml"
       ]
     },
     "homelab.cli": {
@@ -363,6 +364,16 @@
       "exclude": [
         "sites/folding/**"
       ]
+    },
+    "credentials.home": {
+      "paths": [
+        "secrets/vault.yaml"
+      ],
+      "verify_dependents": [
+        "control-center.server",
+        "cloudflare.home"
+      ],
+      "delivery": null
     }
   }
 }

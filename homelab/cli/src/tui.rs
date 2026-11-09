@@ -443,6 +443,7 @@ fn launch_mode(
     selection: Option<&str>,
     authorize_only: bool,
 ) -> Result<(), MenuError> {
+    crate::provider_diagnostics::initialize()?;
     let mut terminal_guard = Terminal::enter()?;
     crate::update_check::start();
     let binding = path.with_file_name("repository.json");

@@ -138,11 +138,15 @@ impl Connection<'_> {
     fn read(&self, remote: &str) -> Result<Vec<u8>, Error> {
         let (mut command, _identity) = self.command(false)?;
         command.arg(remote).stdin(Stdio::null());
-        let output = if self.tailscale.is_some() {
+        let result = if self.tailscale.is_some() {
             crate::terminal_process::capture(&mut command, Duration::from_secs(180))
         } else {
             process::capture(&mut command, Duration::from_secs(45))
-        }
+        };
+        let output = crate::provider_diagnostics::observe(
+            crate::provider_diagnostics::Operation::SshVerify,
+            result,
+        )
         .map_err(|_| Error::Verification)?;
         if !output.status.success() {
             return Err(Error::Verification);

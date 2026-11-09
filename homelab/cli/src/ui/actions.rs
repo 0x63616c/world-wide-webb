@@ -1,4 +1,4 @@
-//! Footer actions are shared with input handling; status text belongs in the body.
+//! Footer actions share input handling; Stopping is an inert pending-stop indicator.
 use crossterm::event::KeyCode;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -14,8 +14,10 @@ pub(crate) enum Action {
     Interrupt,
     Submit,
     OpenPr,
+    OpenLog,
     Retry,
     StopAfterStep,
+    Stopping,
     SaveAndExit,
     StopBeforeInstallation,
     Screens,
@@ -38,8 +40,10 @@ impl Action {
             Self::Interrupt => "Ctrl-C Interrupt".into(),
             Self::Submit => "Enter Submit".into(),
             Self::OpenPr => "O Open PR".into(),
+            Self::OpenLog => "L Open log".into(),
             Self::Retry => "R Retry checks".into(),
             Self::StopAfterStep => "Esc Stop after step".into(),
+            Self::Stopping => "Stopping…".into(),
             Self::SaveAndExit => "Esc Save and exit".into(),
             Self::StopBeforeInstallation => "Esc Stop before installation".into(),
             Self::Screens => "←/→ Screens".into(),
@@ -64,13 +68,14 @@ impl Action {
             Self::Help => key == KeyCode::Char('?'),
             Self::Details => key == KeyCode::Char('i'),
             Self::OpenPr => matches!(key, KeyCode::Char('o' | 'O')),
+            Self::OpenLog => matches!(key, KeyCode::Char('l' | 'L')),
             Self::Retry => matches!(key, KeyCode::Char('r' | 'R')),
             Self::Screens | Self::ScreenPosition(_, _) => {
                 matches!(key, KeyCode::Left | KeyCode::Right)
             }
             // Control-key events are handled before KeyCode reaches a screen.
             Self::Clear => key == KeyCode::Char('\u{15}'),
-            Self::Quit | Self::ConfirmQuit | Self::Interrupt => false,
+            Self::Quit | Self::ConfirmQuit | Self::Interrupt | Self::Stopping => false,
         }
     }
 }
@@ -99,6 +104,7 @@ mod tests {
                 "Enter Continue",
             ),
             (Action::Navigation, KeyCode::Down, "↑/↓ Navigation"),
+            (Action::OpenLog, KeyCode::Char('l'), "L Open log"),
         ] {
             assert!(action.matches(key));
             assert_eq!(action.label(), label);

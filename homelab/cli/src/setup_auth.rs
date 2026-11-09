@@ -140,6 +140,57 @@ impl Scope {
     }
 }
 
+/// A newly selected agent key may authenticate the same pinned peer, never a different target.
+pub(crate) fn refresh_identity(target: &HostProfile, ssh: &Path) -> io::Result<()> {
+    let (previous, expected_key) = ATTEMPT.with(|state| {
+        let state = state.borrow();
+        let attempt = state
+            .as_ref()
+            .ok_or_else(|| io::Error::other("No verified setup scope"))?;
+        let mut allowed = attempt.target.clone();
+        allowed.identity = target.identity.clone();
+        if allowed != *target {
+            return Err(io::Error::other(
+                "Setup identity change targets a different Mac",
+            ));
+        }
+        let key = attempt
+            .host_key_value
+            .clone()
+            .ok_or_else(|| io::Error::other("Setup peer is unverified"))?;
+        Ok((attempt.target.clone(), key))
+    })?;
+    let mut command = Command::new(ssh);
+    let _identity = crate::ssh_identity::configure(&mut command, target.identity.as_ref())?;
+    pin(&mut command, &previous);
+    command
+        .args(crate::ssh::OPTIONS)
+        .args(["-T", "-l"])
+        .arg(&target.user)
+        .arg(&target.address)
+        .arg("/bin/cat /etc/ssh/ssh_host_ed25519_key.pub")
+        .stdin(Stdio::null());
+    let output = crate::process::capture(&mut command, Duration::from_secs(30))
+        .map_err(|_| io::Error::other("Could not verify the selected SSH identity"))?;
+    let observed = std::str::from_utf8(&output.stdout)
+        .ok()
+        .and_then(crate::ssh_identity::canonical_key);
+    if !output.status.success() || observed.as_deref() != Some(expected_key.as_str()) {
+        return Err(io::Error::other(
+            "Selected SSH identity did not verify the same Mac",
+        ));
+    }
+    ATTEMPT.with(|state| {
+        let mut state = state.borrow_mut();
+        let attempt = state
+            .as_mut()
+            .filter(|attempt| attempt.target == previous)
+            .ok_or_else(|| io::Error::other("Setup authentication changed during verification"))?;
+        attempt.target = target.clone();
+        Ok(())
+    })
+}
+
 pub(crate) fn verified_host_key(target: &HostProfile) -> Option<String> {
     ATTEMPT.with(|state| {
         state
@@ -459,6 +510,34 @@ mod tests {
             validate_password(&other, &executable, &secret),
             Err(crate::admin_credential::Error::Target)
         ));
+    }
+    #[test]
+    fn selecting_an_identity_requires_a_fresh_connection_to_the_same_pinned_peer() {
+        use std::os::unix::fs::PermissionsExt;
+        let root = tempfile::tempdir().unwrap();
+        let ssh = root.path().join("ssh");
+        let key =
+            "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+        std::fs::write(&ssh, format!("#!/bin/sh\nprintf '%s\\n' '{key}'\n")).unwrap();
+        std::fs::set_permissions(&ssh, std::fs::Permissions::from_mode(0o700)).unwrap();
+        let original = target();
+        let _scope = Scope::begin_verified(&original, &ssh).unwrap();
+        let mut selected = original.clone();
+        selected.identity = Some(crate::inventory::AgentIdentity {
+            public_key: "ssh-ed25519 AAAA".into(),
+            agent_socket: root.path().join("agent.sock"),
+        });
+        assert!(verified_host_key(&selected).is_none());
+        refresh_identity(&selected, &ssh).unwrap();
+        assert_eq!(verified_host_key(&selected).as_deref(), Some(key));
+        assert!(verified_host_key(&original).is_none());
+        let mut other = selected.clone();
+        other.user = "someone-else".into();
+        assert!(refresh_identity(&other, &ssh).is_err());
+        assert!(verified_host_key(&other).is_none());
+        std::fs::write(&ssh, "#!/bin/sh\necho 'ssh-ed25519 BBBB'\n").unwrap();
+        assert!(refresh_identity(&original, &ssh).is_err());
+        assert_eq!(verified_host_key(&selected).as_deref(), Some(key));
     }
     fn enter(exchange: &mut Exchange) {
         exchange

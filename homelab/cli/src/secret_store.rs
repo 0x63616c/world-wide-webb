@@ -366,13 +366,20 @@ impl OnePassword {
         } else {
             None
         };
-        let output = crate::process::capture(&mut command, Duration::from_secs(90))
-            .map_err(|_| Error::Access)?;
+        let operation = crate::provider_diagnostics::op(arguments);
+        let output = crate::provider_diagnostics::observe(
+            operation,
+            crate::process::capture(&mut command, Duration::from_secs(90)),
+        )
+        .map_err(|_| Error::Access)?;
         drop(template);
         if !output.status.success() {
             return Err(Error::Access);
         }
-        serde_json::from_slice(&output.stdout).map_err(|_| Error::Access)
+        serde_json::from_slice(&output.stdout).map_err(|_| {
+            crate::provider_diagnostics::invalid_response(operation);
+            Error::Access
+        })
     }
 
     pub fn vault_id(&self, name: &str) -> Result<String, Error> {

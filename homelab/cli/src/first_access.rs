@@ -233,7 +233,11 @@ pub fn check_key_access(host: &HostProfile, tools: &Tools, trust: Trust) -> Resu
     let (mut command, _identity) = ssh(host, tools, trust, true)?;
     command.arg("/usr/bin/true").stdin(Stdio::null());
     let timeout = Duration::from_secs(if host.identity.is_some() { 90 } else { 25 });
-    let output = process::capture(&mut command, timeout).map_err(|error| match error {
+    let output = crate::provider_diagnostics::observe(
+        crate::provider_diagnostics::Operation::SshCheck,
+        process::capture(&mut command, timeout),
+    )
+    .map_err(|error| match error {
         process::ProcessError::Timeout => Error::ConnectionTimeout,
         _ => Error::Connection,
     })?;

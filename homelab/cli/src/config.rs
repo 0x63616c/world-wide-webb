@@ -413,7 +413,11 @@ fn api(path: &str, raw: bool) -> Result<Vec<u8>, Error> {
     } else {
         c.args(["--jq", ".sha"]);
     }
-    let out = crate::process::capture(&mut c, Duration::from_secs(30)).map_err(|_| Error::Fetch)?;
+    let out = crate::provider_diagnostics::observe(
+        crate::provider_diagnostics::Operation::GitHubRead,
+        crate::process::capture(&mut c, Duration::from_secs(30)),
+    )
+    .map_err(|_| Error::Fetch)?;
     if !out.status.success() {
         return Err(Error::Fetch);
     }

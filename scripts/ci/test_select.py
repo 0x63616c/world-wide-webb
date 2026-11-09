@@ -58,6 +58,15 @@ class SelectionTests(unittest.TestCase):
         self.assertEqual(result["verify"], ["homelab.cli", "homelab.config"])
         self.assertEqual(result["delivery_candidates"], ["homelab.cli"])
 
+    def test_product_credentials_cannot_activate_hosts_or_ship_apps(self):
+        result = selection.select(["secrets/vault.yaml"], CONFIG)
+        self.assertEqual(set(result["verify"]), {"credentials.home", "control-center.server", "cloudflare.home"})
+        self.assertEqual(result["delivery_candidates"], [])
+        self.assertEqual(selection.select([".sops.yaml"], CONFIG)["delivery_candidates"], [])
+        host = selection.select(["secrets/homelab-mac-mini.sops.yaml"], CONFIG)
+        self.assertEqual(host["verify"], ["homelab.config"])
+        self.assertEqual(host["delivery_candidates"], ["homelab.config"])
+
     def test_unknown_path_requires_verification_without_shipping(self):
         result = selection.select(["new-root-tool.toml"], CONFIG)
         self.assertEqual(set(result["verify"]), set(CONFIG["units"]))

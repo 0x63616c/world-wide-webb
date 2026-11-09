@@ -34,8 +34,11 @@ pub fn verify_read_access(
         .current_dir(home.path())
         .stdin(std::process::Stdio::null());
     configure(&mut command, key.path(), &known_hosts);
-    let output = crate::process::capture(&mut command, std::time::Duration::from_secs(60))
-        .map_err(|_| AccessUnconfirmed)?;
+    let output = crate::provider_diagnostics::observe(
+        crate::provider_diagnostics::Operation::GitRead,
+        crate::process::capture(&mut command, std::time::Duration::from_secs(60)),
+    )
+    .map_err(|_| AccessUnconfirmed)?;
     if !output.status.success() {
         return Err(AccessUnconfirmed);
     }

@@ -80,7 +80,7 @@ pub enum Error {
         "Setup may have changed the host. Automatic replay is blocked until its actual state is reviewed."
     )]
     RecoveryRequired,
-    #[error("The exact reviewed private configuration could not be fetched and verified.")]
+    #[error("The reviewed Git configuration could not be downloaded.")]
     Repository,
     #[error("The reviewed revision lacks a regular lockfile or encrypted host secrets.")]
     Unprovisioned,
@@ -177,6 +177,7 @@ impl Error {
             Self::InvalidCredentials | Self::Decryption => {
                 "Check this host's private age identity and target-local Git deploy key. Resume through the setup wizard; do not supply a GitHub account token."
             }
+            Self::Repository => "Retry setup to download the same approved revision.",
             Self::Elevation => {
                 "Administrator authorization expired. Resume setup in the wizard to authenticate again."
             }
@@ -194,6 +195,26 @@ struct Installer {
     sha256: String,
 }
 
+thread_local! { static DIAGNOSTIC_DIRECTORY: std::cell::RefCell<Option<PathBuf>> = const { std::cell::RefCell::new(None) }; }
+struct DiagnosticScope(Option<PathBuf>);
+impl DiagnosticScope {
+    fn enter(path: &Path) -> Self {
+        Self(DIAGNOSTIC_DIRECTORY.with(|root| root.replace(Some(path.to_owned()))))
+    }
+}
+impl Drop for DiagnosticScope {
+    fn drop(&mut self) {
+        DIAGNOSTIC_DIRECTORY.with(|root| *root.borrow_mut() = self.0.take());
+    }
+}
+fn command_failure(error: Error, status: Option<i32>, stderr: &[u8]) {
+    DIAGNOSTIC_DIRECTORY.with(|directory| {
+        if let Some(root) = directory.borrow().as_ref() {
+            crate::bootstrap_diagnostics::record_output(root, error.code(), status, stderr);
+        }
+    });
+}
+
 fn command(executable: &Path, home: &Path) -> Command {
     let mut command = Command::new(executable);
     command
@@ -206,24 +227,28 @@ fn command(executable: &Path, home: &Path) -> Command {
 }
 
 fn checked_text(command: &mut Command, timeout: Duration, error: Error) -> Result<String, Error> {
-    let output = process::capture(command, timeout).map_err(|_| error)?;
+    let output = process::capture(command, timeout).map_err(|failure| {
+        command_failure(error, None, failure.to_string().as_bytes());
+        error
+    })?;
     if !output.status.success() {
+        command_failure(error, output.status.code(), &output.stderr);
         return Err(error);
     }
     String::from_utf8(output.stdout)
         .map(|text| text.trim().to_owned())
         .map_err(|_| error)
 }
-
 fn checked_silent(command: &mut Command, timeout: Duration, error: Error) -> Result<(), Error> {
-    if process::run_silent(command, timeout)
-        .map_err(|_| error)?
-        .success()
-    {
-        Ok(())
-    } else {
-        Err(error)
+    let output = process::run_diagnostic(command, timeout).map_err(|failure| {
+        command_failure(error, None, failure.to_string().as_bytes());
+        error
+    })?;
+    if !output.status.success() {
+        command_failure(error, output.status.code(), &output.stderr);
+        return Err(error);
     }
+    Ok(())
 }
 
 fn regular_file(path: &Path) -> io::Result<File> {
@@ -269,6 +294,73 @@ fn git_command(tools: &Tools, home: &Path, key: &Path) -> Command {
     let mut git = command(&tools.git, home);
     crate::git_ssh::configure(&mut git, key, &home.join("github_known_hosts"));
     git
+}
+
+fn clone_repository(
+    tools: &Tools,
+    home: &Path,
+    key: &Path,
+    work: &Path,
+    repository: &str,
+    diagnostics: &Path,
+) -> Result<PathBuf, Error> {
+    // Only the read-only download retries. Each attempt owns fresh storage;
+    // no partial checkout, credential issuance or activation is repeated.
+    let deadline = std::time::Instant::now() + FETCH;
+    for attempt in 0..3 {
+        let repo = work.join(if attempt == 0 {
+            "repo".into()
+        } else {
+            format!("repo-retry-{attempt}")
+        });
+        let remaining = deadline.saturating_duration_since(std::time::Instant::now());
+        if remaining.is_zero() {
+            return Err(Error::Repository);
+        }
+        let output = process::capture(
+            git_command(tools, home, key)
+                .args(["clone", "--no-checkout", "--template="])
+                .arg(format!("git@github.com:{repository}.git"))
+                .arg(&repo),
+            remaining,
+        )
+        .map_err(|_| Error::Repository)?;
+        if output.status.success() {
+            return Ok(repo);
+        }
+        let message = String::from_utf8_lossy(&output.stderr).to_ascii_lowercase();
+        let code = if message.contains("permission denied") {
+            "repository-access-denied"
+        } else if message.contains("host key verification failed") {
+            "github-identity-unconfirmed"
+        } else if message.contains("could not resolve") {
+            "repository-dns-unavailable"
+        } else {
+            "repository-download-failed"
+        };
+        crate::bootstrap_diagnostics::record_output(
+            diagnostics,
+            code,
+            output.status.code(),
+            &output.stderr,
+        );
+        if ![
+            "early eof",
+            "connection reset",
+            "connection timed out",
+            "could not resolve hostname",
+            "network is unreachable",
+            "remote end hung up",
+            "rpc failed",
+            "connection closed by remote host",
+        ]
+        .iter()
+        .any(|label| message.contains(label))
+        {
+            return Err(Error::Repository);
+        }
+    }
+    Err(Error::Repository)
 }
 
 fn existing_key(tools: &Tools, home: &Path) -> Result<bool, Error> {
@@ -474,6 +566,7 @@ pub fn run_with_progress(
     state_directory: &Path,
     mut progress: impl FnMut(Phase),
 ) -> Result<Report, Error> {
+    let _diagnostic_scope = DiagnosticScope::enter(state_directory);
     let mut phase = None;
     let result = run_inner(request, tools, state_directory, |next| {
         phase = Some(next);
@@ -696,14 +789,13 @@ fn run_inner(
         Path::new("/usr/bin/ssh-keygen"),
     )
     .map_err(|_| Error::InvalidCredentials)?;
-    let repo = work.path().join("repo");
-    checked_silent(
-        git_command(tools, &home, &key)
-            .args(["clone", "--no-checkout", "--template="])
-            .arg(format!("git@github.com:{}.git", request.repository))
-            .arg(&repo),
-        FETCH,
-        Error::Repository,
+    let repo = clone_repository(
+        tools,
+        &home,
+        &key,
+        work.path(),
+        &request.repository,
+        state_directory,
     )?;
     checked_silent(
         git_command(tools, &home, &key)

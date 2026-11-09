@@ -77,6 +77,16 @@ fn main() {
             assert_eq!(std::env::var("GIT_CONFIG_KEY_1").unwrap(), "core.hooksPath");
             assert_eq!(std::env::var("GIT_CONFIG_VALUE_1").unwrap(), "/dev/null");
             if args[0] == "clone" {
+                if flag("clone-transient") && !flag("clone-already-retried") {
+                    let destination = Path::new(args.last().unwrap());
+                    fs::create_dir_all(destination).unwrap();
+                    fs::write(destination.join("partial"), "incomplete").unwrap();
+                    fs::write(root.join("clone-already-retried"), "").unwrap();
+                    event(root, "fetch-transient");
+                    eprintln!("fatal: early EOF");
+                    fail();
+                }
+                assert!(!Path::new(args.last().unwrap()).join("partial").exists());
                 let ssh = std::env::var("GIT_SSH_COMMAND").unwrap();
                 for required in [
                     "StrictHostKeyChecking=yes",

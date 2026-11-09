@@ -60,3 +60,6 @@ mod bootstrap_diagnostics;
 mod setup_auth;
 pub mod setup_repair;
 mod sudo_session;
+
+/// Private operator diagnostics for provider and transport failures.
+pub mod provider_diagnostics;

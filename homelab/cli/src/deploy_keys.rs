@@ -302,13 +302,21 @@ impl Registry for GitHub {
         }
         let mut command = self.command(&format!("repos/{repository}/keys?per_page=100"));
         command.args(["--paginate", "--slurp"]);
-        let output = crate::process::capture(&mut command, Duration::from_secs(60))
-            .map_err(|_| Error::Access)?;
+        let output = crate::provider_diagnostics::observe(
+            crate::provider_diagnostics::Operation::GitHubRead,
+            crate::process::capture(&mut command, Duration::from_secs(60)),
+        )
+        .map_err(|_| Error::Access)?;
         if !output.status.success() {
             return Err(Error::Access);
         }
         let pages: Vec<Vec<Registration>> =
-            serde_json::from_slice(&output.stdout).map_err(|_| Error::Access)?;
+            serde_json::from_slice(&output.stdout).map_err(|_| {
+                crate::provider_diagnostics::invalid_response(
+                    crate::provider_diagnostics::Operation::GitHubRead,
+                );
+                Error::Access
+            })?;
         Ok(pages.into_iter().flatten().collect())
     }
 
@@ -321,8 +329,11 @@ impl Registry for GitHub {
             .arg("--raw-field")
             .arg(format!("key={key}"))
             .args(["--field", "read_only=true"]);
-        let output = crate::process::capture(&mut command, Duration::from_secs(60))
-            .map_err(|_| Error::Unconfirmed)?;
+        let output = crate::provider_diagnostics::observe(
+            crate::provider_diagnostics::Operation::GitHubWrite,
+            crate::process::capture(&mut command, Duration::from_secs(60)),
+        )
+        .map_err(|_| Error::Unconfirmed)?;
         if !output.status.success() {
             let diagnostic = String::from_utf8_lossy(&output.stderr);
             return Err(
@@ -336,7 +347,12 @@ impl Registry for GitHub {
                 },
             );
         }
-        serde_json::from_slice(&output.stdout).map_err(|_| Error::Unconfirmed)
+        serde_json::from_slice(&output.stdout).map_err(|_| {
+            crate::provider_diagnostics::invalid_response(
+                crate::provider_diagnostics::Operation::GitHubWrite,
+            );
+            Error::Unconfirmed
+        })
     }
 }
 

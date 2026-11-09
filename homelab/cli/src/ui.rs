@@ -220,7 +220,7 @@ fn footer_rows(footer: &[Action], width: usize) -> Vec<String> {
     if !actions.iter().any(|action| {
         matches!(
             action,
-            Action::Quit | Action::Interrupt | Action::ConfirmQuit
+            Action::Quit | Action::Interrupt | Action::ConfirmQuit | Action::Stopping
         )
     }) {
         actions.push(Action::Quit);
@@ -303,16 +303,19 @@ pub(crate) fn render_frame(
     update: Option<&str>,
 ) -> usize {
     let confirmation = [Action::ConfirmQuit];
+    let stopping = [Action::Stopping];
+    let footer = if crate::quit::requested() {
+        &stopping[..]
+    } else if crate::quit::armed() && !footer.contains(&Action::Stopping) {
+        &confirmation[..]
+    } else {
+        footer
+    };
     let continuation = footer.iter().find_map(|action| match action {
         Action::Primary(label) if label == "Continue" => Some("Press Enter to continue"),
         Action::Primary(label) if label == "Done" => Some("Press Enter to finish"),
         _ => None,
     });
-    let footer = if crate::quit::armed() {
-        &confirmation[..]
-    } else {
-        footer
-    };
     let area = frame.area();
     if area.width < 40 || area.height < 12 {
         frame.render_widget(
@@ -668,6 +671,51 @@ mod tests {
         let spans = shortcut_spans("Press Ctrl-C again to quit", true);
         assert_eq!(spans.len(), 1);
         assert_eq!(spans[0].style.fg, Some(Color::LightBlue));
+    }
+
+    #[test]
+    fn every_loading_surface_disables_stop_after_confirmed_request() {
+        use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+        for (width, height) in [(40, 12), (80, 24)] {
+            crate::quit::reset();
+            let key = KeyEvent::new(KeyCode::Char('c'), KeyModifiers::CONTROL);
+            crate::quit::handle(key);
+            crate::quit::handle(key);
+            let mut terminal = Terminal::new(TestBackend::new(width, height)).unwrap();
+            terminal
+                .draw(|frame| {
+                    render_frame(
+                        frame,
+                        "Connecting to your Mac",
+                        &[("Waiting for 1Password".into(), Role::Working)],
+                        0,
+                        &[Action::StopAfterStep, Action::Quit],
+                        false,
+                        None,
+                    );
+                })
+                .unwrap();
+            let text: String = terminal
+                .backend()
+                .buffer()
+                .content
+                .iter()
+                .map(|cell| cell.symbol())
+                .collect();
+            crate::quit::reset();
+            assert!(text.contains("Stopping…"), "{text}");
+            assert!(
+                !text.contains("Stop after") && !text.contains("Ctrl-C Quit"),
+                "{text}"
+            );
+        }
+    }
+
+    #[test]
+    fn stopping_is_status_without_an_added_quit_shortcut() {
+        let footer = footer_rows(&[Action::Stopping, Action::Help], 80).join("\n");
+        assert!(footer.contains("Stopping…"));
+        assert!(!footer.contains("Quit") && !footer.contains("Stop after"));
     }
 
     #[test]

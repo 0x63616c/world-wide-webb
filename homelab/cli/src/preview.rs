@@ -34,7 +34,7 @@ pub enum Screen {
     Help,
 }
 
-const SCREENS: [Screen; 21] = [
+const SCREENS: [Screen; 20] = [
     Screen::Input,
     Screen::RepositoryLoading,
     Screen::RepositoryError,
@@ -45,7 +45,6 @@ const SCREENS: [Screen; 21] = [
     Screen::KeyRequired,
     Screen::KeySource,
     Screen::KeyPicker,
-    Screen::PublicKey,
     Screen::KeyReview,
     Screen::Summary,
     Screen::Progress,
@@ -139,13 +138,14 @@ fn fixture(screen: Screen) -> Fixture {
             ],
         ),
         Screen::Trust => (
-            "Trust this Mac?",
+            "Connect to this Mac?",
             vec![
                 ("admin@studio-mac.local", Role::Context),
                 ("", Role::Body),
-                ("Trust: save the first SSH host key.", Role::Body),
-                ("Identity: not independently verified.", Role::Body),
-                ("Changed keys: still blocked.", Role::Body),
+                ("Confirm this is the Mac you just set up.", Role::Body),
+                ("Remember this Mac for future connections.", Role::Body),
+                ("", Role::Body),
+                ("> Connect", Role::Selected),
             ],
         ),
         Screen::KeyRequired => (
@@ -155,18 +155,16 @@ fn fixture(screen: Screen) -> Fixture {
                 ("SSH key not accepted", Role::Warning),
                 ("Use the target password to add a key.", Role::Body),
                 ("", Role::Body),
-                ("> Install public key", Role::Selected),
+                ("> Connect with 1Password", Role::Selected),
                 ("  Check SSH access", Role::ListOption),
             ],
         ),
         Screen::KeySource => (
-            "Where is your SSH key?",
+            "Connect with 1Password",
             vec![
-                ("Private keys stay on your Mac.", Role::Context),
+                ("Unlock 1Password and enable its SSH agent.", Role::Body),
                 ("", Role::Body),
-                ("> 1Password SSH agent", Role::Selected),
-                ("  Current SSH agent", Role::ListOption),
-                ("  Public-key file", Role::ListOption),
+                ("> Retry", Role::Selected),
             ],
         ),
         Screen::KeyPicker => (
@@ -207,7 +205,7 @@ fn fixture(screen: Screen) -> Fixture {
                 ),
                 ("", Role::Body),
                 (
-                    "Existing keys are kept. Your password is never stored.",
+                    "Existing keys are kept. Administrator access is verified during setup.",
                     Role::Body,
                 ),
             ],
@@ -316,8 +314,10 @@ fn fixture(screen: Screen) -> Fixture {
                     Role::Context,
                 ),
                 ("", Role::Body),
-                ("> Retry", Role::Selected),
-                ("  Return to hosts", Role::ListOption),
+                (
+                    "Enter returns to setup. R retries these checks.",
+                    Role::Context,
+                ),
             ],
         ),
         Screen::Complete => (
@@ -413,12 +413,15 @@ pub fn launch(screen: Screen) -> io::Result<()> {
         let choices = select_choice(&mut fixture, choice);
         fit_fixture(&mut fixture, crossterm::terminal::size()?.1);
         let title = fixture.title;
-        let footer = [
+        let mut footer = vec![
             Action::ScreenPosition(selected + 1, SCREENS.len()),
             Action::Navigation,
             Action::Next,
             Action::Exit,
         ];
+        if SCREENS[selected] == Screen::Attention {
+            footer.insert(0, Action::OpenLog);
+        }
         let last = if choices > 0 {
             ui::render_selected(title, &fixture.lines, &footer)?
         } else {
@@ -462,8 +465,20 @@ pub fn dump(screen: Screen, width: u16, height: u16) -> io::Result<String> {
     let mut fixture = fixture(screen);
     select_choice(&mut fixture, 0);
     fit_fixture(&mut fixture, height);
+    let mut footer = FOOTER.to_vec();
+    if screen == Screen::Attention {
+        footer.insert(0, Action::OpenLog);
+    }
     terminal.draw(|frame| {
-        ui::render_frame(frame, fixture.title, &fixture.lines, 0, FOOTER, false, None);
+        ui::render_frame(
+            frame,
+            fixture.title,
+            &fixture.lines,
+            0,
+            &footer,
+            false,
+            None,
+        );
     })?;
     let buffer = terminal.backend().buffer();
     Ok((0..height)

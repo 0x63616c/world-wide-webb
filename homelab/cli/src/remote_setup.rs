@@ -168,7 +168,7 @@ impl Error {
                 "Reconnect using the existing verified route and inspect target setup state before retrying. Do not assume bootstrap or a privileged process stopped."
             }
             Failure::Bootstrap => {
-                "Reopen this saved setup to verify completed steps and resume safely. Target diagnostics: ~/.local/state/homelab/bootstrap/diagnostics.jsonl."
+                "Reopen this saved setup to check completed steps and resume safely.\n\nTarget diagnostics: ~/.local/state/homelab/bootstrap/diagnostics.jsonl."
             }
             Failure::Reconnect => {
                 "Configuration activation completed, but SSH reconnect failed. Inspect access locally; do not delete saved fingerprints or rerun bootstrap blindly."
@@ -197,7 +197,7 @@ impl Error {
         };
         match &self.remote_stage {
             Some(stage) => format!(
-                "{action} Private remote staging may remain at {stage}; remove its known setup files only after confirming no setup process is using them."
+                "{action}\n\nPrivate setup files may remain at {stage}.\n\nConfirm setup has stopped before removing them."
             ),
             None => action.into(),
         }
@@ -507,8 +507,16 @@ fn script(
         })
         .stdin(Stdio::from(input));
     let timeout = if profile.identity.is_some() { 90 } else { 30 };
-    process::capture(&mut command, Duration::from_secs(timeout))
-        .map_err(|_| Error::new(Failure::Stage))
+    let operation = if source == include_str!("remote/cleanup.sh") {
+        crate::provider_diagnostics::Operation::SshCleanup
+    } else {
+        crate::provider_diagnostics::Operation::SshStage
+    };
+    crate::provider_diagnostics::observe(
+        operation,
+        process::capture(&mut command, Duration::from_secs(timeout)),
+    )
+    .map_err(|_| Error::new(Failure::Stage))
 }
 
 pub(crate) fn cleanup(profile: &HostProfile, tools: &Tools, stage: &str) -> bool {
@@ -652,8 +660,11 @@ fn enrollment_rpc(
                 attempt.host, attempt.id
             ))
             .stdin(Stdio::from(input));
-        let output = process::capture(&mut command, Duration::from_secs(90))
-            .map_err(|_| Error::new(Failure::GitIdentity))?;
+        let output = crate::provider_diagnostics::observe(
+            crate::provider_diagnostics::Operation::SshGitIdentity,
+            process::capture(&mut command, Duration::from_secs(90)),
+        )
+        .map_err(|_| Error::new(Failure::GitIdentity))?;
         if !output.status.success() {
             return Err(Error::new(Failure::GitIdentity));
         }
@@ -690,8 +701,11 @@ pub(crate) fn stage_helper(
             .arg(&copy)
             .arg(format!("{}@{}:{stage}/", profile.user, profile.address))
             .stdin(Stdio::null());
-        if !process::run_silent(&mut transfer, Duration::from_secs(600))
-            .is_ok_and(|status| status.success())
+        if !crate::provider_diagnostics::observe(
+            crate::provider_diagnostics::Operation::ScpTransfer,
+            process::run_diagnostic(&mut transfer, Duration::from_secs(600)),
+        )
+        .is_ok_and(|output| output.status.success())
         {
             return Err(Error::new(Failure::Transfer));
         }
@@ -802,8 +816,11 @@ pub fn apply(prepared: PreparedSetup, tools: &Tools) -> Result<Report, Error> {
             request.profile.user, request.profile.address
         ))
         .stdin(Stdio::null());
-    if !process::run_silent(&mut transfer, Duration::from_secs(600))
-        .is_ok_and(|status| status.success())
+    if !crate::provider_diagnostics::observe(
+        crate::provider_diagnostics::Operation::ScpTransfer,
+        process::run_diagnostic(&mut transfer, Duration::from_secs(600)),
+    )
+    .is_ok_and(|output| output.status.success())
     {
         return Err(failed_before_start(
             &request.profile,
@@ -891,4 +908,19 @@ pub fn apply(prepared: PreparedSetup, tools: &Tools) -> Result<Report, Error> {
         configuration_host: request.configuration_host.clone(),
         revision: request.revision.clone(),
     })
+}
+
+#[cfg(test)]
+mod presentation_tests {
+    use super::*;
+
+    #[test]
+    fn failure_guidance_separates_recovery_and_preserved_staging() {
+        let error = Error::staged(Failure::Bootstrap, "/private/tmp/homelab-setup.synthetic");
+        let guidance = error.next_action();
+        assert!(guidance.contains("safely.\n\nTarget diagnostics:"));
+        assert!(guidance.contains("\n\nPrivate setup files may remain"));
+        assert!(guidance.contains("\n\nConfirm setup has stopped"));
+        assert!(!guidance.contains("rerun bootstrap"));
+    }
 }

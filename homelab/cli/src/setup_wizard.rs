@@ -165,8 +165,8 @@ impl AccessAction {
     fn label(self) -> &'static str {
         match self {
             Self::Check => "Check SSH access",
-            Self::Trust => "Review host trust",
-            Self::InstallKey => "Install public key",
+            Self::Trust => "Confirm this Mac",
+            Self::InstallKey => "Connect with 1Password",
         }
     }
 }
@@ -176,8 +176,8 @@ fn failure_screen(error: &first_access::Error) -> (&'static str, &'static str, V
     use first_access::Error;
     match error {
         Error::HostUnknown => (
-            "New Mac: trust not saved",
-            "Review the identity warning before trusting this address.",
+            "First connection to this Mac",
+            "Confirm this is the Mac you just set up.",
             vec![Trust, Check],
         ),
         Error::HostChanged => (
@@ -279,8 +279,8 @@ pub(crate) fn choose(lines: &[String], actions: &[&str]) -> io::Result<Option<us
             // Retain visible actions for users accustomed to the old shortcuts.
             KeyCode::Char(character) => {
                 let label = match character.to_ascii_lowercase() {
-                    'k' => "Install public key",
-                    't' => "Review host trust",
+                    'k' => "Connect with 1Password",
+                    't' => "Confirm this Mac",
                     _ => "",
                 };
                 if let Some(index) = actions.iter().position(|action| *action == label)
@@ -308,6 +308,16 @@ pub(crate) fn review_content(
     })
 }
 
+fn review_enter_result(primary: &str, offset: usize, last: usize) -> Option<bool> {
+    if primary.is_empty() {
+        Some(false)
+    } else if offset >= last {
+        Some(true)
+    } else {
+        None
+    }
+}
+
 fn review_screen(
     primary: &str,
     mut draw: impl FnMut(usize, &[Action]) -> io::Result<usize>,
@@ -325,86 +335,10 @@ fn review_screen(
             code if Action::Back.matches(code) => return Ok(false),
             KeyCode::Down | KeyCode::PageDown => offset = (offset + 1).min(last),
             KeyCode::Up | KeyCode::PageUp => offset = offset.saturating_sub(1),
-            KeyCode::Enter if !primary.is_empty() && offset >= last && usable_size()? => {
-                return Ok(true);
-            }
-            KeyCode::Enter if !primary.is_empty() => offset = (offset + 3).min(last),
-            _ => {}
-        }
-    }
-}
-
-fn public_key_lines(value: &str, error: Option<&str>, width: usize) -> Vec<String> {
-    let tail: String = value
-        .chars()
-        .rev()
-        .take(width.saturating_sub(2))
-        .collect::<Vec<_>>()
-        .into_iter()
-        .rev()
-        .collect();
-    let mut lines = vec!["Which public-key file should we use?".into()];
-    if let Some(message) = error {
-        lines.push(format!("! {message}"));
-    }
-    lines.extend(["Public key file (.pub)".into(), format!("> {tail}")]);
-    if error.is_none() {
-        lines.extend([String::new(), "Private key must be usable by SSH.".into()]);
-    }
-    lines
-}
-
-fn public_key(tools: &first_access::Tools) -> io::Result<Option<first_access::PublicKey>> {
-    let mut value = std::env::var_os("HOME")
-        .map(PathBuf::from)
-        .map(|home| home.join(".ssh/id_ed25519.pub").display().to_string())
-        .unwrap_or_default();
-    let mut error = None;
-    loop {
-        let (width, _) = terminal::size()?;
-        let lines = public_key_lines(
-            &value,
-            error.as_deref(),
-            usize::from(width).saturating_sub(4).min(76),
-        );
-        let body = lines[1..]
-            .iter()
-            .map(|line| {
-                let role = if line.starts_with("> ") {
-                    Role::Input
-                } else if line.starts_with("! ") {
-                    Role::Warning
-                } else {
-                    Role::Body
-                };
-                (line.clone(), role)
-            })
-            .collect::<Vec<_>>();
-        render(
-            &lines[0],
-            &body,
-            0,
-            &footer("Review key", &[Action::Clear, Action::Back]),
-        )?;
-        match key()? {
-            code if Action::Back.matches(code) => return Ok(None),
-            KeyCode::Enter if !value.is_empty() && usable_size()? => {
-                match first_access::prepare_public_key(&PathBuf::from(&value), tools) {
-                    Ok(key) => return Ok(Some(key)),
-                    Err(problem) => error = Some(problem.to_string()),
-                }
-            }
-            KeyCode::Backspace => {
-                value.pop();
-                error = None;
-            }
-            KeyCode::Char('\u{15}') => {
-                value.clear();
-                error = None;
-            }
-            KeyCode::Char(character) if !character.is_control() && value.len() < 4096 => {
-                value.push(character)
-            }
+            KeyCode::Enter if usable_size()? => match review_enter_result(primary, offset, last) {
+                Some(result) => return Ok(result),
+                None => offset = (offset + 3).min(last),
+            },
             _ => {}
         }
     }
@@ -428,7 +362,7 @@ fn agent_key_lines(
     let start = selected
         .saturating_sub(count - 1)
         .min(keys.len().saturating_sub(count));
-    let mut lines = vec!["Which SSH key do you want to use?".into()];
+    let mut lines = vec!["Choose a 1Password key".into()];
     for (index, (label, fingerprint)) in keys.iter().enumerate().skip(start).take(count) {
         let label = if label.is_empty() {
             "Unnamed SSH key"
@@ -448,6 +382,14 @@ fn agent_key_lines(
 fn select_agent_key(mut keys: Vec<first_access::AgentKey>) -> io::Result<Option<SelectedKey>> {
     if keys.is_empty() {
         return Ok(None);
+    }
+    if keys.len() == 1 {
+        let key = keys.remove(0);
+        let identity = key.identity();
+        return Ok(Some(SelectedKey {
+            key: key.into_public_key(),
+            identity: Some(identity),
+        }));
     }
     let mut selected = 0;
     loop {
@@ -484,93 +426,45 @@ fn select_agent_key(mut keys: Vec<first_access::AgentKey>) -> io::Result<Option<
     }
 }
 
-fn choose_key_source(
-    tools: &first_access::Tools,
-    agent_only: bool,
-) -> io::Result<Option<SelectedKey>> {
+fn choose_key_source(tools: &first_access::Tools) -> io::Result<Option<SelectedKey>> {
+    let Some(socket) = std::env::var_os("HOME")
+        .map(PathBuf::from)
+        .map(|home| home.join("Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock"))
+    else {
+        return Ok(None);
+    };
     loop {
-        let Some(source) = choose(
-            &[
-                "Where is your SSH key?".into(),
-                "Private keys stay on your Mac.".into(),
-            ],
-            if agent_only {
-                &["1Password SSH agent", "Current SSH agent"]
-            } else {
-                &[
-                    "1Password SSH agent",
-                    "Current SSH agent",
-                    "Public-key file",
-                ]
+        let result = ui::loading::run(
+            || {
+                render(
+                    "Connecting with 1Password",
+                    &[
+                        ("Reading your SSH keys…".into(), Role::Working),
+                        (String::new(), Role::Body),
+                        ("Approve the request in 1Password.".into(), Role::Context),
+                    ],
+                    0,
+                    &[Action::Quit],
+                )
+                .map(|_| ())
             },
-        )?
-        else {
+            || first_access::list_agent_keys(&socket, tools),
+        )?;
+        if crate::quit::requested() {
             return Ok(None);
-        };
-        if source == 2 {
-            return Ok(public_key(tools)?.map(|key| SelectedKey {
-                key,
-                identity: None,
-            }));
         }
-        let socket = if source == 0 {
-            std::env::var_os("HOME").map(PathBuf::from).map(|home| {
-                home.join("Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock")
-            })
-        } else {
-            std::env::var_os("SSH_AUTH_SOCK").map(PathBuf::from)
-        };
-        let Some(socket) = socket else {
-            review(
-                &[
-                    "SSH agent not configured".into(),
-                    "Enable the SSH agent in 1Password, or choose a public-key file.".into(),
-                ],
-                "Choose another source",
-            )?;
-            continue;
-        };
-        loop {
-            let result = ui::loading::run(
-                || {
-                    render(
-                        "Where is your SSH key?",
-                        &[
-                            ("Reading SSH keys".into(), Role::Working),
-                            (String::new(), Role::Body),
-                            (
-                                "Your SSH agent may ask you to approve.".into(),
-                                Role::Context,
-                            ),
-                        ],
-                        0,
-                        &[Action::Quit],
-                    )
-                    .map(|_| ())
-                },
-                || first_access::list_agent_keys(&socket, tools),
-            )?;
-            if crate::quit::requested() {
-                return Ok(None);
-            }
-            match result {
-                Ok(keys) => match select_agent_key(keys)? {
-                    Some(key) => return Ok(Some(key)),
-                    None => break,
-                },
-                Err(error) => {
-                    let next = choose(
-                        &[
-                            "Where is your SSH key?".into(),
-                            "SSH agent unavailable".into(),
-                            error.to_string(),
-                            error.next_action().into(),
-                        ],
-                        &["Try again", "Choose another source"],
-                    )?;
-                    if next != Some(0) {
-                        break;
-                    }
+        match result {
+            Ok(keys) => return select_agent_key(keys),
+            Err(_) => {
+                if choose(
+                    &[
+                        "Connect with 1Password".into(),
+                        "Unlock 1Password and enable its SSH agent.".into(),
+                    ],
+                    &["Try again"],
+                )? != Some(0)
+                {
+                    return Ok(None);
                 }
             }
         }
@@ -654,14 +548,13 @@ fn connect(
                 let trust = if actions[selected] == AccessAction::Trust {
                     if !review(
                         &[
-                            "Trust this Mac?".into(),
+                            "Connect to this Mac?".into(),
                             format!("{}@{}", profile.user, profile.address),
                             String::new(),
-                            "Trust: save the first SSH host key.".into(),
-                            "Identity: not independently verified.".into(),
-                            "Changed keys: still blocked.".into(),
+                            "Confirm this is the Mac you just set up.".into(),
+                            "Remember this Mac for future connections.".into(),
                         ],
-                        "Trust and check",
+                        "Connect",
                     )? {
                         continue;
                     }
@@ -676,33 +569,19 @@ fn connect(
                 )?
             }
             AccessAction::InstallKey => {
-                let Some(selected_key) = choose_key_source(tools, false)? else {
+                let Some(selected_key) = choose_key_source(tools)? else {
                     continue;
                 };
                 let is_agent = selected_key.identity.is_some();
-                let route = if is_agent {
-                    "Connect directly using this key."
-                } else {
-                    "Use your SSH configuration instead of the saved agent key."
-                };
                 if !review(
                     &[
-                        "Use this key for this Mac?".into(),
+                        "Allow access to this Mac?".into(),
                         format!("{}@{}", profile.user, profile.address),
-                        format!("Fingerprint: {}", selected_key.key.fingerprint()),
                         String::new(),
-                        "Remember this public key for this Mac.".into(),
-                        route.into(),
-                        String::new(),
-                        if is_agent {
-                            "Check the selected key first. Install only if authentication is denied."
-                        } else {
-                            "Install this public key, then verify configured SSH access."
-                        }.into(),
-                        String::new(),
-                        "Existing keys are kept. Setup authorization follows after connecting.".into(),
+                        "Connect using your 1Password SSH key.".into(),
+                        "Enter the Mac’s password if asked.".into(),
                     ],
-                    "Use this key",
+                    "Connect",
                 )? {
                     continue;
                 }
@@ -1364,18 +1243,22 @@ fn preparation_workspace(
 }
 
 fn enrollment_failure(error: impl std::fmt::Display) -> Outcome {
+    let mut lines = vec!["Setup needs attention".into(), String::new()];
+    lines.extend(error.to_string().lines().map(str::to_owned));
+    if !crate::provider_diagnostics::write_failed()
+        && let Some(path) = crate::provider_diagnostics::path()
+    {
+        lines.push(String::new());
+        lines.push(format!("Log: {}", path.display()));
+    }
     Outcome {
         completed: false,
-        lines: vec![
-            "Setup needs attention".into(),
-            error.to_string(),
-            "Existing saved progress and recovery identities are preserved.".into(),
-        ],
+        lines,
     }
 }
 
 fn remote_setup_failure(error: remote_setup::Error) -> Outcome {
-    enrollment_failure(format!("{error} {}", error.next_action()))
+    enrollment_failure(format!("{error}\n\n{}", error.next_action()))
 }
 
 fn check_enrollment_tools(
@@ -1457,7 +1340,7 @@ fn enroll(
     let public_key = if let Some(identity) = &profile.identity {
         identity.public_key.clone()
     } else {
-        let Some(selected) = choose_key_source(&tools.first_access, true)? else {
+        let Some(selected) = choose_key_source(&tools.first_access)? else {
             return Ok(enrollment_failure(
                 "Setup cancelled before credential preparation.",
             ));
@@ -1476,6 +1359,12 @@ fn enroll(
             match inventory::set_identity(inventory_path, profile, Some(identity)) {
                 Ok(updated) => *profile = updated,
                 Err(error) => return Ok(enrollment_failure(error)),
+            }
+            if crate::setup_auth::active()
+                && let Err(error) =
+                    crate::setup_auth::refresh_identity(profile, &tools.remote_setup.ssh)
+            {
+                return Ok(enrollment_failure(error));
             }
         }
         key
@@ -2425,6 +2314,77 @@ mod tests {
     }
 
     #[test]
+    fn enter_returns_from_information_without_approving_unread_confirmation() {
+        assert_eq!(review_enter_result("", 0, 10), Some(false));
+        assert_eq!(review_enter_result("Connect", 0, 10), None);
+        assert_eq!(review_enter_result("Connect", 10, 10), Some(true));
+        let outcome = enrollment_failure("Could not connect.\n\nTry again.");
+        assert_eq!(
+            outcome.lines,
+            [
+                "Setup needs attention",
+                "",
+                "Could not connect.",
+                "",
+                "Try again."
+            ]
+        );
+    }
+
+    #[test]
+    fn single_agent_key_is_selected_without_a_terminal_or_source_question() {
+        struct Agent(std::process::Child);
+        impl Drop for Agent {
+            fn drop(&mut self) {
+                let _ = self.0.kill();
+                let _ = self.0.wait();
+            }
+        }
+        let root = tempfile::tempdir().unwrap();
+        let socket = root.path().join("agent.sock");
+        let mut command = std::process::Command::new("/usr/bin/ssh-agent");
+        command
+            .arg("-D")
+            .arg("-a")
+            .arg(&socket)
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null());
+        let _agent = Agent(command.spawn().unwrap());
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+        while !socket.exists() {
+            assert!(std::time::Instant::now() < deadline);
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+        let key = root.path().join("fixture-key");
+        assert!(
+            std::process::Command::new("/usr/bin/ssh-keygen")
+                .args(["-q", "-t", "ed25519", "-N", "", "-f"])
+                .arg(&key)
+                .status()
+                .unwrap()
+                .success()
+        );
+        assert!(
+            std::process::Command::new("/usr/bin/ssh-add")
+                .arg(&key)
+                .env("SSH_AUTH_SOCK", &socket)
+                .output()
+                .unwrap()
+                .status
+                .success()
+        );
+        let tools = first_access::Tools {
+            ssh: "/usr/bin/ssh".into(),
+            ssh_keygen: "/usr/bin/ssh-keygen".into(),
+            ssh_add: "/usr/bin/ssh-add".into(),
+        };
+        let keys = first_access::list_agent_keys(&socket, &tools).unwrap();
+        assert_eq!(keys.len(), 1);
+        let selected = select_agent_key(keys).unwrap().unwrap();
+        assert_eq!(selected.identity.unwrap().agent_socket, socket);
+    }
+
+    #[test]
     fn failures_offer_the_relevant_primary_action_without_guessing() {
         use first_access::Error;
         assert_eq!(
@@ -2517,37 +2477,6 @@ mod tests {
             2
         );
         assert!(help.iter().all(|action| !action.label().contains("SHA256")));
-    }
-
-    #[test]
-    fn public_key_error_and_editable_path_fit_the_minimum_terminal() {
-        let message = first_access::Error::InvalidKey.to_string();
-        let lines = public_key_lines(
-            "/a/long/directory/whose/key/is/not/valid.pub",
-            Some(&message),
-            36,
-        );
-        let visible = wrap(&lines[1..], 36);
-        assert!(
-            visible.len() <= 5,
-            "error and path must fit above the two-line footer"
-        );
-        assert!(visible.first().unwrap().starts_with("! "));
-        assert!(
-            visible
-                .iter()
-                .any(|line| line.starts_with("> ") && line.ends_with("valid.pub"))
-        );
-        assert!(visible.iter().all(|line| line.chars().count() <= 36));
-        let footer = ui::help_lines(
-            &footer("Review key", &[Action::Clear, Action::Back])
-                .iter()
-                .map(Action::label)
-                .collect::<Vec<_>>()
-                .join(" · "),
-            36,
-        );
-        assert_eq!(footer.len(), 2);
     }
 
     #[test]

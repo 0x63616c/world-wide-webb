@@ -139,6 +139,12 @@ impl Checklist {
 
     fn body_at(&self, height: usize, now: Instant) -> Vec<(String, Role)> {
         let elapsed = now.saturating_duration_since(self.started);
+        if height < 18 && self.states[self.current.index()] == State::Failed && !self.details {
+            return vec![
+                (String::new(), Role::Body),
+                (self.message.clone(), Role::Warning),
+            ];
+        }
         let mut body = vec![(
             format!("{} · {}s", self.host, elapsed.as_secs()),
             Role::Context,
@@ -148,7 +154,14 @@ impl Checklist {
             body.push((self.current.label().into(), Role::Section));
             body.push((self.current.explanation().into(), Role::Body));
             body.push((String::new(), Role::Body));
-            body.push((self.message.clone(), Role::Body));
+            body.push((
+                if self.stopping() {
+                    "Stopping after this step; progress stays saved.".into()
+                } else {
+                    self.message.clone()
+                },
+                Role::Body,
+            ));
             return body;
         }
         for (step, (label, state)) in STEPS.into_iter().zip(self.stages()) {
@@ -156,14 +169,12 @@ impl Checklist {
                 body.push(state.row(label));
             }
         }
-        if height >= 18 {
-            body.push((String::new(), Role::Body));
-        }
+        body.push((String::new(), Role::Body));
         if self.link.is_some() {
             body.push(("Open enrollment PR".into(), Role::Action));
         }
         body.push((
-            if self.cancelled {
+            if self.stopping() {
                 "Stopping after this step; progress stays saved.".into()
             } else {
                 self.message.clone()
@@ -172,13 +183,42 @@ impl Checklist {
         ));
         body
     }
+    fn stopping(&self) -> bool {
+        self.cancelled || crate::quit::requested()
+    }
+
+    fn actions(&self, actions: &[Action]) -> Vec<Action> {
+        let mut result = Vec::new();
+        for action in actions {
+            let action = if self.stopping()
+                && matches!(
+                    action,
+                    Action::StopAfterStep
+                        | Action::StopBeforeInstallation
+                        | Action::SaveAndExit
+                        | Action::Quit
+                ) {
+                Action::Stopping
+            } else {
+                action.clone()
+            };
+            if !result.contains(&action) {
+                result.push(action);
+            }
+        }
+        if self.stopping() && !result.contains(&Action::Stopping) {
+            result.push(Action::Stopping);
+        }
+        result
+    }
+
     pub(super) fn draw(&mut self, actions: &[Action]) -> io::Result<()> {
         let (_, height) = terminal::size()?;
         self.last_offset = super::render_with_link(
             "Setting up your Mac",
             &self.body(usize::from(height)),
             self.offset,
-            actions,
+            &self.actions(actions),
             self.link.as_deref(),
         )?;
         self.offset = self.offset.min(self.last_offset);
@@ -293,11 +333,13 @@ impl Checklist {
                 Ok(value) => return Ok(Ok(value)),
                 Err(error) => {
                     self.fail(step, error.to_string());
-                    if self.cancelled {
+                    if self.stopping() {
+                        self.cancelled = true;
                         return Ok(Err(error));
                     }
                     loop {
                         self.draw(&[
+                            Action::Primary("Return".into()),
                             Action::Retry,
                             Action::Help,
                             Action::Navigation,
@@ -305,7 +347,7 @@ impl Checklist {
                         ])?;
                         match super::key()? {
                             KeyCode::Char('r' | 'R') => break,
-                            code if Action::Back.matches(code) => {
+                            code if code == KeyCode::Enter || Action::Back.matches(code) => {
                                 self.cancelled = true;
                                 return Ok(Err(error));
                             }
@@ -321,6 +363,90 @@ impl Checklist {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn stopping_footer_does_not_offer_another_stop() {
+        let mut checklist = Checklist::new("example");
+        checklist.begin(Step::Credentials, "Waiting for 1Password");
+        checklist.key(KeyCode::Esc);
+        let actions = checklist.actions(&[Action::Help, Action::StopAfterStep]);
+        assert!(actions.contains(&Action::Stopping));
+        assert!(!actions.contains(&Action::StopAfterStep));
+        assert!(!Action::Stopping.matches(KeyCode::Esc));
+        checklist.key(KeyCode::Esc);
+        assert!(checklist.cancelled);
+    }
+
+    #[test]
+    fn confirmed_background_stop_is_visible_before_worker_finishes() {
+        use crossterm::event::{KeyEvent, KeyModifiers};
+        crate::quit::reset();
+        let mut checklist = Checklist::new("example");
+        checklist.begin(Step::Credentials, "Waiting for 1Password");
+        let key = KeyEvent::new(KeyCode::Char('c'), KeyModifiers::CONTROL);
+        crate::quit::handle(key);
+        crate::quit::handle(key);
+        assert!(!checklist.cancelled);
+        assert_eq!(checklist.actions(&[Action::Quit]), vec![Action::Stopping]);
+        assert!(
+            checklist
+                .body(12)
+                .iter()
+                .any(|(text, _)| text.starts_with("Stopping after"))
+        );
+        crate::quit::reset();
+    }
+
+    #[test]
+    fn failed_message_is_separated_even_in_a_small_window() {
+        let mut checklist = Checklist::new("example");
+        checklist.begin(Step::Credentials, "Reading 1Password");
+        checklist.fail(Step::Credentials, "Unlock 1Password and retry.".into());
+        let body = checklist.body(12);
+        let message = body
+            .iter()
+            .position(|(line, _)| line.contains("Unlock 1Password"))
+            .unwrap();
+        assert!(body[message - 1].0.is_empty());
+    }
+
+    #[test]
+    fn denial_and_return_remain_visible_at_minimum_size() {
+        let mut checklist = Checklist::new("fixture-mac");
+        checklist.begin(Step::Credentials, "Reading 1Password");
+        checklist.fail(
+            Step::Credentials,
+            crate::secret_store::Error::Access.to_string(),
+        );
+        let mut terminal =
+            ratatui::Terminal::new(ratatui::backend::TestBackend::new(40, 12)).unwrap();
+        terminal
+            .draw(|frame| {
+                crate::ui::render_frame(
+                    frame,
+                    "Setting up your Mac",
+                    &checklist.body(12),
+                    0,
+                    &[
+                        Action::Primary("Return".into()),
+                        Action::Retry,
+                        Action::SaveAndExit,
+                    ],
+                    false,
+                    None,
+                );
+            })
+            .unwrap();
+        let text: String = terminal
+            .backend()
+            .buffer()
+            .content
+            .iter()
+            .map(|cell| cell.symbol())
+            .collect();
+        assert!(text.contains("Enter Return"), "{text}");
+        assert!(text.contains("1Password"), "{text}");
+    }
 
     #[test]
     fn elapsed_time_and_repeated_progress_are_deterministic() {
@@ -483,13 +609,13 @@ mod tests {
                 progress("Verifying saved backups");
                 if attempts == 1 {
                     std::thread::sleep(Duration::from_millis(1600));
-                    Err("Synthetic backup unavailable; unlock the provider")
+                    Err(crate::secret_store::Error::Access)
                 } else {
                     Ok(())
                 }
             })
             .unwrap();
-        if mode == "cancel" {
+        if mode == "cancel" || mode == "return" {
             assert!(checklist.cancelled && result.is_err());
             assert_eq!(attempts, 1);
             assert!(started.elapsed() >= Duration::from_millis(1600));
@@ -512,7 +638,7 @@ mod tests {
         use std::fs::File;
         use std::io::{Read, Write};
         use std::process::{Command, Stdio};
-        for mode in ["cancel", "retry", "background"] {
+        for mode in ["cancel", "retry", "return", "background"] {
             let master = openpt(OpenptFlags::RDWR | OpenptFlags::NOCTTY).unwrap();
             fcntl_setfd(&master, FdFlags::CLOEXEC).unwrap();
             grantpt(&master).unwrap();
@@ -589,7 +715,9 @@ mod tests {
                 master.write_all(b"\x1b").unwrap();
             } else {
                 wait("R Retry checks", &mut master);
-                master.write_all(b"r").unwrap();
+                master
+                    .write_all(if mode == "return" { b"\r" } else { b"r" })
+                    .unwrap();
             }
             wait("CHECKLIST_TEST_COMPLETE", &mut master);
             assert!(child.wait().unwrap().success());
