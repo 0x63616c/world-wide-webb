@@ -6,6 +6,7 @@ pub mod github;
 pub mod guest;
 pub mod keychain;
 pub mod names;
+pub mod operations;
 pub mod provision;
 pub mod resources;
 pub mod scheduler;

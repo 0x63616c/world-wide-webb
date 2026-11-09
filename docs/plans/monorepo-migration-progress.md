@@ -1098,3 +1098,22 @@ setup/deployment coordination code stays parked; this batch changes no host enro
 The delivery flag remains off. Installation, brew tests, existing-profile/recovery acceptance and
 actual private publication remain unverified. Keep this follow-up local while the published app
 candidate110fc2f2c finishes its existing CI, avoiding another cancellation of useful captures.
+
+
+### Operations admission and staging candidate (local follow-up)
+
+The separate follow-up adds an operations routing label with the same Linux image, public-only
+Softnet configuration and shared resource accounting. Controller API evidence authorizes capacity
+only for named main workflows/jobs after a successful same-source/attempt normal-Linux preflight;
+JSON cannot set its derived authorization bit. GitHub can assign a different matching job before
+revalidation, so the label grants no extra network/credentials. Workflow-scoped credentials remain
+the capability boundary, as documented in `homelab/docs/operations-runners.md`.
+
+The disabled canary requires exact-source successful main Homelab CI, checks pinned SSH metadata
+staging/cleanup on the mini and rejects an open MacBook SSH negative control. It does not change
+services or read app data. Actual Tailnet ACL, transport and cleanup acceptance remain unverified;
+no credentials/flags/hosts were changed. Consumer release/apply adaptation remains work.
+118 runner unit tests,45 scheduler tests, guest/probe tests, three actual staging-program/canary
+boundary tests, route tests and the exact-source helper test pass. Clippy and workflow lint pass.
+Independent final review accepted the runtime changes and verified the wording/source-proof fixes.
+Private CLI publication remains a separate reviewed local candidate; neither batch expands PR959.

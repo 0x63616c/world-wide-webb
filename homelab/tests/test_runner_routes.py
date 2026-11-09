@@ -13,12 +13,14 @@ class RunnerRouteTests(unittest.TestCase):
             self.assertIsNotNone(routes.job_problem({'runs-on': labels}))
 
     def test_static_hosted_and_explicit_platform_routes_pass(self):
-        for labels in ['ubuntu-latest', 'macos-26', 'homelab-tart', 'homelab-linux',
+        for labels in ['ubuntu-latest', 'macos-26', 'homelab-tart', 'homelab-linux', 'homelab-operations',
                        ['self-hosted', 'Linux', 'ARM64', 'homelab-linux']]:
             self.assertIsNone(routes.job_problem({'runs-on': labels}))
 
     def test_dynamic_external_and_conflicting_routes_require_review(self):
         for job in [{'runs-on': '${{ matrix.runner }}'},
                     {'uses': 'owner/repo/.github/workflows/build.yml@main'},
-                    {'runs-on': ['homelab-tart', 'Linux']}]:
+                    {'runs-on': ['homelab-tart', 'Linux']},
+                    {'runs-on': ['homelab-operations', 'macOS']},
+                    {'runs-on': ['homelab-linux', 'homelab-operations']}]:
             self.assertIsNotNone(routes.job_problem(job))

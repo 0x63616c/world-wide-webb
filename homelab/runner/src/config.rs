@@ -12,26 +12,36 @@ pub enum Platform {
     #[default]
     MacosArm64,
     LinuxArm64,
+    LinuxOperationsArm64,
 }
 impl Platform {
     pub fn labels(self) -> [&'static str; 4] {
         match self {
             Self::MacosArm64 => ["self-hosted", "macOS", "ARM64", "homelab-tart"],
             Self::LinuxArm64 => ["self-hosted", "Linux", "ARM64", "homelab-linux"],
+            Self::LinuxOperationsArm64 => ["self-hosted", "Linux", "ARM64", "homelab-operations"],
         }
     }
     pub fn resolve(labels: &[String]) -> Option<Self> {
-        [Self::MacosArm64, Self::LinuxArm64]
-            .into_iter()
-            .find(|platform| {
-                let approved = platform.labels();
-                labels
+        [
+            Self::MacosArm64,
+            Self::LinuxArm64,
+            Self::LinuxOperationsArm64,
+        ]
+        .into_iter()
+        .find(|platform| {
+            let approved = platform.labels();
+            labels
+                .iter()
+                .any(|label| label.eq_ignore_ascii_case(approved[3]))
+                && labels
                     .iter()
-                    .any(|label| label.eq_ignore_ascii_case(approved[3]))
-                    && labels
-                        .iter()
-                        .all(|label| approved.iter().any(|v| label.eq_ignore_ascii_case(v)))
-            })
+                    .all(|label| approved.iter().any(|v| label.eq_ignore_ascii_case(v)))
+        })
+    }
+
+    pub fn is_linux(self) -> bool {
+        matches!(self, Self::LinuxArm64 | Self::LinuxOperationsArm64)
     }
 }
 

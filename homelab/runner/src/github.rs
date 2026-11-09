@@ -95,6 +95,15 @@ pub struct GithubJob {
     pub run_attempt: u64,
     pub status: String,
     #[serde(default)]
+    pub name: String,
+    #[serde(default)]
+    pub head_sha: String,
+    #[serde(default)]
+    pub conclusion: Option<String>,
+    // GitHub JSON cannot grant this capability; the API adapter derives it.
+    #[serde(skip)]
+    operations_authorized: bool,
+    #[serde(default)]
     pub labels: Vec<String>,
     #[serde(default)]
     pub runner_id: Option<u64>,
@@ -110,6 +119,9 @@ impl GithubJob {
     /// Requests may omit default labels, but must include our routing label and request only this approved profile.
     pub fn supported_profile(&self) -> bool {
         crate::config::Platform::resolve(&self.labels).is_some()
+            && (crate::config::Platform::resolve(&self.labels)
+                != Some(crate::config::Platform::LinuxOperationsArm64)
+                || self.operations_authorized)
             && self.runner_group_id.unwrap_or(0) == 0
             && self.runner_group_name.as_deref().unwrap_or("").is_empty()
     }
@@ -496,7 +508,15 @@ impl GithubApi {
                 }
             }
         }
-        Ok(jobs.into_values().collect())
+        let mut jobs: Vec<_> = jobs.into_values().collect();
+        for job in &mut jobs {
+            if crate::config::Platform::resolve(&job.labels)
+                == Some(crate::config::Platform::LinuxOperationsArm64)
+            {
+                job.operations_authorized = self.authorize_operations(repo, job).await?;
+            }
+        }
+        Ok(jobs)
     }
     /// This checks setting drift; it does not replace the explicit workflow and existing-run trust audit.
     pub async fn settings_preflight(
@@ -524,7 +544,7 @@ impl GithubApi {
     }
     pub async fn get_job(&mut self, repo: &Repository, job_id: u64) -> Result<GithubJob, ApiError> {
         let token = Zeroizing::new(self.token(repo).await?);
-        let job: GithubJob = self
+        let mut job: GithubJob = self
             .request(
                 Method::GET,
                 &format!("{}/actions/jobs/{job_id}", repo.path()),
@@ -537,7 +557,60 @@ impl GithubApi {
         if job.id != job_id || job.run_id == 0 || job.run_attempt == 0 {
             return Err(ApiError::new("get_job", ErrorCategory::InvalidResponse));
         }
+        if crate::config::Platform::resolve(&job.labels)
+            == Some(crate::config::Platform::LinuxOperationsArm64)
+        {
+            job.operations_authorized = self.authorize_operations(repo, &job).await?;
+        }
         Ok(job)
+    }
+
+    async fn authorize_operations(
+        &mut self,
+        repo: &Repository,
+        job: &GithubJob,
+    ) -> Result<bool, ApiError> {
+        let token = Zeroizing::new(self.token(repo).await?);
+        let prefix = format!(
+            "{}/actions/runs/{}/attempts/{}",
+            repo.path(),
+            job.run_id,
+            job.run_attempt
+        );
+        let run: serde_json::Value = self
+            .request(Method::GET, &prefix, &token, None, "operations_run", false)
+            .await?;
+        #[derive(Deserialize)]
+        struct Jobs {
+            jobs: Vec<GithubJob>,
+        }
+        let mut jobs = Vec::new();
+        for page in 1..=MAX_PAGES {
+            let batch: Jobs = self
+                .request(
+                    Method::GET,
+                    &format!("{prefix}/jobs?per_page={PAGE_SIZE}&page={page}"),
+                    &token,
+                    None,
+                    "operations_source",
+                    false,
+                )
+                .await?;
+            let count = batch.jobs.len();
+            jobs.extend(batch.jobs);
+            if count < PAGE_SIZE {
+                return Ok(crate::operations::authorized(
+                    &format!("{}/{}", repo.owner, repo.name),
+                    &run,
+                    job,
+                    &jobs,
+                ));
+            }
+        }
+        Err(ApiError::new(
+            "operations_source",
+            ErrorCategory::PaginationSaturated,
+        ))
     }
     /// Never automatically retry this mutation: an uncertain response must be reconciled by exact unique name.
     pub async fn create_jit(
@@ -903,6 +976,68 @@ mod tests {
         assert_eq!(
             body["labels"],
             serde_json::json!(["self-hosted", "Linux", "ARM64", "homelab-linux"])
+        );
+    }
+
+    #[tokio::test]
+    async fn operations_get_job_derives_trust_from_its_exact_run_and_source_check() {
+        let source = "a".repeat(40);
+        let mut candidate = job(9);
+        candidate["name"] = serde_json::json!("Control Center release");
+        candidate["head_sha"] = serde_json::json!(source);
+        candidate["labels"] =
+            serde_json::json!(["self-hosted", "Linux", "ARM64", "homelab-operations"]);
+        let mut prerequisite = job(8);
+        prerequisite["name"] = serde_json::json!("Control Center source");
+        prerequisite["head_sha"] = serde_json::json!(source);
+        prerequisite["status"] = serde_json::json!("completed");
+        prerequisite["conclusion"] = serde_json::json!("success");
+        prerequisite["labels"] =
+            serde_json::json!(["self-hosted", "Linux", "ARM64", "homelab-linux"]);
+        let run = serde_json::json!({"id":7,"run_attempt":3,"head_sha":source,"head_branch":"main",
+            "head_repository":{"full_name":"allowed/repo"},"event":"workflow_run",
+            "path":".github/workflows/deploy-mini.yml"});
+        let (mut api, handle) = fixture(vec![
+            reply("GET /repos/allowed/repo/actions/jobs/9 HTTP", candidate),
+            reply(
+                "GET /repos/allowed/repo/actions/runs/7/attempts/3 HTTP",
+                run,
+            ),
+            reply(
+                "GET /repos/allowed/repo/actions/runs/7/attempts/3/jobs?",
+                serde_json::json!({"jobs":[prerequisite]}),
+            ),
+        ]);
+        let observed = api.get_job(&repo(), 9).await.unwrap();
+        assert!(observed.supported_profile());
+        assert_eq!(
+            crate::config::Platform::resolve(&observed.labels),
+            Some(crate::config::Platform::LinuxOperationsArm64)
+        );
+        assert_eq!(handle.join().unwrap().len(), 3);
+    }
+
+    #[tokio::test]
+    async fn operations_registration_has_no_build_or_macos_routing_label() {
+        let runner = serde_json::json!({"id":31,"name":"operations-attempt","status":"offline","busy":false});
+        let (mut api, handle) = fixture(vec![reply(
+            "/generate-jitconfig",
+            serde_json::json!({"runner":runner,"encoded_jit_config":"SECRET_JIT_FIXTURE"}),
+        )]);
+        api.create_jit_for_profile(
+            &repo(),
+            "operations-attempt",
+            42,
+            crate::config::Platform::LinuxOperationsArm64,
+        )
+        .await
+        .unwrap();
+        let request = handle.join().unwrap().pop().unwrap();
+        let body: serde_json::Value =
+            serde_json::from_str(request.split("\r\n\r\n").nth(1).unwrap()).unwrap();
+        assert_eq!(
+            body["labels"],
+            serde_json::json!(["self-hosted", "Linux", "ARM64", "homelab-operations"])
         );
     }
     #[tokio::test]

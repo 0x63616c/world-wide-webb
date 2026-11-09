@@ -1,0 +1,59 @@
+name: Homelab operations canary
+on:
+  workflow_dispatch:
+    inputs:
+      ci_run_id:
+        description: Successful exact-source main Homelab CI run for this staging probe
+        required: true
+        type: string
+permissions:
+  contents: read
+  actions: read
+jobs:
+  source:
+    name: Operations source
+    if: github.ref == 'refs/heads/main' && vars.HOMELAB_OPERATIONS_CANARY_ENABLED == 'true'
+    runs-on: [self-hosted, Linux, ARM64, homelab-linux]
+    timeout-minutes: 5
+    outputs:
+      sha: ${{ steps.source.outputs.sha }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/github-cli
+      - id: source
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ inputs.ci_run_id }}
+        run: python3 scripts/homelab/operations_source.py "$RUN_ID"
+  canary:
+    name: Operations canary
+    needs: source
+    runs-on: [self-hosted, Linux, ARM64, homelab-operations]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: tailscale/github-action@v4
+        with:
+          oauth-client-id: ${{ secrets.HOMELAB_OPS_TS_CLIENT_ID }}
+          oauth-secret: ${{ secrets.HOMELAB_OPS_TS_CLIENT_SECRET }}
+          tags: tag:homelab-operations
+      - name: Verify pinned SSH staging and peer isolation
+        env:
+          SOURCE_SHA: ${{ needs.source.outputs.sha }}
+          SSH_KEY: ${{ secrets.HOMELAB_OPS_SSH_PRIVATE_KEY }}
+          KNOWN_HOSTS: ${{ vars.HOMELAB_OPS_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          umask 077
+          key="$RUNNER_TEMP/homelab-operations-key"
+          hosts="$RUNNER_TEMP/homelab-operations-known-hosts"
+          trap 'rm -f -- "$key" "$hosts"' EXIT
+          test -n "$SSH_KEY"
+          test -n "$KNOWN_HOSTS"
+          printf '%s\n' "$SSH_KEY" > "$key"
+          printf '%s\n' "$KNOWN_HOSTS" > "$hosts"
+          python3 homelab/scripts/operations-canary.py

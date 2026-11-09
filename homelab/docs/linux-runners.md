@@ -149,3 +149,9 @@ Implementation checks and native Linux image evidence are recorded in
 [Linux runner validation](research/linux-runner-validation.md). The candidate host profile pins the private image. Merge and activation remain
 gated on the recorded native job, recovery, network and load checks. The shared capacity and macOS ceiling are separately defined;
 leaving Linux off does not permit a third macOS guest.
+
+## Operations route
+
+The reviewed migration candidate adds a separately authorized `homelab-operations` route using
+the same Linux image and isolation. See [operations runners](operations-runners.md) for admission,
+queue-assignment limitations and the disabled staging canary. This route is not a live acceptance claim.

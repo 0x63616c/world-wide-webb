@@ -186,6 +186,15 @@ fn revalidation_candidates(
                     .is_some_and(|p| p.routing_audit_approved),
             ),
         ),
+        (
+            Platform::LinuxOperationsArm64,
+            usize::from(
+                config
+                    .linux
+                    .as_ref()
+                    .is_some_and(|p| p.routing_audit_approved),
+            ),
+        ),
     ] {
         let mut queue: Vec<_> = demand
             .iter()
@@ -1581,11 +1590,12 @@ mod tests {
             job(3, Platform::MacosArm64),
             job(4, Platform::MacosArm64),
             job(5, Platform::MacosArm64),
+            job(6, Platform::LinuxOperationsArm64),
         ];
         let fresh = revalidation_candidates(&config, &candidates, "test/repo", &Journal::default());
         assert_eq!(
             fresh.iter().map(|c| c.job.job_id).collect::<Vec<_>>(),
-            vec![3, 4, 1]
+            vec![3, 4, 1, 6]
         );
         let mut observed = Observation {
             admission_safe: true,

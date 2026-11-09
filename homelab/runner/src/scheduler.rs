@@ -320,7 +320,8 @@ fn decide_one(config: &Config, journal: &Journal, observed: &Observation, now: u
                             .admission_free_bytes
                             .saturating_sub(config.emergency_free_bytes),
                     ),
-                    crate::config::Platform::LinuxArm64 => {
+                    crate::config::Platform::LinuxArm64
+                    | crate::config::Platform::LinuxOperationsArm64 => {
                         let Some(linux) = &config.linux else {
                             continue;
                         };
@@ -340,9 +341,7 @@ fn decide_one(config: &Config, journal: &Journal, observed: &Observation, now: u
                     repository: repo.clone(),
                     platform,
                     disk_growth_bytes,
-                    linux_profile: (platform == crate::config::Platform::LinuxArm64)
-                        .then(|| config.linux.clone())
-                        .flatten(),
+                    linux_profile: platform.is_linux().then(|| config.linux.clone()).flatten(),
                     image,
                     cpu,
                     memory_mib,
@@ -489,7 +488,7 @@ pub fn decide(config: &Config, journal: &Journal, observed: &Observation, now: u
                 .any(|r| r.trust_approved && r.key() == c.job.repository)
             && match Platform::resolve(&c.labels) {
                 Some(Platform::MacosArm64) => mac_count < config.max_macos_guests,
-                Some(Platform::LinuxArm64) => config
+                Some(Platform::LinuxArm64 | Platform::LinuxOperationsArm64) => config
                     .linux
                     .as_ref()
                     .is_some_and(|linux| linux.routing_audit_approved),
@@ -533,7 +532,7 @@ pub fn decide(config: &Config, journal: &Journal, observed: &Observation, now: u
             Platform::MacosArm64 if mac_count < config.max_macos_guests => {
                 (config.cpu, config.memory_mib, legacy_growth)
             }
-            Platform::LinuxArm64 => match &config.linux {
+            Platform::LinuxArm64 | Platform::LinuxOperationsArm64 => match &config.linux {
                 Some(linux) if linux.routing_audit_approved => {
                     (linux.cpu, linux.memory_mib, linux.disk_growth_bytes)
                 }
@@ -541,11 +540,7 @@ pub fn decide(config: &Config, journal: &Journal, observed: &Observation, now: u
             },
             _ => return false,
         };
-        let reserve_macs = if platform == Platform::LinuxArm64 {
-            waiting_macs
-        } else {
-            0
-        };
+        let reserve_macs = if platform.is_linux() { waiting_macs } else { 0 };
         attempts
             .len()
             .saturating_add(1)

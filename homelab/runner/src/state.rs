@@ -168,7 +168,7 @@ impl Journal {
             {
                 return Err("invalid attempt ownership");
             }
-            if (a.platform == crate::config::Platform::LinuxArm64) != a.linux_profile.is_some() {
+            if a.platform.is_linux() != a.linux_profile.is_some() {
                 return Err("attempt platform snapshot missing or inconsistent");
             }
             if a.candidate.repository != a.repository.key()

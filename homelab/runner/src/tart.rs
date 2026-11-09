@@ -203,7 +203,7 @@ impl Tart {
         if let Some(linux) = &attempt.linux_profile {
             config.runner_archive = linux.runner_archive.clone();
             config.runner_version = linux.runner_version.clone();
-        } else if attempt.platform == crate::config::Platform::LinuxArm64 {
+        } else if attempt.platform.is_linux() {
             return Err(TartError::Configuration);
         }
         let mut tart = Self::new(config)?;
@@ -213,13 +213,17 @@ impl Tart {
     fn runner_directory(&self) -> &'static str {
         match self.platform {
             crate::config::Platform::MacosArm64 => GUEST_RUNNER_DIRECTORY,
-            crate::config::Platform::LinuxArm64 => "/home/admin/actions-runner",
+            crate::config::Platform::LinuxArm64 | crate::config::Platform::LinuxOperationsArm64 => {
+                "/home/admin/actions-runner"
+            }
         }
     }
     fn runner_listener(&self) -> &'static str {
         match self.platform {
             crate::config::Platform::MacosArm64 => GUEST_RUNNER_LISTENER,
-            crate::config::Platform::LinuxArm64 => "/home/admin/actions-runner/bin/Runner.Listener",
+            crate::config::Platform::LinuxArm64 | crate::config::Platform::LinuxOperationsArm64 => {
+                "/home/admin/actions-runner/bin/Runner.Listener"
+            }
         }
     }
     /// Provisioning must install the reviewed helper with root ownership and
@@ -432,7 +436,7 @@ impl Tart {
         .await
     }
     async fn prepare_guest_inner(&self, name: &OwnedVmName) -> Result<(), TartError> {
-        if self.platform == crate::config::Platform::LinuxArm64 {
+        if self.platform.is_linux() {
             return self.prepare_linux_guest(name).await;
         }
         loop {
@@ -864,7 +868,9 @@ impl Tart {
             .await?;
         let expected = match self.platform {
             crate::config::Platform::MacosArm64 => "501",
-            crate::config::Platform::LinuxArm64 => "1000",
+            crate::config::Platform::LinuxArm64 | crate::config::Platform::LinuxOperationsArm64 => {
+                "1000"
+            }
         };
         if std::str::from_utf8(&uid).is_ok_and(|uid| uid.trim_end_matches('\n') == expected) {
             Ok(true)

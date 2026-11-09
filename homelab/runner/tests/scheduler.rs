@@ -1086,6 +1086,41 @@ fn fourth_linux_borrows_capacity_but_fifth_never_starts() {
     );
 }
 #[test]
+fn operations_guests_share_the_linux_snapshot_and_total_capacity() {
+    use homelab_runner::config::Platform;
+    let cfg = mixed_config();
+    let j = linux_fleet(3);
+    let mut candidate = linux_candidate(44);
+    candidate.labels = Platform::LinuxOperationsArm64
+        .labels()
+        .map(String::from)
+        .to_vec();
+    let decision = decide(
+        &cfg,
+        &j,
+        &demand(fleet_observation(&j), vec![candidate]),
+        200,
+    );
+    assert_eq!(decision.next.attempts().count(), 4);
+    let attempt = decision.next.additional.last().unwrap();
+    assert_eq!(attempt.platform, Platform::LinuxOperationsArm64);
+    assert_eq!(attempt.linux_profile, cfg.linux);
+    assert_eq!(attempt.cpu, 2);
+    assert_eq!(attempt.memory_mib, 4096);
+    assert!(decision.next.validate().is_ok());
+    assert!(
+        decide(
+            &cfg,
+            &decision.next,
+            &demand(fleet_observation(&decision.next), vec![linux_candidate(55)]),
+            201
+        )
+        .effect
+        .is_none()
+    );
+}
+
+#[test]
 fn two_mac_guests_leave_two_linux_slots_and_never_admit_third_mac() {
     let cfg = mixed_config();
     let j = fleet(2);

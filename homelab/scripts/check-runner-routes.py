@@ -11,7 +11,7 @@ import yaml
 
 SHARED = {'self-hosted', 'arm64'}
 MAC = {'macos', 'homelab-tart'}
-LINUX = {'linux', 'homelab-linux'}
+LINUX = {'linux', 'homelab-linux', 'homelab-operations'}
 
 
 def job_problem(job):
@@ -26,6 +26,8 @@ def job_problem(job):
     if not labels or any(not isinstance(label, str) or '${{' in label for label in labels):
         return 'replace dynamic runner selection with an audited explicit platform route'
     labels = {label.lower() for label in labels}
+    if {'homelab-linux', 'homelab-operations'} <= labels:
+        return 'runner route mixes build and operations profiles'
     if labels & MAC and labels & LINUX:
         return 'runner route mixes macOS and Linux labels'
     # Generic labels can match either platform even without self-hosted present.
