@@ -364,6 +364,9 @@ the development-loop addition; implementation remains subject to local verificat
   health and a filename omission in fingerprints. Both are fixed. A real subprocess
   regression covers descriptor inheritance. Preflight failure timing and safe pin
   cleanup were also addressed. The reviewer confirmed no actionable findings remain.
+- Compatibility: the no-argument backup command captures locally and then waits
+  for all pending NAS publication, preserving older executor/rollback semantics.
+  New scheduled and scoped activation calls explicitly select local-only capture.
 - Local verification: complete homelab Python/automation suites, targeted Python lint,
   workflow syntax, and a real Nix mini-system/descriptor build in private staging.
   These are local/pre-publication observations, not production delivery evidence.

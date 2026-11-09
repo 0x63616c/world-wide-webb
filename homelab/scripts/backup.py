@@ -260,12 +260,12 @@ def retain_weekly(root, destination):
         old.unlink()
 
 
-def publish_pending(config, transaction=None):
+def publish_pending(config, transaction=None, wait=False):
     root = Path(config["root"])
     if root.is_symlink() or not root.is_dir() or root.stat().st_uid != os.geteuid() or root.stat().st_mode & 0o077:
         raise ValueError("Unsafe backup root")
     failed = 0
-    with backup_publish.publication_lock(root, blocking=transaction is not None):
+    with backup_publish.publication_lock(root, blocking=transaction is not None or wait):
         destinations = list(backup_publish.pending_sets(root, include_verified=transaction is not None))
         if transaction:
             destinations = [
@@ -318,7 +318,7 @@ def main():
     parser.add_argument("--config", type=Path, required=True)
     parser.add_argument("--scope", choices=["full", "control-center-hourly", "penpot", "deployment"], default="full")
     parser.add_argument("--services", nargs="+")
-    parser.add_argument("--local-only", action="store_true", default=True)
+    parser.add_argument("--local-only", action="store_true")
     parser.add_argument("--publish-pending", action="store_true")
     parser.add_argument("--publish-transaction")
     parser.add_argument("--transaction")
@@ -352,9 +352,12 @@ def main():
                         if not path.is_symlink() and json.loads(path.read_text()).get("transaction") == args.unpin:
                             snapshot.durable.remove(path)
             return
-        backup(
-            config, scope=args.scope, selected=args.services, local_only=args.local_only, transaction=args.transaction
-        )
+        backup(config, scope=args.scope, selected=args.services, local_only=True, transaction=args.transaction)
+        # Older generation executors interpret no-argument success as off-host
+        # completion. Drain pending accepted points before they can retire this
+        # publisher during a rollback; all network work uses the same owner lock.
+        if not args.local_only:
+            publish_pending(config, wait=True)
 
 
 if __name__ == "__main__":

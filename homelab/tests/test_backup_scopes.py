@@ -67,6 +67,31 @@ class ScopeTests(unittest.TestCase):
         self.assertTrue((self.root / "penpot").exists())
         self.assertEqual(len(list((self.root / "deployment").iterdir())), 9)
 
+    def test_legacy_command_waits_for_pending_publication_but_local_flag_does_not(self):
+        import contextlib
+        from types import SimpleNamespace
+
+        settings = Path(self.temp.name) / "settings.json"
+        settings.write_text(json.dumps(self.config))
+        operation = SimpleNamespace(operation_lock=lambda **kwargs: contextlib.nullcontext(7))
+        spec = SimpleNamespace(loader=SimpleNamespace(exec_module=lambda module: None))
+        for flags, wait in [([], True), (["--local-only"], False)]:
+            with (
+                patch.object(sys, "argv", ["backup", "--config", str(settings), *flags]),
+                patch.object(backup.os, "geteuid", return_value=450),
+                patch.dict(os.environ, {"HOMELAB_OPERATION_FD": "7"}),
+                patch.object(backup.importlib.util, "spec_from_file_location", return_value=spec),
+                patch.object(backup.importlib.util, "module_from_spec", return_value=operation),
+                patch.object(backup, "backup") as capture,
+                patch.object(backup, "publish_pending") as publish,
+            ):
+                backup.main()
+                self.assertTrue(capture.call_args.kwargs["local_only"])
+                if wait:
+                    publish.assert_called_once_with(self.config, wait=True)
+                else:
+                    publish.assert_not_called()
+
     def test_scoped_recovery_health_inherits_real_operation_descriptor(self):
         health = Path(self.temp.name) / "health"
         health.write_text("#!" + sys.executable + "\nimport os\nos.fstat(int(os.environ['HOMELAB_OPERATION_FD']))\n")

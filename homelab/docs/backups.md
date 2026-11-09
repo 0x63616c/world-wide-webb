@@ -57,7 +57,9 @@ set as eligible for normal pruning.
 
 ## Local acceptance and asynchronous publication
 
-Scheduled jobs and `homelab-backup-now` capture locally. `COMPLETE.json` lists
+Scheduled jobs and explicit `--local-only` commands capture locally. The
+no-argument command retains synchronous NAS completion for older generation
+executors and drains pending accepted sets before they can retire the publisher. `COMPLETE.json` lists
 payload checksums; `LOCAL_VERIFIED.json` is written only after local set validation,
 service recovery and fsync. Neither means NAS success. The separate
 `org.nixos.homelab-backup-publisher` retries every minute, with one publisher lock
