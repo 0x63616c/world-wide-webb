@@ -1,4 +1,4 @@
-//! Interactive first setup; credentials stay in files and sudo owns its terminal.
+//! Guided setup with administrator input kept inside the masked form.
 use crate::ui::actions::Action;
 #[path = "ui/checklist.rs"]
 mod checklist;
@@ -700,7 +700,7 @@ fn connect(
                             "Install this public key, then verify configured SSH access."
                         }.into(),
                         String::new(),
-                        "Existing keys are kept. Your password is never stored.".into(),
+                        "Existing keys are kept. Setup authorization follows after connecting.".into(),
                     ],
                     "Use this key",
                 )? {
@@ -1024,6 +1024,22 @@ pub(crate) fn launch_in_terminal(
         &native_tools(),
         &EnrollmentDependencies::default(),
         terminal,
+        false,
+    )
+}
+
+pub(crate) fn authorize_in_terminal(
+    original: &HostProfile,
+    inventory_path: &Path,
+    terminal: &mut Terminal,
+) -> io::Result<Outcome> {
+    run_with_dependencies(
+        original,
+        inventory_path,
+        &native_tools(),
+        &EnrollmentDependencies::default(),
+        terminal,
+        true,
     )
 }
 
@@ -1042,6 +1058,13 @@ pub struct EnrollmentDependencies {
     pub check_client_tools: fn() -> Result<(), crate::enrollment_credentials::Error>,
     pub prepare_credentials: PrepareCredentials,
     pub tailscale: Option<std::path::PathBuf>,
+    pub prepare_administrator: fn(
+        &Path,
+        &str,
+        &config::Workspace,
+        &HostProfile,
+        &Path,
+    ) -> Result<(), crate::admin_credential::Error>,
 }
 
 impl Default for EnrollmentDependencies {
@@ -1052,8 +1075,96 @@ impl Default for EnrollmentDependencies {
                 crate::enrollment_credentials::prepare(root, host, workspace, started, progress)
             },
             tailscale: None,
+            prepare_administrator,
         }
     }
+}
+
+fn administrator_password(
+    profile: &HostProfile,
+    rejected: bool,
+) -> Result<Option<crate::admin_credential::Secret>, crate::admin_credential::Error> {
+    let mut password = crate::setup_auth::Password::new();
+    loop {
+        let mut body = ui::components::password_field(
+            &format!(
+                "Target: {} · {}",
+                profile.resolved_configuration().unwrap_or(&profile.name),
+                profile.user
+            ),
+            "Administrator password:",
+            password.masked_length(),
+            rejected,
+        );
+        body.push(("Verified on the target Mac, then saved in your configured 1Password vault for future setup.".into(),Role::Hint));
+        render(
+            "Mac administrator password",
+            &body,
+            0,
+            &footer("Continue", &[Action::Clear, Action::Back, Action::Quit]),
+        )
+        .map_err(|_| crate::admin_credential::Error::Cancelled)?;
+        match key().map_err(|_| crate::admin_credential::Error::Cancelled)? {
+            KeyCode::Esc => return Ok(None),
+            KeyCode::Enter if password.masked_length() > 0 => {
+                return password.into_secret().map(Some);
+            }
+            KeyCode::Char('\u{15}') => password.clear(),
+            code @ (KeyCode::Char(_) | KeyCode::Backspace) => {
+                password.key(crossterm::event::KeyEvent::new(code, KeyModifiers::NONE))
+            }
+            _ => {}
+        }
+    }
+}
+
+fn prepare_administrator(
+    root: &Path,
+    host: &str,
+    workspace: &config::Workspace,
+    profile: &HostProfile,
+    ssh: &Path,
+) -> Result<(), crate::admin_credential::Error> {
+    use crate::admin_credential::{Binding, Error, OnePassword};
+    let vault = match &workspace.manifest.one_password {
+        Some(config) => config.backup_vault.clone(),
+        // Historical approved setups keep their verified independent backup
+        // destination while migrating to the explicit Git configuration.
+        None => crate::provisioning::legacy_backup_vault(root, &workspace.repository, host)
+            .map_err(|_| Error::State)?
+            .ok_or(Error::Configuration)?,
+    };
+    let executable = crate::tailscale_oauth::discover_op().map_err(|_| Error::Access)?;
+    let binding = Binding {
+        repository: workspace.repository.clone(),
+        host: host.into(),
+        user: profile.user.clone(),
+        ssh_host_key: crate::setup_auth::verified_host_key(profile).ok_or(Error::Target)?,
+    };
+    render(
+        "Authorizing setup",
+        &[
+            (host.into(), Role::Context),
+            (
+                "Checking the saved administrator credential in 1Password…".into(),
+                Role::Body,
+            ),
+        ],
+        0,
+        &[Action::Quit],
+    )
+    .map_err(|_| Error::Cancelled)?;
+    let password = crate::admin_credential::ensure(
+        &OnePassword {
+            executable: &executable,
+        },
+        &vault,
+        &binding,
+        &root.join("hosts").join(host).join("administrator.json"),
+        |password| crate::setup_auth::validate_password(profile, ssh, password),
+        |rejected| administrator_password(profile, rejected),
+    )?;
+    crate::setup_auth::cache(profile, &password).map_err(|_| Error::State)
 }
 
 /// Runs the same guided journey with explicit transport executables for isolated tests.
@@ -1079,7 +1190,14 @@ pub fn launch_with_dependencies(
     dependencies: &EnrollmentDependencies,
 ) -> io::Result<Outcome> {
     let mut terminal = Terminal::enter()?;
-    run_with_dependencies(original, inventory_path, tools, dependencies, &mut terminal)
+    run_with_dependencies(
+        original,
+        inventory_path,
+        tools,
+        dependencies,
+        &mut terminal,
+        false,
+    )
 }
 
 fn run_with_dependencies(
@@ -1088,6 +1206,7 @@ fn run_with_dependencies(
     tools: &WizardTools,
     dependencies: &EnrollmentDependencies,
     terminal: &mut Terminal,
+    authorize_only: bool,
 ) -> io::Result<Outcome> {
     let mut profile = original.clone();
     let saved = match saved_installation_workspace(&profile) {
@@ -1148,6 +1267,14 @@ fn run_with_dependencies(
     }
 
     match state {
+        Some(root) if authorize_only => Ok(authorize_existing(
+            &profile,
+            &workspace,
+            &root,
+            &configuration_host,
+            tools,
+            dependencies,
+        )),
         Some(root) => enroll(
             &mut profile,
             &workspace,
@@ -1160,6 +1287,48 @@ fn run_with_dependencies(
         None => Ok(enrollment_failure(
             "HOME is unavailable. No credentials were prepared.",
         )),
+    }
+}
+
+fn authorize_existing(
+    profile: &HostProfile,
+    workspace: &config::Workspace,
+    root: &Path,
+    host_name: &str,
+    tools: &WizardTools,
+    dependencies: &EnrollmentDependencies,
+) -> Outcome {
+    let host = &workspace.manifest.hosts[host_name];
+    match inspect::inspect(profile, &tools.first_access.ssh) {
+        Ok(inspection)
+            if inspection.is_ready()
+                && inspection.user == host.admin_user
+                && inspection.uid == u64::from(host.admin_uid) => {}
+        Ok(_) => {
+            return enrollment_failure(
+                "This connection does not match the configured Mac administrator.",
+            );
+        }
+        Err(error) => return enrollment_failure(error),
+    }
+    let _enrollment = match crate::provisioning::lock_enrollment(root) {
+        Ok(lock) => lock,
+        Err(error) => return enrollment_failure(error),
+    };
+    match (dependencies.prepare_administrator)(
+        root,
+        host_name,
+        workspace,
+        profile,
+        &tools.remote_setup.ssh,
+    ) {
+        Ok(()) => Outcome {
+            completed: true,
+            lines: vec![format!(
+                "Administrator credential for {host_name} verified and saved in 1Password."
+            )],
+        },
+        Err(error) => enrollment_failure(error),
     }
 }
 
@@ -1376,6 +1545,15 @@ fn enroll(
         ));
     }
     let mut checklist = Checklist::new(host_name);
+    if let Err(error) = (dependencies.prepare_administrator)(
+        root,
+        host_name,
+        workspace,
+        profile,
+        &tools.remote_setup.ssh,
+    ) {
+        return Ok(enrollment_failure(error));
+    }
     checklist.begin(Step::Tools, "Checking required developer tools");
     checklist.draw(&[Action::Help])?;
     if checklist.stop_requested()? {
@@ -2008,6 +2186,94 @@ mod tests {
             identity: None,
             configuration_host: None,
         }
+    }
+
+    #[test]
+    fn authorization_only_preserves_approved_setup_and_never_prepares_or_installs() {
+        let temporary = tempfile::tempdir().unwrap();
+        let ssh = temporary.path().join("ssh-fixture");
+        assert!(
+            std::process::Command::new("rustc")
+                .arg(Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/ssh.rs"))
+                .arg("-o")
+                .arg(&ssh)
+                .status()
+                .unwrap()
+                .success()
+        );
+        let root = temporary.path().join("provisioning");
+        crate::provisioning::save_approved_installation(
+            &root,
+            "example/config",
+            "build-mac",
+            &"a".repeat(40),
+        )
+        .unwrap();
+        let approval = root.join("installations/build-mac.json");
+        let before = std::fs::read(&approval).unwrap();
+        std::fs::write(
+            temporary.path().join("response"),
+            "27.2\narm64\noperator\n501\n104857600\n500000000\n",
+        )
+        .unwrap();
+        let mut profile = profile();
+        profile.name = "build-mac".into();
+        profile.address = "example-host".into();
+        let tools = WizardTools {
+            first_access: first_access::Tools {
+                ssh: ssh.clone(),
+                ssh_add: "/not-called".into(),
+                ssh_keygen: "/not-called".into(),
+            },
+            remote_setup: remote_setup::Tools {
+                ssh,
+                scp: "/not-called".into(),
+            },
+        };
+        let dependencies = EnrollmentDependencies {
+            check_client_tools: || panic!("authorization must not check installation tools"),
+            prepare_credentials: |_, _, _, _, _| {
+                panic!("authorization must not prepare enrollment")
+            },
+            tailscale: Some("/not-called".into()),
+            prepare_administrator: |root, host, workspace, profile, _| {
+                assert_eq!(host, "build-mac");
+                assert_eq!(workspace.repository, "example/config");
+                assert_eq!(profile.user, "operator");
+                std::fs::write(root.join("authorized"), b"non-secret fixture receipt").unwrap();
+                Ok(())
+            },
+        };
+        let outcome = authorize_existing(
+            &profile,
+            &workspace(),
+            &root,
+            "build-mac",
+            &tools,
+            &dependencies,
+        );
+        assert!(outcome.completed);
+        assert!(root.join("authorized").exists());
+        assert_eq!(std::fs::read(&approval).unwrap(), before);
+        assert!(!root.join("hosts").exists());
+        assert!(!root.join("attempts").exists());
+        std::fs::remove_file(root.join("authorized")).unwrap();
+        std::fs::write(
+            temporary.path().join("response"),
+            "27.2\narm64\noperator\n502\n104857600\n500000000\n",
+        )
+        .unwrap();
+        let outcome = authorize_existing(
+            &profile,
+            &workspace(),
+            &root,
+            "build-mac",
+            &tools,
+            &dependencies,
+        );
+        assert!(!outcome.completed);
+        assert!(!root.join("authorized").exists());
+        assert_eq!(std::fs::read(&approval).unwrap(), before);
     }
 
     #[test]

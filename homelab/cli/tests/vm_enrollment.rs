@@ -930,6 +930,9 @@ fn wizard(f: &Fixture) {
         check_client_tools: || Ok(()),
         prepare_credentials: prepare,
         tailscale: Some(f.state_directory.join("vm-tailnet")),
+        // This opt-in transport fixture keeps its separate native-authentication
+        // contract. Administrator storage is covered by isolated fake providers.
+        prepare_administrator: |_, _, _, _, _| Ok(()),
     };
     let result = setup_wizard::launch_with_dependencies(&profile, &path, &tools, &dependencies)
         .expect("wizard IO failed");

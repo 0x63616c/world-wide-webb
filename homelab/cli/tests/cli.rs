@@ -19,7 +19,11 @@ fn help_describes_setup_from_an_unrelated_directory() {
 
 #[test]
 fn noninteractive_setup_explains_how_to_open_the_wizard() {
-    for arguments in [vec![], vec!["setup", "--host", "saved-mac"]] {
+    for arguments in [
+        vec![],
+        vec!["setup", "--host", "saved-mac"],
+        vec!["setup", "--host", "saved-mac", "--authorize-only"],
+    ] {
         let output = Command::new(env!("CARGO_BIN_EXE_homelab"))
             .args(arguments)
             .output()
@@ -31,6 +35,18 @@ fn noninteractive_setup_explains_how_to_open_the_wizard() {
         assert!(!message.contains("inspect"));
         assert!(output.stdout.is_empty());
     }
+}
+
+#[test]
+fn setup_can_authorize_an_existing_mac_without_running_installation() {
+    let output = Command::new(env!("CARGO_BIN_EXE_homelab"))
+        .args(["setup", "--help"])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let help = String::from_utf8(output.stdout).unwrap();
+    assert!(help.contains("--authorize-only"));
+    assert!(help.contains("without reinstalling or rebooting"));
 }
 
 #[test]

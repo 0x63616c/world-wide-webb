@@ -32,6 +32,9 @@ enum Operation {
     Setup {
         #[arg(long)]
         host: String,
+        /// Save or verify this Mac's administrator credential without reinstalling or rebooting.
+        #[arg(long)]
+        authorize_only: bool,
     },
     /// Explore synthetic UI screens without accounts, saved state or a target Mac.
     Preview {
@@ -178,8 +181,15 @@ fn execute(arguments: Arguments) -> Result<(), Failure> {
             tui::launch(&path).map_err(menu_failure)?;
             Ok(())
         }
-        Some(Operation::Setup { host }) => {
-            tui::launch_selected(&path, Some(&host)).map_err(menu_failure)?;
+        Some(Operation::Setup {
+            host,
+            authorize_only,
+        }) => {
+            if authorize_only {
+                tui::authorize_selected(&path, &host).map_err(menu_failure)?;
+            } else {
+                tui::launch_selected(&path, Some(&host)).map_err(menu_failure)?;
+            }
             Ok(())
         }
     }

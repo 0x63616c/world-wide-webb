@@ -1,5 +1,5 @@
 use std::cell::Cell;
-use std::io::{self, Read};
+use std::io::{self, Read, Write};
 use std::os::unix::process::CommandExt;
 use std::path::Path;
 use std::process::{Command, ExitStatus, Output, Stdio};
@@ -76,6 +76,40 @@ pub(crate) fn run(
 
 pub fn capture(command: &mut Command, timeout: Duration) -> Result<Output, ProcessError> {
     supervise(command, timeout, OutputMode::Capture)
+}
+
+/// A bounded in-memory stdin channel. Secret input never needs a temporary file,
+/// an environment variable, a shell command, or a command-line argument.
+pub(crate) fn capture_input(
+    command: &mut Command,
+    input: &[u8],
+    timeout: Duration,
+) -> Result<Output, ProcessError> {
+    if input.len() > 16 * 1024 {
+        return Err(ProcessError::ExcessiveOutput);
+    }
+    // Some CLIs (including op) accept templates only when stdin is a real pipe.
+    // A UnixStream can be read as stdin but is ignored by their input detection.
+    let (reader, writer) = rustix::pipe::pipe()?;
+    rustix::io::fcntl_setfd(&reader, rustix::io::FdFlags::CLOEXEC)?;
+    rustix::io::fcntl_setfd(&writer, rustix::io::FdFlags::CLOEXEC)?;
+    command.stdin(Stdio::from(reader));
+    thread::scope(|scope| {
+        let writing = scope.spawn(move || {
+            let mut writer = std::fs::File::from(writer);
+            writer.write_all(input)
+        });
+        let captured = capture(command, timeout);
+        // A failed spawn must also close the reader retained by Command, so its
+        // writer cannot block after the supervised operation has ended.
+        command.stdin(Stdio::null());
+        let written = writing
+            .join()
+            .map_err(|_| io::Error::other("Command input stopped"))?;
+        let output = captured?;
+        written?;
+        Ok(output)
+    })
 }
 
 pub(crate) fn capture_status(
@@ -238,6 +272,22 @@ mod tests {
         let result = run(Path::new("/bin/echo"), &["fixture"], Duration::from_secs(2)).unwrap();
         assert!(result.status.success());
         assert_eq!(result.stdout, b"fixture\n");
+    }
+
+    #[test]
+    fn memory_input_reader_closes_on_spawn_failure_and_timeout() {
+        let input = vec![b'x'; 16 * 1024];
+        let mut missing = Command::new("/nonexistent/homelab-fixture");
+        assert!(matches!(
+            capture_input(&mut missing, &input, Duration::from_secs(1)),
+            Err(ProcessError::Io(_))
+        ));
+        let mut sleeping = Command::new("/bin/sleep");
+        sleeping.arg("20");
+        assert!(matches!(
+            capture_input(&mut sleeping, &input, Duration::from_millis(30)),
+            Err(ProcessError::Timeout)
+        ));
     }
 
     #[test]

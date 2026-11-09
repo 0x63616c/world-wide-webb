@@ -430,6 +430,19 @@ pub fn launch(path: &Path) -> Result<(), MenuError> {
 
 /// Git provides host identity and canonical routes; local state retains key selection and progress.
 pub fn launch_selected(path: &Path, selection: Option<&str>) -> Result<(), MenuError> {
+    launch_mode(path, selection, false)
+}
+
+/// Retrofit the same setup credential step without running enrollment or verification.
+pub fn authorize_selected(path: &Path, selection: &str) -> Result<(), MenuError> {
+    launch_mode(path, Some(selection), true)
+}
+
+fn launch_mode(
+    path: &Path,
+    selection: Option<&str>,
+    authorize_only: bool,
+) -> Result<(), MenuError> {
     let mut terminal_guard = Terminal::enter()?;
     crate::update_check::start();
     let binding = path.with_file_name("repository.json");
@@ -591,7 +604,11 @@ pub fn launch_selected(path: &Path, selection: Option<&str>) -> Result<(), MenuE
             }
             continue;
         };
-        let outcome = crate::setup_wizard::launch_in_terminal(&profile, path, &mut terminal_guard)?;
+        let outcome = if authorize_only {
+            crate::setup_wizard::authorize_in_terminal(&profile, path, &mut terminal_guard)?
+        } else {
+            crate::setup_wizard::launch_in_terminal(&profile, path, &mut terminal_guard)?
+        };
         if crate::quit::requested() {
             return Ok(());
         }
