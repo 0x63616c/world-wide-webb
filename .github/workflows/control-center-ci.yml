@@ -59,9 +59,17 @@ jobs:
     - run: bash tools/check lint
     - if: needs.changes.outputs.ops == 'true'
       run: bash tools/check ops
+    - name: Read product Rust pin
+      if: needs.changes.outputs.rust == 'true'
+      id: rust-pin
+      run: |
+        echo "RUSTUP_HOME=$RUNNER_TEMP/rustup-$GITHUB_JOB-$GITHUB_RUN_ATTEMPT" >> "$GITHUB_ENV"
+        python3 -c 'import tomllib; print("toolchain=" + tomllib.load(open("rust-toolchain.toml", "rb"))["toolchain"]["channel"])' >> "$GITHUB_OUTPUT"
     - name: Install pinned Rust
       uses: actions-rust-lang/setup-rust-toolchain@a188e68d0fd2bd36ad51dccb2b07ba6e75105f30
       with:
+        toolchain: ${{ steps.rust-pin.outputs.toolchain }}
+        components: rustfmt, clippy
         cache: false
         build-warnings: ''
         rustflags: ''
@@ -88,9 +96,16 @@ jobs:
     timeout-minutes: 15
     steps:
     - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+    - name: Read product Rust pin
+      id: rust-pin
+      run: |
+        echo "RUSTUP_HOME=$RUNNER_TEMP/rustup-$GITHUB_JOB-$GITHUB_RUN_ATTEMPT" >> "$GITHUB_ENV"
+        python3 -c 'import tomllib; print("toolchain=" + tomllib.load(open("rust-toolchain.toml", "rb"))["toolchain"]["channel"])' >> "$GITHUB_OUTPUT"
     - name: Install pinned Rust
       uses: actions-rust-lang/setup-rust-toolchain@a188e68d0fd2bd36ad51dccb2b07ba6e75105f30
       with:
+        toolchain: ${{ steps.rust-pin.outputs.toolchain }}
+        components: rustfmt, clippy
         cache: false
         build-warnings: ''
         rustflags: ''
@@ -115,10 +130,18 @@ jobs:
     timeout-minutes: 12
     steps:
     - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+    - name: Read product Rust pin
+      if: needs.changes.outputs.contract == 'true'
+      id: rust-pin
+      run: |
+        echo "RUSTUP_HOME=$RUNNER_TEMP/rustup-$GITHUB_JOB-$GITHUB_RUN_ATTEMPT" >> "$GITHUB_ENV"
+        python3 -c 'import tomllib; print("toolchain=" + tomllib.load(open("rust-toolchain.toml", "rb"))["toolchain"]["channel"])' >> "$GITHUB_OUTPUT"
     - name: Install pinned Rust
       if: needs.changes.outputs.contract == 'true'
       uses: actions-rust-lang/setup-rust-toolchain@a188e68d0fd2bd36ad51dccb2b07ba6e75105f30
       with:
+        toolchain: ${{ steps.rust-pin.outputs.toolchain }}
+        components: rustfmt, clippy
         cache: false
         build-warnings: ''
     - name: Select supported Xcode

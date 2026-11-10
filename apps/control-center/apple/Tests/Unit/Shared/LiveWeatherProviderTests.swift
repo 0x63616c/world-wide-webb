@@ -60,21 +60,29 @@ import XCTest
     }
 
     func testPollingStopsAndUsesTenMinuteDefault() async throws {
+        continueAfterFailure = false
         XCTAssertEqual(LiveWeatherProvider.pollingInterval, .seconds(600))
         let transport = WeatherProviderTransport()
-        let provider = makeProvider(transport)
+        let clock = WeatherPollingClock()
+        let provider = makeProvider(transport, clock: clock.value)
         defer { provider.stop() }
-        provider.startPolling(every: .milliseconds(20))
-        for _ in 0..<100 {
-            if await transport.count >= 4 { break }
-            try await Task.sleep(for: .milliseconds(5))
-        }
-        let before = await transport.count
-        XCTAssertGreaterThanOrEqual(before, 4)
+        provider.startPolling()
+        await fulfillment(of: [clock.firstSleep], timeout: 1)
+        let initialCount = await transport.count
+        XCTAssertEqual(initialCount, 2)
+        XCTAssertEqual(clock.delays, [.seconds(600)])
+
+        clock.advance()
+        await fulfillment(of: [clock.secondSleep], timeout: 1)
+        let refreshedCount = await transport.count
+        XCTAssertEqual(refreshedCount, 4)
+        XCTAssertEqual(clock.delays, [.seconds(600), .seconds(600)])
+
         provider.stop()
-        try await Task.sleep(for: .milliseconds(80))
-        let after = await transport.count
-        XCTAssertEqual(before, after)
+        await fulfillment(of: [clock.cancelled], timeout: 1)
+        clock.advance()
+        let stoppedCount = await transport.count
+        XCTAssertEqual(stoppedCount, 4)
     }
 
     func testPresentationMappings() {
@@ -90,12 +98,14 @@ import XCTest
         XCTAssertEqual(WeatherPresentation.condition(code: -1), "Unknown")
     }
 
-    private func makeProvider(_ transport: WeatherProviderTransport) -> LiveWeatherProvider {
+    private func makeProvider(_ transport: WeatherProviderTransport, clock: SyncClock = .continuous())
+        -> LiveWeatherProvider
+    {
         LiveWeatherProvider(
             api: WeatherAPI(
                 client: PanelAPIClient(
                     configuration: PanelConfiguration(
-                        baseURL: URL(string: "https://weather.example.invalid")!), transport: transport)))
+                        baseURL: URL(string: "https://weather.example.invalid")!), transport: transport)), clock: clock)
     }
 }
 
@@ -126,5 +136,44 @@ private actor WeatherProviderTransport: PanelTransport {
             data = try JSONSerialization.data(withJSONObject: hours)
         }
         return (data, HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
+    }
+}
+
+/// Polling advances only when the test releases a suspended sleep.
+@MainActor private final class WeatherPollingClock {
+    let firstSleep = XCTestExpectation(description: "Initial refresh completed")
+    let secondSleep = XCTestExpectation(description: "Scheduled refresh completed")
+    let cancelled = XCTestExpectation(description: "Polling cancelled")
+    private(set) var delays: [Duration] = []
+    private var sleeper: CheckedContinuation<Void, any Error>?
+
+    var value: SyncClock {
+        SyncClock(
+            now: { Date(timeIntervalSince1970: 0) }, elapsed: { .zero },
+            sleep: { delay in
+                let cancelled = self.cancelled
+                try await withTaskCancellationHandler {
+                    try Task.checkCancellation()
+                    try await withCheckedThrowingContinuation { continuation in
+                        self.sleeper = continuation
+                        self.delays.append(delay)
+                        if self.delays.count == 1 { self.firstSleep.fulfill() }
+                        if self.delays.count == 2 { self.secondSleep.fulfill() }
+                    }
+                } onCancel: {
+                    Task { @MainActor in
+                        let sleeper = self.sleeper
+                        self.sleeper = nil
+                        sleeper?.resume(throwing: CancellationError())
+                        cancelled.fulfill()
+                    }
+                }
+            })
+    }
+
+    func advance() {
+        let sleeper = self.sleeper
+        self.sleeper = nil
+        sleeper?.resume()
     }
 }
