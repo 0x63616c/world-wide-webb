@@ -1312,7 +1312,7 @@ private struct FoldIllustration: View {
   }
 }
 
-private struct LeaderboardScreen: View {
+struct LeaderboardScreen: View {
   @Environment(\.colorScheme) private var colorScheme
   @State private var selectedParticipantID: String?
   @Bindable var model: FoldingPresentation
@@ -1365,23 +1365,8 @@ private struct LeaderboardScreen: View {
               String(localized: "leaderboard.appeal", defaultValue: "Contact support"),
               destination: URL(string: "mailto:support@getfolding.app")!)
           }
-        case .loading(let previous), .failed(let previous):
-          if let previous {
-            rankedList(previous)
-          } else if case .loading = model.competition {
-            ProgressView()
-          } else {
-            ContentUnavailableView {
-              Label(
-                String(
-                  localized: "leaderboard.unavailable", defaultValue: "Leaderboard unavailable"),
-                systemImage: "wifi.exclamationmark")
-            } actions: {
-              Button(String(localized: "action.retry", defaultValue: "Retry")) {
-                Task { await model.requestLeaderboard(using: actions) }
-              }
-            }
-          }
+        case .loading, .failed:
+          rankedList(nil)
         case .loaded(let value): rankedList(value)
         }
       }
@@ -1403,7 +1388,7 @@ private struct LeaderboardScreen: View {
     }
   }
 
-  private func rankedList(_ value: LeaderboardPresentation) -> some View {
+  private func rankedList(_ value: LeaderboardPresentation?) -> some View {
     List {
       Section {
         Picker(
@@ -1416,44 +1401,56 @@ private struct LeaderboardScreen: View {
         NavigationLink(String(localized: "results.title", defaultValue: "Results")) {
           CompetitionResultsScreen(model: model, actions: actions)
         }
-        let podium = Dictionary(
-          grouping: value.entries.filter {
-            (1...3).contains($0.rank)
-          }, by: \.rank)
-        Group {
-          HStack(alignment: .bottom, spacing: 16) {
-            ForEach([2, 1, 3], id: \.self) { rank in
-              if let entries = podium[rank], let first = entries.first {
-                VStack(spacing: 8) {
-                  Button {
-                    selectedParticipantID = first.id
-                  } label: {
-                    VStack(spacing: 8) {
-                      CompetitionAvatar(entry: first, size: rank == 1 ? 64 : 48)
-                      Text(first.displayName).font(.caption).lineLimit(2)
-                    }
-                  }.buttonStyle(.plain).disabled(first.isBlocked)
-                  if entries.count > 1 {
-                    Button("+\((entries.count - 1).formatted())") { model.present(.tiedRank(rank)) }
+        if let value {
+          let podium = Dictionary(
+            grouping: value.entries.filter {
+              (1...3).contains($0.rank)
+            }, by: \.rank)
+          Group {
+            HStack(alignment: .bottom, spacing: 16) {
+              ForEach([2, 1, 3], id: \.self) { rank in
+                if let entries = podium[rank], let first = entries.first {
+                  VStack(spacing: 8) {
+                    Button {
+                      selectedParticipantID = first.id
+                    } label: {
+                      VStack(spacing: 8) {
+                        CompetitionAvatar(entry: first, size: rank == 1 ? 64 : 48)
+                        Text(first.displayName).font(.caption).lineLimit(2)
+                      }
+                    }.buttonStyle(.plain).disabled(first.isBlocked)
+                    if entries.count > 1 {
+                      Button("+\((entries.count - 1).formatted())") {
+                        model.present(.tiedRank(rank))
+                      }
                       .font(.caption).frame(minWidth: 44, minHeight: 44)
                       .accessibilityLabel(
                         String(localized: "leaderboard.viewTies", defaultValue: "View tied places"))
-                  }
-                }.frame(maxWidth: .infinity)
-              } else {
-                VStack(spacing: 8) {
-                  Image(systemName: "person.fill")
-                    .font(.title3).foregroundStyle(.tertiary)
-                    .frame(width: rank == 1 ? 64 : 48, height: rank == 1 ? 64 : 48)
-                    .overlay(
-                      Circle().stroke(.tertiary, style: StrokeStyle(lineWidth: 1.5, dash: [3, 3])))
-                  Text("—").font(.caption).foregroundStyle(.tertiary)
-                }.frame(maxWidth: .infinity).accessibilityHidden(true)
+                    }
+                  }.frame(maxWidth: .infinity)
+                } else {
+                  VStack(spacing: 8) {
+                    Image(systemName: "person.fill")
+                      .font(.title3).foregroundStyle(.tertiary)
+                      .frame(width: rank == 1 ? 64 : 48, height: rank == 1 ? 64 : 48)
+                      .overlay(
+                        Circle().stroke(
+                          .tertiary, style: StrokeStyle(lineWidth: 1.5, dash: [3, 3])))
+                    Text("—").font(.caption).foregroundStyle(.tertiary)
+                  }.frame(maxWidth: .infinity).accessibilityHidden(true)
+                }
               }
-            }
-          }.padding(.top, 16).listRowSeparator(.hidden)
+            }.padding(.top, 16).listRowSeparator(.hidden)
+          }
+        } else if case .loading = model.competition {
+          LeaderboardPodiumPlaceholder()
+            .padding(.top, 16)
+            .listRowSeparator(.hidden)
         }
         if case .failed = model.competition {
+          Label(
+            String(localized: "leaderboard.unavailable", defaultValue: "Leaderboard unavailable"),
+            systemImage: "wifi.exclamationmark")
           Button(String(localized: "action.retry", defaultValue: "Retry")) {
             Task { await model.requestLeaderboard(using: actions) }
           }
@@ -1467,24 +1464,26 @@ private struct LeaderboardScreen: View {
             .listRowSeparator(.hidden)
             .accessibilityLabel(String(localized: "action.refreshing", defaultValue: "Refreshing"))
         }
-        if value.entries.isEmpty {
-          Text(String(localized: "leaderboard.empty", defaultValue: "No folds yet"))
-            .foregroundStyle(.secondary)
-        }
-        ForEach(value.entries) { entry in
-          LeaderboardMemberLink(entry: entry, model: model, actions: actions)
-        }
-        if value.nextCursor != nil, actions.loadLeaderboardPage != nil {
-          if model.leaderboardLoadingMore {
-            ProgressView().frame(maxWidth: .infinity)
-          } else {
-            Button {
-              Task { await model.requestLeaderboard(using: actions, nextPage: true) }
-            } label: {
-              if model.leaderboardPageFailed {
-                Text(String(localized: "action.retry", defaultValue: "Retry"))
-              } else {
-                Text(String(localized: "leaderboard.more", defaultValue: "More places"))
+        if let value {
+          if value.entries.isEmpty {
+            Text(String(localized: "leaderboard.empty", defaultValue: "No folds yet"))
+              .foregroundStyle(.secondary)
+          }
+          ForEach(value.entries) { entry in
+            LeaderboardMemberLink(entry: entry, model: model, actions: actions)
+          }
+          if value.nextCursor != nil, actions.loadLeaderboardPage != nil {
+            if model.leaderboardLoadingMore {
+              ProgressView().frame(maxWidth: .infinity)
+            } else {
+              Button {
+                Task { await model.requestLeaderboard(using: actions, nextPage: true) }
+              } label: {
+                if model.leaderboardPageFailed {
+                  Text(String(localized: "action.retry", defaultValue: "Retry"))
+                } else {
+                  Text(String(localized: "leaderboard.more", defaultValue: "More places"))
+                }
               }
             }
           }
@@ -1492,7 +1491,7 @@ private struct LeaderboardScreen: View {
       }
     }
     .safeAreaInset(edge: .bottom) {
-      if let current = value.currentUser {
+      if let current = value?.currentUser {
         VStack(spacing: 4) {
           HStack {
             NavigationLink {

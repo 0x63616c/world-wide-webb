@@ -323,7 +323,7 @@ continue name/photo review without another Apple grant. The tip jar thanks indie
 developer supporters and celebrates verified purchases, respecting Reduce Motion.
 Broader App Store and physical-device acceptance remain deferred.
 
-Owner decision, November 8: leaving competition is not a separate action. Users who want to stop participation delete their competition account; personal tracking remains separate. Remove the Leave UI, transport, polling state and server handler. The leaderboard uses This Week / This Month / All Time, retains displayed content while refreshing, and Your Results includes live All Time totals/rank rather than a fabricated finalized award.
+Owner decision, November 8: leaving competition is not a separate action. Users who want to stop participation delete their competition account; personal tracking remains separate. Remove the Leave UI, transport, polling state and server handler. The leaderboard uses This Week / This Month / All Time, shows a shimmering podium placeholder and a loading list while fetching results (static placeholders with Reduce Motion), hiding previous people and scores immediately when the period changes, and Your Results includes live All Time totals/rank rather than a fabricated finalized award.
 
 ## Owner compatibility decision — November 8, 2026
 
