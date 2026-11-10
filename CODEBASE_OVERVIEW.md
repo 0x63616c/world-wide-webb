@@ -4,7 +4,6 @@ Products live in `apps/<product>`, with independent build roots, tests and desig
 Start with [README.md](README.md) and the relevant product README.
 
 - `apps/tendr`: SwiftUI app and core tests, app-local `Packages/RDesign`, listings and fixtures.
-- `apps/airmiles`: SwiftUI flight journal, domain package and offline import tests.
 - `apps/folding`: preserved iOS/Rust Worker/contracts layout and product Fastlane machinery.
 - `apps/callkeep`: macOS recording/transcription source, packages and release scripts.
 - `apps/golink-safari`: macOS/iPhone/iPad Safari extension and native setup app; independent from the Golink server.

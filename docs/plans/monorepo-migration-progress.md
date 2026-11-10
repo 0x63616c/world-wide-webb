@@ -2,6 +2,11 @@
 
 ## Current status — November 9, 2026
 
+November 10: Air Miles is retired at the owner's request. This change removes its application,
+fixtures, import tools and active CI unit.
+The records below describe the historical migration, not an active product. The separate
+personal-flight dataset and other repositories are outside this removal.
+
 Use [Finish the migration](monorepo-remaining-work-2026-11-09.md) for remaining delivery
 references, documentation and old-repository cleanup. It supersedes the older execution contract.
 

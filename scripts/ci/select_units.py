@@ -63,7 +63,7 @@ def select(paths, config, force=False):
             continue
         if path.startswith("/") or ".." in path.split("/"):
             raise ValueError("Changes must use repository-relative paths")
-        if documentation(path):
+        if documentation(path) or matches(path, config.get("retired_paths", [])):
             continue
         consumers = config.get("workflow_units", {}).get(path)
         if consumers is not None:

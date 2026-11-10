@@ -2,7 +2,7 @@
 
 Products own their behavior and appearance. Shared tooling owns repository discovery,
 checks, release processes and infrastructure boundaries. Tendr keeps RDesign; Folding,
-Callkeep, Air Miles and Control Center keep their own components and packages.
+Callkeep and Control Center keep their own components and packages.
 
 ## Working lifecycle
 

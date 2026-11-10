@@ -21,7 +21,7 @@ screenshot_xcargs=("CODE_SIGNING_ALLOWED=NO")
 while IFS= read -r build_setting; do
   if [[ -n "$build_setting" ]]; then screenshot_xcargs+=("$build_setting"); fi
 done <<< "$screenshot_settings"
-# Generated projects are absent in a fresh checkout (for example Air Miles).
+# Generated projects may be absent in a fresh checkout.
 # Prepare before simulator boot so missing inputs fail without consuming boot time.
 if [[ -f "apps/$app/project.yml" ]]; then
   command -v xcodegen >/dev/null || HOMEBREW_NO_AUTO_UPDATE=1 brew install xcodegen

@@ -252,8 +252,8 @@ policy_api = Object.new
 policy_api.define_singleton_method(:patch) { |path, body| policy_writes << [path, body] }
 ReleasePolicy.apply!(policy_api, { "bundle_id" => "com.calumwebb.still" }, "next-version")
 raise "automatic release policy" unless policy_writes == [["v1/appStoreVersions/next-version", { data: { type: "appStoreVersions", id: "next-version", attributes: { releaseType: "AFTER_APPROVAL" } } }]]
-ReleasePolicy.apply!(policy_api, { "bundle_id" => "com.calumwebb.airmiles" }, "other-version")
-raise "changed another app's release policy" unless policy_writes.length == 1 && ReleasePolicy.automatic?({ "bundle_id" => "com.calumwebb.airmiles" }).nil?
+ReleasePolicy.apply!(policy_api, { "bundle_id" => "com.example.other" }, "other-version")
+raise "changed another app's release policy" unless policy_writes.length == 1 && ReleasePolicy.automatic?({ "bundle_id" => "com.example.other" }).nil?
 puts "Release policy checks passed (Tendr automatic, other apps unchanged)."
 
 # The publisher cannot reserve a Mac while its prerequisite CI needs that pool.
