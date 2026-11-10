@@ -37,7 +37,8 @@ archives; their historical format does not change the current snapshot format.
 Other assigned services have their own snapshots: cold Home Assistant and
 Bambuddy data/identity copies; a verified logical Hindsight dump plus a brief
 stop for its Codex directory; Penpot PostgreSQL/assets/Valkey; and Beszel's
-database and private identity. Sunday Hindsight exports provide an additional
+database and private identity. Golink's stopped-writer archive preserves its
+SQLite links and tsnet identity together. Sunday Hindsight exports provide an additional
 portable recovery path. Preserve actual image digests and service assignments.
 
 The recovery archive includes Compose/configuration, image identities and

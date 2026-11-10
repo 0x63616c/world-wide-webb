@@ -9,6 +9,7 @@ import tarfile
 from pathlib import Path, PurePosixPath
 
 PAYLOADS = {
+    "golink": {"golink-data.tar.gz"},
     "control-center": {"control-center.sqlite", "control-center-media.tar.gz"},
     "home-assistant": {"home-assistant-config.tar.gz"},
     "bambuddy": {"bambuddy-data.tar.gz", "bambuddy-studio.tar.gz", "bambuddy-tailscale.tar.gz"},
@@ -20,6 +21,7 @@ PAYLOADS = {
 
 
 CONTAINERS = {
+    "golink": {"golink"},
     "control-center": {"www-control-center-www-1"},
     "home-assistant": {"www-home-assistant-home-assistant-1"},
     "bambuddy": {"bambuddy", "bambu-studio-api", "bambuddy-tailscale"},
@@ -37,6 +39,7 @@ CONTAINERS = {
     },
 }
 CREDENTIALS = {
+    "golink": {"environment"},
     "control-center": {"HA_TOKEN", "ALARM_API_TOKEN", "HOME_LAT", "HOME_LON", "WIFI_GUEST_SSID", "WIFI_GUEST_PASSWORD"},
     "bambuddy": {"environment", "serve.json"},
     "hindsight": {"environment"},

@@ -25,6 +25,18 @@ class DeliveryTests(unittest.TestCase):
         self.token.write_bytes(b'synthetic-token')
         self.token.chmod(0o400)
 
+    @patch.object(reconcile.subprocess, 'run')
+    def test_golink_projects_only_its_enrollment_environment(self, run):
+        source = self.source / 'golink-env'
+        source.write_bytes(b'TS_AUTHKEY=synthetic-key\n')
+        source.chmod(0o400)
+        reconcile.reconcile('golink', self.source, self.runtime, self.root / 'compose', self.root / 'compose.env')
+        destination = self.runtime / 'golink/environment'
+        self.assertEqual(destination.read_bytes(), source.read_bytes())
+        self.assertEqual(run.call_args.kwargs['env']['GOLINK_ENV_FILE'], str(destination))
+        self.assertNotIn('TS_AUTHKEY', run.call_args.kwargs['env'])
+        self.assertNotIn('synthetic-key', str(run.call_args.args))
+
     def run_reconcile(self):
         reconcile.reconcile('cloudflared', self.source, self.runtime,
                             self.root / 'compose', self.root / 'compose.env')

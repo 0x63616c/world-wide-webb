@@ -27,6 +27,7 @@ pub enum Service {
     ControlCenter,
     Bambuddy,
     Beszel,
+    Golink,
     Hindsight,
     Cloudflared,
     HomeAssistant,
@@ -262,6 +263,7 @@ fn containers(service: Service) -> (&'static str, &'static [(&'static str, bool)
                 ("bambuddy-tailscale", false),
             ],
         ),
+        Service::Golink => (SERVICES, &[("golink", false)]),
         Service::Beszel => (SERVICES, &[("beszel-beszel-1", true)]),
         Service::Hindsight => (SERVICES, &[("hindsight", true)]),
         Service::Cloudflared => (SERVICES, &[("www-tunnel-cloudflared-1", false)]),
@@ -418,6 +420,37 @@ pub fn check_once(config: &Config, deadline: Instant) -> Result<(), HealthError>
                     })
                 {
                     return Err(HealthError::TailscaleNotReady);
+                }
+            }
+            Service::Golink => {
+                // Probe through tsnet, including MagicDNS and HTTPS redirects.
+                // A running process alone does not prove the node joined the tailnet.
+                let timeout = remaining(deadline, Duration::from_secs(15))?;
+                let mut command = Command::new(&config.curl_path);
+                command
+                    .args([
+                        "--fail",
+                        "--silent",
+                        "--show-error",
+                        "--location",
+                        "--max-time",
+                        "15",
+                        "--noproxy",
+                        "*",
+                        "--output",
+                        "/dev/null",
+                        "http://go/",
+                    ])
+                    .env_clear()
+                    .env("PATH", "/usr/bin:/bin")
+                    .stdin(Stdio::null());
+                let result = process::capture(&mut command, timeout)
+                    .map_err(|_| HealthError::ProbeUnavailable)?;
+                if Instant::now() >= deadline {
+                    return Err(HealthError::Deadline);
+                }
+                if !result.status.success() {
+                    return Err(HealthError::UnhealthyContainer("golink"));
                 }
             }
             Service::Penpot => {

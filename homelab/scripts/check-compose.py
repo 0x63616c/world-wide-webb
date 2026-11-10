@@ -24,6 +24,7 @@ def check(root):
             'WORKER_CYCLES': 'off',
             'TUNNEL_TOKEN_FILE': directory + '/tunnel-token',
             'HINDSIGHT_ENV_FILE': str(env_file),
+            'GOLINK_ENV_FILE': str(env_file),
             'BESZEL_ENV_FILE': str(env_file),
             'BESZEL_CONFIG_FILE': directory + '/beszel-config.yml',
             'PENPOT_ENV_FILE': str(env_file),
@@ -47,7 +48,15 @@ def check(root):
                     if volume['type'] == 'bind':
                         assert volume.get('bind', {}).get('create_host_path') is False, (name, volume)
             print('Validated', path.parent.name)
-        assert set(models) == {'beszel', 'bambuddy', 'control-center', 'cloudflared', 'hindsight', 'home-assistant', 'penpot'}
+        assert set(models) == {'beszel', 'bambuddy', 'control-center', 'cloudflared', 'hindsight', 'home-assistant', 'penpot', 'golink'}
+        golink = models['golink']
+        node = golink['services']['golink']
+        assert node.get('ports', []) == []
+        assert node['user'] == '65532:65532'
+        assert node['cap_drop'] == ['ALL'] and node['read_only'] is True
+        assert golink['volumes']['golink_data']['external'] is True
+        assert golink['volumes']['golink_data']['name'] == 'golink_data'
+        assert node['volumes'][0]['target'] == '/home/nonroot'
         bambuddy = models['bambuddy']
         assert bambuddy['services']['bambu-studio-api']['platform'] == 'linux/amd64'
         for volume in ('bambuddy_data', 'tailscale_state', 'bambu_studio_api_data'):

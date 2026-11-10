@@ -163,6 +163,7 @@ See [the setup and recovery plan](docs/beszel-plan.md).
 - [Disposable VM validation](docs/vm-validation.md)
 - [Current-state research](docs/current-state.md)
 - [Migration plan](docs/plan.md) · [Implementation status](docs/implementation-status.md)
+- [Golink setup and recovery](docs/golink.md)
 - [Secrets](docs/secrets.md) · [Updates](docs/updates.md) · [Operations](docs/operations.md)
 - [Application ownership](docs/releases.md) · [Recovery rehearsal](docs/restore-rehearsal.md)
 
