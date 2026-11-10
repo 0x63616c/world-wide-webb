@@ -16,12 +16,14 @@ class DuoHost
   def start
     raise "Device Hub is already running; use an isolated capture session" if system("pgrep", "-x", "DeviceHub", out: File::NULL)
     FileUtils.mkdir_p(@directory)
+    stage("generating_host")
     project = File.join(@directory, "host-project")
     raise "Controller output already exists; use a fresh capture directory" if File.exist?(project)
     FileUtils.cp_r(File.join(__dir__, "duo-host-control"), project)
     run("xcodegen", "generate", "--quiet", chdir: project)
     @project = File.join(project, "DuoCaptureHost.xcodeproj")
     @derived = File.join(@directory, "HostDerivedData")
+    stage("building_host")
     run("xcodebuild", "build-for-testing", *build_arguments, "-quiet")
     runner = File.join(@derived, "Build/Products/Debug/DuoHostControlTests-Runner.app")
     entitlements, _error, status = Open3.capture3("codesign", "-d", "--entitlements", ":-", runner)
@@ -32,10 +34,12 @@ class DuoHost
       grants["com.apple.security.temporary-exception.files.absolute-path.read-write"] == [@directory + "/"]
     developer = ENV["DEVELOPER_DIR"] || Open3.capture2("xcode-select", "-p").first.strip
     application = File.expand_path("../Applications/DeviceHub.app", developer)
+    stage("launching_hub")
     app = spawn({}, File.join(application, "Contents/MacOS/DeviceHub"), log: "application.log")
     environment = {"TEST_RUNNER_DUO_HOST_APPLICATION_PATH" => application,
       "TEST_RUNNER_DUO_HOST_APPLICATION_PID" => app.to_s, "TEST_RUNNER_DUO_HOST_CONTROL_DIR" => @directory,
       "TEST_RUNNER_DUO_HOST_DEVICE_NAME" => @device_name}
+    stage("starting_controller")
     spawn(environment, "xcodebuild", "test-without-building", *build_arguments,
       "-parallel-testing-enabled", "NO", "-test-timeouts-enabled", "NO",
       "-resultBundlePath", File.join(@directory, "HostControl.xcresult"), log: "controller.log")
@@ -83,6 +87,12 @@ class DuoHost
 
   private
 
+  def stage(value)
+    File.open(File.join(@directory, "host-stage.txt"), "w", 0o600) { |file| file.puts(value) }
+    puts JSON.generate({"event" => "native_capture", "stage" => value})
+    $stdout.flush
+  end
+
   def build_arguments
     ["-project", @project, "-scheme", "DuoCaptureHost", "-destination", "platform=macOS",
       "-derivedDataPath", @derived, "DUO_HOST_CONTROL_DIRECTORY=#{@directory}"]
@@ -90,14 +100,14 @@ class DuoHost
 
   def run(*arguments, chdir: @directory)
     File.open(File.join(@directory, "build.log"), "ab", 0o600) do |log|
-      raise "Native controller build failed; inspect #{@directory}/build.log" unless system(*arguments, chdir: chdir, out: log, err: log)
+      raise "Native controller build failed; inspect #{@directory}/build.log" unless system(capture_environment, *arguments, chdir: chdir, out: log, err: log)
     end
   end
 
   def spawn(environment, *arguments, log:)
     output = File.open(File.join(@directory, log), "wb", 0o600)
     @logs << output
-    pid = Process.spawn(environment, *arguments, out: output, err: output, pgroup: true)
+    pid = Process.spawn(environment.merge(capture_environment), *arguments, out: output, err: output, pgroup: true)
     @processes << pid
     pid
   end
@@ -107,8 +117,16 @@ class DuoHost
     loop do
       raise "Native controller exited; inspect #{@directory}" if @processes.any? { |pid| Process.waitpid(pid, Process::WNOHANG) }
       return if yield
-      raise "Native controller timed out; inspect #{@directory}" if Process.clock_gettime(Process::CLOCK_MONOTONIC) >= deadline
+      if Process.clock_gettime(Process::CLOCK_MONOTONIC) >= deadline
+        path = File.join(@directory, "host-stage.txt")
+        stage = File.file?(path) ? File.read(path).strip : "test_runner_startup"
+        raise "Native controller timed out at #{stage}; inspect #{@directory}"
+      end
       sleep 0.25
     end
+  end
+
+  def capture_environment
+    ENV.keys.grep(/TOKEN|PASSWORD|SECRET|PRIVATE_KEY|AUTHORIZATION|\AASC_(KEY_ID|ISSUER_ID)\z/).to_h { |key| [key, nil] }
   end
 end

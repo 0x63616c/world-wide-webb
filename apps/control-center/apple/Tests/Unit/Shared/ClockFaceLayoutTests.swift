@@ -24,11 +24,7 @@ import XCTest
     func testFaceIsTheHomeViewGreenWithNoComplications() throws {
         let store = MockHomeDataSource(latency: .zero, fixedNow: FixtureClock.now)
         let size = CGSize(width: 1376, height: 1032)
-        let renderer = ImageRenderer(
-            content: PresenceClockFace(store: store).faceContent(at: FixtureClock.now)
-                .frame(width: size.width, height: size.height))
-        renderer.scale = 1
-        let image = try XCTUnwrap(renderer.uiImage?.cgImage)
+        let image = try TestBitmap.render(PresenceClockFace(store: store).faceContent(at: FixtureClock.now), size: size)
         let pixels = try rgba(image)
         // A corner sample sits where the old complications were.
         for (x, y) in [(120, 120), (image.width - 120, 120), (image.width - 120, image.height - 200)] {
@@ -40,9 +36,7 @@ import XCTest
     }
 
     private func inkBounds(_ view: some View, size: CGSize) throws -> CGRect {
-        let renderer = ImageRenderer(content: view.frame(width: size.width, height: size.height).background(.white))
-        renderer.scale = 1
-        let cg = try XCTUnwrap(renderer.uiImage?.cgImage)
+        let cg = try TestBitmap.render(view.background(.white), size: size)
         let pixels = try rgba(cg)
         var minX = Int.max
         var minY = Int.max

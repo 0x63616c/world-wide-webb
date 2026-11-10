@@ -68,6 +68,56 @@ module FoldingRelease
       raise "Build ownership marker not confirmed" unless rows.any? { |row| row.dig("attributes", "locale") == "en-US" && row.dig("attributes", "whatsNew") == marker }
     end
 
+    def self.ensure_app_configuration(record, api: FoldingTipProducts::API.new)
+      id = record.data.fetch("asc_app_id")
+      declarations = FoldingRelease.read_json(File.join(ROOT, "fastlane/apple-declarations.json"))
+      rights = declarations.fetch("content_rights")
+      raise "Owner content rights approval missing" unless declarations.fetch("app_id") == id && rights["necessary_rights_confirmed_by_owner"] == true
+      expected = rights.fetch("contains_third_party_content") ? "USES_THIRD_PARTY_CONTENT" : "DOES_NOT_USE_THIRD_PARTY_CONTENT"
+      actual = api.request("GET", "/v1/apps/#{id}").dig("data", "attributes", "contentRightsDeclaration")
+      raise "Apple content rights differ from owner approval" if actual && actual != expected
+      unless actual
+        api.request("PATCH", "/v1/apps/#{id}", body: ReviewSubmission.resource("apps", id: id, attributes: {"contentRightsDeclaration" => expected}))
+        # Apple's successful PATCH can precede its GET readback. Observe the
+        # same write for at most 30 seconds; never retry the mutation here.
+        7.times do |attempt|
+          actual = api.request("GET", "/v1/apps/#{id}").dig("data", "attributes", "contentRightsDeclaration")
+          break if actual == expected
+          sleep 5 if attempt < 6
+        end
+        raise "Apple content rights readback differs" unless actual == expected
+      end
+      schedule = api.request("GET", "/v1/apps/#{id}/appPriceSchedule", missing: true)&.fetch("data")
+      price_path = ->(schedule) { "/v1/appPriceSchedules/#{schedule.fetch('id')}/manualPrices?include=appPricePoint&limit=200" }
+      prices = schedule && api.request("GET", price_path.call(schedule))
+      # Apple returns a schedule shell even before a first price is configured.
+      unless prices && !prices.fetch("data").empty?
+        if schedule
+          automatic = api.all("/v1/appPriceSchedules/#{schedule.fetch('id')}/automaticPrices?limit=200")
+          raise "Existing automatic pricing has no base; inspect Apple pricing" unless automatic.empty?
+        end
+        points = api.all("/v1/apps/#{id}/appPricePoints?filter%5Bterritory%5D=USA&limit=200")
+        free = points.select { |point| BigDecimal(point.fetch("attributes").fetch("customerPrice")) == 0 }
+        raise "Expected one real Apple free price point" unless free.one?
+        inline = "${folding-free}"
+        body = ReviewSubmission.resource("appPriceSchedules", relationships: {
+          "app" => ReviewSubmission.relationship("apps", id), "baseTerritory" => ReviewSubmission.relationship("territories", "USA"),
+          "manualPrices" => {"data" => [{"type" => "appPrices", "id" => inline}]}})
+        body["included"] = [{"type" => "appPrices", "id" => inline, "attributes" => {"startDate" => nil},
+          "relationships" => {"appPricePoint" => ReviewSubmission.relationship("appPricePoints", free.first.fetch("id"))}}]
+        api.request("POST", "/v1/appPriceSchedules", body: body)
+        7.times do |attempt|
+          schedule = api.request("GET", "/v1/apps/#{id}/appPriceSchedule").fetch("data")
+          prices = schedule && api.request("GET", price_path.call(schedule))
+          break if prices && !prices.fetch("data").empty?
+          sleep 5 if attempt < 6
+        end
+      end
+      raise "Apple price readback is still pending; resume to reconcile" unless prices
+      points = prices.fetch("included", []).select { |row| row["type"] == "appPricePoints" }
+      raise "Folding must remain free; inspect Apple pricing" unless !prices.fetch("data").empty? && !points.empty? && points.all? { |point| BigDecimal(point.fetch("attributes").fetch("customerPrice")) == 0 }
+    end
+
     def self.preflight(record)
       record.verify_identity!
       source = FoldingRelease.clean_commit!
@@ -105,6 +155,7 @@ module FoldingRelease
       ReleaseSource.current!("folding", source)
       # Stop before capture or review mutations when release prerequisites fail.
       FoldingRelease.live_prerequisites!(record)
+      ensure_app_configuration(record)
       mark_source(record)
       Operations.assets(context, record)
       preflight(record)

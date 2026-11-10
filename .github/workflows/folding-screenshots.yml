@@ -46,6 +46,18 @@ jobs:
           target: apple
       - run: ../../scripts/ci/apple-desktop.sh bundle exec fastlane ios screenshots_preview
       - uses: actions/upload-artifact@v4
+        if: failure() || cancelled()
+        with:
+          name: folding-pr-native-capture-failure
+          path: |
+            apps/folding/build/preview-assets/**/assets/native-control/build.log
+            apps/folding/build/preview-assets/**/assets/native-control/controller.log
+            apps/folding/build/preview-assets/**/assets/native-control/application.log
+            apps/folding/build/preview-assets/**/assets/native-control/host-stage.txt
+            apps/folding/build/preview-assets/**/assets/native-control/host-hierarchy.txt
+          if-no-files-found: ignore
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
         with:
           name: folding-pr-screenshots-${{ github.sha }}-${{ github.run_attempt }}
           path: |

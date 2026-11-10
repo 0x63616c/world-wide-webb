@@ -1,5 +1,7 @@
+import ImageIO
 import PanelKit
 import UIKit
+import UniformTypeIdentifiers
 import XCTest
 
 @testable import Panel
@@ -7,15 +9,24 @@ import XCTest
 @MainActor final class PhotoBoothModelTests: XCTestCase {
     func testFourShotsComposeInOrderAndFailedSaveRetriesWithoutRecapturing() async throws {
         let trace = BoothSequenceTrace()
-        let frames = [UIColor.red, .green, .blue, .yellow].map { color in
-            let format = UIGraphicsImageRendererFormat()
-            format.scale = 1
-            return UIGraphicsImageRenderer(size: CGSize(width: 80, height: 60), format: format).jpegData(
-                withCompressionQuality: 1
-            ) {
-                color.setFill()
-                $0.fill(CGRect(x: 0, y: 0, width: 80, height: 60))
-            }
+        let frames = try [UIColor.red, .green, .blue, .yellow].map { color in
+            // Camera-sized, CPU-owned JPEG fixtures avoid the simulator's lazy
+            // UIKit image provider and invalid tiny-frame pixel-buffer path.
+            let size = CGSize(width: 640, height: 480)
+            let context = try XCTUnwrap(
+                CGContext(
+                    data: nil, width: 640, height: 480, bitsPerComponent: 8,
+                    bytesPerRow: 640 * 4, space: CGColorSpaceCreateDeviceRGB(),
+                    bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+            context.setFillColor(color.cgColor)
+            context.fill(CGRect(origin: .zero, size: size))
+            let image = try XCTUnwrap(context.makeImage())
+            let bytes = NSMutableData()
+            let encoder = try XCTUnwrap(
+                CGImageDestinationCreateWithData(bytes, UTType.jpeg.identifier as CFString, 1, nil))
+            CGImageDestinationAddImage(encoder, image, [kCGImageDestinationLossyCompressionQuality: 1] as CFDictionary)
+            XCTAssertTrue(CGImageDestinationFinalize(encoder))
+            return bytes as Data
         }
         var captures = 0
         let (model, transport, _) = try makeModel(

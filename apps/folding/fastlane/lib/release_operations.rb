@@ -89,6 +89,7 @@ module FoldingRelease
       raise "Expected exactly one widget extension" unless paths.length == 2
       paths.each do |path, bundle, main|
         info = plist(File.join(path, "Info.plist"))
+        raise "Folding must ship for iPhone only" unless info["UIDeviceFamily"] == [1]
         raise "Binary identity mismatch" unless info["CFBundleIdentifier"] == bundle && info["CFBundleShortVersionString"] == record.data["marketing_version"] && info["CFBundleVersion"] == record.data["build_number"].to_s
         FoldingRelease.run("codesign", "--verify", "--strict", path)
         entitlements = File.join(record.directory, "#{main ? 'app' : 'widget'}-signed-entitlements.plist")
@@ -438,6 +439,10 @@ module FoldingRelease
         context.upload_to_app_store(**options.merge(submit_for_review: false))
         record.save("storefront_upload_completed_at" => Time.now.utc.iso8601)
       end
+      selected = version(record)
+      # Deliver with submit_for_review:false uploads metadata but does not select
+      # its build_number. Our separate joint app/tip submission owns attachment.
+      selected.select_build(client: FoldingRelease.client, build_id: verify_processed!(record).id)
       selected = version(record)
       raise "Listing not attached to exact build" unless selected.get_build(client: FoldingRelease.client)&.id == record.data.fetch("asc_build_id")
       StorefrontReadback.verify!(record, selected)

@@ -535,3 +535,29 @@ request-ID correlation. Server rejection logs identify the validation stage and 
 An additional reproduced Swift Mutex closure stack-growth issue is fixed with a stored
 provider value. This is a local candidate, not verified TestFlight delivery or App Store
 submission; device totals still require live confirmation after shipping.
+
+
+November 9 live recovery and submission validation: PR #992 merged as
+`1d1e142aaa1c491e0e3705fc6f1bbd4dd45767e5`; all seven main Folding CI jobs passed.
+Production Worker version `177bea3a-071c-478f-8413-404160d90202` and processed build
+1.0.0 (20) are directly verified, including actual Folding Internal membership.
+The owner's build 20 diagnostics confirm expired-proof recovery, accepted historical
+and queued live uploads, zero pending work and matching personal/month totals of 130.
+Read-only production SQLite confirms all-time 130, month 130 and current week 52.
+This is real installed-account upload evidence; broader F13 device/provider checks
+remain deferred.
+
+App Review is not submitted. Hosted capture timed out before retaining diagnostics;
+local exact-source capture subsequently passed all 20 locale/display tests and sealed
+150 screenshots plus the tip review screenshot. Apple processed all 150 images and
+metadata precheck passed. Direct Apple validation then exposed missing free pricing,
+a missing content-rights value despite recorded owner approval, and an iPad screenshot
+requirement. Inspection of the signed IPA confirmed unintended UIDeviceFamily [1,2]:
+XcodeGen's target defaults overrode the project-level iPhone-only setting. The local
+replacement sets the production app and widget target families explicitly and rejects
+wrong-family signed artifacts. It also explicitly attaches the exact processed build,
+saves/readbacks approved rights and free pricing, retains nested Apple validation codes,
+and separates native capture from provider credentials with scoped failure diagnostics.
+The controller now selects its owned simulator explicitly. Native controller compilation,
+generated iPhone build settings and release regressions pass locally; replacement
+source CI, TestFlight and actual review submission remain pending.
