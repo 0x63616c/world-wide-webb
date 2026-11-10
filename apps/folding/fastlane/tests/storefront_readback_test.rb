@@ -17,20 +17,23 @@ class StorefrontReadbackTest < Minitest::Test
       FoldingRelease.atomic_json(File.join(directory, "assets/screenshot-manifest.json"), {"entries" => [entry]})
       info_locale = Struct.new(:locale, :name, :subtitle, :privacy_policy_url).new("en-US", "name", "subtitle", "privacy_url")
       category = Struct.new(:id)
-      info = Struct.new(:primary_category, :secondary_category, :localizations).new(category.new("primary_category"), category.new("secondary_category"), [info_locale])
+      info = Struct.new(:primary_category, :secondary_category, :localizations, :id, :state).new(category.new("primary_category"), category.new("secondary_category"), [info_locale], "prepared-info", "PREPARE_FOR_SUBMISSION")
       def info.get_app_info_localizations(**); localizations; end
-      app = Struct.new(:info, :versions).new(info, [Object.new])
-      def app.fetch_edit_app_info(**); info; end
+      app = Struct.new(:info, :versions, :id).new(info, [Object.new], "app-id")
+      def app.fetch_edit_app_info(**); info if %w[PREPARE_FOR_SUBMISSION DEVELOPER_REJECTED REJECTED WAITING_FOR_REVIEW].include?(info.state); end
       def app.get_app_store_versions(**); versions; end
       localization = Struct.new(:locale, :description, :keywords, :marketing_url, :promotional_text, :support_url, :whats_new).new("en-US", "description", "keywords", "marketing_url", "promotional_text", "support_url", nil)
       def localization.get_app_screenshot_sets(**)
         [Struct.new(:screenshot_display_type, :app_screenshots).new("APP_IPHONE_DUO", [])]
       end
-      selected = Struct.new(:localizations).new([localization])
+      selected = Struct.new(:localizations, :app_store_state).new([localization], "PREPARE_FOR_SUBMISSION")
       def selected.get_app_store_version_localizations(**); localizations; end
       record = Struct.new(:directory, :data).new(directory, {})
       def record.save(changes); data.merge!(changes); end
-      check = -> { FoldingRelease::StorefrontReadback.verify!(record, selected, client: Object.new) }
+      response = Struct.new(:to_models).new([info])
+      client = Struct.new(:response).new(response)
+      def client.get_app_infos(**); response; end
+      check = -> { FoldingRelease::StorefrontReadback.verify!(record, selected, client: client) }
       FoldingRelease.stub(:app, app) do
         FoldingRelease::StorefrontReadback.stub(:verify_gallery!, nil) do
           check.call
@@ -46,6 +49,23 @@ class StorefrontReadbackTest < Minitest::Test
           localization.whats_new = "release_notes"
           check.call
           assert_equal "verified", record.data.fetch("storefront_readback").fetch("release_notes")
+          # The SDK's editable-info helper excludes the prepared review state.
+          info.state = selected.app_store_state = "READY_FOR_REVIEW"
+          assert_nil app.fetch_edit_app_info
+          check.call
+          assert_equal "prepared-info", record.data.fetch("storefront_readback").fetch("app_info_id")
+          live = info.dup
+          live.id = "published-info"
+          live.state = "READY_FOR_DISTRIBUTION"
+          client.response.to_models.unshift(live)
+          check.call
+          client.response.to_models.delete(info)
+          assert_raises(RuntimeError, &check)
+          record.data.delete("storefront_readback")
+          duplicate = info.dup
+          duplicate.id = "other-prepared-info"
+          client.response.to_models.concat([info, duplicate])
+          assert_raises(RuntimeError, &check)
         end
       end
     end

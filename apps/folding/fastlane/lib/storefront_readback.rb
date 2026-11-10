@@ -10,8 +10,15 @@ module FoldingRelease
       raise "Apple copyright differs" if File.file?(copyright) && selected.copyright.to_s.strip != File.read(copyright).strip
       entries = FoldingRelease.read_json(File.join(output, "screenshot-manifest.json")).fetch("entries")
       app = FoldingRelease.app(record.data)
-      info = app.fetch_edit_app_info(client: client)
-      raise "No editable Apple app information" unless info
+      infos = client.get_app_infos(app_id: app.id, includes: "primaryCategory,secondaryCategory").to_models
+      previous_id = record.data.dig("storefront_readback", "app_info_id")
+      # Preparing the review bundle changes the same information to
+      # READY_FOR_REVIEW, which the SDK's editable-info helper excludes.
+      matching = infos.select do |item|
+        previous_id ? item.id == previous_id : item.state == selected.app_store_state
+      end
+      raise "Apple app information is missing or ambiguous" unless matching.one?
+      info = matching.first
       %w[primary_category secondary_category].each do |field|
         expected = File.read(File.join(output, "metadata", "#{field}.txt")).strip
         raise "Apple category differs: #{field}" unless info.public_send(field)&.id == expected
@@ -46,7 +53,8 @@ module FoldingRelease
         end
         {"locale" => locale, "galleries" => galleries}
       end
-      record.save("storefront_readback" => {"verified_at" => Time.now.utc.iso8601, "localizations" => result, "release_notes" => first_version ? "not_applicable_first_version" : "verified"})
+      record.save("storefront_readback" => {"verified_at" => Time.now.utc.iso8601, "app_info_id" => info.id, "app_info_state" => info.state,
+        "localizations" => result, "release_notes" => first_version ? "not_applicable_first_version" : "verified"})
     end
 
     def self.verify_gallery!(screenshots, gallery, output)

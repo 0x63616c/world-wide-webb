@@ -561,3 +561,53 @@ and separates native capture from provider credentials with scoped failure diagn
 The controller now selects its owned simulator explicitly. Native controller compilation,
 generated iPhone build settings and release regressions pass locally; replacement
 source CI, TestFlight and actual review submission remain pending.
+
+
+### November 10 verified build 21 delivery
+
+[WWW #997](https://github.com/0x63616c/world-wide-webb/pull/997) merged as
+`66a37a32b4d191e5384a4e0d04c0f627e49ee7ac`. All seven selected
+[main Folding checks](https://github.com/0x63616c/world-wide-webb/actions/runs/42781130440)
+passed. The automatic publisher delivered **1.0.0 (21)**, Apple build
+`15d56e44-0361-43e3-91ac-33ff5baad4bd`, processing `VALID` and
+`APP_STORE_ELIGIBLE`. Independent Apple readback confirms actual Folding Internal
+membership. Downloaded immutable IPA hash verification and both signed app/widget
+plists confirm iPhone-only device families `[1]` and the exact source revision.
+
+The owner's build 21 diagnostics at 00:52:56 PST (08:52:56 UTC) show personal and
+All Time leaderboard totals of **130**, no pending uploads/captures and fresh successful
+leaderboard responses. This verifies persistence and retrieval after the update;
+the report contains no new build 21 fold capture, so a fresh capture/upload is not
+claimed. One cancelled milestone request (`-999`) was followed by success.
+The production Worker remains `177bea3a-071c-478f-8413-404160d90202` from
+`1d1e142aaa1c491e0e3705fc6f1bbd4dd45767e5`; the new native release changes no
+backend inputs. Broader physical-device/provider acceptance remains deferred under F13.
+
+[WWW #960](https://github.com/0x63616c/world-wide-webb/pull/960) also merged after
+required checks passed; its semantic-title action update selects no app delivery.
+All previously open PRs are merged. The hosted publisher's first attempt stopped
+before submission when the native screenshot controller timed out before XCTest
+startup. The retained logs establish the startup stage, without identifying its cause.
+Exact-source local capture then passed all 20 language/display runs, including the
+additional tip review test; all 150 screenshots and review assets are sealed under
+build 21. The [publisher](https://github.com/0x63616c/world-wide-webb/actions/runs/42783358465/attempts/2)
+restored those immutable assets and verified the exact processed build and listing.
+A subsequent verification failed because the SDK's editable-info helper excludes
+`READY_FOR_REVIEW` after review preparation. Recovery rechecked the sealed metadata,
+all ordered screenshot bytes/dimensions, live backend/source prerequisites, exact
+build and app/three-tip relationships against Apple's prepared bundle before one
+submission write. Independent Apple readback confirms **WAITING_FOR_REVIEW** for
+submission `e84499a5-8bee-4deb-93f0-6cfbf5fc4bb3`, version
+`461e7aec-0cf3-4a57-a899-99b38e36c252`, exact build 21 and automatic release
+`AFTER_APPROVAL`. Submission acceptance (#44) is verified; Apple approval and
+public storefront/production acceptance (#45) remain open.
+
+The readback correction retains Apple's app-information identity from its first
+verification, then checks that same record after review preparation. It fails
+closed when the identity is missing or ambiguous, preserves all metadata/category/
+ordered-gallery checks and ignores unrelated published information. The regression
+reproduces the exact missing-editable-info failure before the fix and passes after it;
+all 53 release tests / 730 assertions pass locally.
+This release-tooling-only change selects no native delivery, preserving the pending
+build 21 review. The hosted controller startup timeout remains a separate delivery
+hardening follow-up; its underlying cause is unverified.
