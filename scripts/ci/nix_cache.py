@@ -21,6 +21,20 @@ def closure_size(info):
     return sum(row["narSize"] for row in values)
 
 
+def cached_paths(directory):
+    paths = []
+    for info in sorted(directory.glob("*.narinfo")):
+        names = [
+            line.removeprefix("StorePath: ") for line in info.read_text().splitlines() if line.startswith("StorePath: ")
+        ]
+        if len(names) != 1 or not names[0].startswith("/nix/store/"):
+            raise ValueError("Invalid cached store path")
+        paths.append(names[0])
+    if not paths:
+        raise ValueError("Cache contains no store paths")
+    return paths
+
+
 def command(arguments, deadline, **kwargs):
     # Terminate the full client process group; cache work has a single shared budget.
     with subprocess.Popen(arguments, start_new_session=True, **kwargs) as child:
@@ -49,9 +63,12 @@ def transfer(operation, directory, roots_file):
                         "copy",
                         "--from",
                         directory.as_uri(),
-                        "--all",
                         "--extra-trusted-public-keys",
                         PUBLIC_KEY.read_text().strip(),
+                        # Enumerating this binary cache with --all produced
+                        # hash-x placeholders in the hosted Nix client. Preserve
+                        # canonical names; Nix still verifies every signature.
+                        *cached_paths(directory),
                     ],
                     deadline,
                 )

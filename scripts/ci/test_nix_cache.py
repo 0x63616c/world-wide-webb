@@ -43,6 +43,7 @@ class NixCacheTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             (root / "nix-cache-info").touch()
+            (root / "fixture.narinfo").write_text("StorePath: /nix/store/fixture-name\n")
             with patch.object(nix_cache, "command", side_effect=subprocess.TimeoutExpired("nix", 1)) as command:
                 result = nix_cache.transfer("restore", root, root / "roots")
             self.assertEqual(result["status"], "unavailable")
@@ -50,6 +51,36 @@ class NixCacheTests(unittest.TestCase):
             self.assertIn("--extra-trusted-public-keys", args)
             self.assertNotIn("--no-check-sigs", args)
             self.assertNotIn("trusted=1", " ".join(args))
+            self.assertNotIn("--all", args)
+            self.assertIn("/nix/store/fixture-name", args)
+
+    def test_restore_uses_canonical_narinfo_names_and_keeps_signature_checks(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "nix-cache-info").touch()
+            names = ["/nix/store/aaa-library-1.0", "/nix/store/bbb-client-2.0"]
+            for index, name in enumerate(names):
+                (root / f"{index}.narinfo").write_text(f"StorePath: {name}\nReferences: aaa-library-1.0\n")
+            with patch.object(nix_cache, "command") as command:
+                result = nix_cache.transfer("restore", root, root / "roots")
+            self.assertEqual(result["status"], "restored")
+            args = command.call_args.args[0]
+            self.assertEqual(args[-2:], names)
+            self.assertNotIn("--all", args)
+            self.assertIn("--extra-trusted-public-keys", args)
+            self.assertNotIn("--no-check-sigs", args)
+
+    def test_empty_or_malformed_metadata_does_not_invoke_nix(self):
+        for metadata in [None, "References: missing\n", "StorePath: --no-check-sigs\n"]:
+            with self.subTest(metadata=metadata), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                (root / "nix-cache-info").touch()
+                if metadata is not None:
+                    (root / "fixture.narinfo").write_text(metadata)
+                with patch.object(nix_cache, "command") as command:
+                    result = nix_cache.transfer("restore", root, root / "roots")
+                self.assertEqual(result["status"], "unavailable")
+                command.assert_not_called()
 
     def test_real_client_timeout_is_bounded(self):
         started = time.monotonic()

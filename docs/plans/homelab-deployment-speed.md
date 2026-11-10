@@ -440,3 +440,10 @@ Cache roots now contain only the compiled management client and host operations
 Full flake evaluation, host builds and descriptor checks are unchanged. The
 focused cache-root regression and all 31 automation tests pass; independent
 review confirmed those roots are realized by the existing build commands.
+
+The narrowed export succeeded in 1.248s for 146,311,424 bytes; upload took 2s.
+Its next-run restore exposed a hosted Nix client issue: `copy --all` enumerated
+`hash-x` placeholder names and failed real dependency references. Restore now
+reads canonical `StorePath` names from the narinfo metadata and passes explicit
+paths; Nix signature validation remains enabled. This fallback run proves no
+Nix speedup; a successful corrected restore and net timing are still required.
