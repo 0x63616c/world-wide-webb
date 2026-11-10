@@ -12,15 +12,25 @@ NSGraphicsContext.saveGraphicsState()
 NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: bitmap)
 NSColor(red: 37 / 255, green: 99 / 255, blue: 235 / 255, alpha: 1).setFill()
 NSRect(x: 0, y: 0, width: 1024, height: 1024).fill()
-let text: NSString = "go"
-let attributes: [NSAttributedString.Key: Any] = [
-  .font: NSFont.systemFont(ofSize: 560, weight: .bold), .foregroundColor: NSColor.white,
-]
-let size = text.size(withAttributes: attributes)
-text.draw(
-  at: NSPoint(x: (1024 - size.width) / 2, y: (1024 - size.height) / 2 + 35),
-  withAttributes: attributes)
+// Match Extension/icon.svg's custom mark, optically centered on an unmasked
+// square. The operating system supplies the app icon's rounded corners.
+let transform = NSAffineTransform()
+transform.transformStruct = NSAffineTransformStruct(
+  m11: 8, m12: 0, m21: 0, m22: -8, tX: -8, tY: 1084)
+transform.concat()
+let mark = NSBezierPath()
+mark.appendRect(NSRect(x: 34, y: 49, width: 25, height: 30))
+mark.move(to: NSPoint(x: 34, y: 79))
+mark.line(to: NSPoint(x: 34, y: 94))
+mark.line(to: NSPoint(x: 59, y: 94))
+mark.line(to: NSPoint(x: 59, y: 79))
+mark.appendRect(NSRect(x: 78, y: 49, width: 18, height: 30))
+mark.lineWidth = 9
+mark.lineJoinStyle = .round
+NSColor.white.setStroke()
+mark.stroke()
 NSGraphicsContext.restoreGraphicsState()
+bitmap.setProperty(.colorSyncProfileData, withValue: NSColorSpace.sRGB.iccProfileData)
 try bitmap.representation(using: .png, properties: [:])!.write(
   to: output.appendingPathComponent("icon.png"))
 let contents = """
