@@ -213,3 +213,9 @@ native CI at 1d03d66 passed; the new head must demonstrate the repaired capture 
 The standard screenshot shell launcher also consumes the shared controller. CI exposed its
 missing DeviceID handoff; it now passes its owned UUID as well. Astra approved the one-line
 contract completion, and all 34 portable capture tests pass.
+
+The next hosted attempt stalled inside XCTest activation waiting for Device Hub to idle. The
+controller now sends public AppKit activation requests and still verifies foreground state;
+selection clicks the enabled Cell rather than the disabled OutlineRow container. A local
+end-to-end owned-device smoke test passed selection, focus and both native Open/Closed requests.
+No startup deadlines were raised. CI must still verify repaired captures/layout assertions.

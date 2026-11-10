@@ -29,7 +29,10 @@ final class DuoHostControlTests: XCTestCase {
         XCTAssertTrue(running.isFinishedLaunching)
         let hub = XCUIApplication(url: application)
         try stage("activating_application")
-        hub.activate()
+        // Device Hub streams the simulator continuously. XCTest activation can
+        // wait indefinitely for it to idle; AppKit sends activation without that
+        // quiescence wait, and the process-state assertion still verifies focus.
+        XCTAssertTrue(running.activate(options: []))
         XCTAssertTrue(hub.wait(for: .runningForeground, timeout: 15), "The selected Xcode's Device Hub must be running")
         try stage("finding_window")
         try Data(hub.debugDescription.utf8).write(to: directory.appendingPathComponent("host-hierarchy.txt"), options: .atomic)
@@ -39,7 +42,7 @@ final class DuoHostControlTests: XCTestCase {
         // names can be truncated; select by the owned simulator's stable identifier.
         if !window.title.contains(name) {
             try stage("selecting_capture_device")
-            let row = window.descendants(matching: .outlineRow)
+            let row = window.cells
                 .containing(.staticText, identifier: "TableRow.Device.\(deviceID)").firstMatch
             XCTAssertTrue(row.waitForExistence(timeout: 30), "The disposable Duo must be present")
             row.click()
@@ -64,7 +67,8 @@ final class DuoHostControlTests: XCTestCase {
                 continue
             }
             previous = id
-            hub.activate()
+            XCTAssertTrue(running.activate(options: []))
+            XCTAssertTrue(hub.wait(for: .runningForeground, timeout: 15))
             if let pose = request["pose"] {
                 XCTAssertTrue(["inner", "outer"].contains(pose))
                 let control = window.buttons[pose == "inner" ? "Open" : "Closed"]
