@@ -244,19 +244,37 @@ import XCTest
     XCTAssertEqual(model.history?.title, "New period")
   }
 
-  func testLeaderboardKeepsCurrentContentWhenChangingPeriod() async throws {
+  func testLeaderboardHidesCurrentContentWhenChangingPeriod() async throws {
     let model = FoldingPresentation()
     model.competition = .loaded(leaderboard("Visible week"))
     model.competitionPeriod = .month
+    XCTAssertNil(model.competition.previous, "Old results must disappear before the request starts")
     var pending: CheckedContinuation<LeaderboardPresentation, Error>?
     var actions = actions()
     actions.loadLeaderboard = { _ in try await withCheckedThrowingContinuation { pending = $0 } }
     let task = Task { await model.requestLeaderboard(using: actions) }
     try await waitFor { pending != nil }
-    XCTAssertEqual(model.competition.previous?.periodTitle, "Visible week")
+    XCTAssertNil(model.competition.previous)
     pending!.resume(returning: leaderboard("New month"))
     await task.value
     XCTAssertEqual(model.competition.previous?.periodTitle, "New month")
+  }
+
+  func testLeaderboardRefreshDoesNotRestoreOldResultsAfterFailure() async throws {
+    let model = FoldingPresentation()
+    model.competition = .loaded(leaderboard("Old week"))
+    var pending: CheckedContinuation<LeaderboardPresentation, Error>?
+    var actions = actions()
+    actions.loadLeaderboard = { _ in try await withCheckedThrowingContinuation { pending = $0 } }
+    let task = Task { await model.requestLeaderboard(using: actions) }
+    try await waitFor { pending != nil }
+    XCTAssertNil(model.competition.previous)
+    pending!.resume(throwing: URLError(.notConnectedToInternet))
+    await task.value
+    guard case .failed(let previous) = model.competition else {
+      return XCTFail("Expected a retryable failure")
+    }
+    XCTAssertNil(previous)
   }
 
   func testAllTimeResultsUseLiveAllTimeLeaderboard() async {

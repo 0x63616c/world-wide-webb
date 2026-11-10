@@ -419,7 +419,17 @@ enum ExportChoice { case json, csv }
   var resultsFailed = false
   var resultsRequestID = UUID()
   var competition: CompetitionPresentation = .unavailable
-  var competitionPeriod: CompetitionPeriod = .week
+  var competitionPeriod: CompetitionPeriod = .week {
+    didSet {
+      guard competitionPeriod != oldValue else { return }
+      switch competition {
+      case .loaded, .loading, .failed:
+        invalidateLeaderboardRequests()
+        competition = .loading(nil)
+      default: break
+      }
+    }
+  }
   var sheet: PresentedSheet?
   var status: String?
   var personalFailure: String?
@@ -572,7 +582,7 @@ enum ExportChoice { case json, csv }
   func requestLeaderboard(using actions: FoldingActions, nextPage: Bool = false) async {
     guard actions.loadLeaderboard != nil || actions.loadLeaderboardPage != nil else { return }
     let period = competitionPeriod
-    let previous = competition.previous
+    let previous = nextPage ? competition.previous : nil
     if nextPage
       && (leaderboardLoadedPeriod != period || leaderboardLoadingMore || previous?.nextCursor == nil
         || actions.loadLeaderboardPage == nil)

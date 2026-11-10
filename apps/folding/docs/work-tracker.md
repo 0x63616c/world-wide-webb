@@ -634,3 +634,16 @@ hardening follow-up; its underlying cause is unverified.
 November 10 follow-up: [#1005](https://github.com/0x63616c/world-wide-webb/issues/1005) tracks automatic
 profile-picture content filtering. It is deferred from the blocking/account-deletion release;
 no paid provider signup, manual approvals or preset-avatar replacement is authorized.
+
+
+### November 10 leaderboard loading follow-up
+
+Period changes now clear old podium entries, list rows and the pinned current-user
+score synchronously. First-page loads show a shimmering podium placeholder and
+list progress; Reduce Motion keeps the placeholder static. The period picker
+remains available during loading and after failure, and failed requests offer retry
+without restoring stale results. Loading another page retains the current entries.
+The period-switch regression failed before the fix and passes after it; the native
+PresentationTests suite and changed-source Swift formatting checks pass locally.
+This is a local implementation; no new TestFlight delivery or device acceptance
+is claimed.
