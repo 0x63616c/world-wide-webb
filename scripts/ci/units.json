@@ -1,5 +1,6 @@
 {
   "version": 1,
+  "retired_paths": ["apps/airmiles/**"],
   "shared_verify": [
     "scripts/ci/**",
     "lefthook.yml",
@@ -45,16 +46,6 @@
         ".github/workflows/component-snapshots.yml",
         ".github/workflows/icon.yml",
         ".github/workflows/tip-jar.yml"
-      ]
-    },
-    "airmiles.native": {
-      "paths": [
-        "apps/airmiles/**"
-      ],
-      "delivery": null,
-      "preview_paths": [
-        "apps/airmiles/**",
-        "scripts/ci/apple-desktop.sh"
       ]
     },
     "folding.native": {

@@ -12,7 +12,6 @@ records completed handovers and the deleted source repositories.
 - [Tendr](apps/tendr/README.md): native dose and health journal; owns `Packages/RDesign`.
 - [Folding](apps/folding/README.md): native app, Rust Worker and product-owned delivery tools.
 - [Callkeep](apps/callkeep/README.md): native Mac recording and transcription.
-- [Air Miles](apps/airmiles/README.md): offline flight journal, independently styled.
 - [Control Center](apps/control-center/README.md): native home controls and private Rust/SQLite service.
 - [Golink Safari](apps/golink-safari/README.md): Safari address-bar shortcuts for the tailnet Golink service.
 
@@ -27,7 +26,6 @@ Create a worktree with `wtp add -b codex/<task> origin/main`. Use the product RE
 
 ```sh
 swift test --package-path apps/tendr
-swift test --package-path apps/airmiles
 bash apps/control-center/tools/check ops
 python3 -m unittest discover -s scripts/ci -p 'test_*.py'
 ```

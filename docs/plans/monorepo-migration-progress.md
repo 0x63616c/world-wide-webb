@@ -6,6 +6,11 @@ Repository consolidation and source retirement are complete. Apps, homelab confi
 Cloudflare infrastructure, sites and active delivery tooling belong to WWW. WWW is public.
 Both Macs follow WWW; Callkeep/CLI Homebrew recipes download WWW releases.
 
+November 10: Air Miles is retired at the owner's request. This change removes its application,
+fixtures, import tools and active CI unit.
+The records below describe the historical migration, not an active product. The separate
+personal-flight dataset and other repositories are outside this removal.
+
 The five original repositories (`apps`, `folding`, `callkeep`, `homelab`, `homelab-cli`) were
 snapshotted into private `github-archive`, verified remotely, then deleted at the owner’s request.
 Old local checkouts and archive snapshots are historical, never development/publication roots.
