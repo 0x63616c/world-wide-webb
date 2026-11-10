@@ -1,10 +1,26 @@
+import {golinkOrigin} from "./redirect.js";
+
 const status = document.getElementById("status");
+const detail = document.getElementById("status-detail");
+document.getElementById("open-links").href = `${golinkOrigin}/`;
+
+function showStatus(state, label, message = "") {
+  status.dataset.state = state;
+  status.textContent = label;
+  detail.textContent = message;
+  detail.hidden = !message;
+}
+
 try {
   const allowed = await browser.permissions.contains({origins: ["https://www.google.com/*", "https://google.com/*"]});
-  const rules = await browser.declarativeNetRequest.getDynamicRules();
-  status.textContent = !allowed ? "In Safari’s extension settings, allow Golink on google.com and www.google.com."
-    : rules.some(rule => rule.id === 1) ? "Ready for go links."
-    : "The redirect rule is unavailable. Turn Golink off and on in Safari’s extension settings.";
+  const installation = await browser.runtime.sendMessage({type: "ensure-redirect-rules"});
+  if (!allowed) {
+    showStatus("attention", "Allow access", "In Safari’s extension settings, allow Golink on google.com and www.google.com.");
+  } else if (installation?.ready) {
+    showStatus("ready", "Ready");
+  } else {
+    showStatus("attention", "Unavailable", "Couldn’t prepare redirects. Reopen this popup to retry.");
+  }
 } catch {
-  status.textContent = "Open Safari’s extension settings and allow Golink on google.com and www.google.com.";
+  showStatus("attention", "Check settings", "Couldn’t check Safari permissions. Review Golink in Safari’s extension settings.");
 }

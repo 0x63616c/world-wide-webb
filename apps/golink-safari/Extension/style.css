@@ -4,3 +4,33 @@ main { box-sizing: border-box; padding: 24px; min-width: 280px; max-width: 480px
 h1 { font-size: 1.4rem; margin: 0 0 12px; }
 p { line-height: 1.5; margin: 0 0 12px; }
 #status { color: light-dark(#53535a, #bcbcc5); }
+
+/* Keep the resolver page's layout independent of the toolbar popup. */
+body.popup {
+  width: 304px;
+  /* Safari supplies the native popover material behind this page. */
+  background: transparent;
+  color: light-dark(#1d1d1f, #f5f5f7);
+  font-size: 13px;
+}
+.popup main { min-width: 0; max-width: none; padding: 20px; }
+.popup-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 24px; }
+.popup h1 { margin: 0; font-size: 24px; line-height: 1; letter-spacing: -1px; }
+.popup #status { display: flex; align-items: center; gap: 6px; margin: 0; color: light-dark(#494950, #dedee3); font-size: 12px; }
+.popup #status::before { content: ""; width: 6px; height: 6px; flex: none; border-radius: 50%; background: currentColor; }
+.popup #status[data-state="ready"]::before { background: light-dark(#287d42, #81c995); }
+.popup #status[data-state="attention"] { color: light-dark(#805400, #f3ce8f); }
+.popup .popup-hint { margin: 0 0 8px; color: light-dark(#494950, #dedee3); font-size: 12px; }
+.popup-example { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-bottom: 14px; border-bottom: 1px solid light-dark(rgb(0 0 0 / 15%), rgb(255 255 255 / 20%)); }
+.popup-example code { font-family: ui-monospace, "SFMono-Regular", Menlo, monospace; font-size: 24px; line-height: 1.25; letter-spacing: -0.5px; }
+.popup-example > span { color: light-dark(#494950, #dedee3); font-size: 18px; }
+.popup .popup-requirements { margin: 12px 0 20px; color: light-dark(#494950, #dedee3); font-size: 12px; line-height: 1.5; }
+.popup #status-detail { margin: 0 0 16px; color: light-dark(#805400, #f3ce8f); font-size: 12px; overflow-wrap: anywhere; }
+.popup #open-links { box-sizing: border-box; display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; padding: 12px 14px; border: 1px solid light-dark(rgb(0 0 0 / 12%), rgb(255 255 255 / 15%)); border-radius: 8px; background: light-dark(rgb(0 0 0 / 6%), rgb(255 255 255 / 10%)); color: inherit; font-size: 13px; font-weight: 600; text-decoration: none; }
+.popup #open-links:hover { background: light-dark(rgb(0 0 0 / 10%), rgb(255 255 255 / 16%)); }
+.popup #open-links:active { background: light-dark(rgb(0 0 0 / 15%), rgb(255 255 255 / 22%)); }
+.popup #open-links:focus-visible { outline: 2px solid -webkit-focus-ring-color; outline-offset: 4px; }
+@media (prefers-contrast: more) {
+  .popup #status, .popup .popup-hint, .popup .popup-requirements, .popup-example > span, .popup #status-detail { color: CanvasText; }
+  .popup-example, .popup #open-links { border-color: CanvasText; }
+}
