@@ -19,7 +19,7 @@ pub mod operator_profile;
 pub mod power;
 pub mod preview;
 #[doc(hidden)]
-pub mod process;
+pub use homelab_process as process;
 pub mod provisioning;
 mod quit;
 pub mod remote_completion;

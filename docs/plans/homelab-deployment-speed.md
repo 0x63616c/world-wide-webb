@@ -386,3 +386,64 @@ the development-loop addition; implementation remains subject to local verificat
 - Remaining: pass the corrected main CI and accept its exact source on both hosts.
   Required PR CI passed; later main runs encountered GitHub internal orchestration
   failures and the cache post-step stall. Keep writer flags and recovery generations.
+
+## CI efficiency follow-up — November 9, 2026
+
+The earlier deployment work reached both hosts at `bb5f12f`; its final evidence is in #981.
+The next candidate narrows verification through the existing repository selector, maps workflow
+consumers, separates operations/controller/Nix checks and Rust/contract/native checks, advances
+compiler snapshots, explicitly persists Docker Cargo mounts and bounds signed Nix output reuse.
+Host operations now consume a small shared process crate instead of the entire interactive CLI.
+The CLI itself is installed on hosts, so a shipped CLI edit still legitimately changes host outputs.
+
+Baseline job evidence: run 42686330040 took 21:05 for Darwin (18:25 Nix), 0:27 for operations
+and 1:09 for Linux controller verification. A release.json-only PR/merge took 18:29/11:59 for
+Darwin in runs 42711463457/42711554105. These are samples, not controlled before/after results.
+Expected savings are hypotheses: avoid platform jobs for test-only edits; reuse unchanged package
+outputs for service edits. The candidate adds an explicit same-path before/after replay and
+per-cache receipts. PR #991 records final hosted measurements, independent reviews and exact-source
+CI/merge evidence. A local paired cold-target host test/build took 18.307s before and 5.541s
+after the process extraction (Cargo 1.99.1, four build jobs, pre-downloaded registry, same Mac);
+locked packages fell from 171 to 43. This is a package-level sample, not overall CI latency.
+Optional previews now follow actual UI/capture inputs rather than broad verification fan-out.
+
+The same-path hosted replay in run 42734665801 compared `de2417085` with `509d84133`:
+the first baseline Darwin handler took 1113.939s, while the candidate selected only operations
+at 32.248s. Local-warm handler maxima were 33.332s and 30.916s respectively. These are real
+per-check timings on equivalent hosted Mac images; the maximum is calculated from sequential
+handler runs, not a measured distributed critical path. Runner queues/setup are excluded.
+
+First-fill versus next-run measurements with unchanged Rust/container inputs in runs
+42734649922/42736105713 were 65s/37s for typecheck, 77s/38s for Rust tests and 195s/113s for
+the complete image job. Docker extraction still cost about 40s, included in those totals.
+This demonstrates warm reuse, not a guaranteed speedup for dependency changes or every CI run.
+
+Broader verification exposed two fixture assumptions. Folding's late-insertion test now seeds
+through ingestion so retained observations and week/month scores agree at calendar boundaries;
+its original assertions pass without mutation retries or production changes. The runner lease
+test explicitly models a descendant retaining stdin after `set` exits and waits for bounded
+quiescence, retaining held-lease, command-order and cleanup assertions. Focused reproductions
+failed before these corrections; all 30 runtime and 123 runner unit tests passed afterward.
+
+Nix subsequently exposed the same inherited-description issue in repeated CLI migrations.
+Process-owned migration/source locks now explicitly unlock when their owner exits, including
+error paths; intentionally delegated Tart leases retain their existing lifetime. A real-child
+descriptor regression proves exclusion while owned and release while an unrelated inheritor is
+still alive. The CLI patch version advances to 0.4.3 because 0.4.2 is already immutable/released.
+Its compiler cache also restores a compatible toolchain snapshot across lockfile/version changes;
+Cargo still validates every dependency and reruns all selected checks.
+
+The first signed-cache trial (42742435406) passed all builds but measured a
+3,729,512,128-byte whole-system closure, correctly exceeding the 2 GiB cap.
+Cache roots now contain only the compiled management client and host operations
+(and runner controller for full checks), retaining their runtime dependencies.
+Full flake evaluation, host builds and descriptor checks are unchanged. The
+focused cache-root regression and all 31 automation tests pass; independent
+review confirmed those roots are realized by the existing build commands.
+
+The narrowed export succeeded in 1.248s for 146,311,424 bytes; upload took 2s.
+Its next-run restore exposed a hosted Nix client issue: `copy --all` enumerated
+`hash-x` placeholder names and failed real dependency references. Restore now
+reads canonical `StorePath` names from the narinfo metadata and passes explicit
+paths; Nix signature validation remains enabled. This fallback run proves no
+Nix speedup; a successful corrected restore and net timing are still required.

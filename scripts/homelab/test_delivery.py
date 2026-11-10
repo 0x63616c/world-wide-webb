@@ -16,6 +16,17 @@ SPEC.loader.exec_module(d)
 
 class EvidenceTests(unittest.TestCase):
     def setUp(self):
+        selected = patch.object(
+            d,
+            "load_selection",
+            return_value={
+                "head": "a" * 40,
+                "event": "push",
+                "delivery_candidates": ["homelab.config"],
+            },
+        )
+        selected.start()
+        self.addCleanup(selected.stop)
         manifest = patch.object(
             d,
             "source_manifest",
@@ -82,6 +93,20 @@ class EvidenceTests(unittest.TestCase):
             with self.assertRaises(ValueError, msg=key):
                 d.validate_ci(self.intent, run, self.jobs)
 
+    def test_selected_service_checks_allow_only_deliberately_skipped_unrelated_jobs(self):
+        checks = ["homelab.operations", "homelab.darwin"]
+        jobs = copy.deepcopy(self.jobs)
+        jobs[2]["conclusion"] = "skipped"
+        jobs.append({"name": "Homelab CLI", "status": "completed", "conclusion": "skipped"})
+        d.validate_ci(self.intent, self.run, jobs, checks=checks)
+        for index, result in [(1, "skipped"), (2, "failure"), (3, "failure"), (5, "success")]:
+            changed = copy.deepcopy(jobs)
+            changed[index]["conclusion"] = result
+            with self.assertRaises(ValueError):
+                d.validate_ci(self.intent, self.run, changed, checks=checks)
+        with self.assertRaises(ValueError):
+            d.validate_ci(self.intent, self.run, jobs, checks=["homelab.operations"])
+
     def test_manual_reconciliation_requires_explicit_manual_permission(self):
         self.run["event"] = "workflow_dispatch"
         with self.assertRaises(ValueError):
@@ -113,6 +138,9 @@ class EvidenceTests(unittest.TestCase):
                 ),
                 patch.object(d, "Store") as store,
                 patch.object(d, "gh", side_effect=download),
+                patch.object(
+                    d, "load_selection", return_value={"head": "a" * 40, "event": "push", "delivery_candidates": []}
+                ),
                 patch.object(d, "source_configuration", return_value={}),
                 patch.object(d.inputs, "input_hash", return_value="b" * 64),
                 patch.object(d, "promote") as publish,

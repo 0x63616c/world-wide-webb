@@ -26,7 +26,7 @@ jobs:
         uses: ./.github/actions/affected
         with:
           base: ${{ github.event.pull_request.base.sha }}
-          intent: verify
+          intent: preview
 
   tip-jar:
     needs: changes

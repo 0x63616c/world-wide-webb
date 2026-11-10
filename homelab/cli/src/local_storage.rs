@@ -4,6 +4,21 @@ use std::io;
 use std::os::unix::fs::{DirBuilderExt, MetadataExt};
 use std::path::{Path, PathBuf};
 
+// Migration owns these locks entirely in this process. Explicitly unlock on
+// scope exit so an unrelated fork cannot extend their lifetime until exec.
+struct MigrationLock(File);
+impl MigrationLock {
+    fn acquire(file: File) -> io::Result<Self> {
+        rustix::fs::flock(&file, rustix::fs::FlockOperation::NonBlockingLockExclusive)?;
+        Ok(Self(file))
+    }
+}
+impl Drop for MigrationLock {
+    fn drop(&mut self) {
+        let _ = rustix::fs::flock(&self.0, rustix::fs::FlockOperation::Unlock);
+    }
+}
+
 pub fn migrate(home: &Path) -> io::Result<()> {
     let root = home.join(".homelab");
     let sources = [
@@ -46,15 +61,14 @@ pub fn migrate(home: &Path) -> io::Result<()> {
             | rustix::fs::OFlags::CLOEXEC,
         rustix::fs::Mode::from_bits_truncate(0o600),
     )?;
-    rustix::fs::flock(&lock, rustix::fs::FlockOperation::NonBlockingLockExclusive)?;
+    let _migration_lock = MigrationLock::acquire(File::from(lock))?;
     let mut locks = Vec::new();
     for (source, _) in &moves {
         if source
             .file_name()
             .is_some_and(|name| name.to_string_lossy().ends_with("lock"))
         {
-            let file = File::open(source)?;
-            rustix::fs::flock(&file, rustix::fs::FlockOperation::NonBlockingLockExclusive)?;
+            let file = MigrationLock::acquire(File::open(source)?)?;
             locks.push(file);
         }
     }
@@ -160,6 +174,34 @@ fn remove_empty(path: &Path) -> io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn migration_lock_does_not_outlive_its_owner_after_an_unrelated_fork() {
+        use std::process::{Command, Stdio};
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("migration.lock");
+        let owner = MigrationLock::acquire(File::create(&path).unwrap()).unwrap();
+        let mut child = Command::new("/bin/sleep")
+            .arg("3")
+            .stdin(Stdio::from(owner.0.try_clone().unwrap()))
+            .spawn()
+            .unwrap();
+        let probe = File::open(&path).unwrap();
+        assert_eq!(
+            rustix::fs::flock(&probe, rustix::fs::FlockOperation::NonBlockingLockExclusive),
+            Err(rustix::io::Errno::WOULDBLOCK)
+        );
+        drop(owner);
+        let released =
+            rustix::fs::flock(&probe, rustix::fs::FlockOperation::NonBlockingLockExclusive);
+        let child_still_alive = child.try_wait().unwrap().is_none();
+        child.kill().unwrap();
+        child.wait().unwrap();
+        assert!(child_still_alive);
+        assert!(
+            released.is_ok(),
+            "Finished migration retained its lock: {released:?}"
+        );
+    }
     #[test]
     fn migration_preserves_bytes_permissions_and_profiles_and_repeats_safely() {
         use std::os::unix::fs::PermissionsExt;

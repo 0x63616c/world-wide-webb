@@ -2363,8 +2363,9 @@ exit 0
         let directory = lease_directory();
         let fixture = directory.path().join("tart-fixture");
         let events = directory.path().join("events");
-        // A small CLI fixture records which pinned subcommands actually ran.
-        std::fs::write(&fixture,format!("#!/bin/sh\nprintf '%s\\n' \"$1\" >> '{}'\nif [ \"$1\" = list ]; then printf '[]'; else /bin/sleep 0.05; fi\n",events.display())).unwrap();
+        // Retain stdin briefly after set exits, like a descendant or concurrent
+        // fork holding the operation lease until its exec/exit boundary.
+        std::fs::write(&fixture,format!("#!/bin/sh\nprintf '%s\\n' \"$1\" >> '{}'\nif [ \"$1\" = list ]; then printf '[]'; else /bin/sleep 0.05; fi\nif [ \"$1\" = set ]; then /bin/sleep 0.1 <&0 >/dev/null 2>&1 & fi\n",events.display())).unwrap();
         std::fs::set_permissions(&fixture, std::fs::Permissions::from_mode(0o700)).unwrap();
         let tart = lease_adapter(directory.path(), &fixture);
         let name = lease_name();
@@ -2392,7 +2393,14 @@ exit 0
             Err(TartError::CloneLeaseBusy)
         ));
         cloning.await.unwrap().unwrap();
-        assert!(tart.clone_operation_finished(&name).unwrap());
+        let deadline = std::time::Instant::now() + Duration::from_secs(2);
+        while !tart.clone_operation_finished(&name).unwrap() {
+            assert!(
+                std::time::Instant::now() < deadline,
+                "Clone/set lease was not released"
+            );
+            tokio::time::sleep(Duration::from_millis(5)).await;
+        }
         assert_eq!(std::fs::read_to_string(&events).unwrap(), "clone\nset\n");
         tart.delete(&name).await.unwrap();
         assert!(!directory.path().join(clone_lease_filename(&name)).exists());

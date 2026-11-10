@@ -47,7 +47,13 @@ def source_manifest(source):
     return source_document(source, "homelab.json")
 
 
-def validate_ci(intent, run, jobs, allow_manual=False):
+def load_selection(run_id):
+    with tempfile.TemporaryDirectory(prefix="homelab-source-evidence-") as directory:
+        gh("run", "download", str(run_id), "--repo", REPOSITORY, "--name", "homelab-selection", "--dir", directory)
+        return json.loads((Path(directory) / "ci-selection.json").read_text())
+
+
+def validate_ci(intent, run, jobs, allow_manual=False, checks=None):
     validate_intent(intent)
     if (
         run.get("id") != intent["run_id"]
@@ -61,15 +67,21 @@ def validate_ci(intent, run, jobs, allow_manual=False):
         or run.get("conclusion") != "success"
     ):
         raise ValueError("CI source, attempt or trust context differs")
-    for name in (
-        "Homelab selection",
-        "Homelab operations",
-        "Homelab Linux controller",
-        "Homelab Darwin configuration",
-        "Homelab checks",
+    if checks is not None and (not isinstance(checks, list) or "homelab.darwin" not in checks):
+        raise ValueError("Host delivery requires its selected Darwin verification")
+    expected = dict.fromkeys(("Homelab selection", "Homelab Darwin configuration", "Homelab checks"), "success")
+    for name, check in (
+        ("Homelab operations", "homelab.operations"),
+        ("Homelab Linux controller", "homelab.linux"),
+        ("Homelab CLI", "homelab.cli"),
     ):
+        if checks is not None:
+            expected[name] = "success" if check in checks else "skipped"
+        elif check != "homelab.cli":
+            expected[name] = "success"
+    for name, conclusion in expected.items():
         matches = [job for job in jobs if job.get("name") == name]
-        if len(matches) != 1 or matches[0].get("status") != "completed" or matches[0].get("conclusion") != "success":
+        if len(matches) != 1 or matches[0].get("status") != "completed" or matches[0].get("conclusion") != conclusion:
             raise ValueError("Selected host checks did not all succeed")
 
 
@@ -85,12 +97,15 @@ def verify(intent, selection=None, allow_manual=False):
             break
     else:
         raise ValueError("CI job inventory exceeds its bound")
-    validate_ci(intent, run, jobs, allow_manual)
+    selection = selection if selection is not None else load_selection(intent["run_id"])
+    if selection.get("head") != intent["source"] or selection.get("event") != "push":
+        raise ValueError("Selection artifact has a different source/context")
+    validate_ci(intent, run, jobs, allow_manual, selection.get("checks"))
     if selection is not None:
         if (
             selection.get("head") != intent["source"]
             or selection.get("event") != "push"
-            or "homelab.config" not in selection.get("delivery_candidates", [])
+            or (not allow_manual and "homelab.config" not in selection.get("delivery_candidates", []))
         ):
             raise ValueError("CI did not select host delivery for this source")
     source = intent["source"]
@@ -145,19 +160,7 @@ def main():
         }
         selection = None
         if not manual:
-            with tempfile.TemporaryDirectory(prefix="homelab-source-evidence-") as directory:
-                gh(
-                    "run",
-                    "download",
-                    str(run_id),
-                    "--repo",
-                    REPOSITORY,
-                    "--name",
-                    "homelab-selection",
-                    "--dir",
-                    directory,
-                )
-                selection = json.loads((Path(directory) / "ci-selection.json").read_text())
+            selection = load_selection(run_id)
             if selection.get("head") != source or selection.get("event") != "push":
                 raise ValueError("Selection artifact has a different source/context")
             if "homelab.config" not in selection.get("delivery_candidates", []):

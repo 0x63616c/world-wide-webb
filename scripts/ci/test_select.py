@@ -48,7 +48,7 @@ class SelectionTests(unittest.TestCase):
 
     def test_tooling_verifies_but_does_not_ship(self):
         result = selection.select([".github/workflows/ci.yml"], CONFIG)
-        self.assertEqual(set(result["verify"]), set(CONFIG["units"]))
+        self.assertEqual(set(result["verify"]), {"control-center.tooling", "control-center.server", "control-center.native", "control-center.contracts"})
         self.assertEqual(result["delivery_candidates"], [])
 
     def test_docs_do_not_activate_hosts_or_ship_apps(self):

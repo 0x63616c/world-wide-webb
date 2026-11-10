@@ -5,11 +5,10 @@ COPY Cargo.toml Cargo.lock rust-toolchain.toml ./
 COPY server ./server
 ARG BUILD_HASH=local
 ENV BUILD_HASH=$BUILD_HASH
-RUN --mount=type=cache,target=/usr/local/cargo/registry \
-    --mount=type=cache,target=/usr/local/cargo/git \
-    --mount=type=cache,target=/app/target \
+ENV CARGO_HOME=/cargo-cache/cargo CARGO_TARGET_DIR=/cargo-cache/target
+RUN --mount=type=cache,target=/cargo-cache \
     cargo build --locked --release -p www-server && \
-    cp target/release/www-server /usr/local/bin/www-server
+    cp /cargo-cache/target/release/www-server /usr/local/bin/www-server
 
 FROM debian:bookworm-slim AS runtime
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates \
