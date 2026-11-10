@@ -111,6 +111,27 @@ class DeliveryTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "app.yml version"):
                     delivery.tag_target("refs/tags/tendr/v1.2.4", source)
 
+    def test_ruby_dependency_caches_do_not_dirty_release_source_but_source_edits_do(self):
+        with tempfile.TemporaryDirectory() as directory:
+            repo = Path(directory)
+            def git(*args):
+                return subprocess.check_output(["git", "-c", "core.excludesFile=/dev/null", *args], cwd=repo, text=True).strip()
+            git("init", "-q", "-b", "main")
+            git("config", "user.name", "Fixture")
+            git("config", "user.email", "fixture@example.invalid")
+            git("config", "commit.gpgsign", "false")
+            (repo / ".gitignore").write_text((ROOT / ".gitignore").read_text())
+            (repo / "App.swift").write_text("// source")
+            git("add", ".")
+            git("commit", "-qm", "Fixture")
+            for filename in (".bundle/config", "vendor/bundle/cache/fixture.gem"):
+                path = repo / filename
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("synthetic dependency cache")
+            self.assertEqual(git("status", "--porcelain"), "")
+            (repo / "App.swift").write_text("// changed source")
+            self.assertIn("App.swift", git("status", "--porcelain"))
+
     def test_signing_access_exports_only_the_required_vault_field(self):
         import contextlib
         import os
