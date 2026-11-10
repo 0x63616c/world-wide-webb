@@ -119,3 +119,44 @@ jobs:
         test -n "$CLOUDFLARE_ACCOUNT_ID"
         wrangler_version=$(node -p "require('./apps/folding/backend/package.json').devDependencies.wrangler")
         npx --yes "wrangler@$wrangler_version" deploy --config sites/folding/wrangler.jsonc
+
+  tendr-publication:
+    name: Publish Tendr website
+    needs: [selection, gate]
+    if: >-
+      github.event_name == 'push' && github.ref == 'refs/heads/main' &&
+      contains(fromJSON(needs.selection.outputs.delivery), 'sites.pages')
+    runs-on: ubuntu-24.04-arm
+    environment: production
+    timeout-minutes: 10
+    concurrency:
+      group: tendr-site
+      cancel-in-progress: false
+    steps:
+    - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      with:
+        persist-credentials: true
+        fetch-depth: 0
+    - uses: oven-sh/setup-bun@v2
+      with:
+        bun-version: '1.4.4'
+    - uses: actions/download-artifact@v4
+      with:
+        name: public-pages-${{ github.sha }}
+        path: ${{ runner.temp }}/public-site
+    - name: Check current site source
+      id: current
+      run: |
+        git fetch --quiet --no-tags origin main
+        if git diff --quiet "$GITHUB_SHA" origin/main -- sites/tendr sites/.pages \
+          sites/tendr.wrangler.jsonc sites/tendr-tools.json scripts/build-site.sh scripts/publish-site.sh; then
+          echo 'publish=true' >> "$GITHUB_OUTPUT"
+        else
+          echo 'A newer Tendr site source supersedes this publication.'
+        fi
+    - name: Publish verified Tendr assets
+      if: steps.current.outputs.publish == 'true'
+      env:
+        CLOUDFLARE_API_TOKEN: ${{ secrets.TENDR_SITE_DEPLOY_TOKEN }}
+        CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+      run: scripts/publish-site.sh "$RUNNER_TEMP/public-site"

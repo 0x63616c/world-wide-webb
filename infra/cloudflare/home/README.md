@@ -28,3 +28,11 @@ change. A manual run explicitly reconciles the configuration from its supplied s
 CI run, even if that run selected no infrastructure changes. Both paths retain encrypted state,
 OpenTofu locking, the saved-plan deletion guard and local encrypted before-copies. This workflow
 does not deploy app code, activate Nix generations or replace the existing state backend.
+
+## Tendr public website
+
+`tendr.tf` owns the proxied `tendr.worldwidewebb.co` DNS record and route to the
+`tendr-web-production` Worker. This hostname serves public static content directly at Cloudflare;
+it is not tunnel ingress and has no home Access policy. Tendr's independent site publisher owns
+Worker code/assets. Publish that Worker before applying its route. No retained service changes
+are required. See `sites/README.md` from the repository root.

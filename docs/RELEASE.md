@@ -66,8 +66,9 @@ Folding’s production/staging websites publish from `sites/folding` through `Si
 `FOLDING_SITE_DELIVERY_ENABLED`. OpenTofu applies retained home infrastructure through the
 `Apply Cloudflare` workflow with `OPEN_TOFU_DEPLOY_ENABLED`; it reuses existing encrypted state.
 
-Tendr’s former `apps/gh-pages` host was deleted at the owner’s request. The legacy publisher
-is removed; existing app/listing links need replacement Cloudflare URLs in [#1007](https://github.com/0x63616c/world-wide-webb/issues/1007).
-Until that follow-up lands, static Tendr source still builds locally/CI but has no maintained
-publication destination. See [sites](../sites/README.md). Do not restore the deleted repository
-or describe the old URLs as supported.
+Tendr publishes the existing static site to `https://tendr.worldwidewebb.co/` through `Sites`
+on selected main pushes, using `TENDR_SITE_DEPLOY_TOKEN`. Its app/listing URLs point to this host;
+the normal Tendr pipeline delivers the binary and uploads metadata through `ios finish_release`.
+For a listing-only update, the existing handler is `bundle exec fastlane ios metadata app:tendr skip_screenshots:true`. This does not submit an app or upload a binary. Verify the
+live website before uploading its URLs. See [sites](../sites/README.md) for configuration and
+ownership. Old GitHub Pages links in installed builds require an app update.

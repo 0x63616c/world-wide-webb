@@ -1,7 +1,7 @@
 # App Store readiness plan
 
 > **Status: Phases 1–4 done on 2026-10-09 (PT).**
-> Decisions: **mg-only dose entry for 1.0** (option A for blocker 3). Privacy and support pages are live at <https://0x63616c.github.io/apps/tendr/privacy/> and <https://0x63616c.github.io/apps/tendr/support/> (source in `site/`, published with `scripts/publish-site.sh`).
+> Decisions: **mg-only dose entry for 1.0** (option A for blocker 3). Privacy and support pages are live at <https://tendr.worldwidewebb.co/privacy/> and <https://tendr.worldwidewebb.co/support/> (source in `sites/tendr/`, published from WWW with `scripts/publish-site.sh`).
 > Screenshots, listing and the `App Store release` workflow are in place ([RELEASE.md](RELEASE.md#app-store-review-preparation)). Next: Phase 5. Calum completes Age Rating, App Privacy and the review phone number in App Store Connect, then presses **Submit for Review**.
 
 ## Progress
@@ -46,7 +46,7 @@ Goal: get Tendr through App Store review the first time. That means a profession
 ## Blockers (likely to cause a rejection)
 
 ### 1. No privacy policy or support URL ✅ pages live
-**Done 2026-10-09.** Privacy: <https://0x63616c.github.io/apps/tendr/privacy/> · Support: <https://0x63616c.github.io/apps/tendr/support/> (contact `support@worldwidewebb.co`). Source is in `site/`; `scripts/publish-site.sh` publishes it to the `gh-pages` branch, so `docs/` stays private. Still to do: put both URLs in App Store Connect (`privacy_url.txt` / `support_url.txt` in Phase 3) and link the privacy policy from Settings › Privacy & About in the app (Phase 1).
+Privacy: <https://tendr.worldwidewebb.co/privacy/> · Support: <https://tendr.worldwidewebb.co/support/> (contact `support@worldwidewebb.co`). WWW's `sites/tendr/` content publishes to Cloudflare; the app's Privacy & About links and `fastlane/metadata/en-US/*_url.txt` use the canonical host. App Store Connect updates use the normal metadata/release handler. Old installed builds retain their retired GitHub Pages links until updated.
 
 A HealthKit app must link a privacy policy, both in App Store Connect and inside the app. A support URL is required for every app. Guidelines 5.1.1 and 5.1.3.
 

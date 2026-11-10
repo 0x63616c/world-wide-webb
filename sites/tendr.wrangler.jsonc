@@ -1,0 +1,11 @@
+{
+  "name": "tendr-web-production",
+  "compatibility_date": "2026-11-10",
+  "workers_dev": false,
+  "preview_urls": false,
+  "assets": {
+    "directory": "../build/public-site/tendr",
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "404-page"
+  }
+}

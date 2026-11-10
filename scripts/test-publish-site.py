@@ -1,157 +1,74 @@
 #!/usr/bin/env python3
-"""Exercise real site publication against a throwaway local origin, without network."""
+"""Check public asset isolation and the real Cloudflare publisher without network."""
 from pathlib import Path
+import json
 import os
 import shutil
 import subprocess
 import tempfile
 
 ROOT = Path(__file__).resolve().parent.parent
-
 with tempfile.TemporaryDirectory(prefix="publish-site-") as directory:
-    base = Path(directory)
-    origin = base / "origin.git"
+    base = Path(directory).resolve()
     root = base / "repo"
-    root.mkdir()
-
-    def git(*args):
-        return subprocess.check_output(["git", *args], cwd=root, text=True).strip()
-
-    def write(path, content):
-        target = root / path
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(content)
-
-    git("init", "--bare", "-q", str(origin))
-    git("init", "-q", "-b", "main")
-    git("config", "user.name", "Calum")
-    git("config", "user.email", "6991398+0x63616c@users.noreply.github.com")
-    git("remote", "add", "origin", str(origin))
-    (root / "scripts").mkdir()
+    (root / "scripts").mkdir(parents=True)
     for script in ["build-site.sh", "publish-site.sh"]:
         shutil.copy2(ROOT / "scripts" / script, root / "scripts" / script)
-    write("sites/.pages", "samplr\n")
-    write("sites/folding/build.mjs", "Private build machinery must not be published\n")
-    write("sites/folding/README.md", "Private source docs\n")
-    write("sites/.retain", "# Keep retired apps\n\noldapp\nretired\nsamplr\nmissing")
-    write("sites/.legacy-root", "samplr\n")
-    write("sites/README.md", "Private publishing instructions\n")
-    write("sites/samplr/index.html", "New Samplr\n")
-    write("sites/samplr/privacy/index.html", "New privacy\n")
-    git("add", ".")
-    git("commit", "-qm", "Source fixture")
-    git("push", "-q", "origin", "main")
-    first_source = git("rev-parse", "HEAD")
+    (root / "sites").mkdir()
+    for name in ["tendr-tools.json", "tendr.wrangler.jsonc"]:
+        shutil.copy2(ROOT / "sites" / name, root / "sites" / name)
+    (root / "sites/.pages").write_text("tendr\n")
+    (root / "sites/tendr/privacy").mkdir(parents=True)
+    (root / "sites/tendr/support").mkdir()
+    for path in ["index.html", "privacy/index.html", "support/index.html"]:
+        (root / "sites/tendr" / path).write_text(path)
+    (root / "sites/folding").mkdir()
+    (root / "sites/folding/worker.js").write_text("must never publish")
+    (root / "sites/README.md").write_text("private instructions")
+    artifact = base / "verified"
+    subprocess.run(["bash", "scripts/build-site.sh", str(artifact)], cwd=root, check=True)
+    assert not (artifact / "folding").exists()
+    assert not (artifact / "README.md").exists()
+    binary = base / "bin"
+    binary.mkdir()
+    invocation = base / "invocation.json"
+    fake = binary / "bunx"
+    fake.write_text("#!/usr/bin/env python3\nimport json,os,sys\n"
+                    "json.dump(sys.argv[1:],open(os.environ['INVOCATION'],'w'))\n"
+                    "sys.exit(int(os.environ.get('DEPLOY_EXIT','0')))\n")
+    fake.chmod(0o755)
+    env = dict(os.environ, PATH=str(binary) + os.pathsep + os.environ["PATH"],
+               CLOUDFLARE_API_TOKEN="fixture-only", CLOUDFLARE_ACCOUNT_ID="fixture-only",
+               INVOCATION=str(invocation))
 
-    git("checkout", "-qb", "gh-pages")
-    git("rm", "-rq", ".")
-    for app in ["oldapp", "retired", "samplr", "obsolete"]:
-        write(f"{app}/index.html", f"Old {app}\n")
-        write(f"{app}/support/index.html", f"Old {app} support\n")
-    git("add", ".")
-    git("commit", "-qm", "Published fixture")
-    git("push", "-q", "origin", "gh-pages")
-    git("checkout", "-q", "main")
+    def publish(**changes):
+        invocation.unlink(missing_ok=True)
+        return subprocess.run(["bash", "scripts/publish-site.sh", str(artifact)], cwd=root,
+                              env=dict(env, **changes), capture_output=True, text=True)
 
-    target = base / "pages"
-    git("clone", "-q", "--single-branch", "--branch", "gh-pages", str(origin), str(target))
-    subprocess.check_call(["git", "config", "user.name", "Fixture publisher"], cwd=target)
-    subprocess.check_call(["git", "config", "user.email", "fixture@example.invalid"], cwd=target)
-
-    def publish(prepared=None):
-        return subprocess.check_output(
-            ["bash", "scripts/publish-site.sh", str(target), *([str(prepared)] if prepared else [])], cwd=root, text=True,
-            env=dict(os.environ, SITE_PUBLISH_REMOTE=str(origin))
-        )
-
-    def published(path):
-        git("fetch", "-q", "origin", "gh-pages")
-        return git("show", f"origin/gh-pages:{path}")
-
-    assert "Published site" in publish()
-    for app in ["oldapp", "retired"]:
-        assert published(f"{app}/index.html") == f"Old {app}"
-        assert published(f"{app}/support/index.html") == f"Old {app} support"
-    assert published("samplr/index.html") == "New Samplr"
-    assert published("samplr/privacy/index.html") == "New privacy"
-    assert published("index.html") == "New Samplr", "Legacy root must still mirror"
-    assert published("privacy/index.html") == "New privacy"
-    files = git("ls-tree", "-r", "--name-only", "origin/gh-pages").splitlines()
-    assert not any(path.startswith(("obsolete/", "missing/", "samplr/support/")) for path in files)
-    assert not {".retain", ".legacy-root", ".pages", "README.md"}.intersection(files)
-    assert not any(name.startswith("folding/") for name in files), "Worker source must remain private"
-    assert ".nojekyll" in files
-    assert "[skip ci]" in git("log", "-1", "--format=%s", "origin/gh-pages")
-
-    head = git("rev-parse", "origin/gh-pages")
-    assert "gh-pages already up to date" in publish()
-    assert git("rev-parse", "origin/gh-pages") == head
-    assert git("status", "--porcelain") == ""
-
-    prepared = base / "tested-public-site"
-    subprocess.check_call(["bash", "scripts/build-site.sh", str(prepared)], cwd=root)
-    assert "gh-pages already up to date" in publish(prepared)
-    (prepared / "private.yaml").write_text("must not publish")
-    result = subprocess.run(["bash", "scripts/publish-site.sh", str(target), str(prepared)], cwd=root,
-                            env=dict(os.environ, SITE_PUBLISH_REMOTE=str(origin)), capture_output=True, text=True)
+    assert publish().returncode == 0
+    args = json.loads(invocation.read_text())
+    assert args == ["wrangler@" + json.loads((root / "sites/tendr-tools.json").read_text())["wrangler"],
+                    "deploy", "--config", str(root / "sites/tendr.wrangler.jsonc"),
+                    "--assets", str(artifact / "tendr")]
+    assert publish(DEPLOY_EXIT="1").returncode != 0, "Deployment failure must propagate"
+    assert publish(CLOUDFLARE_API_TOKEN="").returncode != 0
+    assert not invocation.exists()
+    (artifact / "private.yaml").write_text("unexpected")
+    result = publish()
     assert result.returncode != 0 and "differs" in result.stderr
-    assert subprocess.check_output(["git", "status", "--porcelain"], cwd=target, text=True).strip() == ""
-
-    # An unreviewed private file inside an explicitly public root fails closed.
-    write("sites/samplr/README.md", "Private instructions")
-    result = subprocess.run(["bash", "scripts/build-site.sh", str(base / "unsafe-preview")], cwd=root,
+    assert not invocation.exists()
+    (artifact / "private.yaml").unlink()
+    (artifact / "tendr/privacy/index.html").unlink()
+    assert publish().returncode != 0 and not invocation.exists()
+    (root / "sites/tendr/README.md").write_text("private")
+    result = subprocess.run(["bash", "scripts/build-site.sh", str(base / "unsafe")], cwd=root,
                             capture_output=True, text=True)
     assert result.returncode != 0 and "nonpublic" in result.stderr
-    (root / "sites/samplr/README.md").unlink()
+    (root / "sites/tendr/README.md").unlink()
+    (root / "sites/tendr/private.txt").symlink_to(root / "sites/README.md")
+    result = subprocess.run(["bash", "scripts/build-site.sh", str(base / "symlink")], cwd=root,
+                            capture_output=True, text=True)
+    assert result.returncode != 0 and "regular" in result.stderr
 
-    # Removing the opt-in file permits previously retained pages to disappear.
-    (root / "sites/.retain").unlink()
-    git("add", ".")
-    git("commit", "-qm", "Remove retention fixture")
-    assert "Published site" in publish()
-    git("fetch", "-q", "origin", "gh-pages")
-    assert git("ls-tree", "--name-only", "origin/gh-pages", "oldapp", "retired") == ""
-
-    # A delayed older source cannot replace a newer published site.
-    write("sites/samplr/index.html", "Newest Samplr\n")
-    git("add", ".")
-    git("commit", "-qm", "Newest public source")
-    assert "Published site" in publish()
-    latest = published("samplr/index.html")
-    git("checkout", "-q", "--detach", first_source)
-    assert "Newer public site already published" in publish()
-    assert published("samplr/index.html") == latest
-
-
-    git("checkout", "-q", "main")
-    write("sites/samplr/index.html", "Intermediate Samplr\n")
-    git("add", ".")
-    git("commit", "-qm", "Intermediate public source")
-    intermediate = git("rev-parse", "HEAD")
-    write("sites/samplr/index.html", "Newest Samplr\n")
-    git("add", ".")
-    git("commit", "-qm", "Restore same public output at newer source")
-    assert "Published site" in publish(), "Identical newer output must still advance source authority"
-    git("checkout", "-q", "--detach", intermediate)
-    assert "Newer public site already published" in publish()
-    assert published("samplr/index.html") == "Newest Samplr"
-
-
-    # A failed push leaves a private local commit, never a confirmed remote publication.
-    git("checkout", "-q", "main")
-    write("sites/samplr/index.html", "Unpublished candidate\n")
-    git("add", ".")
-    git("commit", "-qm", "Candidate whose push fails")
-    rejection = origin / "hooks/pre-receive"
-    rejection.write_text("#!/bin/sh\nexit 1\n")
-    rejection.chmod(0o755)
-    command = ["bash", "scripts/publish-site.sh", str(target)]
-    environment = dict(os.environ, SITE_PUBLISH_REMOTE=str(origin))
-    failed = subprocess.run(command, cwd=root, env=environment, capture_output=True, text=True)
-    assert failed.returncode != 0
-    retried = subprocess.run(command, cwd=root, env=environment, capture_output=True, text=True)
-    assert retried.returncode != 0 and "fresh clean Pages checkout" in retried.stderr
-    assert published("samplr/index.html") == "Newest Samplr"
-
-
-print("Site publication checks passed (retention, build priority, removal, legacy root, no-op).")
+print("PASS: public asset isolation, verified artifact, Tendr-only upload and failure propagation")

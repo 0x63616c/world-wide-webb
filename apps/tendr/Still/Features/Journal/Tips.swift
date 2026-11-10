@@ -10,8 +10,8 @@ extension RTipJar {
     ])
 }
 
-/// The public pages for this app on the shared -r site (site/tendr/).
+/// Canonical public privacy and support pages, published from sites/tendr.
 enum AppLinks {
-    static let privacy = URL(string: "https://0x63616c.github.io/apps/tendr/privacy/")!
-    static let support = URL(string: "https://0x63616c.github.io/apps/tendr/support/")!
+    static let privacy = URL(string: "https://tendr.worldwidewebb.co/privacy/")!
+    static let support = URL(string: "https://tendr.worldwidewebb.co/support/")!
 }

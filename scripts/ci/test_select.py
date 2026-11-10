@@ -14,6 +14,17 @@ CONFIG = json.loads(selection.CONFIG.read_text())
 
 
 class SelectionTests(unittest.TestCase):
+    def test_tendr_publication_inputs_do_not_ship_folding(self):
+        for path in ["sites/tendr/index.html", "sites/tendr.wrangler.jsonc", "scripts/publish-site.sh"]:
+            result = selection.select([path], CONFIG)
+            self.assertIn("sites.pages", result["verify"])
+            self.assertEqual(result["delivery_candidates"], ["sites.pages"])
+        result = selection.select(["scripts/test-publish-site.py"], CONFIG)
+        self.assertIn("sites.pages", result["verify"])
+        self.assertEqual(result["delivery_candidates"], [])
+        result = selection.select(["sites/folding/index.html"], CONFIG)
+        self.assertNotIn("sites.pages", result["verify"])
+
     def test_retired_app_deletions_do_not_select_unrelated_products(self):
         result = selection.select(["apps/airmiles/app.yml", "apps/airmiles/App/AirMilesApp.swift"], CONFIG)
         for key in ("verify", "checks", "previews", "delivery_candidates", "unmapped"):
