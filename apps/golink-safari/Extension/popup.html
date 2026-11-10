@@ -1,3 +1,15 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Golink</title><link rel="stylesheet" href="style.css"><script type="module" src="popup.js"></script></head>
-<body><main><h1>Type go/repo</h1><p>Use Safari’s address bar with Google as your search engine. Connect to Tailscale to open your links.</p><p id="status" role="status">Checking Safari permissions…</p></main></body></html>
+<body class="popup">
+  <main>
+    <header class="popup-header">
+      <h1 aria-label="Golink">go/</h1>
+      <p id="status" role="status" data-state="checking">Checking…</p>
+    </header>
+    <p class="popup-hint">Type in Safari’s address bar</p>
+    <div class="popup-example"><code>go/repo</code><span aria-hidden="true">↵</span></div>
+    <p class="popup-requirements">Use Google search with Tailscale connected.</p>
+    <p id="status-detail" role="status" hidden></p>
+    <a id="open-links" target="_blank" rel="noreferrer">Open links <span aria-hidden="true">↗</span></a>
+  </main>
+</body></html>
