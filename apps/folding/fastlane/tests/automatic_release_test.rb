@@ -95,16 +95,17 @@ class ReleaseConfigurationTest < Minitest::Test
       when ["PATCH", "/v1/apps/6832059501"]
         @rights = body.dig("data", "attributes", "contentRightsDeclaration"); {}
       when ["GET", "/v1/apps/6832059501/appPriceSchedule"]
-        {"data" => schedule && {"id" => "schedule"}}
+        {"data" => {"id" => "schedule"}}
       when ["POST", "/v1/appPriceSchedules"]
         raise "Must use real free point" unless body.dig("included", 0, "relationships", "appPricePoint", "data", "id") == "real-free-point"
         @schedule = true; {}
       when ["GET", "/v1/appPriceSchedules/schedule/manualPrices?include=appPricePoint&limit=200"]
-        {"data" => [{"id" => "base"}], "included" => [{"type" => "appPricePoints", "attributes" => {"customerPrice" => price}}]}
+        schedule ? {"data" => [{"id" => "base"}], "included" => [{"type" => "appPricePoints", "attributes" => {"customerPrice" => price}}]} : {"data" => []}
       else raise "Unexpected Apple operation"
       end
     end
     def all(path)
+      return [] if path.include?("automaticPrices")
       raise "Wrong lookup" unless path.include?("appPricePoints")
       [{"id" => "real-paid-point", "attributes" => {"customerPrice" => "1.00"}}, {"id" => "real-free-point", "attributes" => {"customerPrice" => "0.00"}}]
     end

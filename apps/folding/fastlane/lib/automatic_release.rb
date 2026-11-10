@@ -88,7 +88,14 @@ module FoldingRelease
         raise "Apple content rights readback differs" unless actual == expected
       end
       schedule = api.request("GET", "/v1/apps/#{id}/appPriceSchedule", missing: true)&.fetch("data")
-      unless schedule
+      price_path = ->(schedule) { "/v1/appPriceSchedules/#{schedule.fetch('id')}/manualPrices?include=appPricePoint&limit=200" }
+      prices = schedule && api.request("GET", price_path.call(schedule))
+      # Apple returns a schedule shell even before a first price is configured.
+      unless prices && !prices.fetch("data").empty?
+        if schedule
+          automatic = api.all("/v1/appPriceSchedules/#{schedule.fetch('id')}/automaticPrices?limit=200")
+          raise "Existing automatic pricing has no base; inspect Apple pricing" unless automatic.empty?
+        end
         points = api.all("/v1/apps/#{id}/appPricePoints?filter%5Bterritory%5D=USA&limit=200")
         free = points.select { |point| BigDecimal(point.fetch("attributes").fetch("customerPrice")) == 0 }
         raise "Expected one real Apple free price point" unless free.one?
@@ -99,9 +106,14 @@ module FoldingRelease
         body["included"] = [{"type" => "appPrices", "id" => inline, "attributes" => {"startDate" => nil},
           "relationships" => {"appPricePoint" => ReviewSubmission.relationship("appPricePoints", free.first.fetch("id"))}}]
         api.request("POST", "/v1/appPriceSchedules", body: body)
-        schedule = api.request("GET", "/v1/apps/#{id}/appPriceSchedule").fetch("data")
+        7.times do |attempt|
+          schedule = api.request("GET", "/v1/apps/#{id}/appPriceSchedule").fetch("data")
+          prices = schedule && api.request("GET", price_path.call(schedule))
+          break if prices && !prices.fetch("data").empty?
+          sleep 5 if attempt < 6
+        end
       end
-      prices = api.request("GET", "/v1/appPriceSchedules/#{schedule.fetch('id')}/manualPrices?include=appPricePoint&limit=200")
+      raise "Apple price readback is still pending; resume to reconcile" unless prices
       points = prices.fetch("included", []).select { |row| row["type"] == "appPricePoints" }
       raise "Folding must remain free; inspect Apple pricing" unless !prices.fetch("data").empty? && !points.empty? && points.all? { |point| BigDecimal(point.fetch("attributes").fetch("customerPrice")) == 0 }
     end
