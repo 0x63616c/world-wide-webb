@@ -1312,7 +1312,7 @@ private struct FoldIllustration: View {
   }
 }
 
-private struct LeaderboardScreen: View {
+struct LeaderboardScreen: View {
   @Environment(\.colorScheme) private var colorScheme
   @State private var selectedParticipantID: String?
   @Bindable var model: FoldingPresentation
