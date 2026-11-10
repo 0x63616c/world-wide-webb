@@ -5,7 +5,7 @@ inputs:
     description: Base commit (empty uses merge-base with origin/main)
     default: ''
   intent:
-    description: verify or ship
+    description: verify, ship or optional UI preview
     default: verify
   only:
     description: Optional app.yml capability
@@ -41,7 +41,7 @@ runs:
       run: |
         options=()
         if [[ -n "$ONLY" ]]; then options+=(--only "$ONLY"); fi
-        if [[ "$GITHUB_EVENT_NAME" == workflow_dispatch && "$INTENT" == verify ]]; then options+=(--force); fi
+        if [[ "$GITHUB_EVENT_NAME" == workflow_dispatch && "$INTENT" != ship ]]; then options+=(--force); fi
         result=$(scripts/affected "$BASE" --intent "$INTENT" "${options[@]}")
         echo "$result"
         python3 - "$result" <<'PYTHON' >> "$GITHUB_OUTPUT"

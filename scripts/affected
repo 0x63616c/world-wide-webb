@@ -49,12 +49,12 @@ def tooling(path):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("base", nargs="?", default="")
-    parser.add_argument("--intent", required=True, choices=["verify", "ship"])
+    parser.add_argument("--intent", required=True, choices=["verify", "ship", "preview"])
     parser.add_argument("--force", action="store_true", help="Verify every standard product without publication")
     parser.add_argument("--only", help="Keep apps with this enabled app.yml capability")
     parser.add_argument("--head", help="Compare this committed tree instead of HEAD and working-tree configuration")
     args = parser.parse_args()
-    if args.force and args.intent != "verify":
+    if args.force and args.intent not in {"verify", "preview"}:
         parser.error("--force is verification-only")
     head = args.head or "HEAD"
     if args.head and not usable(head):
@@ -100,6 +100,8 @@ def main():
     build_tooling = args.force or any(tooling(path) for path in files)
     delivery_units = None
     verification_units = []
+    preview_units = []
+    preview_tooling = False
     selector = ROOT / "scripts/ci/select_units.py"
     if selector.exists():
         spec = importlib.util.spec_from_file_location("unit_selection", selector)
@@ -110,6 +112,8 @@ def main():
         selected = shared.select(files, manifest, force=args.force)
         delivery_units = selected["delivery_candidates"]
         verification_units = selected["verify"]
+        preview_units = selected.get("previews", [])
+        preview_tooling = selected.get("standard_preview", False)
         if args.intent == "verify":
             standard_units = {f"{app}.native" for app, config in configs.items()
                               if config.get("delivery_handler", "standard_ios") == "standard_ios"}
@@ -131,7 +135,10 @@ def main():
             continue
         patterns = [f"apps/{app}/**", *config.get("paths", []),
                     *(f"packages/{package}/**" for package in config.get("uses", []))]
-        if ((args.intent == "verify" and build_tooling) or
+        direct = any(fnmatch.fnmatchcase(path, pattern) for path in files for pattern in patterns)
+        if args.intent == "preview" and not (args.force or preview_tooling or f"{app}.native" in preview_units or direct):
+            continue
+        if (args.intent == "preview" or (args.intent == "verify" and build_tooling) or
                 any(fnmatch.fnmatchcase(path, pattern) for path in files for pattern in patterns)):
             apps.append(app)
     verify = args.intent == "verify"

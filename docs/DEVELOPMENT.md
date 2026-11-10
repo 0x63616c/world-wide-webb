@@ -81,6 +81,8 @@ Linux controller tests and Darwin configuration builds select independently. Con
 separates Rust, operations, wire-contract and full simulator verification. Selection artifacts
 include the input reasons; an unknown workflow/action remains a conservative full verification.
 Operations-only Control Center changes share the lint job instead of allocating a Rust test job.
+Optional UI captures use preview inputs rather than conservative verification fan-out, so selector
+or unrelated infrastructure changes do not allocate screenshot/snapshot jobs.
 
 Compiler snapshots use source-specific keys with toolchain/lockfile-compatible restore prefixes.
 Docker's Cargo mount is transferred explicitly between disposable builders. Nix verification can

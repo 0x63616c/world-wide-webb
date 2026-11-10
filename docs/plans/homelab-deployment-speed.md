@@ -401,4 +401,8 @@ and 1:09 for Linux controller verification. A release.json-only PR/merge took 18
 Darwin in runs 42711463457/42711554105. These are samples, not controlled before/after results.
 Expected savings are hypotheses: avoid platform jobs for test-only edits; reuse unchanged package
 outputs for service edits. The candidate adds an explicit same-path before/after replay and
-per-cache receipts; measured results and review/publication evidence remain pending.
+per-cache receipts. PR #991 records final hosted measurements, independent reviews and exact-source
+CI/merge evidence. A local paired cold-target host test/build took 18.307s before and 5.541s
+after the process extraction (Cargo 1.99.1, four build jobs, pre-downloaded registry, same Mac);
+locked packages fell from 171 to 43. This is a package-level sample, not overall CI latency.
+Optional previews now follow actual UI/capture inputs rather than broad verification fan-out.

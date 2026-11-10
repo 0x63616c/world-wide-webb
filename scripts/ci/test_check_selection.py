@@ -58,6 +58,14 @@ class CheckSelectionTests(unittest.TestCase):
         self.assertEqual(result["delivery_candidates"], [])
         self.assertTrue(result["check_reasons"]["homelab.darwin"])
 
+    def test_optional_previews_do_not_follow_unrelated_verification_fanout(self):
+        shared = select(["scripts/ci/select_units.py"], CONFIG)
+        self.assertTrue(shared["verify"])
+        self.assertEqual(shared["previews"], [])
+        self.assertEqual(select(["apps/folding/apps/ios/App/Screen.swift"], CONFIG)["previews"], ["folding.native"])
+        self.assertTrue(select(["scripts/capture-screenshots.sh"], CONFIG)["standard_preview"])
+        self.assertIn("folding.native", select([], CONFIG, force=True)["previews"])
+
     def test_shared_unknown_and_force_preserve_full_verification(self):
         for paths, force in [
             (["scripts/ci/select_units.py"], False),

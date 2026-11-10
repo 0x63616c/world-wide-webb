@@ -34,13 +34,24 @@
         "**/BuildTests/**",
         "**/ScreenshotTests/**",
         "**/StorefrontTests/**"
+      ],
+      "preview_paths": [
+        "apps/tendr/**",
+        ".github/workflows/pr-screenshots.yml",
+        ".github/workflows/component-snapshots.yml",
+        ".github/workflows/icon.yml",
+        ".github/workflows/tip-jar.yml"
       ]
     },
     "airmiles.native": {
       "paths": [
         "apps/airmiles/**"
       ],
-      "delivery": null
+      "delivery": null,
+      "preview_paths": [
+        "apps/airmiles/**",
+        "scripts/ci/apple-desktop.sh"
+      ]
     },
     "folding.native": {
       "paths": [
@@ -70,6 +81,17 @@
         "**/BuildTests/**",
         "**/ScreenshotTests/**",
         "**/StorefrontTests/**"
+      ],
+      "preview_paths": [
+        "apps/folding/apps/ios/**",
+        "apps/folding/cloudkit/**",
+        "apps/folding/fastlane/**",
+        "apps/folding/app.yml",
+        "scripts/ci/apple-desktop.sh",
+        ".github/workflows/folding-screenshots.yml",
+        ".github/actions/folding-tools/**",
+        "apps/folding/scripts/capture*",
+        "apps/folding/scripts/apple-build-environment.py"
       ]
     },
     "folding.backend": {
@@ -154,6 +176,11 @@
         "**/BuildTests/**",
         "**/ScreenshotTests/**",
         "**/StorefrontTests/**"
+      ],
+      "preview_paths": [
+        "apps/callkeep/**",
+        "scripts/distribution/**",
+        "scripts/ci/apple-desktop.sh"
       ]
     },
     "control-center.native": {
@@ -176,6 +203,10 @@
         "**/BuildTests/**",
         "**/ScreenshotTests/**",
         "**/StorefrontTests/**"
+      ],
+      "preview_paths": [
+        "apps/control-center/apple/**",
+        "scripts/ci/apple-desktop.sh"
       ]
     },
     "control-center.server": {
@@ -662,5 +693,15 @@
         "flake.lock"
       ]
     }
-  }
+  },
+  "standard_preview_paths": [
+    "scripts/capture*",
+    "scripts/export-screenshots.py",
+    "scripts/boot-simulator.sh",
+    "scripts/duo-simulator.py",
+    "scripts/ci/apple-desktop.sh",
+    "scripts/app-config.rb",
+    "scripts/screenshot-build-settings.py",
+    ".github/actions/ruby-tools/**"
+  ]
 }

@@ -31,7 +31,7 @@ def validate(config):
     for name, unit in config["units"].items():
         if not re.fullmatch(r"[a-z][a-z0-9.-]*", name):
             raise ValueError(f"Invalid unit: {name}")
-        for key in ("paths", "exclude", "delivery_paths", "delivery_exclude"):
+        for key in ("paths", "exclude", "delivery_paths", "delivery_exclude", "preview_paths"):
             for pattern in unit.get(key, []):
                 if not isinstance(pattern, str) or pattern.startswith("/") or ".." in pattern.split("/"):
                     raise ValueError(f"Invalid {name} {key}")
@@ -117,6 +117,23 @@ def select(paths, config, force=False):
             inputs.append("forced/shared/unmapped/workflow consumer")
         if inputs and consumers.intersection(verify):
             checks[name] = sorted(set(inputs))
+    # Optional UI captures use their actual inputs, not conservative verification
+    # fan-out. Shared selector tests do not need to render every product's UI.
+    previews = {
+        name
+        for name, unit in units.items()
+        if name.endswith(".native")
+        and (
+            force
+            or any(
+                path and not documentation(path) and matches(path, unit.get("preview_paths", unit["paths"]))
+                for path in paths
+            )
+        )
+    }
+    standard_preview = force or any(
+        path and not documentation(path) and matches(path, config.get("standard_preview_paths", [])) for path in paths
+    )
     return {
         "version": 1,
         "verify": sorted(verify),
@@ -124,6 +141,8 @@ def select(paths, config, force=False):
         "shared_tooling": shared,
         "unmapped": sorted(unknown),
         "checks": sorted(checks),
+        "previews": sorted(previews),
+        "standard_preview": standard_preview,
         "check_reasons": checks,
         "reasons": {name: sorted(set(reasons.get(name, ["forced/shared/unmapped"]))) for name in sorted(verify)},
     }
@@ -159,7 +178,7 @@ def main():
     args.output.write_text(json.dumps(result, indent=2) + "\n")
     if os.environ.get("GITHUB_OUTPUT"):
         with open(os.environ["GITHUB_OUTPUT"], "a") as output:
-            for key in ("verify", "delivery_candidates", "checks"):
+            for key in ("verify", "delivery_candidates", "checks", "previews"):
                 output.write(f"{key}={json.dumps(result[key], separators=(',', ':'))}\n")
     print(json.dumps(result))
 
