@@ -111,6 +111,18 @@ class DeliveryTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "app.yml version"):
                     delivery.tag_target("refs/tags/tendr/v1.2.4", source)
 
+    def test_signing_access_exports_only_the_required_vault_field(self):
+        import contextlib
+        import os
+        import runpy
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "environment"
+            with patch.dict(os.environ, {"MATCH_GIT_BASIC_AUTHORIZATION": "synthetic-auth", "OTHER_VAULT_FIELD": "synthetic-other", "GITHUB_ENV": str(output)}), contextlib.redirect_stdout(io.StringIO()) as logs:
+                runpy.run_path(str(ROOT / "scripts/match_access.py"), run_name="__main__")
+            self.assertIn("MATCH_GIT_BASIC_AUTHORIZATION<<", output.read_text())
+            self.assertNotIn("synthetic-other", output.read_text())
+            self.assertEqual(logs.getvalue(), "::add-mask::synthetic-auth\n")
+
     def test_workflow_contract_has_one_event_owner_and_serializes_each_app_across_channels(self):
         def workflow(name):
             return yaml.safe_load((ROOT / ".github/workflows" / name).read_text())

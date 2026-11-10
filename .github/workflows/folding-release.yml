@@ -106,14 +106,11 @@ jobs:
       run: |
         brew list xcodegen >/dev/null 2>&1 || brew install xcodegen
         python3 scripts/apple-build-environment.py --create-device
-    - name: Authorize the private consolidated signing branch
-      env:
-        GH_TOKEN: ${{ github.token }}
+    - name: Authorize private signing storage
       if: inputs.channel == 'beta'
-      run: |
-        authorization=$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 | tr -d '\n')
-        echo "::add-mask::$authorization"
-        printf 'MATCH_GIT_BASIC_AUTHORIZATION=%s\n' "$authorization" >> "$GITHUB_ENV"
+      uses: ./.github/actions/match-access
+      with:
+        age-key: ${{ secrets.AGE_PRIVATE_KEY }}
     - name: Archive once and deliver the exact processed internal beta
       id: beta
       env:
@@ -123,8 +120,8 @@ jobs:
         ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
         ASC_PRIVATE_KEY: ${{ secrets.FOLDING_ASC_PRIVATE_KEY }}
         MATCH_PASSWORD: ${{ secrets.FOLDING_MATCH_PASSWORD }}
-        FOLDING_SIGNING_GIT_URL: https://github.com/${{ github.repository }}.git
-        MATCH_GIT_BRANCH: signing/folding
+        FOLDING_SIGNING_GIT_URL: https://github.com/0x63616c/certificates.git
+        MATCH_GIT_BRANCH: folding
         MATCH_CLONE_BRANCH_DIRECTLY: 'true'
         FOLDING_TESTFLIGHT_GROUPS: ${{ vars.FOLDING_TESTFLIGHT_GROUPS }}
       if: inputs.channel == 'beta'

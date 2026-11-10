@@ -2,7 +2,7 @@ name: Folding toolchain
 description: Prepare pinned product tools without credentials
 inputs:
   target:
-    description: contracts, backend, deploy or apple
+    description: contracts, backend, deploy, apple or release
     required: true
 runs:
   using: composite
@@ -58,7 +58,7 @@ runs:
       run: |
         python3 apps/folding/scripts/test-worker-tools.py
         python3 apps/folding/scripts/prepare-worker-tools.py --root "$RUNNER_TEMP/folding-worker-tools" --output "$GITHUB_ENV"
-    - if: inputs.target == 'apple' || inputs.target == 'deploy'
+    - if: inputs.target == 'apple' || inputs.target == 'deploy' || inputs.target == 'release'
       name: Use UTF-8 for release metadata
       shell: bash
       run: |
@@ -68,13 +68,13 @@ runs:
           folding_locale=C.UTF-8
         fi
         printf 'LANG=%s\nLC_ALL=%s\n' "$folding_locale" "$folding_locale" >> "$GITHUB_ENV"
-    - if: inputs.target == 'apple' || inputs.target == 'deploy'
+    - if: inputs.target == 'apple' || inputs.target == 'deploy' || inputs.target == 'release'
       uses: ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199 # v1
       with:
         ruby-version: ${{ steps.pins.outputs.ruby }}
         bundler: ${{ steps.pins.outputs.bundler }}
         working-directory: apps/folding
-    - if: inputs.target == 'apple' || inputs.target == 'deploy'
+    - if: inputs.target == 'apple' || inputs.target == 'deploy' || inputs.target == 'release'
       shell: bash
       working-directory: apps/folding
       env:

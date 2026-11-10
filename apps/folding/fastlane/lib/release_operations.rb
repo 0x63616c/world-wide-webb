@@ -136,7 +136,8 @@ module FoldingRelease
       begin
         context.create_keychain(name: keychain, password: password, default_keychain: false, unlock: true, timeout: 3600, lock_when_sleeps: true)
         signing = {type: "appstore", readonly: true, app_identifier: [identity.fetch("bundle_id"), identity.fetch("widget_bundle_id")],
-          git_url: ENV.fetch("FOLDING_SIGNING_GIT_URL", "git@github.com:0x63616c/folding-signing.git"),
+          git_url: ENV.fetch("FOLDING_SIGNING_GIT_URL", "https://github.com/0x63616c/certificates.git"),
+          git_branch: ENV.fetch("MATCH_GIT_BRANCH", "folding"),
           api_key: FoldingRelease.api_key, team_id: record.data.fetch("apple_team_id"),
           keychain_name: keychain, keychain_password: password}
         private_key = ENV["FOLDING_SIGNING_GIT_PRIVATE_KEY"]

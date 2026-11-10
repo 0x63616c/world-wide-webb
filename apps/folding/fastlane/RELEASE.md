@@ -6,7 +6,7 @@ This is implemented orchestration, not live release acceptance. Run through the 
 
 - `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_PRIVATE_KEY`: existing App Store Connect API identity.
 - Team `X9E4HG27NK` is pinned in `release-config.json` from the portal. Optional `APPLE_TEAM_ID` must match it.
-- Match credentials (`MATCH_PASSWORD` and SSH access) for the private `git@github.com:0x63616c/folding-signing.git` repository. Signing must already be provisioned; archive uses readonly match and a temporary keychain, removed on exit.
+- Match credentials (`MATCH_PASSWORD` and private repository access) for the `folding` branch of private `0x63616c/certificates`. Signing must already be provisioned; archive uses readonly match and a temporary keychain, removed on exit.
 - `FOLDING_WORKFLOW_RUN_URL`: durable run identity for the reservation.
 - `FOLDING_COPYRIGHT`: actual operator/copyright owner, supplied before sealing release assets.
 - `FOLDING_TESTFLIGHT_GROUPS`: explicit comma-separated internal group names.
@@ -224,13 +224,12 @@ This does not enable new runtime claims or mark device checks passed. The full r
 also verifies actual Cloudflare bindings have push and avatar features enabled. Final
 physical, visual and native-language acceptance remains tracked separately.
 
-The consolidated delivery workflow reads the encrypted `signing/folding` branch in WWW
-with its short-lived built-in GitHub token. Match clones that branch directly and stays readonly;
-no additional signing-repository SSH key is needed. The source store remains preserved until a
-real signed archive proves this consumer handover. Local operations can still override
-`FOLDING_SIGNING_GIT_URL` and supply a nonempty `FOLDING_SIGNING_GIT_PRIVATE_KEY` for SSH.
-Current required secrets are listed in `folding-release.yml`; they enter runner memory/environment
-and temporary files only.
+The delivery workflow reads encrypted Match material from the `folding` branch of private
+`0x63616c/certificates`. It uses the existing scoped signing-repository authentication from
+the encrypted CI vault and readonly Match. The current original `folding-signing` repository
+and public imported signing branches remain preserved until private signed-build verification
+and explicit cleanup. Local signing defaults use the same private repository/branch.
+
 Cloudflare Time Travel bookmark commands are documented at
 https://developers.cloudflare.com/d1/reference/time-travel/ . Live restore acceptance remains required.
 

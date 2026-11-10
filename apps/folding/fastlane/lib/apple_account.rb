@@ -109,7 +109,7 @@ module FoldingAppleAccount
       context.create_keychain(name: keychain, password: password, default_keychain: false,
         unlock: true, timeout: 3600, lock_when_sleeps: true)
       context.match(type: "appstore", readonly: false, app_identifier: identifiers,
-        git_url: "git@github.com:0x63616c/folding-signing.git", team_id: team,
+        git_url: "https://github.com/0x63616c/certificates.git", git_branch: "folding", team_id: team,
         api_key: {key_id: ENV.fetch("ASC_KEY_ID"), issuer_id: ENV.fetch("ASC_ISSUER_ID"),
           key: ENV.fetch("ASC_PRIVATE_KEY"), duration: 600, in_house: false},
         keychain_name: keychain, keychain_password: password)

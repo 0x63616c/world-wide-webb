@@ -47,7 +47,8 @@ review; a tag retry can reconcile an already submitted build. The status watcher
 and never submits newer untagged main changes.
 
 Tendr uses the root locked Ruby bundle, signing setup and listing/screenshot handlers. Folding
-keeps its product bundle, Match signing, backend/build-policy receipts and private immutable
+keeps its product bundle, readonly Match signing from private `certificates` branch `folding`,
+backend/build-policy receipts and private immutable
 archives. Root lanes reject Folding, Callkeep and Control Center. Existing physical-device
 acceptance deferrals remain recorded in Folding’s product instructions.
 
