@@ -18,10 +18,11 @@ The old Folding repository had no GitHub releases; legacy artifact readers now t
 Signing storage, dotfiles, homebrew-tap and agreed excluded projects remain separate.
 
 The [completion record](monorepo-remaining-work-2026-11-09.md) records archive locations and
-separate follow-ups. Tendr’s replacement Cloudflare pages and app/listing link updates remain
-[#1007](https://github.com/0x63616c/world-wide-webb/issues/1007); the owner explicitly accepted
-interim loss of the deleted `apps` Pages URLs. Its dead publisher is removed. This exception is
-not a claim that Tendr’s replacement site is delivered.
+separate follow-ups. Tendr’s replacement website is live at `https://tendr.worldwidewebb.co/`
+through [#1015](https://github.com/0x63616c/world-wide-webb/pull/1015). The
+[#1007](https://github.com/0x63616c/world-wide-webb/issues/1007) receipt below records its
+processed beta and updated App Store draft URLs; public Store promotion remains outstanding.
+Old installed GitHub Pages links still require an app update.
 
 Cloudflare/sites handover was merged in #972; Folding delivery preparation in #974; Control
 Center’s Xcode 27.2 native/promotion handover in #984. Subsequent app fixes and individual beta
@@ -1483,29 +1484,48 @@ Replacement Darwin CI remains required after final review/publication.
 
 ### Tendr website replacement — #1007
 
-Objective: publish the existing site at `https://tendr.worldwidewebb.co/`, preserve its privacy
-and support content, and deliver the app/listing URL correction through Tendr's normal handlers.
+Objective: publish the existing site at the owner's selected `https://tendr.worldwidewebb.co/`,
+preserve privacy/support content, and deliver app/listing URL corrections through normal handlers.
 
-Working plan:
-1. Replace the retired Git publisher with Cloudflare static asset deployment from the existing
-   allowlisted build. Keep Folding publication independent; compare the tested artifact before upload.
-2. Put Tendr's hostname DNS and Worker route in the existing encrypted Cloudflare state owner.
-   Wrangler owns only `tendr-web-production` code/assets; existing home services remain intact.
-3. Update Tendr app, metadata and current documentation URLs. Run focused publication/selection,
-   release and infrastructure checks, then self-review the coherent diff.
-4. Publish the verified site, check home/privacy/support and assets, and deliver app/listing
-   updates through normal required CI and Tendr release. Record actual live receipts here.
+Plan and results:
+1. **Done:** #1015 replaced the retired Git publisher with independently pinned Cloudflare
+   static asset deployment. It compares the tested allowlisted artifact, skips superseded
+   source and propagates errors. Folding's publisher remains separate.
+2. **Done:** the existing encrypted Cloudflare state owner manages Tendr's DNS/Worker route;
+   Wrangler owns only `tendr-web-production` code/assets. Dedicated CI credentials are in
+   WWW and recovered in 1Password's Development vault, with only account-scoped Workers
+   Scripts Write. No retired Pages flags or keys remain installed.
+3. **Done:** app, metadata and current website documentation use the canonical URLs. Required
+   PR checks and exact-source main [CI 42903597964](https://github.com/0x63616c/world-wide-webb/actions/runs/42903597964)
+   passed for merge `31a699100a62e629befe02df1b9b10fcb45839fa`, including the Tendr simulator
+   build/core/component tests, release/publication fixtures and infrastructure checks.
+4. **Site and beta delivered; public Store promotion outstanding:** live URLs and App Store
+   draft metadata are verified below. Keep #1007 open until the Store rollout is complete.
 
-Canonical hostname was explicitly selected by the owner. Old installed GitHub Pages links cannot
-be repaired by the replacement host. Next step: complete source/configuration and scoped credentials.
+`Sites` published Worker version `b9117725-9a86-407e-b513-33e473352466`; Folding publication
+skipped. [Apply Cloudflare 42904279137](https://github.com/0x63616c/world-wide-webb/actions/runs/42904279137)
+checked out the exact #1015 merge and confirmed the encrypted state owner applied it with
+recovery evidence retained. The workflow run's own head followed newer main; its apply-job
+checkout is the source authority.
 
-Source batch: the Cloudflare publisher rejects altered/missing artifact files and propagates
-credential/deployment failures. Isolation fixtures pass, as do release handler checks,
-selection regressions, actionlint, shell syntax and OpenTofu format/validate plus three mocked
-route plans. Local selection checks use Python 3.15/PyYAML, matching CI's dependency contract.
-Tendr-specific CI credentials are installed and recovered in the Development vault; the token
-has only account-scoped Workers Scripts Write. No retired Pages flags or keys remain installed.
+Homepage, `/privacy/`, `/support/`, stylesheet and icon returned 200 with bytes matching source;
+unknown paths returned 404. Browser navigation home → privacy → support passed. Cloudflare
+rejected the Python-default user agent with error 1010; browser/curl and Applebot user agents
+returned 200. No zone security settings were changed. Old installed links cannot be repaired
+by the replacement host alone.
 
-Bootstrap uploaded the unchanged seven public Tendr assets to `tendr-web-production`, version
-`40beab00-4d7f-4518-985c-edf25cfcbe03`. No hostname is routed yet. Next: required PR checks,
-merge, encrypted DNS/route apply, then live URL and Apple delivery verification.
+[TestFlight 42904748330](https://github.com/0x63616c/world-wide-webb/actions/runs/42904748330)
+processed **Tendr 1.1.1 (5)** and distributed it to Owner Preview. Its retained release manifest
+binds build 5 to `baccc48f6fb4248bc4141633e845eda92579335c`, which includes the URL correction.
+The subsequent `ScreenshotTests.testAppStoreScreens()` capture failed with exit 65 before
+listing upload/submission; this is a failed Store pipeline, not a completed Store release.
+No second binary upload was requested for recovery and no screenshot gate was bypassed.
+
+During that run, #1016 replaced the old manually dispatched Store workflow with tagged
+promotion. Using the still-supported `ios metadata app:tendr version:1.1.1 skip_screenshots:true`
+handler then successfully uploaded the URL-only changes while retaining existing images.
+Independent Apple API readback confirmed the editable 1.1.1 marketing, support and privacy
+URLs and that build 5 is VALID and unexpired. Public 1.1.0's privacy URL still points to the
+retired host; its replacement awaits Store promotion/Apple approval. No physical installation
+is claimed. Remaining step: complete the normal tagged Store promotion with passing screenshot
+evidence; the shared release guide owns that process.
