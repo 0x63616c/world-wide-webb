@@ -13,7 +13,7 @@ struct AppLauncher: View {
     @State private var swipeStartedAtTop: Bool?
     var body: some View {
         GeometryReader { proxy in
-            let layout = LauncherLayout(profile: canvas)
+            let layout = LauncherLayout(profile: canvas, availableWidth: proxy.size.width)
             let columns = layout.columns
             let iconFrameSide = layout.iconFrameSide
             let iconSide = iconFrameSide * 0.9
@@ -77,7 +77,7 @@ struct AppLauncher: View {
 struct LauncherGlassSurface: View {
     static let edgeInset: CGFloat = 8
     var body: some View {
-        let shape = RoundedRectangle(cornerRadius: PanelSurface.cornerRadius - Self.edgeInset)
+        let shape = ConcentricRectangle()
         Color.clear.glassEffect(preview == "regular" ? .regular.tint(.white.opacity(0.06)) : .clear, in: shape)
             .background(.black.opacity(preview == "clearDim" ? 0.22 : 0), in: shape)
             .padding(Self.edgeInset)

@@ -20,3 +20,13 @@ no app login or credentials are required. The server container is published on l
 Deployment, backup and migration instructions are in
 [the cutover runbook](docs/runbooks/native-rust-cutover.md). User data, media and encrypted infrastructure
 state live outside Git and outside container images. Git retains the removed web/Expo/TypeScript/Pulumi history.
+
+The canvas follows the live navigation-content bounds as the window resizes. Backgrounds
+extend to the display edges; controls retain directional safe-area insets. Presentation
+density and grid columns follow available width, and system concentric shapes follow
+the actual display corners. Layout never forces an orientation or a physical screen size.
+
+For the green clock/launcher rendering regression, capture the selected native display with
+`xcrun simctl io <device> screenshot --display=<id> /tmp/canvas.png`, then run
+`bash tools/test_canvas_layout.sh /tmp/canvas.png`. It rejects the shifted right/bottom
+black strips independently of the app's reported frame. Keep captures outside Git.

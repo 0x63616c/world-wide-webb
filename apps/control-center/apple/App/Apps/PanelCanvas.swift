@@ -1,33 +1,23 @@
 import SwiftUI
-import UIKit
-
-extension PanelCanvasProfile {
-    var sizeClass: UserInterfaceSizeClass { self == .duoClosed ? .compact : .regular }
-}
 
 extension EnvironmentValues {
-    @Entry var panelCanvasProfile: PanelCanvasProfile = .iPad
+    @Entry var panelCanvasProfile: PanelCanvasProfile = .spacious
     @Entry var panelContentInsets = EdgeInsets()
 }
 
-/// Read system obstructions outside the full-bleed surface, then lay out every
-/// page at its chosen canvas size before any gesture or transition transforms.
-/// Keep one content subtree so opening the Duo preserves navigation and state.
+/// Measure inside the navigation content so its directional system insets are
+/// known before extending the background to the window edges. The same subtree
+/// resizes in place when the window changes; navigation and gestures stay alive.
 struct PanelCanvas<Content: View>: View {
-    @ViewBuilder var content: (PanelCanvasProfile) -> Content
+    @ViewBuilder var content: (CGSize) -> Content
 
     var body: some View {
         GeometryReader { safeArea in
             GeometryReader { display in
-                let profile = PanelCanvasProfile.resolve(size: display.size)
-                content(profile)
-                    .frame(width: profile.size.width, height: profile.size.height)
-                    .environment(\.panelCanvasProfile, profile)
-                    .environment(\.horizontalSizeClass, profile.sizeClass)
-                    .environment(\.panelContentInsets, profile == .iPad ? EdgeInsets() : safeArea.safeAreaInsets)
-                    .clipped()
-                    .position(x: display.size.width / 2, y: display.size.height / 2)
-                    .background { CanvasOrientation(profile: profile).allowsHitTesting(false) }
+                content(display.size)
+                    .frame(width: display.size.width, height: display.size.height)
+                    .environment(\.panelCanvasProfile, PanelCanvasProfile.resolve(size: safeArea.size))
+                    .environment(\.panelContentInsets, safeArea.safeAreaInsets)
             }
             .ignoresSafeArea()
         }
@@ -35,40 +25,7 @@ struct PanelCanvas<Content: View>: View {
     }
 }
 
-/// Apply orientation only to the scene containing this canvas. Keeping both
-/// orientations in Info.plist allows the Duo to fill either physical display.
-private struct CanvasOrientation: UIViewRepresentable {
-    let profile: PanelCanvasProfile
-
-    func makeUIView(context: Context) -> OrientationView { OrientationView() }
-    func updateUIView(_ view: OrientationView, context: Context) {
-        view.profile = profile
-        view.applyOrientation()
-    }
-
-    final class OrientationView: UIView {
-        var profile = PanelCanvasProfile.iPad
-        override func didMoveToWindow() {
-            super.didMoveToWindow()
-            applyOrientation()
-        }
-        func applyOrientation() {
-            guard let scene = window?.windowScene else { return }
-            let portrait = profile == .duoClosed
-            guard
-                portrait
-                    ? scene.effectiveGeometry.interfaceOrientation != .portrait
-                    : !scene.effectiveGeometry.interfaceOrientation.isLandscape
-            else {
-                return
-            }
-            scene.requestGeometryUpdate(.iOS(interfaceOrientations: portrait ? .portrait : .landscape))
-        }
-    }
-}
-
-/// Foreground controls honor the phone's actual camera and gesture insets;
-/// the complete page surface still occupies the fixed, full-screen canvas.
+/// Backgrounds fill the canvas; foreground controls retain each directional inset.
 struct AppCanvasPage<Content: View>: View {
     @Environment(\.panelContentInsets) private var contentInsets
     @ViewBuilder var content: Content

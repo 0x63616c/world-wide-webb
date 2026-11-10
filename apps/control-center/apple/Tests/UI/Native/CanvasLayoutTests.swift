@@ -14,47 +14,22 @@ import XCTest
         defer { app.terminate() }
         let clock = app.buttons["launcher-clock"]
         XCTAssertTrue(clock.waitForExistence(timeout: 20))
-        let initial = app.frame.size
-        let expected: CGSize =
-            max(initial.width, initial.height) >= 1100
-            ? CGSize(width: 1366, height: 1024)
-            : min(initial.width, initial.height) >= 600
-                ? CGSize(width: 951, height: 669) : CGSize(width: 466, height: 678)
-        // XCTest can keep reporting the physical device's portrait app frame
-        // after a scene requests landscape. Read the actual content surface.
+        let screen = app.windows.firstMatch.frame
+        let expected = screen.size
+        // Measure the current window, never the device or a canonical screen size.
         let oriented = XCTNSPredicateExpectation(
             predicate: NSPredicate { _, _ in
                 abs(clock.frame.width - expected.width) < 1 && abs(clock.frame.height - expected.height) < 1
             }, object: nil)
         XCTAssertEqual(
             XCTWaiter.wait(for: [oriented], timeout: 15), .completed,
-            "Production canvas must request its supported orientation")
-        let screen = CGRect(origin: .zero, size: expected)
+            "Production canvas must fill the current window")
         print("CANVAS_DISPLAY \(screen) XCTEST_APP \(app.frame) CLOCK \(clock.frame)")
         XCTAssertEqual(clock.frame.minX, screen.minX, accuracy: 1)
         XCTAssertEqual(clock.frame.minY, screen.minY, accuracy: 1)
         XCTAssertEqual(clock.frame.maxX, screen.maxX, accuracy: 1)
         XCTAssertEqual(clock.frame.maxY, screen.maxY, accuracy: 1)
         capture("clock", app)
-
-        // The green artwork must reach the bottom centre, beyond the old
-        // 20-point black strip (away from the device's rounded corners).
-        // XCTest's main screen remains the outer display on Duo, including
-        // when its app window is on the inner display. Physical Duo captures
-        // are verified through simctl's explicitly selected display instead.
-        if expected.width == 1366 {
-            let image = XCUIScreen.main.screenshot().image
-            let pixel = image.cgImage!.cropping(
-                to: CGRect(
-                    x: image.size.width * image.scale / 2,
-                    y: (image.size.height - 2) * image.scale, width: 1, height: 1))!
-            let context = CGContext(
-                data: nil, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4,
-                space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
-            context.draw(pixel, in: CGRect(x: 0, y: 0, width: 1, height: 1))
-            let rgba = context.data!.assumingMemoryBound(to: UInt8.self)
-            XCTAssertGreaterThan(rgba[1], 60, "Clock artwork must fill the bottom of the physical screen")
-        }
 
         let face = clock.value as? String ?? ""
         clock.swipeLeft()

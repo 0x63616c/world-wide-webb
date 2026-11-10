@@ -178,7 +178,7 @@ struct HomeView: View {
     private func clockDial(_ face: PanelClockFace) -> some View {
         PresenceClockFace(store: store, face: face)
             .environment(\.motionPhase, selected == nil && showingClock ? inheritedMotionPhase : 0)
-            .clipShape(.rect(cornerRadius: PanelSurface.cornerRadius))
+            .clipShape(ConcentricRectangle())
             .allowsHitTesting(false)
             .accessibilityHidden(true)
     }
@@ -203,22 +203,22 @@ struct HomeView: View {
             })
     }
     var body: some View {
-        PanelCanvas { canvas in
-            NavigationStack(path: appPath) {
+        NavigationStack(path: appPath) {
+            PanelCanvas { size in
                 ZStack {
                     Color.black.ignoresSafeArea()
                     ZStack {
-                        clockSurface(width: canvas.size.width)
-                            .frame(width: canvas.size.width, height: canvas.size.height)
+                        clockSurface(width: size.width)
+                            .frame(width: size.width, height: size.height)
                         if showingClock {
                             // A tap recognizer cancels on movement; a full-screen Button
                             // can activate after a drag that ends inside its large bounds.
                             Color.clear.contentShape(.rect)
                                 .onTapGesture(perform: home)
-                                .gesture(faceDragGesture(width: canvas.size.width))
+                                .gesture(faceDragGesture(width: size.width))
                                 .accessibilityAdjustableAction { direction in
-                                    if direction == .increment { settleFace(by: 1, width: canvas.size.width) }
-                                    if direction == .decrement { settleFace(by: -1, width: canvas.size.width) }
+                                    if direction == .increment { settleFace(by: 1, width: size.width) }
+                                    if direction == .decrement { settleFace(by: -1, width: size.width) }
                                 }
                                 .accessibilityElement()
                                 .accessibilityLabel("Open apps")
@@ -235,24 +235,26 @@ struct HomeView: View {
                         .background {
                             LauncherGlassSurface()
                         }
-                        .clipShape(.rect(cornerRadius: PanelSurface.cornerRadius))
-                        .frame(width: canvas.size.width, height: canvas.size.height)
-                        .offset(y: showingClock ? canvas.size.height : 0)
+                        .clipShape(ConcentricRectangle())
+                        .frame(width: size.width, height: size.height)
+                        .offset(y: showingClock ? size.height : 0)
                         .allowsHitTesting(!showingClock && selected == nil)
                         .accessibilityHidden(showingClock || selected != nil)
                     }
-                }.frame(width: canvas.size.width, height: canvas.size.height).clipped()
+                }.frame(width: size.width, height: size.height).clipped()
                     .environment(\.colorScheme, .dark).foregroundStyle(.white).tint(.white)
-                    .toolbar(.hidden, for: .navigationBar)
-                    .navigationDestination(for: String.self) { id in
-                        if let app = catalog.app(id: id) {
-                            appScreen(app)
-                                .frame(width: canvas.size.width, height: canvas.size.height)
-                                .toolbar(.hidden, for: .navigationBar)
-                                .navigationTransition(.zoom(sourceID: app.id, in: zoom))
-                        }
+            }
+            .toolbar(.hidden, for: .navigationBar)
+            .navigationDestination(for: String.self) { id in
+                if let app = catalog.app(id: id) {
+                    PanelCanvas { size in
+                        appScreen(app)
+                            .frame(width: size.width, height: size.height)
                     }
-            }.frame(width: canvas.size.width, height: canvas.size.height)
+                    .toolbar(.hidden, for: .navigationBar)
+                    .navigationTransition(.zoom(sourceID: app.id, in: zoom))
+                }
+            }
         }
         .onOpenURL { url in if url.host == "dogwalk", let app = catalog.app(id: "walks") { open(app) } }
         .onChange(of: store.walks.activeWalk, initial: true) { _, walk in
