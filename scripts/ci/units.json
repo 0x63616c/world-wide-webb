@@ -362,7 +362,10 @@
     },
     "sites.pages": {
       "paths": [
-        "sites/**"
+        "sites/**",
+        "scripts/build-site.sh",
+        "scripts/publish-site.sh",
+        "scripts/test-publish-site.py"
       ],
       "delivery": "site",
       "delivery_exclude": [
@@ -377,6 +380,11 @@
       ],
       "exclude": [
         "sites/folding/**"
+      ],
+      "delivery_paths": [
+        "sites/**",
+        "scripts/build-site.sh",
+        "scripts/publish-site.sh"
       ]
     },
     "credentials.home": {

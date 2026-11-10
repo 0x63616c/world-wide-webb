@@ -1480,3 +1480,32 @@ Both assert the actual `TimedOut` error; cancellation, secret masking, parser is
 terminal restoration assertions remain. All 11 authentication modes pass, with all-target
 Clippy/fmt. Only synthetic test files change; production timeouts and transport code are unchanged.
 Replacement Darwin CI remains required after final review/publication.
+
+### Tendr website replacement — #1007
+
+Objective: publish the existing site at `https://tendr.worldwidewebb.co/`, preserve its privacy
+and support content, and deliver the app/listing URL correction through Tendr's normal handlers.
+
+Working plan:
+1. Replace the retired Git publisher with Cloudflare static asset deployment from the existing
+   allowlisted build. Keep Folding publication independent; compare the tested artifact before upload.
+2. Put Tendr's hostname DNS and Worker route in the existing encrypted Cloudflare state owner.
+   Wrangler owns only `tendr-web-production` code/assets; existing home services remain intact.
+3. Update Tendr app, metadata and current documentation URLs. Run focused publication/selection,
+   release and infrastructure checks, then self-review the coherent diff.
+4. Publish the verified site, check home/privacy/support and assets, and deliver app/listing
+   updates through normal required CI and Tendr release. Record actual live receipts here.
+
+Canonical hostname was explicitly selected by the owner. Old installed GitHub Pages links cannot
+be repaired by the replacement host. Next step: complete source/configuration and scoped credentials.
+
+Source batch: the Cloudflare publisher rejects altered/missing artifact files and propagates
+credential/deployment failures. Isolation fixtures pass, as do release handler checks,
+selection regressions, actionlint, shell syntax and OpenTofu format/validate plus three mocked
+route plans. Local selection checks use Python 3.15/PyYAML, matching CI's dependency contract.
+Tendr-specific CI credentials are installed and recovered in the Development vault; the token
+has only account-scoped Workers Scripts Write. No retired Pages flags or keys remain installed.
+
+Bootstrap uploaded the unchanged seven public Tendr assets to `tendr-web-production`, version
+`40beab00-4d7f-4518-985c-edf25cfcbe03`. No hostname is routed yet. Next: required PR checks,
+merge, encrypted DNS/route apply, then live URL and Apple delivery verification.

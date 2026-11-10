@@ -39,8 +39,8 @@ describe the shared lifecycle and current handler boundaries.
 ## Delivery and migration
 
 The [completion record](docs/plans/monorepo-remaining-work-2026-11-09.md) documents retained
-archives and separate follow-ups. Tendr’s former GitHub Pages host was deleted by owner request;
-replacement Cloudflare hosting and app/listing link updates are tracked in [#1007](https://github.com/0x63616c/world-wide-webb/issues/1007).
+archives and separate follow-ups. Tendr’s website, privacy and support pages publish to
+[https://tendr.worldwidewebb.co/](https://tendr.worldwidewebb.co/) through the separate site handler.
 The selection policy in `scripts/ci/units.json` separates verification from delivery candidates;
 selection alone never authorizes publication. Use each product’s release instructions and
 channel flags; documentation changes do not request a product release.

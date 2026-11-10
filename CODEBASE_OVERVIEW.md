@@ -12,7 +12,7 @@ Start with [README.md](README.md) and the relevant product README.
 - `homelab`: desired host state, operations, runners and local CLI; root flake/enrollment files delegate here.
 - `scripts/ci`: repository-wide input selection and isolation tests. Test-only changes verify without delivery.
 - `scripts`, `fastlane`, `templates`: shared standard-iOS delivery and independent-app scaffolding handlers.
-- `sites`: static website source; Folding publishes to Cloudflare, while Tendr hosting is tracked in #1007.
+- `sites`: static website source; Tendr and Folding publish independently to Cloudflare.
 - `infra/cloudflare`: retained home infrastructure; separate home and Folding state roots with preserved resource addresses.
 - `.github`: selective product pipelines and shared actions, with product pins and configured hosted/homelab routes. The migration tracker records live channel ownership.
 - `.agents/skills`: pinned Apple and Matt Pocock guidance; provenance in `SOURCES.md`.
