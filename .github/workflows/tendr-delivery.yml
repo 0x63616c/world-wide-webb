@@ -132,7 +132,6 @@ jobs:
         # shellcheck disable=SC2046
         security list-keychains -d user -s "$keychain" $(cat "$RUNNER_TEMP/$APP-keychains-before")
     - name: Generate app project
-      if: inputs.channel == 'beta'
       run: |
         export GITHUB_SHA="$SOURCE_SHA"
         if [[ -f "apps/$APP/project.yml" ]]; then
