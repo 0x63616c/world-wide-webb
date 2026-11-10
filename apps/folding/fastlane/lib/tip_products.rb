@@ -32,7 +32,13 @@ module FoldingTipProducts
       response = Net::HTTP.start(uri.host, uri.port, use_ssl: true, open_timeout: 15, read_timeout: 60) { |http| http.request(request) }
       @last_request["http_status"] = response.code.to_i
       return nil if missing && response.code == "404"
-      raise DiagnosticError, "Apple HTTP #{response.code}; reconcile current Apple state before retry" unless response.is_a?(Net::HTTPSuccess)
+      unless response.is_a?(Net::HTTPSuccess)
+        # Apple nests actionable submission failures under associatedErrors.
+        # Keep codes/pointers, never provider messages containing private values.
+        failures = self.class.error_codes(response.body)
+        @last_request["errors"] = failures
+        raise DiagnosticError, "Apple HTTP #{response.code}: #{failures.join('; ')}; reconcile current Apple state before retry"
+      end
       JSON.parse(response.body)
     rescue Net::OpenTimeout, Net::ReadTimeout, Timeout::Error
       raise DiagnosticError, "Apple request timed out; outcome unknown, rerun to reconcile before mutations", cause: nil
@@ -40,6 +46,19 @@ module FoldingTipProducts
       raise DiagnosticError, "Apple transport failed; outcome unknown, rerun to reconcile", cause: nil
     rescue JSON::ParserError
       raise DiagnosticError, "Apple returned invalid JSON", cause: nil
+    end
+
+    def self.error_codes(body)
+      collect = lambda do |errors|
+        errors.flat_map do |error|
+          own = [error["code"], error.dig("source", "pointer")].compact.join(" ")
+          nested = error.dig("meta", "associatedErrors") || {}
+          [own, *collect.call(nested.values.flatten)].reject(&:empty?)
+        end
+      end
+      collect.call(JSON.parse(body).fetch("errors", [])).uniq
+    rescue JSON::ParserError
+      ["invalid_error_response"]
     end
 
     def all(path)

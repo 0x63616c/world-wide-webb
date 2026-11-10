@@ -90,14 +90,14 @@ class DuoHost
 
   def run(*arguments, chdir: @directory)
     File.open(File.join(@directory, "build.log"), "ab", 0o600) do |log|
-      raise "Native controller build failed; inspect #{@directory}/build.log" unless system(*arguments, chdir: chdir, out: log, err: log)
+      raise "Native controller build failed; inspect #{@directory}/build.log" unless system(capture_environment, *arguments, chdir: chdir, out: log, err: log)
     end
   end
 
   def spawn(environment, *arguments, log:)
     output = File.open(File.join(@directory, log), "wb", 0o600)
     @logs << output
-    pid = Process.spawn(environment, *arguments, out: output, err: output, pgroup: true)
+    pid = Process.spawn(environment.merge(capture_environment), *arguments, out: output, err: output, pgroup: true)
     @processes << pid
     pid
   end
@@ -107,8 +107,16 @@ class DuoHost
     loop do
       raise "Native controller exited; inspect #{@directory}" if @processes.any? { |pid| Process.waitpid(pid, Process::WNOHANG) }
       return if yield
-      raise "Native controller timed out; inspect #{@directory}" if Process.clock_gettime(Process::CLOCK_MONOTONIC) >= deadline
+      if Process.clock_gettime(Process::CLOCK_MONOTONIC) >= deadline
+        path = File.join(@directory, "host-stage.txt")
+        stage = File.file?(path) ? File.read(path).strip : "test_runner_startup"
+        raise "Native controller timed out at #{stage}; inspect #{@directory}"
+      end
       sleep 0.25
     end
+  end
+
+  def capture_environment
+    ENV.keys.grep(/TOKEN|PASSWORD|SECRET|PRIVATE_KEY|AUTHORIZATION|\AASC_(KEY_ID|ISSUER_ID)\z/).to_h { |key| [key, nil] }
   end
 end

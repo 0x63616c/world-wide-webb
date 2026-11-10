@@ -9,6 +9,10 @@ final class DuoHostControlTests: XCTestCase {
         let env = ProcessInfo.processInfo.environment
         let directory = URL(fileURLWithPath: try XCTUnwrap(env["DUO_HOST_CONTROL_DIR"]))
         let name = try XCTUnwrap(env["DUO_HOST_DEVICE_NAME"])
+        func stage(_ value: String) throws {
+            try Data(value.utf8).write(to: directory.appendingPathComponent("host-stage.txt"), options: .atomic)
+        }
+        try stage("waiting_for_application")
         // Device Hub's trampoline can register a running app with an invalid PID.
         // The owning script starts the real executable and retains its process handle.
         let application = URL(fileURLWithPath: try XCTUnwrap(env["DUO_HOST_APPLICATION_PATH"]))
@@ -23,20 +27,34 @@ final class DuoHostControlTests: XCTestCase {
         XCTAssertEqual(running.bundleURL?.standardizedFileURL, application.standardizedFileURL)
         XCTAssertTrue(running.isFinishedLaunching)
         let hub = XCUIApplication(url: application)
+        try stage("activating_application")
         hub.activate()
         XCTAssertTrue(hub.wait(for: .runningForeground, timeout: 15), "The selected Xcode's Device Hub must be running")
-        // A fresh CI runner opens the one booted disposable device. Device Hub
-        // truncates sidebar names and exposes different row types across Xcodes.
-        // Verify the full selected window/header instead of guessing a row type.
+        try stage("finding_window")
         try Data(hub.debugDescription.utf8).write(to: directory.appendingPathComponent("host-hierarchy.txt"), options: .atomic)
         let window = hub.windows.firstMatch
         XCTAssertTrue(window.waitForExistence(timeout: 30))
+        // A fresh Device Hub can open with no selection. Select the owned device
+        // by its full accessible value; never depend on a remembered selection.
         if !window.label.contains(name) {
-            XCTAssertTrue(window.staticTexts[name].waitForExistence(timeout: 30), "Device Hub must select the disposable Duo")
+            try stage("selecting_capture_device")
+            let row = window.descendants(matching: .any).matching(
+                NSPredicate(format: "value CONTAINS %@ OR label CONTAINS %@", name, name)
+            ).firstMatch
+            XCTAssertTrue(row.waitForExistence(timeout: 30), "The disposable Duo must be present")
+            row.click()
+            XCTAssertTrue(window.waitForExistence(timeout: 10))
+            let selected = XCTNSPredicateExpectation(
+                predicate: NSPredicate(format: "label CONTAINS %@", name), object: window)
+            XCTAssertEqual(XCTWaiter.wait(for: [selected], timeout: 10), .completed,
+                "Device Hub must select the disposable Duo")
         }
+        try Data(hub.debugDescription.utf8).write(to: directory.appendingPathComponent("host-hierarchy.txt"), options: .atomic)
+        try stage("finding_pose_controls")
         XCTAssertTrue(window.buttons["Open"].waitForExistence(timeout: 10))
         XCTAssertTrue(window.buttons["Closed"].exists)
         try Data("ready".utf8).write(to: directory.appendingPathComponent("host-ready"), options: .atomic)
+        try stage("ready")
         let deadline = Date().addingTimeInterval(90 * 60)
         var previous: String?
         while Date() < deadline && !FileManager.default.fileExists(atPath: directory.appendingPathComponent("host-stop").path) {
