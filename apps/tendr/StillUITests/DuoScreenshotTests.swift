@@ -81,6 +81,9 @@ final class DuoScreenshotTests: XCTestCase {
             if canFold { try request("pose", name: pose) }
             try orient(.portrait)
             let app = launchFixture()
+            // Launch can restore XCTest's previous landscape context after the
+            // host selected portrait. Reassert it on the running application.
+            try orient(.portrait, in: app)
             if canFold { assertNavigation(for: pose, in: app) }
             try snap("home")
 

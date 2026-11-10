@@ -643,3 +643,14 @@ and Rust unit jobs now set `RUSTUP_HOME` to a job-local runner-temporary directo
 before installation, retaining the pinned version/components and Cargo caches.
 This avoids repairing or mutating the image's partial installation. Actionlint
 passes; actual hosted installation/checking is required before merge.
+
+
+Hosted Folding preview capture passed on `614353029208875f1153a581508e92649769d682`,
+including the actual native controller/geometry path. The isolated Rust typecheck
+also installed pinned 1.99.1 successfully and completed Clippy. The shared Tendr
+capture reached app UI tests but failed its unchanged trailing-rail assertion after
+fixture launch reported Landscape Right despite the preceding Portrait command.
+The capture test now reasserts portrait on the running fixture and refreshes its
+active coordinate context before checking navigation; all geometry/reachability
+assertions remain intact. Swift parsing passes; repeated hosted shared capture is
+required to verify the fixture correction. This changes tests, not application UI.
