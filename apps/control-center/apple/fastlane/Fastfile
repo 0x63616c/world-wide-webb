@@ -1,7 +1,7 @@
 default_platform(:ios)
 
 platform :ios do
-  desc "Sign and upload the tested native app; credentials stay out of the bundle"
+  desc "Sign and upload the tested shared iPad, iPhone and Duo app; credentials stay out of the bundle"
   lane :release_native do
     UI.user_error!("Control Center requires Xcode 27.2 for native Duo support") unless
       sh("xcodebuild -version", log: false).lines.first.strip == "Xcode 27.2"
