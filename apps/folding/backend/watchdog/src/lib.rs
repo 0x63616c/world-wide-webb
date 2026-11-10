@@ -8,7 +8,6 @@ use std::time::Duration;
 use wasm_bindgen::JsValue;
 use worker::*;
 
-const OWNER: &str = "calumpeterwebb@icloud.com";
 const SENDER: &str = "alerts@getfolding.app";
 
 #[derive(Deserialize)]
@@ -42,7 +41,7 @@ fn enabled(env: &Env, key: &str) -> bool {
 }
 fn environment(env: &Env) -> Result<String> {
     let value = env.var("DEPLOYMENT")?.to_string();
-    if !matches!(value.as_str(), "staging" | "production") {
+    if value != "production" {
         return Err(Error::RustError("invalid configuration".into()));
     }
     Ok(value)
@@ -126,12 +125,10 @@ async fn run(scheduled_at: i64, env: &Env) -> Result<()> {
 
 async fn probe(deployment: &str) -> bool {
     let operation = async {
-        let suffix = if deployment == "production" {
-            ""
-        } else {
-            "-staging"
-        };
-        let url = format!("https://api{suffix}.getfolding.app/v1/health");
+        if deployment != "production" {
+            return Err(Error::RustError("invalid deployment".into()));
+        }
+        let url = "https://api.getfolding.app/v1/health";
         let mut init = RequestInit::new();
         init.with_redirect(RequestRedirect::Error);
         let headers = Headers::new();
@@ -180,8 +177,12 @@ async fn deliver(db: &D1Database, env: &Env, deployment: &str) -> Result<bool> {
     let Some(notice) = notice else {
         return Ok(false);
     };
+    let owner = env.var("ALERT_DESTINATION")?.to_string();
+    if owner.contains(['\r', '\n']) || !owner.contains('@') {
+        return Err(Error::RustError("invalid alert address".into()));
+    }
     let raw = format!(
-        "From: Folding Operations <{SENDER}>\r\nTo: {OWNER}\r\nSubject: Folding {deployment}: {}\r\nMessage-ID: <{}@getfolding.app>\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\nFolding {deployment} API {}.\r\nIncident: {}\r\n{}\r\n",
+        "From: Folding Operations <{SENDER}>\r\nTo: {owner}\r\nSubject: Folding {deployment}: {}\r\nMessage-ID: <{}@getfolding.app>\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\nFolding {deployment} API {}.\r\nIncident: {}\r\n{}\r\n",
         notice.category,
         notice.id,
         if notice.category == "down" {
@@ -192,7 +193,7 @@ async fn deliver(db: &D1Database, env: &Env, deployment: &str) -> Result<bool> {
         notice.incident,
         "This monitor checks API and database availability. Delivery may repeat after an ambiguous transport result."
     );
-    let message = worker::email::EmailMessage::new(SENDER, OWNER, &raw)?;
+    let message = worker::email::EmailMessage::new(SENDER, &owner, &raw)?;
     let binding = env.send_email("ALERT_EMAIL")?;
     let sent = matches!(
         select(

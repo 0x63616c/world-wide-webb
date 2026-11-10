@@ -210,7 +210,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("command", choices=["prepare", "status", "apply"])
     parser.add_argument("--configuration", type=pathlib.Path, required=True)
-    parser.add_argument("--environment", choices=["staging", "production"], required=True)
+    parser.add_argument("--environment", choices=["production"], required=True)
     parser.add_argument("--database-kind", choices=["application", "watchdog"], default="application")
     parser.add_argument("--output", type=pathlib.Path)
     parser.add_argument("--local", action="store_true", help="Use isolated Wrangler local database only")

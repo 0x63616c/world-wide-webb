@@ -140,24 +140,28 @@ mod tests {
         )
         .unwrap();
         let ciphertext = keys
-            .seal([1; 12], "staging/refresh/session/operation", b"secret pair")
+            .seal(
+                [1; 12],
+                "production/refresh/session/operation",
+                b"secret pair",
+            )
             .unwrap();
         assert_eq!(
-            keys.open("v1", "staging/refresh/session/operation", &ciphertext)
+            keys.open("v1", "production/refresh/session/operation", &ciphertext)
                 .unwrap(),
             b"secret pair"
         );
         for context in [
-            "production/refresh/session/operation",
-            "staging/refresh/other/operation",
-            "staging/apple/session/operation",
+            "other/refresh/session/operation",
+            "production/refresh/other/operation",
+            "production/apple/session/operation",
         ] {
             assert!(keys.open("v1", context, &ciphertext).is_err());
         }
         let mut corrupt = ciphertext;
         corrupt[0] ^= 1;
         assert!(
-            keys.open("v1", "staging/refresh/session/operation", &corrupt)
+            keys.open("v1", "production/refresh/session/operation", &corrupt)
                 .is_err()
         );
         assert!(keys.open("missing", "context", &[]).is_err());

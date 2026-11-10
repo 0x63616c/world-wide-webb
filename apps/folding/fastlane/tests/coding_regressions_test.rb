@@ -23,9 +23,9 @@ class CodingRegressionsTest < Minitest::Test
   end
 
   def test_explicit_main_ci_run_can_supply_beta_checks_but_other_branches_cannot
-    run = {"head_sha" => "source", "path" => ".github/workflows/folding-ci.yml", "status" => "completed", "conclusion" => "success", "run_attempt" => 1, "event" => "workflow_dispatch", "head_branch" => "main", "head_repository" => {"full_name" => "0x63616c/world-wide-webb"}}
+    run = {"head_sha" => "source", "path" => ".github/workflows/ci.yml", "status" => "completed", "conclusion" => "success", "run_attempt" => 1, "event" => "workflow_dispatch", "head_branch" => "main", "head_repository" => {"full_name" => "0x63616c/world-wide-webb"}}
     check = {"kind" => "ci", "name" => "contracts", "commit_sha" => "source", "conclusion" => "success", "run_url" => "https://github.com/0x63616c/world-wide-webb/actions/runs/1"}
-    FoldingRelease.stub(:run, ->(*args) { JSON.generate(args.last.include?("jobs?") ? [{"jobs" => [{"name" => "Folding contracts", "head_sha" => "source", "status" => "completed", "conclusion" => "success"}]}] : run) }) do
+    FoldingRelease.stub(:run, ->(*args) { JSON.generate(args.last.include?("jobs?") ? [{"jobs" => [{"name" => "Folding / Folding contracts", "head_sha" => "source", "status" => "completed", "conclusion" => "success"}]}] : run) }) do
       FoldingRelease::CheckEvidence.validate!(check, source: "source", base: ".")
       run["head_branch"] = "feature"
       assert_raises(RuntimeError) { FoldingRelease::CheckEvidence.validate!(check, source: "source", base: ".") }
@@ -307,7 +307,7 @@ class CodingRegressionsTest < Minitest::Test
   end
 
   def test_unrelated_successful_ci_run_cannot_satisfy_named_job
-    run = {"head_sha" => "source", "path" => ".github/workflows/folding-ci.yml", "status" => "completed", "conclusion" => "success", "run_attempt" => 1, "event" => "push", "head_branch" => "main", "head_repository" => {"full_name" => "0x63616c/world-wide-webb"}}
+    run = {"head_sha" => "source", "path" => ".github/workflows/ci.yml", "status" => "completed", "conclusion" => "success", "run_attempt" => 1, "event" => "push", "head_branch" => "main", "head_repository" => {"full_name" => "0x63616c/world-wide-webb"}}
     FoldingRelease.stub(:run, ->(*args) { args.last.include?("jobs?") ? JSON.generate([{"jobs" => [{"name" => "Other", "head_sha" => "source", "status" => "completed", "conclusion" => "success"}]}]) : JSON.generate(run) }) do
       check = {"kind" => "ci", "name" => "contracts", "commit_sha" => "source", "conclusion" => "success", "run_url" => "https://github.com/0x63616c/world-wide-webb/actions/runs/1"}
       assert_raises(RuntimeError) { FoldingRelease::CheckEvidence.validate!(check, source: "source", base: ".") }

@@ -13,7 +13,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("environment", choices=("staging", "production"))
+    parser.add_argument("environment", choices=("production",))
     parser.add_argument("simulator", help="booted simulator UUID with an iCloud account")
     parser.add_argument(
         "--icloud-environment", choices=("Development", "Production"), default="Development"
@@ -41,8 +41,6 @@ def main() -> int:
         "FOLDING_CLOUD_CONTAINER_IDENTIFIER": identity["cloudkit_container"],
         "FOLDING_API_ORIGIN": (
             "https://api.getfolding.app"
-            if args.environment == "production"
-            else "https://api-staging.getfolding.app"
         ),
         "FOLDING_ENVIRONMENT": args.environment,
         "FOLDING_SOURCE_COMMIT": source,

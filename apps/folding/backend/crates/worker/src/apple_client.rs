@@ -61,7 +61,7 @@ mod tests {
             encoded.as_bytes(),
             "KEY1234567",
             "TEAM123456",
-            "app.getfolding.Folding.Staging",
+            "app.getfolding.Folding",
             100,
         )
         .unwrap();

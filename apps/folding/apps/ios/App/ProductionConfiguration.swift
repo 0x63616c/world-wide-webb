@@ -43,15 +43,12 @@ struct ProductionConfiguration: Equatable, Sendable {
 
   init(bundleID: String, values: [String: String], permitsDevelopmentSigning: Bool = false) throws {
     guard let environment = values["FoldingEnvironment"],
-      ["production", "staging"].contains(environment)
+      environment == "production"
     else { throw CloudTrackingError.missingConfiguration }
-    let suffix = environment == "staging" ? ".Staging" : ""
-    let expectedBundle = "app.getfolding.Folding\(suffix)"
+    let expectedBundle = "app.getfolding.Folding"
     let appGroup = "group.\(expectedBundle)"
     let cloudContainer = "iCloud.\(expectedBundle)"
-    let expectedOrigin =
-      environment == "production"
-      ? "https://api.getfolding.app" : "https://api-staging.getfolding.app"
+    let expectedOrigin = "https://api.getfolding.app"
     guard bundleID == expectedBundle, values["FoldingAppGroupIdentifier"] == appGroup,
       values["FoldingCloudContainerIdentifier"] == cloudContainer,
       values["FoldingAPIOrigin"] == expectedOrigin,

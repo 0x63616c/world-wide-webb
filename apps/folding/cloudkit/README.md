@@ -1,6 +1,6 @@
 # Private CloudKit schema
 
-Apple-generated Development exports, bootstrap receipts and hashed manifests are sealed under `schemas/staging/v1` and `schemas/production/v1`. Exact matching Production exports and verification receipts are under `readbacks/staging/v1` and `readbacks/production/v1`. Generate future versions from Apple's initialized development environment; do not handwrite Core Data's `CD_` records or internal fields. This directory is for reviewed immutable schema exports/receipts, not records, credentials or private database dumps.
+Apple-generated Development exports, bootstrap receipts and hashed manifests are sealed under `schemas/production/v1`. Exact matching Production exports and verification receipts are under `readbacks/production/v1`. Generate future versions from Apple's initialized development environment; do not handwrite Core Data's `CD_` records or internal fields. This directory is for reviewed immutable schema exports/receipts, not records, credentials or private database dumps.
 
 The app has four mirror entities: `ReplicatedEvent`, `ResetMarker`, `TrackingInterruption`, `TransferMarker`. All attributes remain optional. There are no CloudKit uniqueness constraints. Transfer-conflict tombstones share the existing transfer entity. Generation fields exist on events/interruption records only; payload remains authoritative. `logicalIDIndex` and `generationIndex` are **local Core Data** fetch indexes. The app does not query user-defined fields directly in CloudKit, so no speculative remote QUERYABLE/SORTABLE indexes are added. Preserve Apple's generated mirroring/system indexes in the full exported schema.
 
@@ -14,14 +14,14 @@ Primary agent only: use the existing persistent credential session. CloudKit man
 - CloudKit Console management token for export/validation/import, and administrator privilege for production promotion.
 - Pinned Xcode and `cktool 1.0.23001`.
 
-Staging and production are separate **containers**, each with its own Apple Development/Production environments. Bootstrap both containers' Development environment, then promote each independently before its TestFlight/Store build uses Production. Do not point the staging app at the production container.
+Only `iCloud.app.getfolding.Folding` is supported. Its Apple Development and Production environments remain distinct. Bootstrap Development, then promote its schema before distribution builds use Production. The staging app is removed; Apple does not support deleting existing container identifiers.
 
 ## Initialize the exact compiled model
 
 Commit the app/model changes first. Build-only lane:
 
 ```sh
-bundle exec fastlane ios schema_bootstrap_build environment:staging
+bundle exec fastlane ios schema_bootstrap_build environment:production
 ```
 
 The production-container development build uses `environment:production`. This lane does not run the app or initialize CloudKit. It supplies the exact committed source SHA and coherent Development environment values, then builds Debug with an opt-in simulator CloudKit entitlement file. Normal simulator signing stays unchanged. Actual live iCloud access with those simulator entitlements must be confirmed; build success is insufficient.
@@ -41,10 +41,10 @@ If a device bootstrap is needed, build Debug with the corresponding Development 
 After copying the receipt, keep all generated output outside Git until the snapshot is complete:
 
 ```sh
-python3 scripts/cloudkit-schema.py snapshot --target staging \
+python3 scripts/cloudkit-schema.py snapshot --target production \
   --receipt /absolute/path/cloudkit-schema-bootstrap.json \
-  --output build/cloudkit/staging-schema-v1
-python3 scripts/cloudkit-schema.py validate --artifact build/cloudkit/staging-schema-v1
+  --output build/cloudkit/production-schema-v1
+python3 scripts/cloudkit-schema.py validate --artifact build/cloudkit/production-schema-v1
 ```
 
 The wrapper exports the complete Apple schema, rejects missing current fields, and writes `manifest.json` with schema format version, team/container, commit, exact model-source hashes, tool version and receipt/schema hashes. Snapshots cannot be overwritten. Copy the complete reviewed directory into `cloudkit/schemas/<target>/<version>/` and commit it. Never claim the local model descriptor is an exported Apple schema.
@@ -52,7 +52,7 @@ The wrapper exports the complete Apple schema, rejects missing current fields, a
 A deliberate development-only restore/import is available after validation:
 
 ```sh
-python3 scripts/cloudkit-schema.py import-development --artifact cloudkit/schemas/staging/v1
+python3 scripts/cloudkit-schema.py import-development --artifact cloudkit/schemas/production/v1
 ```
 
 This wrapper intentionally has no `reset-schema` command and no production import. Do not reset an environment to make a migration pass. Production changes must be additive; retain old fields/types and reset/conflict tombstones.
@@ -65,8 +65,8 @@ Then obtain machine-readable readback:
 
 ```sh
 python3 scripts/cloudkit-schema.py verify-production \
-  --artifact cloudkit/schemas/staging/v1 \
-  --output build/cloudkit/staging-production-readback-v1
+  --artifact cloudkit/schemas/production/v1 \
+  --output build/cloudkit/production-production-readback-v1
 ```
 
 This exports the actual Production schema and compares tokens against the sealed Development export, ignoring only whitespace/comments. Differences stop confirmation, including ordering differences: inspect an explicit diff instead of weakening the gate silently. Retain the export and `verification.json` alongside the release evidence. Repeat for the production container.

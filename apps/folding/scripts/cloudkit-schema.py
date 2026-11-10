@@ -39,7 +39,7 @@ def write_json(path, data):
 
 
 def container(target):
-    return "iCloud.app.getfolding.Folding" + (".Staging" if target == "staging" else "")
+    return "iCloud.app.getfolding.Folding"
 
 
 def cktool(command, target, environment, *args):
@@ -92,7 +92,7 @@ def load_artifact(directory):
     if manifest.get("schema_version") != 1 or manifest.get("team_id") != TEAM:
         raise SystemExit("Unknown schema artifact/team")
     target = manifest.get("target")
-    if target not in {"production", "staging"} or manifest.get("container") != container(target):
+    if target != "production" or manifest.get("container") != container(target):
         raise SystemExit("Invalid schema artifact identity")
     if manifest.get("environment") != "development":
         raise SystemExit("Only a sealed development snapshot can be promoted")
@@ -117,7 +117,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
     export = sub.add_parser("snapshot", help="Export development schema with compiled-model receipt")
-    export.add_argument("--target", choices=["production", "staging"], required=True)
+    export.add_argument("--target", choices=["production"], required=True)
     export.add_argument("--receipt", type=pathlib.Path, required=True)
     export.add_argument("--output", type=pathlib.Path, required=True)
     for command in ["validate", "import-development", "verify-production"]:

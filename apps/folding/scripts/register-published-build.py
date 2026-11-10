@@ -30,7 +30,7 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
 
 def identity(record, configuration, source):
     environment = record["environment"]
-    if environment not in {"production", "staging"}:
+    if environment != "production":
         raise ValueError("Unknown release environment")
     if record["state"] not in {"archived", "uploaded", "processed", "ready_to_submit", "submitted", "approved", "live"}:
         raise ValueError("Verify the signed immutable archive before authorizing its build")

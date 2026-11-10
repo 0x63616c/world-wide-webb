@@ -10,7 +10,7 @@ import uuid
 import boto3
 
 parser = argparse.ArgumentParser(description=__doc__)
-parser.add_argument('environment', choices=['bootstrap', 'staging', 'production'])
+parser.add_argument('environment', choices=['bootstrap', 'production'])
 args = parser.parse_args()
 client = boto3.client('s3', region_name='auto',
     endpoint_url='https://eb3ea2e5ef93e58704d39980583fee38.r2.cloudflarestorage.com')

@@ -10,16 +10,5 @@
     "primary_locale": "en-US",
     "store_name": "Folding: Duo Fold Tracker",
     "app_store_id": "6832059501"
-  },
-  "staging": {
-    "name": "Folding Staging",
-    "sku": "folding-ios-staging",
-    "bundle_id": "app.getfolding.Folding.Staging",
-    "widget_bundle_id": "app.getfolding.Folding.Staging.Widgets",
-    "app_group": "group.app.getfolding.Folding.Staging",
-    "cloudkit_container": "iCloud.app.getfolding.Folding.Staging",
-    "primary_locale": "en-US",
-    "store_name": "Folding Staging",
-    "app_store_id": "6832060416"
   }
 }

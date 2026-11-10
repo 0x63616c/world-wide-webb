@@ -37,7 +37,7 @@ Apply **all migrations in order**. Schedule the single exported dispatcher every
 | Binding | Storage | Meaning |
 | --- | --- | --- |
 | `DB` | D1 binding | This deployment's database |
-| `DEPLOYMENT` | Variable | `staging` or `production` |
+| `DEPLOYMENT` | Variable | `production` only |
 | `AUTH_ENCRYPTION_KEY_VERSION` | Variable | Current version in the encryption key ring |
 | `AUTH_ENCRYPTION_KEYS` | Secret | JSON object mapping versions to base64url 32-byte AES keys |
 | `AUTH_NETWORK_HMAC_KEY` | Secret | Base64url 32-byte network rate-limit digest key |

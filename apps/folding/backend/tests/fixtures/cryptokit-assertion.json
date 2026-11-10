@@ -1,8 +1,8 @@
 {
-  "app_id" : "TEAMID1234.app.getfolding.Folding.Staging",
-  "authenticator_data" : "WpeUgfzKtIFuLf28uDKMl+mURuKN\/7RXK6HULp2M330AAAAAAQ==",
+  "app_id" : "TEAMID1234.app.getfolding.Folding",
+  "authenticator_data" : "9sxuXouXTnN2k0tc3rsUGqTp5Y7wu5O\/IBoUZ+rWoLIAAAAAAQ==",
   "client_hash" : "oZhQiAScVSFtBvpvg1D9GYKa+Z\/G7o7aRMyMHN6eb98=",
   "provenance" : "Synthetic assertion signed by Apple CryptoKit P256.Signing.PrivateKey.signature(for: nonce Data); not a real App Attest device vector",
-  "public_key_sec1" : "BD6yb56QSMrXOYlxUsXFo5WQ1VJmSU6kgLmR8ptVKkVjddKQPDKcK+D66rE\/HPN35ID0QsHew7yH0zsjT4HKZ00=",
-  "signature_der" : "MEUCIQCLwv8mNh540PyUGgt5CC03HVxqGmhC8uLGJ0xRpCwTOgIgSoV29VCHU1ZHT\/ginxRDYCa00g3RuDF\/X65AQrd1Wbg="
+  "public_key_sec1" : "BEufgCbGrxZlEYJcB9XBzRy7zQqmV1\/GOe8CYCUj0ioMNZ0AjKLbZGhTZjKapLNo6Wa5lk2+TRJRGqu\/neHaM6s=",
+  "signature_der" : "MEUCIQC+5keMxS0lfp\/dkDEr12q6Mnb4uHtHSvhbKaDmcddj3AIgb08jT6L3VgkRBR2ttNdR5sn4wLwoOh0kqPT\/T\/4EpJo="
 }

@@ -120,7 +120,7 @@ impl Configuration {
             .var("DEPLOYMENT")
             .map_err(|_| Failure::unavailable())?
             .to_string();
-        if !["staging", "production"].contains(&deployment.as_str()) {
+        if deployment != "production" {
             return Err(Failure::unavailable());
         }
         let version = env

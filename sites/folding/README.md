@@ -6,15 +6,15 @@ Static HTML/CSS for `getfolding.app`, with no client JavaScript, framework, cook
 node sites/folding/build.mjs
 ```
 
-The dependency-free builder writes production assets to `sites/folding/dist/` and staging assets to `sites/folding/dist-staging/`. Both are ignored generated artifacts. Source content lives in `src/pages.mjs`; `build.mjs` owns the common document/navigation and response headers; `assets/` owns the stylesheet and original vector mark. Node is pinned to the repository's 26.13.0 toolchain in `package.json`.
+The dependency-free builder writes production assets to `sites/folding/dist/`. These are ignored generated artifacts. Source content lives in `src/pages.mjs`; `build.mjs` owns the common document/navigation and response headers; `assets/` owns the stylesheet and original vector mark. Node is pinned to the repository's 26.13.0 toolchain in `package.json`.
 
 ## Deployment ownership
 
-Wrangler publishes asset versions using `wrangler.jsonc`. Default configuration targets `folding-web-staging`; `--env production` targets `folding-web-production`. Both disable `workers.dev` and preview URLs. There is no runtime Worker script, backend JavaScript, or shared API/admin binding.
-
-WWW’s `Sites` workflow owns authenticated asset publication. OpenTofu owns durable hostname/DNS routing, including `getfolding.app`, a staging hostname, and the `www` → apex redirect. Do not add overlapping route ownership to Wrangler or provision resources through a dashboard. Static asset versions deployed November 7: staging `dc3a1129-f7ab-459a-8f21-bc573fdf3291`, production `d12c0df4-0f09-4303-ab6f-0bd4c9167c4f`. Public routing is independently managed by the environment roots; an uploaded version alone is not a live website.
-
-Configuration follows Cloudflare's [static asset binding](https://developers.cloudflare.com/workers/static-assets/binding/) and [static site/404 routing](https://developers.cloudflare.com/workers/static-assets/routing/static-site-generation/) contracts. An unmatched URL serves the actual 404 page; there is no SPA fallback. Staging sends `noindex` headers/meta and disallows crawling. Production includes canonical URLs and a sitemap.
+Wrangler publishes production asset versions using `wrangler.jsonc`, targeting
+`folding-web-production`. It disables `workers.dev` and preview URLs. WWW's Sites job
+owns asset publication. OpenTofu owns `getfolding.app`, `www.getfolding.app` and the
+canonical redirect. The staging builder, publisher, Worker and hostname are removed.
+Production includes canonical URLs and a sitemap; unmatched URLs serve the 404 page.
 
 ## Launch state and follow-through
 
@@ -22,4 +22,4 @@ Configuration follows Cloudflare's [static asset binding](https://developers.clo
 - Support, deletion assistance and appeals open the user's email client at `support@getfolding.app`. These pages do not submit an authenticated account mutation or claim a request has been processed. Future service forms must enforce the backend authentication/deletion contracts.
 - Privacy copy follows the approved 7-day avatar-original, 30-day deletion-recovery, 90-day closed-case and active-ban retention policies. Before publication, reconcile it with deployed behavior and confirm the operator's required business/contact disclosures and support-correspondence retention; these were not invented from unavailable account details.
 - Source is English. App/storefront localization is separate; translated website policies are not claimed by this batch.
-- The local production/staging build completed. Browser/accessibility/device review, link/config matrices, live Cloudflare routing, mailbox delivery and policy/retention verification are deferred to the owner's final review phase. No deployment or public availability is claimed.
+- The local production build completed. Browser/accessibility/device review, link/config matrices, live Cloudflare routing, mailbox delivery and policy/retention verification are deferred to the owner's final review phase. No deployment or public availability is claimed.

@@ -40,11 +40,11 @@ class NestedMigrationSourceTests(unittest.TestCase):
                     {
                         "account_id": "a" * 32,
                         "compatibility_date": "2026-11-07",
-                        "vars": {"DEPLOYMENT": "staging", "WORKER_VERSION": git("rev-parse", "HEAD")},
+                        "vars": {"DEPLOYMENT": "production", "WORKER_VERSION": git("rev-parse", "HEAD")},
                         "d1_databases": [
                             {
                                 "binding": "DB",
-                                "database_name": "folding-staging",
+                                "database_name": "folding-production",
                                 "database_id": "00000000-0000-4000-8000-000000000001",
                             }
                         ],
@@ -54,7 +54,7 @@ class NestedMigrationSourceTests(unittest.TestCase):
             original = migration.ROOT
             migration.ROOT = product
             try:
-                migration.prepare(config, "staging", repository / "prepared", True)
+                migration.prepare(config, "production", repository / "prepared", True)
                 self.assertTrue((repository / "prepared/migrations/0001_fixture.sql").is_file())
             finally:
                 migration.ROOT = original

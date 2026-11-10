@@ -7,8 +7,8 @@ variable "account_id" { type = string }
 variable "environment" {
   type = string
   validation {
-    condition     = contains(["staging", "production"], var.environment)
-    error_message = "Use staging or production."
+    condition     = var.environment == "production"
+    error_message = "Only production is supported."
   }
 }
 variable "enabled" {

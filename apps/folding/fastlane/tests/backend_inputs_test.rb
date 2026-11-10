@@ -117,14 +117,14 @@ class BackendInputsTest < Minitest::Test
 
   def test_ci_evidence_requires_trusted_main_push_and_exact_attempt
     source = "a" * 40
-    base = {"head_sha" => source, "path" => ".github/workflows/folding-ci.yml", "status" => "completed", "conclusion" => "success", "run_attempt" => 2,
+    base = {"head_sha" => source, "path" => ".github/workflows/ci.yml", "status" => "completed", "conclusion" => "success", "run_attempt" => 2,
       "event" => "push", "head_branch" => "main", "head_repository" => {"full_name" => "0x63616c/world-wide-webb"}}
     check = {"kind" => "ci", "name" => "backend", "commit_sha" => source, "conclusion" => "success", "run_url" => "https://github.com/0x63616c/world-wide-webb/actions/runs/1/attempts/2"}
     [{"event" => "pull_request"}, {"head_branch" => "feature"}, {"run_attempt" => 3}, {"head_repository" => {"full_name" => "other/repo"}}, {}].each do |change|
       run = base.merge(change)
       command = lambda do |*args|
         assert_equal "repos/0x63616c/world-wide-webb/actions/runs/1/attempts/2", args.last unless args.last.include?("jobs?")
-        args.last.include?("jobs?") ? JSON.generate([{"jobs" => [{"name" => "Folding backend", "head_sha" => source, "status" => "completed", "conclusion" => "success"}]}]) : JSON.generate(run)
+        args.last.include?("jobs?") ? JSON.generate([{"jobs" => [{"name" => "Folding / Folding backend", "head_sha" => source, "status" => "completed", "conclusion" => "success"}]}]) : JSON.generate(run)
       end
       FoldingRelease.stub(:run, command) do
         if change.empty?

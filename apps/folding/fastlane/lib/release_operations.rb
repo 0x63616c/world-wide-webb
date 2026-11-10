@@ -199,12 +199,10 @@ module FoldingRelease
       raise "Publish sealed artifacts instead" if record.data["archive_candidates"]
       old_number = record.data.fetch("build_number")
       actor = FoldingRelease.release_actor
-      builds = %w[production staging].flat_map do |environment|
-        identity = FoldingRelease.configuration(environment).fetch("identity")
-        app = Spaceship::ConnectAPI::App.find(identity.fetch("bundle_id"), client: FoldingRelease.client)
-        raise "Missing registered app" unless app && app.id == identity.fetch("app_store_id")
-        app.get_builds(client: FoldingRelease.client).map { |build| Integer(build.version, 10) }
-      end
+      identity = FoldingRelease.configuration("production").fetch("identity")
+      app = Spaceship::ConnectAPI::App.find(identity.fetch("bundle_id"), client: FoldingRelease.client)
+      raise "Missing registered app" unless app && app.id == identity.fetch("app_store_id")
+      builds = app.get_builds(client: FoldingRelease.client).map { |build| Integer(build.version, 10) }
       raise "Old build exists on Apple; reconcile it instead" if builds.include?(old_number)
       replacement = FoldingRelease.reserve(environment: record.data.fetch("environment"),
         version: record.data.fetch("marketing_version"), replacement_for: record.data.fetch("release_id"))

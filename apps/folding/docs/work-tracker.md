@@ -4,6 +4,16 @@ Repository consolidation is complete. Active issues belong to `0x63616c/world-wi
 references below to old `folding` issue/PR numbers are historical. That source repository
 was snapshotted into private `github-archive` and deleted by owner request.
 
+## Production-only cleanup — November 10, 2026
+
+The owner requested deletion of the staging app, data and infrastructure. All three
+Cloudflare staging Workers and 14 managed resources were deleted through the existing
+staging state; its remote state/backups and dedicated state/runtime vault items were removed.
+Production resources were excluded from the destroy plan. Build/release/configuration
+support now accepts production only; the site builds and publishes once. Historical SQL
+migrations and dated experiment receipts remain unchanged. Apple app removal is pending
+App Store Connect authentication; Apple does not permit CloudKit container deletion.
+
 ## Current scope: internal TestFlight, then App Store preparation
 
 Implementation and live infrastructure are present. The current owner request is to test the

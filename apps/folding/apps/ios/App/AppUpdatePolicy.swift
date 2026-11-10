@@ -34,7 +34,7 @@ import SwiftUI
     let expected =
       environment == "production"
       ? "https://api.getfolding.app"
-      : environment == "staging" ? "https://api-staging.getfolding.app" : ""
+      : ""
     self.origin = origin?.absoluteString == expected ? origin : nil
     self.installedBuild = installedBuild
     self.defaults = defaults
@@ -42,7 +42,7 @@ import SwiftUI
     let cached = defaults.integer(forKey: "folding.minimumBuild.\(environment)")
     minimumBuild = (0...Int(Int32.max)).contains(cached) ? cached : 0
     updateURL = URL(
-      string: testFlight || environment == "staging"
+      string: testFlight
         ? "https://testflight.apple.com/" : "https://apps.apple.com/app/id6832059501")!
     let config = URLSessionConfiguration.ephemeral
     config.httpCookieStorage = nil
@@ -63,8 +63,7 @@ import SwiftUI
 
   func refresh(force: Bool = false) async {
     guard !checking, let origin,
-      ["https://api.getfolding.app", "https://api-staging.getfolding.app"].contains(
-        origin.absoluteString),
+      origin.absoluteString == "https://api.getfolding.app",
       force || lastCheck.map({ now().timeIntervalSince($0) >= 900 }) ?? true
     else { return }
     checking = true

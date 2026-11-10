@@ -46,16 +46,16 @@ test("local D1 CHECK guard rolls back and admits only one competing revision", a
   for (const sql of [
     "INSERT INTO participants VALUES ('p','subject','joined','none',0,'g','e','d')",
     "INSERT INTO participant_revisions VALUES ('p',0)",
-    "INSERT INTO attestation_keys VALUES ('k','p','d','staging',x'01',0,0)",
-    "INSERT INTO sessions VALUES ('guard-session','p','d','staging',0,0,1000,1000,0)",
+    "INSERT INTO attestation_keys VALUES ('k','p','d','production',x'01',0,0)",
+    "INSERT INTO sessions VALUES ('guard-session','p','d','production',0,0,1000,1000,0)",
     "INSERT INTO access_tokens VALUES (zeroblob(32),'guard-session',1000)",
-    "INSERT INTO challenges VALUES ('c','p','d','k','staging','submit_events',x'02',100,0,'guard-session')",
+    "INSERT INTO challenges VALUES ('c','p','d','k','production','submit_events',x'02',100,0,'guard-session')",
     "CREATE TABLE test_receipts (id TEXT PRIMARY KEY)",
     "CREATE TABLE test_jobs (id TEXT PRIMARY KEY)",
   ]) await db.prepare(sql).run();
   const source = await readFile(`${root}crates/worker/src/mutation.rs`, "utf8");
   const guardSQL = source.match(/pub const GUARD_SQL: &str = r#"([\s\S]*?)"#;/)[1];
-  const guard = (id) => db.prepare(guardSQL).bind(id, "p", 0, "e", 0, "g", "d", "k", "staging", 0, 1, "c", "submit_events", 99, new Uint8Array([2]).buffer,"guard-session",new Uint8Array(32).buffer);
+  const guard = (id) => db.prepare(guardSQL).bind(id, "p", 0, "e", 0, "g", "d", "k", "production", 0, 1, "c", "submit_events", 99, new Uint8Array([2]).buffer,"guard-session",new Uint8Array(32).buffer);
   await assert.rejects(db.batch([
     guard("failed"),
     db.prepare("UPDATE challenges SET used=1 WHERE challenge_id='c'"),
@@ -86,19 +86,19 @@ test("local D1 CHECK guard rolls back and admits only one competing revision", a
 test("local D1 session fences reject revoked sessions and rotate exactly once", async () => {
   const db = await runtime.getD1Database("DB");
   const token=new Uint8Array(32).fill(1).buffer;
-  await db.prepare("INSERT INTO sessions VALUES ('s','p','d','staging',0,0,900000,300000,0)").run();
+  await db.prepare("INSERT INTO sessions VALUES ('s','p','d','production',0,0,900000,300000,0)").run();
   await db.prepare("INSERT INTO access_tokens VALUES (?,'s',900)").bind(token).run();
   await db.prepare("INSERT INTO refresh_tokens VALUES (?,'s',0,NULL,NULL)").bind(token).run();
   const source = await readFile(`${root}crates/worker/src/session.rs`,"utf8");
   const sql = name => source.match(new RegExp(`pub const ${name}: &str = r#"([\\s\\S]*?)"#;`))[1];
-  const sessionGuard = id => db.prepare(sql("SESSION_GUARD_SQL")).bind(id,"s","p","d","staging",100,token);
+  const sessionGuard = id => db.prepare(sql("SESSION_GUARD_SQL")).bind(id,"s","p","d","production",100,token);
   await db.batch([sessionGuard("authorized"),db.prepare("DELETE FROM mutation_guards WHERE guard_id='authorized'")]);
   await db.prepare("UPDATE sessions SET revoked=1 WHERE session_id='s'").run();
   await assert.rejects(db.batch([sessionGuard("revoked"),db.prepare("INSERT INTO test_jobs VALUES ('revoked')")]));
   assert.equal(await db.prepare("SELECT count(*) n FROM test_jobs WHERE id='revoked'").first("n"),0);
   await db.prepare("UPDATE sessions SET revoked=0 WHERE session_id='s'").run();
   const rotate = id => db.batch([
-    db.prepare(sql("REFRESH_GUARD_SQL")).bind(id,"s","staging",100,token,id),
+    db.prepare(sql("REFRESH_GUARD_SQL")).bind(id,"s","production",100,token,id),
     db.prepare("UPDATE refresh_tokens SET rotated_operation_id=?,rotated_at_ms=100 WHERE token_hash=?").bind(id,token),
     db.prepare("INSERT INTO refresh_receipts VALUES ('s',?,?,x'01','synthetic-key',60100)").bind(id,token),
     db.prepare("DELETE FROM mutation_guards WHERE guard_id=?").bind(id),
@@ -151,7 +151,7 @@ const authenticatedRuntime = new Miniflare(convertV4MiniflareOptions({ workers: 
     APPLE_SIGN_IN_CLIENT_ID:"app.test.Folding",APPLE_SIGN_IN_TEAM_ID:"TEAM123456",APPLE_SIGN_IN_KEY_ID:"KEY1234567",
     APPLE_SIGN_IN_PRIVATE_KEY_PKCS8:appleClient.privateKey.export({type:"pkcs8",format:"der"}).toString("base64url"),
     AUTH_SUBJECT_HMAC_KEY_VERSION:"test-v1",AUTH_SUBJECT_HMAC_KEYS:JSON.stringify({"test-v1":Buffer.alloc(32,9).toString("base64url")}),
-    DEPLOYMENT: "staging", AUTH_ENCRYPTION_KEY_VERSION: "test-v1",
+    DEPLOYMENT: "production", AUTH_ENCRYPTION_KEY_VERSION: "test-v1",
     // Public synthetic test keys, never account credentials or production bindings.
     AUTH_ENCRYPTION_KEYS: JSON.stringify({"test-v1":Buffer.alloc(32,7).toString("base64url")}),
     AUTH_NETWORK_HMAC_KEY: Buffer.alloc(32,8).toString("base64url"),
@@ -187,7 +187,7 @@ test("actual Worker issues bounded challenges and rotates encrypted sessions wit
   assert.equal(limited.status,429);assert.equal(limited.headers.get("Retry-After"),"60");assert.equal((await limited.json()).retry_after_seconds,60);
   const timestamp=Date.now();
   await db.prepare("INSERT INTO participants(participant_id,subject_hmac,membership,restriction,generation_revision,generation_id,epoch_id,active_device_id) VALUES ('auth-person','auth-subject','not_joined','none',0,'g',NULL,NULL)").run();
-  await db.prepare("INSERT INTO sessions VALUES ('auth-session','auth-person','device','staging',?,?,?, ?,0)").bind(timestamp,timestamp,timestamp+86400000,timestamp+86400000).run();
+  await db.prepare("INSERT INTO sessions VALUES ('auth-session','auth-person','device','production',?,?,?, ?,0)").bind(timestamp,timestamp,timestamp+86400000,timestamp+86400000).run();
   const old=Buffer.alloc(32,11);
   await db.prepare("INSERT INTO refresh_tokens VALUES (?,'auth-session',?,NULL,NULL)").bind(hash(old),timestamp).run();
   const operation="00000000-0000-0000-0000-000000000901";
@@ -201,7 +201,7 @@ test("actual Worker issues bounded challenges and rotates encrypted sessions wit
   assert.equal(receipt.key_version,"test-v1");
   const envelope=Buffer.from(receipt.ciphertext);
   const decipher=createDecipheriv("aes-256-gcm",Buffer.alloc(32,7),envelope.subarray(0,12));
-  decipher.setAAD(Buffer.from(`Folding-v1/staging/refresh/auth-session/${operation}`));
+  decipher.setAAD(Buffer.from(`Folding-v1/production/refresh/auth-session/${operation}`));
   decipher.setAuthTag(envelope.subarray(-16));
   assert.deepEqual(JSON.parse(Buffer.concat([decipher.update(envelope.subarray(12,-16)),decipher.final()])),pairs[0]);
   assert.ok(!Buffer.from(receipt.ciphertext).includes(Buffer.from(pairs[0].refresh_token)));
@@ -217,10 +217,10 @@ test("actual Worker issues bounded challenges and rotates encrypted sessions wit
   assert.equal((await post("refresh",{operation_id:"00000000-0000-0000-0000-000000000903",refresh_token:pairs[0].refresh_token})).status,401);
   assert.equal((await post("logout",{operation_id:operation},{Authorization:`Bearer ${pairs[0].access_token}`})).status,401);
   // A separate active family proves logout removes its push binding atomically.
-  await db.prepare("INSERT INTO sessions VALUES ('logout-session','auth-person','device2','staging',?,?,?, ?,0)").bind(timestamp,timestamp,timestamp+86400000,timestamp+86400000).run();
+  await db.prepare("INSERT INTO sessions VALUES ('logout-session','auth-person','device2','production',?,?,?, ?,0)").bind(timestamp,timestamp,timestamp+86400000,timestamp+86400000).run();
   const access=Buffer.alloc(32,12);
   await db.prepare("INSERT INTO access_tokens VALUES (?,'logout-session',?)").bind(hash(access),timestamp+900000).run();
-  await db.prepare("INSERT INTO push_installations(device_id,participant_id,session_id,deployment,environment,token_ciphertext,key_version,topic,enabled) VALUES ('device2','auth-person','logout-session','staging','sandbox',x'01','test-v1','app.test',1)").run();
+  await db.prepare("INSERT INTO push_installations(device_id,participant_id,session_id,deployment,environment,token_ciphertext,key_version,topic,enabled) VALUES ('device2','auth-person','logout-session','production','sandbox',x'01','test-v1','app.test',1)").run();
   const otherRefresh=Buffer.alloc(32,13);
   await db.prepare("INSERT INTO refresh_tokens VALUES (?,'logout-session',?,NULL,NULL)").bind(hash(otherRefresh),timestamp).run();
   assert.equal((await post("refresh",{operation_id:operation,refresh_token:otherRefresh.toString("base64url")})).status,409);
@@ -359,7 +359,7 @@ test("entry deletion is owned, idempotent and durable before late upload", async
     await db.prepare("INSERT INTO participant_revisions VALUES (?,0)").bind(person).run();
   }
   const access=Buffer.alloc(32,81);
-  await db.prepare("INSERT INTO sessions VALUES ('entry-delete-session',?,?,'staging',?,?,?,?,0)").bind(participant,device,time,time,time+86400000,time+86400000).run();
+  await db.prepare("INSERT INTO sessions VALUES ('entry-delete-session',?,?,'production',?,?,?,?,0)").bind(participant,device,time,time,time+86400000,time+86400000).run();
   await db.prepare("INSERT INTO access_tokens VALUES (?,'entry-delete-session',?)").bind(createHash("sha256").update(access).digest(),time+900000).run();
   const event=(id,sequence,transition)=>({schema_version:1,event_id:id,device_id:device,sequence,generation:{revision:0,reset_id:nil},observed_at_ms:time-10000+sequence*1000,timezone_id:"UTC",transition,is_test:false,competition_epoch_id:null});
   for(const [id,seq,state] of [[first,1,"open"],[repeated,2,"open"],[close,3,"close"]]) {
@@ -396,7 +396,7 @@ test("entry deletion is owned, idempotent and durable before late upload", async
 
 const protectionRuntime = new Miniflare(convertV4MiniflareOptions({workers:[{
  name:'folding-burst-local',modules:[{type:'ESModule',path:`${root}crates/worker/build/index.js`},{type:'CompiledWasm',path:`${root}crates/worker/build/index_bg.wasm`}],
- compatibilityDate:'2026-11-04',bindings:{DEPLOYMENT:'staging'},d1Databases:{DB:'burst-local'},
+ compatibilityDate:'2026-11-04',bindings:{DEPLOYMENT:'production'},d1Databases:{DB:'burst-local'},
  ratelimits:{API_NETWORK_BURST:{namespace_id:'910',simple:{limit:3,period:60}},AUTH_NETWORK_BURST:{namespace_id:'911',simple:{limit:1,period:60}},API_CREDENTIAL_BURST:{namespace_id:'912',simple:{limit:1,period:60}}}
 }]}));
 after(()=>protectionRuntime.dispose());
@@ -510,9 +510,9 @@ for (const documentedNames of [true, false]) test(`actual Worker verifies ${docu
     db.prepare("INSERT INTO participants(participant_id,subject_hmac,membership,restriction,generation_revision,generation_id) VALUES (?,?,'not_joined','none',0,'00000000-0000-0000-0000-000000000000')").bind(participant, `join-metadata-subject-${documentedNames}`),
     db.prepare("INSERT INTO participant_revisions VALUES (?,0)").bind(participant),
     db.prepare("INSERT INTO profiles VALUES (?,'Folder',NULL,'approved','none')").bind(participant),
-    db.prepare("INSERT INTO sessions VALUES (?, ?, ?, 'staging', ?, ?, ?, ?, 0)").bind(session, participant, device, now, now, now + 900000, now + 900000),
+    db.prepare("INSERT INTO sessions VALUES (?, ?, ?, 'production', ?, ?, ?, ?, 0)").bind(session, participant, device, now, now, now + 900000, now + 900000),
     db.prepare("INSERT INTO access_tokens VALUES (?, ?, ?)").bind(hash(token), session, now + 900000),
-    db.prepare("INSERT INTO attestation_keys(key_id,participant_id,device_id,deployment,public_key_sec1,counter,revoked,attestation_environment) VALUES (?, ?, ?, 'staging', ?, 0, 0, 'development')").bind(keyID, participant, device, publicKey),
+    db.prepare("INSERT INTO attestation_keys(key_id,participant_id,device_id,deployment,public_key_sec1,counter,revoked,attestation_environment) VALUES (?, ?, ?, 'production', ?, 0, 0, 'development')").bind(keyID, participant, device, publicKey),
   ]);
   const headers = { Authorization: "Bearer " + token.toString("base64url"), "Content-Type": "application/json" };
   const challengeResponse = await authenticatedRuntime.dispatchFetch("https://api.example/v1/attestation/challenges", {
@@ -522,7 +522,7 @@ for (const documentedNames of [true, false]) test(`actual Worker verifies ${docu
   const challenge = await challengeResponse.json();
   const path = "/v1/enrollment/join";
   const body = JSON.stringify({operation_id: "00000000-0000-4000-8000-000000000048", device_id: device, generation: {revision: 0, reset_id: "00000000-0000-0000-0000-000000000000"}, nickname: "Metadata Tester"});
-  const binding = hash(Buffer.from(["Folding-v1", "staging", "POST", path, challenge.challenge_id, challenge.nonce, hash(body).toString("hex")].join("\n")));
+  const binding = hash(Buffer.from(["Folding-v1", "production", "POST", path, challenge.challenge_id, challenge.nonce, hash(body).toString("hex")].join("\n")));
   const length = (major, n) => Buffer.from(n < 24 ? [(major << 5) | n] : [(major << 5) | 24, n]);
   const bytes = value => Buffer.concat([length(2, value.length), value]);
   const text = value => { const b = Buffer.from(value); return Buffer.concat([length(3, b.length), b]); };
@@ -553,7 +553,7 @@ for (const documentedNames of [true, false]) test(`actual Worker verifies ${docu
   const avatarPath="/v1/avatars/00000000-0000-4000-8000-000000000050";
   const issued=await authenticatedRuntime.dispatchFetch("https://api.example/v1/attestation/challenges",{method:"POST",headers,body:JSON.stringify({purpose:"avatar_upload",device_id:device,key_id:keyID})});
   assert.equal(issued.status,200);const uploadChallenge=await issued.json();
-  const avatarBinding=hash(Buffer.from(["Folding-v1","staging","PUT",avatarPath,uploadChallenge.challenge_id,uploadChallenge.nonce,hash(photo).toString("hex")].join("\n")));
+  const avatarBinding=hash(Buffer.from(["Folding-v1","production","PUT",avatarPath,uploadChallenge.challenge_id,uploadChallenge.nonce,hash(photo).toString("hex")].join("\n")));
   const avatarAuth=Buffer.from(auth);avatarAuth.writeUInt32BE(2,33);
   const avatarSignature=sign("sha256",hash(Buffer.concat([avatarAuth,avatarBinding])),pair.privateKey);
   const avatarAssertion=Buffer.concat([Buffer.from([0xa2]),text("signature"),bytes(avatarSignature),text("authenticatorData"),bytes(avatarAuth)]);
@@ -640,7 +640,7 @@ test('admin quarantine and reinstatement reconcile awards without replaying ackn
   db.prepare('INSERT INTO participant_revisions VALUES (?,0)').bind(participant),
   db.prepare("INSERT INTO profiles VALUES (?,'Replay Folder',NULL,'approved','none')").bind(participant),
   db.prepare('INSERT INTO epochs VALUES (?,?,?,0,?,0,0,NULL)').bind(epoch,participant,device,generation.reset_id),
-  db.prepare("INSERT INTO sessions VALUES (?,?,?,'staging',?,?,?,?,0)").bind(session,participant,device,time,time,time+86400000,time+86400000),
+  db.prepare("INSERT INTO sessions VALUES (?,?,?,'production',?,?,?,?,0)").bind(session,participant,device,time,time,time+86400000,time+86400000),
   db.prepare('INSERT INTO access_tokens VALUES (?,?,?)').bind(createHash('sha256').update(token).digest(),session,time+86400000),
   db.prepare("INSERT INTO live_scores VALUES (?,0,?,'all',100,0)").bind(participant,generation.reset_id),
  ]);
@@ -674,7 +674,7 @@ test("published build policy authorizes exact signed versions without a Worker r
   const cases = [
     {header:"2",signed:"2",registered:true,status:200},
     {header:"3",signed:"3",status:401},
-    {header:"4",signed:"4",registered:true,deployment:"production",status:401},
+    {header:"4",signed:"4",registered:true,deployment:"staging",status:401},
     {header:"5",signed:"5",registered:true,appID:"TEAM123456.app.other",status:401},
     {header:"6",signed:"7",registered:true,status:401},
     {signed:"2",status:401},
@@ -689,17 +689,17 @@ test("published build policy authorizes exact signed versions without a Worker r
       db.prepare("INSERT INTO participants(participant_id,subject_hmac,membership,restriction,generation_revision,generation_id) VALUES (?,?,'not_joined','none',0,'00000000-0000-0000-0000-000000000000')").bind(participant,session),
       db.prepare("INSERT INTO participant_revisions VALUES (?,0)").bind(participant),
       db.prepare("INSERT INTO profiles VALUES (?,'Folder',NULL,'approved','none')").bind(participant),
-      db.prepare("INSERT INTO sessions VALUES (?,?,?,'staging',?,?,?,?,0)").bind(session,participant,device,time,time,time+900000,time+900000),
+      db.prepare("INSERT INTO sessions VALUES (?,?,?,'production',?,?,?,?,0)").bind(session,participant,device,time,time,time+900000,time+900000),
       db.prepare("INSERT INTO access_tokens VALUES (?,?,?)").bind(hash(token),session,time+900000),
-      db.prepare("INSERT INTO attestation_keys(key_id,participant_id,device_id,deployment,public_key_sec1,counter,revoked,attestation_environment) VALUES (?,?,?,'staging',?,0,0,'development')").bind(keyID,participant,device,publicKey),
+      db.prepare("INSERT INTO attestation_keys(key_id,participant_id,device_id,deployment,public_key_sec1,counter,revoked,attestation_environment) VALUES (?,?,?,'production',?,0,0,'development')").bind(keyID,participant,device,publicKey),
     ]);
     if(scenario.registered) await db.prepare("INSERT INTO published_ios_builds VALUES (?,?,?,?,?)")
-      .bind(scenario.deployment??"staging",scenario.appID??"TEAM123456.app.test.Folding",Number(scenario.header),"a".repeat(40),time).run();
+      .bind(scenario.deployment??"production",scenario.appID??"TEAM123456.app.test.Folding",Number(scenario.header),"a".repeat(40),time).run();
     const headers={Authorization:"Bearer "+token.toString("base64url"),"Content-Type":"application/json",...(scenario.header===undefined?{}:{"X-Folding-Build":scenario.header})};
     const issued=await authenticatedRuntime.dispatchFetch("https://api.example/v1/attestation/challenges",{method:"POST",headers,body:JSON.stringify({purpose:"join",device_id:device,key_id:keyID})});
     assert.equal(issued.status,200);const challenge=await issued.json();
     const path="/v1/enrollment/join",body=JSON.stringify({operation_id:id(n+2),device_id:device,generation:{revision:0,reset_id:"00000000-0000-0000-0000-000000000000"},nickname:"Release Tester"});
-    const binding=hash(Buffer.from(["Folding-v1","staging","POST",path,challenge.challenge_id,challenge.nonce,hash(body).toString("hex")].join("\n")));
+    const binding=hash(Buffer.from(["Folding-v1","production","POST",path,challenge.challenge_id,challenge.nonce,hash(body).toString("hex")].join("\n")));
     const length=(major,n)=>Buffer.from(n<24?[(major<<5)|n]:[(major<<5)|24,n]);
     const bytes=value=>Buffer.concat([length(2,value.length),value]);
     const text=value=>{const b=Buffer.from(value);return Buffer.concat([length(3,b.length),b]);};
@@ -726,7 +726,7 @@ test("enrollment recovers an expired challenge after cleanup without treating it
   await db.batch([
     db.prepare("INSERT INTO participants(participant_id,subject_hmac,membership,restriction,generation_revision,generation_id) VALUES (?,?,'not_joined','none',0,'00000000-0000-0000-0000-000000000000')").bind(participant, "expired-enrollment-subject"),
     db.prepare("INSERT INTO participant_revisions VALUES (?,0)").bind(participant),
-    db.prepare("INSERT INTO sessions VALUES (?, ?, ?, 'staging', ?, ?, ?, ?, 0)").bind(session, participant, device, now, now, now + 900000, now + 900000),
+    db.prepare("INSERT INTO sessions VALUES (?, ?, ?, 'production', ?, ?, ?, ?, 0)").bind(session, participant, device, now, now, now + 900000, now + 900000),
     db.prepare("INSERT INTO access_tokens VALUES (?, ?, ?)").bind(createHash("sha256").update(token).digest(), session, now + 900000),
   ]);
   const headers = {Authorization: "Bearer " + token.toString("base64url"), "Content-Type": "application/json"};
@@ -762,7 +762,7 @@ test("enrollment recovers an expired challenge after cleanup without treating it
   const input = JSON.parse(body);
   const normalized = JSON.stringify({challenge_id: input.challenge_id, device_id: device, key_id: key, operation_id: input.operation_id});
   await db.batch([
-    db.prepare("INSERT INTO attestation_keys(key_id,participant_id,device_id,deployment,public_key_sec1,counter,revoked,attestation_environment) VALUES (?,?,?,'staging',?,0,0,'development')").bind(key, participant, device, Buffer.alloc(65, 1)),
+    db.prepare("INSERT INTO attestation_keys(key_id,participant_id,device_id,deployment,public_key_sec1,counter,revoked,attestation_environment) VALUES (?,?,?,'production',?,0,0,'development')").bind(key, participant, device, Buffer.alloc(65, 1)),
     db.prepare("INSERT INTO attestation_operations VALUES (?,?,?,?,?,?)").bind(participant, input.operation_id, device, key, createHash("sha256").update(normalized).digest(), JSON.stringify({key_id: key, enrolled: true})),
   ]);
   const replay = await enroll();

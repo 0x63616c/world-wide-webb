@@ -94,7 +94,7 @@ mod tests {
     fn refresh_recovery_is_short_scoped_and_reuse_revokes() {
         let mut state = RefreshState {
             revoked: false,
-            deployment: "staging",
+            deployment: "production",
             absolute_expires_at_ms: 1000000,
             idle_expires_at_ms: 1000000,
             rotated_operation_id: None,
@@ -103,7 +103,7 @@ mod tests {
             receipt_expires_at_ms: None,
         };
         assert_eq!(
-            decide_refresh(&state, "staging", "op", 100),
+            decide_refresh(&state, "production", "op", 100),
             RefreshDecision::Rotate
         );
         state.rotated_operation_id = Some("op");
@@ -111,24 +111,24 @@ mod tests {
         state.receipt_operation_id = Some("op");
         state.receipt_expires_at_ms = Some(60100);
         assert_eq!(
-            decide_refresh(&state, "staging", "op", 60099),
+            decide_refresh(&state, "production", "op", 60099),
             RefreshDecision::ReturnEncryptedReceipt
         );
         assert_eq!(
-            decide_refresh(&state, "staging", "op", 60100),
+            decide_refresh(&state, "production", "op", 60100),
             RefreshDecision::RevokeFamily
         );
         assert_eq!(
-            decide_refresh(&state, "staging", "other", 101),
+            decide_refresh(&state, "production", "other", 101),
             RefreshDecision::RevokeFamily
         );
         assert_eq!(
-            decide_refresh(&state, "production", "op", 101),
+            decide_refresh(&state, "other", "op", 101),
             RefreshDecision::AuthenticationRequired
         );
         state.revoked = true;
         assert_eq!(
-            decide_refresh(&state, "staging", "op", 101),
+            decide_refresh(&state, "other", "op", 101),
             RefreshDecision::AuthenticationRequired
         );
         assert!(token_hash(&URL_SAFE_NO_PAD.encode([1u8; 32])).is_some());
