@@ -7,7 +7,6 @@ import subprocess
 import tempfile
 import unittest
 from unittest.mock import patch
-import zipfile
 
 import yaml
 
@@ -62,19 +61,28 @@ class DeliveryTests(unittest.TestCase):
     def test_promotion_uses_a_successful_receipt_and_its_exact_ci_attempt(self):
         receipt = dict(app="tendr", sha=self.source, version="1.2.3", build="8", ci_run_id=11, ci_run_attempt=2)
         name = f"ios-beta-tendr-{self.source}"
-        archive = io.BytesIO()
-        with zipfile.ZipFile(archive, "w") as output:
-            output.writestr("beta-receipt.json", json.dumps(receipt))
         artifact = dict(id=9, name=name, expired=False, workflow_run={"id": 8})
         run = dict(path=".github/workflows/release.yml", event="workflow_run", status="completed",
                    conclusion="success", head_repository={"full_name": self.repo})
         def gh(*args):
-            return archive.getvalue() if args[-1].endswith("/zip") else json.dumps([{"artifacts": [artifact]}])
+            if args[:2] == ("run", "download"):
+                (Path(args[args.index("--dir") + 1]) / "beta-receipt.json").write_text(json.dumps(receipt))
+                return b""
+            return json.dumps([{"artifacts": [artifact]}])
+        producer = dict(name="Delivery / Tendr / publish", status="completed", conclusion="success")
         def api(path):
+            if "/jobs?" in path:
+                return {"jobs": [producer]}
             return self.ci if path.endswith("/attempts/2") else run
         with patch.object(delivery, "gh", side_effect=gh), patch.object(delivery, "api", side_effect=api):
             result, run_id, ci = delivery.beta_receipt(self.repo, "tendr", self.source, "1.2.3")
             self.assertEqual((result["build"], run_id, ci["run_attempt"]), ("8", 8, 2))
+            run["conclusion"] = "failure"
+            self.assertEqual(delivery.beta_receipt(self.repo, "tendr", self.source, "1.2.3")[0]["build"], "8")
+            producer["conclusion"] = "failure"
+            with self.assertRaisesRegex(ValueError, "No successful processed"):
+                delivery.beta_receipt(self.repo, "tendr", self.source, "1.2.3")
+            producer["conclusion"] = "success"
             run["event"] = "pull_request"
             with self.assertRaisesRegex(ValueError, "No successful processed"):
                 delivery.beta_receipt(self.repo, "tendr", self.source, "1.2.3")

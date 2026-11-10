@@ -1,13 +1,11 @@
 #!/usr/bin/env python3
 """Select trusted main betas or promote a recorded beta from a product tag."""
-import io
 import json
 import os
 from pathlib import Path
 import re
 import subprocess
 import tempfile
-import zipfile
 
 import yaml
 
@@ -67,13 +65,20 @@ def beta_receipt(repo, app, source, version):
         run_id = artifact["workflow_run"]["id"]
         run = api(f"repos/{repo}/actions/runs/{run_id}")
         if not (run["path"] == ".github/workflows/release.yml" and run["event"] == "workflow_run"
-                and run["status"] == "completed" and run["conclusion"] == "success"
+                and run["status"] == "completed"
                 and run["head_repository"]["full_name"] == repo):
             continue
-        with zipfile.ZipFile(io.BytesIO(gh("api", f"repos/{repo}/actions/artifacts/{artifact['id']}/zip"))) as archive:
-            if archive.namelist() != ["beta-receipt.json"]:
+        jobs = api(f"repos/{repo}/actions/runs/{run_id}/jobs?per_page=100")["jobs"]
+        producer = [job for job in jobs if job["name"] == f"Delivery / {app.title()} / publish"]
+        if len(producer) != 1 or producer[0]["status"] != "completed" or producer[0]["conclusion"] != "success":
+            continue
+        with tempfile.TemporaryDirectory() as directory:
+            gh("run", "download", str(run_id), "--repo", repo, "--name", name, "--dir", directory)
+            folder = Path(directory)
+            path = folder / "beta-receipt.json"
+            if list(folder.iterdir()) != [path] or path.is_symlink():
                 raise ValueError("Unexpected beta receipt artifact contents")
-            receipt = json.loads(archive.read("beta-receipt.json"))
+            receipt = json.loads(path.read_text())
         validate_receipt(receipt, app, source, version)
         ci = api(f"repos/{repo}/actions/runs/{receipt['ci_run_id']}/attempts/{receipt['ci_run_attempt']}")
         trusted_ci(ci, source, repo)

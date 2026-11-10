@@ -34,9 +34,6 @@ jobs:
           ASC_KEY_CONTENT: ${{ inputs.app == 'folding' && secrets.FOLDING_ASC_PRIVATE_KEY || secrets.ASC_KEY_CONTENT }}
           APP: ${{ inputs.app }}
         run: bundle exec ruby scripts/review-status.rb "$APP"
-      - name: Inspect release source cleanliness
-        if: inputs.app == 'folding'
-        run: git status --short
       - name: Read-only Folding backend receipt check
         if: inputs.app == 'folding'
         env:
