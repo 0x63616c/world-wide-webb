@@ -406,3 +406,21 @@ CI/merge evidence. A local paired cold-target host test/build took 18.307s befor
 after the process extraction (Cargo 1.99.1, four build jobs, pre-downloaded registry, same Mac);
 locked packages fell from 171 to 43. This is a package-level sample, not overall CI latency.
 Optional previews now follow actual UI/capture inputs rather than broad verification fan-out.
+
+The same-path hosted replay in run 42734665801 compared `de2417085` with `509d84133`:
+the first baseline Darwin handler took 1113.939s, while the candidate selected only operations
+at 32.248s. Local-warm handler maxima were 33.332s and 30.916s respectively. These are real
+per-check timings on equivalent hosted Mac images; the maximum is calculated from sequential
+handler runs, not a measured distributed critical path. Runner queues/setup are excluded.
+
+First-fill versus next-run measurements with unchanged Rust/container inputs in runs
+42734649922/42736105713 were 65s/37s for typecheck, 77s/38s for Rust tests and 195s/113s for
+the complete image job. Docker extraction still cost about 40s, included in those totals.
+This demonstrates warm reuse, not a guaranteed speedup for dependency changes or every CI run.
+
+Broader verification exposed two fixture assumptions. Folding's late-insertion test now seeds
+through ingestion so retained observations and week/month scores agree at calendar boundaries;
+its original assertions pass without mutation retries or production changes. The runner lease
+test explicitly models a descendant retaining stdin after `set` exits and waits for bounded
+quiescence, retaining held-lease, command-order and cleanup assertions. Focused reproductions
+failed before these corrections; all 30 runtime and 123 runner unit tests passed afterward.

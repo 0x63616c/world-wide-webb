@@ -160,11 +160,13 @@ test('signed uploads advance milestones with scores; duplicates/quarantine do no
 });
 
 test('late insertion moves a counted transition between UTC days without inventing a fold',async()=>{
- await setup();const p=await person(520,2),day=Math.floor(Date.now()/86400000)-2;
+ await setup();const p=await person(520),day=Math.floor(Date.now()/86400000)-2;
  const opening=event(p,1,day*86400000+1),closing=event(p,3,(day+1)*86400000+1,'close');
- await observations(p,[opening,closing]);
+ // Seed through ingestion so current week/month scores match retained observations.
+ const send=await signer(p);
+ await jsonOK(await send('/v1/event-batches',{schema_version:1,operation_id:uuid(++op),epoch_id:p.epoch,events:[opening,closing]}));
  let own=await jsonOK(await request(p,'/v1/milestones'));assert.equal(own.progress.days_used,2);
- const send=await signer(p),late=event(p,2,day*86400000+2,'close');
+ const late=event(p,2,day*86400000+2,'close');
  await jsonOK(await send('/v1/event-batches',{schema_version:1,operation_id:uuid(++op),epoch_id:p.epoch,events:[late]}));
  own=await jsonOK(await request(p,'/v1/milestones'));assert.equal(own.progress.folds,2);assert.equal(own.progress.days_used,1);
  const counted=(await db.prepare('SELECT event_id FROM milestone_counted_events WHERE participant_id=? ORDER BY event_id').bind(p.participant).all()).results.map(r=>r.event_id);
