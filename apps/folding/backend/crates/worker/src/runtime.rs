@@ -92,10 +92,14 @@ async fn fetch(request: Request, env: Env, context: Context) -> Result<Response>
         Ok(())
     };
     let admitted = burst.is_ok();
-    let result = match burst {
+    let mut result = match burst {
         Ok(()) => handle(request, &env, id.clone()).await,
         Err(failure) => error(failure.status, failure.code, id.clone(), failure.retryable),
     };
+    if let Ok(response) = result.as_mut() {
+        // Even replayed response bodies carry this attempt's correlation ID in the header.
+        response.headers_mut().set("X-Request-ID", id.as_str())?;
+    }
     let status = result.as_ref().map(|r| r.status_code()).unwrap_or(500);
     // Object-valued console entries are indexed as fields by Workers Logs.
     let event = serde_json::json!({"event":"request","request_id":id,"worker_version":version,"client_build":client_build,"upload_worker":upload_worker,"upload_queue":upload_queue,"route":route,"outcome":format!("http_{status}"),"status":status,"duration_ms":(js_sys::Date::now()-started).max(0.0) as u64});

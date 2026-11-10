@@ -37,6 +37,7 @@ private final class UploadBoardProtocol: URLProtocol, @unchecked Sendable {
   nonisolated(unsafe) static var acceptedIDs = Set<String>()
   nonisolated(unsafe) static var routes: [String] = []
   nonisolated(unsafe) static var operations: [String] = []
+  nonisolated(unsafe) static var expireEnrollment = false
   nonisolated(unsafe) static var forcedBatchStatus: Int?
   nonisolated(unsafe) static var forcedRetryAfter: Int?
   nonisolated(unsafe) static var heldRefresh: UploadBoardProtocol?
@@ -80,6 +81,15 @@ private final class UploadBoardProtocol: URLProtocol, @unchecked Sendable {
       } else if path == "/v1/me" {
         response = [:]
       } else if path == "/v1/attestation/keys" {
+        let expire = Self.lock.withLock {
+          let value = Self.expireEnrollment
+          Self.expireEnrollment = false
+          return value
+        }
+        if expire {
+          respond(["code": "challenge_expired", "retryable": false], status: 409)
+          return
+        }
         response = ["key_id": "fixture-key", "enrolled": true]
       } else if path == "/v1/attestation/challenges" {
         response = [
@@ -335,7 +345,7 @@ private final class UploadBoardProtocol: URLProtocol, @unchecked Sendable {
       }
       let result = await CompetitionUploader().upload(from: store, transport: transport)
       XCTAssertEqual(result, .deferred)
-      let soon = try await store.competitionUploadQueueState(nowMS: TrackingRuntime.nowMS + 360_000)
+      let soon = try await store.competitionUploadQueueState(nowMS: TrackingRuntime.nowMS + 60_000)
       XCTAssertEqual(soon, status == 429 ? .retryWait : .ready)
       let leased = try await store.leaseCompetitionUpload(nowMS: TrackingRuntime.nowMS + 700_000)
       let retried = try XCTUnwrap(leased)
@@ -344,7 +354,7 @@ private final class UploadBoardProtocol: URLProtocol, @unchecked Sendable {
     }
   }
 
-  func testRefreshUploadsQueuedLiveAndOriginalHistoryBeforeReadingScore() async throws {
+  func testExpiredProofRecoveryUploadsLiveAndPreJoinHistory() async throws {
     UploadBoardProtocol.lock.withLock {
       UploadBoardProtocol.score = 21
       UploadBoardProtocol.acceptedIDs = []
@@ -390,7 +400,11 @@ private final class UploadBoardProtocol: URLProtocol, @unchecked Sendable {
     defer { session.invalidateAndCancel() }
     let bundle = "app.getfolding.fixture.\(UUID())"
     let credentials = CompetitionCredentialStore(service: "\(bundle).competition.production")
-    defer { for key in ["session", "attest-enrolled"] { try? credentials.remove(key) } }
+    defer {
+      for key in ["session", "attest-enrolled", "attest-key", "attest-pending"] {
+        try? credentials.remove(key)
+      }
+    }
     let transport = try CompetitionTransport(
       origin: URL(string: "https://api.getfolding.app")!, deployment: "production",
       deviceID: device, bundleID: bundle, session: session, attestation: UploadTestProof())
@@ -398,7 +412,14 @@ private final class UploadBoardProtocol: URLProtocol, @unchecked Sendable {
       CompetitionSession(
         access_token: "fixture-token", refresh_token: "fixture-refresh",
         expires_at_ms: now + 3_600_000))
-    try credentials.write(Data("fixture-key".utf8), account: "attest-enrolled")
+    try credentials.write(Data("expired-key".utf8), account: "attest-key")
+    try credentials.write(
+      try JSONSerialization.data(withJSONObject: [
+        "operation_id": UUID().uuidString.lowercased(), "device_id": device.uuidString.lowercased(),
+        "key_id": "expired-key", "challenge_id": UUID().uuidString.lowercased(),
+        "attestation_base64": Data("old-proof".utf8).base64EncodedString(),
+      ]), account: "attest-pending")
+    UploadBoardProtocol.lock.withLock { UploadBoardProtocol.expireEnrollment = true }
     let runtime = TrackingRuntime(journal: store)
     let controller = AppController(
       runtime: runtime, preferencesStore: defaults,
@@ -418,6 +439,7 @@ private final class UploadBoardProtocol: URLProtocol, @unchecked Sendable {
     XCTAssertEqual(
       UploadBoardProtocol.lock.withLock { UploadBoardProtocol.routes },
       [
+        "/v1/attestation/keys", "/v1/attestation/challenges", "/v1/attestation/keys",
         "/v1/attestation/challenges", "/v1/event-batches", "/v1/leaderboards",
         "/v1/attestation/challenges", "/v1/history-batches", "/v1/leaderboards",
       ])

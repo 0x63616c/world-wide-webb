@@ -92,7 +92,8 @@ actor CompetitionUploader {
   private func handle(
     _ error: Error, work: CompetitionUpload, store: TrackingStore, transport: CompetitionTransport
   ) async {
-    var delay = min(300.0, 15.0 * pow(2.0, Double(min(work.attempts ?? 0, 8))))
+    let delay = min(60.0, 15.0 * pow(2.0, Double(min(work.attempts ?? 0, 8))))
+    var serverDelay: TimeInterval = 0
     do {
       if case CompetitionTransportError.busy = error {
         try await store.retryCompetitionUpload(
@@ -106,10 +107,7 @@ actor CompetitionUploader {
       if case CompetitionTransportError.service(
         let status, let code, let retryable, let retryAfter) = error
       {
-        if code == "app_update_required" {
-          // Preserve queued observations and operation identity until the app is updated.
-          delay = max(delay, 3600)
-        } else if code == "epoch_stale" || code == "generation_stale" {
+        if code == "epoch_stale" || code == "generation_stale" {
           let me: CompetitionMe = try await transport.send("GET", path: "/v1/me")
           guard me.profile.membership == "joined", me.profile.restriction == "none",
             let enrollment = me.enrollment,
@@ -122,20 +120,17 @@ actor CompetitionUploader {
           try await store.setCompetitionEpoch(epoch)
           // Never invent a private reset marker from a public generation. The next
           // CloudKit synchronization supplies its immutable marker; defer this body.
-          delay = max(delay, 300)
         } else if status == 403
-          || (!retryable && !["challenge_expired", "assertion_replay"].contains(code))
+          || (!retryable
+            && !["challenge_expired", "assertion_replay", "app_update_required"].contains(code))
         {
           try await store.stopCompetitionUpload(work, reason: code)
           return
         }
-        if let retryAfter, retryAfter.isFinite, retryAfter >= 0 { delay = max(delay, retryAfter) }
-      } else if case CompetitionTransportError.unauthorized = error {
-        // Refresh has already been attempted by the transport. Wait for sign-in.
-        delay = max(delay, 300)
+        if let retryAfter, retryAfter.isFinite, retryAfter >= 0 { serverDelay = retryAfter }
       }
       let jitter = Double.random(in: 0...max(1, delay * 0.1))
-      let milliseconds = Int64(min(delay + jitter, 7 * 86400) * 1000)
+      let milliseconds = Int64(min(max(min(delay + jitter, 60), serverDelay), 7 * 86400) * 1000)
       try await store.retryCompetitionUpload(
         work, atMS: TrackingRuntime.nowMS + milliseconds,
         reason: FoldingDiagnostics.errorInfo(error).0)
@@ -143,7 +138,7 @@ actor CompetitionUploader {
         store, .uploadRetryScheduled, error: error,
         attempt: min((work.attempts ?? 0) + 1, 20), retryDelayMS: Int(milliseconds))
     } catch {
-      try? await store.retryCompetitionUpload(work, atMS: TrackingRuntime.nowMS + 300_000)
+      try? await store.retryCompetitionUpload(work, atMS: TrackingRuntime.nowMS + 60_000)
     }
   }
 

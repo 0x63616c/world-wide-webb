@@ -18,42 +18,65 @@ struct DiagnosticsScreen: View {
 
   var body: some View {
     GeometryReader { geometry in
-      Form {
-        Section {
+      VStack(spacing: 12) {
+        HStack {
           if let check {
             Button(String(localized: "diagnostics.check", defaultValue: "Check connection")) {
               Task { await update(action: check) }
             }
+            .buttonStyle(.bordered)
           }
-          Button(String(localized: "diagnostics.copy", defaultValue: "Copy report")) {
-            UIPasteboard.general.string = export(size: geometry.size)
-          }.disabled(report == nil)
-          ShareLink(
-            item: DiagnosticReportExport(snapshot: completeSnapshot(size: geometry.size)),
-            preview: SharePreview(
-              String(localized: "diagnostics.title", defaultValue: "Diagnostics"))
-          ) {
-            Text(String(localized: "diagnostics.share", defaultValue: "Share report"))
-          }.disabled(report == nil)
-          if let clear {
-            Button(
-              String(localized: "diagnostics.clear", defaultValue: "Clear logs"), role: .destructive
-            ) {
-              Task { await update(action: clear) }
+          Spacer()
+          Button {
+            Task { await update() }
+          } label: {
+            Image(systemName: "arrow.clockwise")
+          }
+          .accessibilityLabel(
+            String(localized: "diagnostics.refresh", defaultValue: "Refresh report"))
+          Menu {
+            Button(String(localized: "diagnostics.copy", defaultValue: "Copy report")) {
+              UIPasteboard.general.string = export(size: geometry.size)
             }
+            ShareLink(
+              item: DiagnosticReportExport(snapshot: completeSnapshot(size: geometry.size)),
+              preview: SharePreview(
+                String(localized: "diagnostics.title", defaultValue: "Diagnostics"))
+            ) {
+              Text(String(localized: "diagnostics.share", defaultValue: "Share report"))
+            }
+            if let clear {
+              Button(
+                String(localized: "diagnostics.clear", defaultValue: "Clear logs"),
+                role: .destructive
+              ) {
+                Task { await update(action: clear) }
+              }
+            }
+          } label: {
+            Image(systemName: "ellipsis.circle")
           }
-        }.disabled(busy)
+          .disabled(report == nil)
+          .accessibilityLabel(String(localized: "diagnostics.title", defaultValue: "Diagnostics"))
+        }
+        .disabled(busy)
         if busy { ProgressView() }
         if failed {
           Text(String(localized: "error.tryAgain", defaultValue: "Something went wrong."))
         }
-        Section {
+        ScrollView {
           Text(export(size: geometry.size))
             .font(.system(.caption, design: .monospaced))
             .textSelection(.enabled)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding()
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(.background.secondary, in: .rect(cornerRadius: 12))
+        .refreshable { await update() }
+        .accessibilityIdentifier("diagnostics.report")
       }
-      .refreshable { await update() }
+      .padding()
       .task { await update() }
       .navigationTitle(String(localized: "diagnostics.title", defaultValue: "Diagnostics"))
       .navigationBarTitleDisplayMode(.inline)

@@ -517,3 +517,21 @@ Automatic listing preparation validates the saved Apple review contact in place.
 It does not forward those private provider values into Deliver's printed options;
 only review notes are updated. A focused regression checks preservation and rejection
 of incomplete contact details.
+
+
+November 9 upload recovery candidate (PR #992): build 19 diagnostics show repeated
+registration 401s after a successful session refresh. A deterministic real Worker/D1
+regression reproduces expired enrollment returning `challenge_expired` before retention
+cleanup but 401 afterward. The candidate preserves success-receipt replay, reports a
+missing challenge as expired only after session/device authorization, and retains 401
+for existing challenges with another binding. The client replaces an expired one-shot
+proof once in the same attempt and continues the original queued upload. Local upload
+backoff is capped at 60 seconds including jitter; explicit server cooldowns remain
+honored. Existing local waits migrate to this limit, and leaderboard refresh retries
+local failures immediately without changing fold history or upload operation identity.
+Diagnostics use a separately scrolling report, UTC/local timestamps with timezone,
+separate challenge/enrollment routes, error codes, pending-proof state and per-attempt
+request-ID correlation. Server rejection logs identify the validation stage and cause.
+An additional reproduced Swift Mutex closure stack-growth issue is fixed with a stored
+provider value. This is a local candidate, not verified TestFlight delivery or App Store
+submission; device totals still require live confirmation after shipping.

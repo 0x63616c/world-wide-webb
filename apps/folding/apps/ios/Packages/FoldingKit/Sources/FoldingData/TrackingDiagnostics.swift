@@ -23,6 +23,7 @@ public struct TrackingDiagnosticEntry: Codable, Equatable, Sendable {
     case signingBusy = "signing_busy"
     case attestationKeyGenerationStarted = "attestation_key_generation_started"
     case attestationKeyGenerated = "attestation_key_generated"
+    case attestationProofExpired = "attestation_proof_expired"
     case attestationEnrollmentStarted = "attestation_enrollment_started"
     case attestationEnrollmentCompleted = "attestation_enrollment_completed"
     case attestationEnrollmentFailed = "attestation_enrollment_failed"
@@ -45,6 +46,8 @@ public struct TrackingDiagnosticEntry: Codable, Equatable, Sendable {
   }
   public enum Reason: String, Codable, Sendable {
     case database, partition, decoding, cancelled, unauthorized, busy, unavailable
+    case challengeExpired = "challenge_expired"
+    case authenticationRequired = "authentication_required"
     case invalidResponse = "invalid_response"
     case unsupportedAttestation = "unsupported_attestation"
     case network, service, unknown
@@ -59,6 +62,8 @@ public struct TrackingDiagnosticEntry: Codable, Equatable, Sendable {
   }
   public enum Route: String, Codable, Sendable {
     case account, auth, attestation, events, history, reset, leaderboard, profile, avatars
+    case attestationChallenge = "attestation_challenge"
+    case attestationEnrollment = "attestation_enrollment"
     case milestones, results, notifications, health, other
   }
   public let atMS: Int64
@@ -124,10 +129,40 @@ public struct TrackingDiagnosticSnapshot: Codable, Sendable {
     (["Folding diagnostics"] + context.keys.sorted().map { "\($0)=\(context[$0]!)" }
       + ["\nRecent activity (\(events.count))"] + events.map(\.line)).joined(separator: "\n")
   }
-  public func json() throws -> String {
+  public func json(timeZone: TimeZone = .current) throws -> String {
     let encoder = JSONEncoder()
     encoder.keyEncodingStrategy = .convertToSnakeCase
     encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
-    return String(decoding: try encoder.encode(self), as: UTF8.self)
+    // Keep stored event decoding compatible; enrich the support export with readable times.
+    guard
+      var object = try JSONSerialization.jsonObject(with: encoder.encode(self)) as? [String: Any]
+    else {
+      throw EncodingError.invalidValue(
+        self, .init(codingPath: [], debugDescription: "Expected diagnostic object"))
+    }
+    let formatter = ISO8601DateFormatter()
+    formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    func times(_ milliseconds: Int64) -> (String, String) {
+      let date = Date(timeIntervalSince1970: Double(milliseconds) / 1000)
+      formatter.timeZone = TimeZone(secondsFromGMT: 0)
+      let utc = formatter.string(from: date)
+      formatter.timeZone = timeZone
+      return (utc, formatter.string(from: date))
+    }
+    let captured = times(capturedAtMS)
+    object["captured_at_utc"] = captured.0
+    object["captured_at_local"] = captured.1
+    object["local_timezone"] = timeZone.identifier
+    var rows = object["events"] as? [[String: Any]] ?? []
+    for index in rows.indices {
+      let timestamp = times(events[index].atMS)
+      rows[index]["at_utc"] = timestamp.0
+      rows[index]["at_local"] = timestamp.1
+    }
+    object["events"] = rows
+    return String(
+      decoding: try JSONSerialization.data(
+        withJSONObject: object,
+        options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]), as: UTF8.self)
   }
 }
