@@ -26,6 +26,11 @@ extend to the display edges; controls retain directional safe-area insets. Prese
 density and grid columns follow available width, and system concentric shapes follow
 the actual display corners. Layout never forces an orientation or a physical screen size.
 
+The launcher adds columns as space permits, and its profile control
+uses the active camera reservation. Climate artwork fills the window while controls respect
+safe areas; its mode/fan menu scrolls in short windows. App navigation uses the native zoom
+transition with the icon's rounded source shape for both opening and closing.
+
 For the green clock/launcher rendering regression, capture the selected native display with
 `xcrun simctl io <device> screenshot --display=<id> /tmp/canvas.png`, then run
 `bash tools/test_canvas_layout.sh /tmp/canvas.png`. It rejects the shifted right/bottom

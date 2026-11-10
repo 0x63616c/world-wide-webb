@@ -49,7 +49,7 @@ enum CanvasLayoutCheck {
             let launcher = LauncherLayout(profile: profile, availableWidth: size.width)
             let occupied =
                 CGFloat(launcher.columns) * max(launcher.iconFrameSide, launcher.labelSize * 6)
-                + CGFloat(launcher.columns - 1) * 28 + launcher.horizontalInset * 2
+                + CGFloat(launcher.columns - 1) * launcher.columnSpacing + launcher.horizontalInset * 2
             precondition(occupied <= size.width, "Launcher must fit the actual proposal")
             print("PASS: \(profile.rawValue) \(Int(size.width))×\(Int(size.height)), \(launcher.columns) columns")
         }

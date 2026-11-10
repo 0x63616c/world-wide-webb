@@ -19,8 +19,10 @@ struct LauncherLayout {
     let headerInset: CGFloat
     let labelSize: CGFloat
     let rowSpacing: CGFloat
+    let columnSpacing: CGFloat
+    let bottomInset: CGFloat
 
-    init(profile: PanelCanvasProfile, availableWidth: CGFloat) {
+    init(profile: PanelCanvasProfile, availableWidth: CGFloat, availableHeight: CGFloat = .infinity) {
         let preferredColumns: Int
         switch profile {
         case .spacious:
@@ -31,12 +33,12 @@ struct LauncherLayout {
             labelSize = 21
             rowSpacing = 48
         case .compact:
-            preferredColumns = 3
+            preferredColumns = 5
             iconFrameSide = 76
             horizontalInset = 20
             headerInset = 20
             labelSize = 15
-            rowSpacing = 32
+            rowSpacing = availableHeight < 500 ? 20 : 32
         case .regular:
             preferredColumns = 5
             iconFrameSide = 96
@@ -45,8 +47,11 @@ struct LauncherLayout {
             labelSize = 18
             rowSpacing = 36
         }
+        columnSpacing = profile == .compact ? 20 : 28
+        bottomInset = availableHeight < 500 ? 24 : 48
         let columnWidth = max(iconFrameSide, labelSize * 6)
-        let fittingColumns = Int(max(0, availableWidth - horizontalInset * 2 + 28) / (columnWidth + 28))
+        let fittingColumns = Int(
+            max(0, availableWidth - horizontalInset * 2 + columnSpacing) / (columnWidth + columnSpacing))
         columns = min(preferredColumns, max(1, fittingColumns))
     }
 }

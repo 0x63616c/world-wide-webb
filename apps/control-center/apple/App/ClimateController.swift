@@ -5,6 +5,7 @@ struct ClimateController: View {
     let store: any HomeDataSource
     @State private var editingLow = false
     @State private var showingMore = false
+    @Environment(\.panelContentInsets) private var contentInsets
     @Environment(\.horizontalSizeClass) private var sizeClass
     private var compact: Bool { sizeClass == .compact }
     private var climate: ClimateState { store.climate }
@@ -22,33 +23,45 @@ struct ClimateController: View {
         return editingLow ? 67...max(67, climate.high - 2) : min(77, climate.low + 2)...77
     }
     var body: some View {
-        VStack(spacing: 0) {
-            if climate.mode == .off {
-                Text("Off").font(.system(size: compact ? 100 : 180, weight: .regular, design: .rounded))
+        GeometryReader { geometry in
+            VStack(spacing: 0) {
+                if climate.mode == .off {
+                    Text("Off").font(
+                        .system(
+                            size: min(compact ? 100 : 180, geometry.size.height * 0.65), weight: .regular,
+                            design: .rounded)
+                    )
                     .accessibilityIdentifier("climate-value")
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else {
-                VStack(spacing: 0) {
-                    if climate.mode == .heatCool {
-                        HStack(spacing: compact ? 8 : 16) {
-                            rangeSelection(low: true)
-                            rangeSelection(low: false)
-                        }.padding(.horizontal, compact ? 12 : 32).padding(.top, 16)
+                } else {
+                    VStack(spacing: 0) {
+                        if climate.mode == .heatCool {
+                            HStack(spacing: compact ? 8 : 16) {
+                                rangeSelection(low: true)
+                                rangeSelection(low: false)
+                            }.padding(.horizontal, compact ? 12 : 32).padding(.top, 16)
+                                .padding(.top, contentInsets.top)
+                                .padding(.leading, contentInsets.leading)
+                                .padding(.trailing, contentInsets.trailing)
+                        }
+                        ClimateTemperatureSurface(
+                            value: target, midpoint: climate.ambient, range: bounds,
+                            mode: climate.mode, accent: levelColor,
+                            title: climate.mode == .heatCool ? (editingLow ? "Heat to" : "Cool to") : "Set temperature",
+                            commit: setTemperature
+                        )
+                        .id("\(climate.mode.rawValue)-\(editingLow)")
                     }
-                    ClimateTemperatureSurface(
-                        value: target, midpoint: climate.ambient, range: bounds,
-                        mode: climate.mode, accent: levelColor,
-                        title: climate.mode == .heatCool ? (editingLow ? "Heat to" : "Cool to") : "Set temperature",
-                        commit: setTemperature
-                    )
-                    .id("\(climate.mode.rawValue)-\(editingLow)")
                 }
-            }
-        }.background { Color(white: 0.055).ignoresSafeArea() }
-            .overlay(alignment: .bottomTrailing) { controls.padding(24) }
-            .accessibilityIdentifier("climate-page")
+            }.background { Color(white: 0.055).ignoresSafeArea() }
+                .overlay(alignment: .bottomTrailing) {
+                    controls(availableSize: geometry.size).padding(24).padding(contentInsets)
+                }
+                .accessibilityElement(children: .contain)
+                .accessibilityIdentifier("climate-page")
+        }
     }
-    private var controls: some View {
+    private func controls(availableSize: CGSize) -> some View {
         HStack {
             Button {
                 showingMore = true
@@ -58,24 +71,34 @@ struct ClimateController: View {
             }.buttonStyle(.glass).buttonBorderShape(.circle)
                 .accessibilityLabel("More").accessibilityIdentifier("climate-more")
                 .popover(isPresented: $showingMore, arrowEdge: .bottom) {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Climate mode").font(.headline)
-                        ForEach(ClimateMode.selectable, id: \.self) { mode in
-                            choice(mode.label, selected: climate.mode == mode, id: "mode-\(mode.rawValue)") {
-                                store.send(.mode(mode))
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Climate mode").font(.headline)
+                            ForEach(ClimateMode.selectable, id: \.self) { mode in
+                                choice(mode.label, selected: climate.mode == mode, id: "mode-\(mode.rawValue)") {
+                                    store.send(.mode(mode))
+                                }
                             }
-                        }
-                        Divider()
-                        Text("Fan").font(.headline)
-                        ForEach(climate.fanModes, id: \.self) { mode in
-                            choice(
-                                mode.capitalized, selected: climate.selectedFanMode == mode, id: "climate-fan-\(mode)"
-                            ) {
-                                store.send(.fanMode(mode))
+                            Divider()
+                            Text("Fan").font(.headline)
+                            ForEach(climate.fanModes, id: \.self) { mode in
+                                choice(
+                                    mode.capitalized, selected: climate.selectedFanMode == mode,
+                                    id: "climate-fan-\(mode)"
+                                ) {
+                                    store.send(.fanMode(mode))
+                                }
                             }
-                        }
-                    }.padding(20).frame(minWidth: 240)
-                        .presentationCompactAdaptation(.popover)
+                        }.padding(20)
+                    }
+                    .scrollBounceBehavior(.basedOnSize)
+                    .frame(
+                        width: min(
+                            280, max(1, availableSize.width - contentInsets.leading - contentInsets.trailing - 32)),
+                        // Leave room above the More button for the popover arrow and margins.
+                        height: max(44, min(460, availableSize.height - contentInsets.top - contentInsets.bottom - 144))
+                    )
+                    .presentationCompactAdaptation(.popover)
                 }
         }.font(.title3.weight(.medium))
     }
@@ -166,7 +189,11 @@ private struct ClimateTemperatureSurface: View {
                     .offset(y: -min(max(0, height - 9), max(9, height * position - 3.5)))
                     .accessibilityHidden(true)
                 Text("\(displayed)°")
-                    .font(.system(size: min(310, proxy.size.width * 0.32), weight: .medium, design: .rounded))
+                    .font(
+                        .system(
+                            size: min(310, proxy.size.width * 0.32, proxy.size.height * 0.72), weight: .medium,
+                            design: .rounded)
+                    )
                     .monospacedDigit().minimumScaleFactor(0.6).lineLimit(1)
                     .contentTransition(.numericText(value: Double(displayed)))
                     .animation(.easeOut(duration: 0.16), value: displayed)

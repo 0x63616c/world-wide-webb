@@ -184,7 +184,9 @@ struct HomeView: View {
     }
 
     private func home() {
-        withAnimation(.spring(duration: 0.3, bounce: 0)) { shell.showLauncher() }
+        withAnimation(selected == nil ? .spring(duration: 0.3, bounce: 0) : .smooth(duration: 0.4)) {
+            shell.showLauncher()
+        }
     }
     private func clock() {
         withAnimation(.spring(duration: 0.3, bounce: 0)) { shell.showClock() }
@@ -318,7 +320,7 @@ struct HomeView: View {
         }
     }
     private func appScreen(_ app: PanelAppDefinition) -> some View {
-        AppCanvasPage {
+        AppCanvasPage(fullBleed: app.route == .feature(.climate)) {
             appContent(app)
         }
     }
@@ -359,7 +361,7 @@ struct HomeView: View {
             .overlay(alignment: .topTrailing) {
                 if app.route == .timer || app.route == .feature(.climate) {
                     // The timer’s angled marks extend inward around the corner.
-                    PanelAppBackButton(back: home)
+                    PanelAppBackButton(back: home, respectsCanvasInsets: app.route == .feature(.climate))
                         .padding(.horizontal, app.route == .timer ? 40 : 24)
                         .padding(.top, app.route == .timer ? 32 : 16)
                 }

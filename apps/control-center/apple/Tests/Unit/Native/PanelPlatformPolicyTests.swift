@@ -27,7 +27,7 @@ final class PanelPlatformPolicyTests: XCTestCase {
             let layout = LauncherLayout(profile: profile, availableWidth: width)
             let occupied =
                 CGFloat(layout.columns) * max(layout.iconFrameSide, layout.labelSize * 6)
-                + CGFloat(max(0, layout.columns - 1)) * 28 + layout.horizontalInset * 2
+                + CGFloat(max(0, layout.columns - 1)) * layout.columnSpacing + layout.horizontalInset * 2
             XCTAssertLessThanOrEqual(occupied, width, "Launcher overflow at width \(width)")
             XCTAssertGreaterThanOrEqual(layout.iconFrameSide, 44)
         }

@@ -28,9 +28,10 @@ struct PanelCanvas<Content: View>: View {
 /// Backgrounds fill the canvas; foreground controls retain each directional inset.
 struct AppCanvasPage<Content: View>: View {
     @Environment(\.panelContentInsets) private var contentInsets
+    var fullBleed = false
     @ViewBuilder var content: Content
 
     var body: some View {
-        content.safeAreaPadding(contentInsets).background(.black)
+        content.safeAreaPadding(fullBleed ? EdgeInsets() : contentInsets).background(.black)
     }
 }
