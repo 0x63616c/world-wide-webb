@@ -472,16 +472,15 @@
       "tendr.native"
     ],
     ".github/workflows/testflight.yml": [
-      "tendr.native"
+      "tendr.native",
+      "folding.tooling"
     ],
     ".github/workflows/iap.yml": [
       "tendr.native"
     ],
     ".github/workflows/release.yml": [
-      "tendr.native"
-    ],
-    ".github/workflows/submit-review.yml": [
-      "tendr.native"
+      "tendr.native",
+      "folding.tooling"
     ],
     ".github/workflows/testers.yml": [
       "tendr.native"
@@ -503,6 +502,9 @@
       "control-center.tooling",
       "control-center.native",
       "control-center.server"
+    ],
+    ".github/workflows/tendr-delivery.yml": [
+      "tendr.native"
     ]
   },
   "checks": {

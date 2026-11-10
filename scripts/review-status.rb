@@ -3,11 +3,16 @@
 # Usage: ASC_KEY_ID=… ASC_ISSUER_ID=… ASC_KEY_CONTENT=… bundle exec ruby scripts/review-status.rb <app>
 require "spaceship"
 require "yaml"
+require "json"
 
 APP = ARGV.first || ENV["APP"] || abort("usage: review-status.rb <app>")
 abort("Invalid app slug") unless APP.match?(/\A[a-z][a-z0-9-]*\z/)
 CONFIG = YAML.safe_load(File.read(File.expand_path("../apps/#{APP}/app.yml", __dir__)))
-APP_ID = CONFIG["apple_id"].to_s
+APP_ID = if APP == "folding"
+  JSON.parse(File.read(File.expand_path("../apps/folding/fastlane/app-identifiers.json", __dir__))).fetch("production").fetch("app_store_id")
+else
+  CONFIG["apple_id"].to_s
+end
 abort("Set apple_id in apps/#{APP}/app.yml before checking review status") if APP_ID.empty?
 
 Spaceship::ConnectAPI.auth(key_id: ENV.fetch("ASC_KEY_ID"), issuer_id: ENV.fetch("ASC_ISSUER_ID"), key: ENV.fetch("ASC_KEY_CONTENT"))

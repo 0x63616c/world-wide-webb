@@ -153,45 +153,22 @@ platform :ios do
     generate_project
     record = FoldingRelease::Operations.continuous_beta(self, version: options.fetch(:version), evidence_path: options.fetch(:evidence))
     FoldingRelease::BackendDelivery.record_native_delivery(record)
+    receipt = {"app" => "folding", "sha" => record.data.fetch("commit_sha"),
+      "version" => record.data.fetch("marketing_version"), "build" => record.data.fetch("build_number").to_s,
+      "release_tag" => record.data.fetch("tag")}
+    FoldingRelease.atomic_json(File.expand_path("../../build/beta-receipt.json", FoldingRelease::ROOT), receipt)
     File.open(ENV.fetch("GITHUB_OUTPUT"), "a") { |file| file.puts("tag=#{record.data.fetch('tag')}") } if ENV["GITHUB_OUTPUT"]
   end
 
-  desc "Plan the App Store version before archiving; preserve active Apple review"
-  lane :plan_release do
-    version = FoldingRelease::AutomaticRelease.configured_version
-    begin
-      version = FoldingRelease::AutomaticRelease.plan
-    rescue ReleasePipeline::AlreadySubmitted => error
-      delivered = FoldingRelease::BackendDelivery.store.latest("native-delivery")
-      UI.user_error!("Cannot reconcile this submitted source") unless delivered && delivered["source_sha"] == FoldingRelease.clean_commit!
-      record = FoldingRelease::Record.new(delivered.fetch("release_tag"))
-      UI.user_error!("Apple submission could not be reconciled") unless FoldingRelease::Operations.observe_submission(record)
-      version = record.data.fetch("marketing_version")
-      File.open(ENV.fetch("GITHUB_ENV"), "a") { |file| file.puts("FOLDING_APP_STORE_PAUSED=true") }
-      UI.success(error.message)
-      File.open(ENV.fetch("GITHUB_STEP_SUMMARY"), "a") { |file| file.puts("Existing Folding submission verified: #{record.data.fetch('submission_state')}.") }
-    rescue ReleasePipeline::Deferred => error
-      version = FoldingRelease::AutomaticRelease.beta_version
-      File.open(ENV.fetch("GITHUB_ENV"), "a") { |file| file.puts("FOLDING_APP_STORE_PAUSED=true") }
-      UI.important(error.message)
-      File.open(ENV.fetch("GITHUB_STEP_SUMMARY"), "a") { |file| file.puts("App Store delivery deferred: #{error.message}. Internal TestFlight delivery continues.") }
-    end
-    File.open(ENV.fetch("GITHUB_ENV"), "a") { |file| file.puts("FOLDING_RELEASE_VERSION=#{version}") }
-  end
-
-  desc "Seal exact-source assets, submit the processed build and tips, and verify Apple review"
-  lane :finish_release do |options|
+  desc "Promote a recorded internal beta without reserving, archiving or uploading another binary"
+  lane :promote do |options|
+    receipt = FoldingRelease.read_json(options.fetch(:receipt))
     apple_destination
     generate_project
-    record = FoldingRelease::Record.new(options.fetch(:tag))
-    begin
-      FoldingRelease::AutomaticRelease.finish(self, record)
-      File.open(ENV.fetch("GITHUB_STEP_SUMMARY"), "a") do |file|
-        file.puts("Submitted Folding #{record.data.fetch('marketing_version')} (#{record.data.fetch('build_number')}) from #{record.data.fetch('commit_sha')}. Apple review state: #{record.data.fetch('submission_state')}. Automatic release after approval is enabled.")
-      end
-    rescue ReleasePipeline::Deferred, ReleasePipeline::AlreadySubmitted => error
-      UI.important(error.message)
-      File.open(ENV.fetch("GITHUB_STEP_SUMMARY"), "a") { |file| file.puts("App Store delivery deferred: #{error.message}.") }
+    record = FoldingRelease::AutomaticRelease.promote(self, receipt)
+    source = record.data.fetch("commit_sha")
+    File.open(ENV.fetch("GITHUB_STEP_SUMMARY"), "a") do |file|
+      file.puts("Submitted Folding #{receipt.fetch('version')} (#{receipt.fetch('build')}) from #{source}. Apple review state: #{record.data.fetch('submission_state')}.")
     end
   end
 

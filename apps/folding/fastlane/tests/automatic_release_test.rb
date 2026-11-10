@@ -22,12 +22,25 @@ class AutomaticReleaseTest < Minitest::Test
     previous&.each { |name, value| ENV[name] = value }
   end
 
-  def test_deferred_testflight_uses_an_open_new_patch_train
-    rows = [{"attributes" => {"versionString" => "1.0.0", "appStoreState" => "IN_REVIEW"}}]
-    client = Struct.new(:tunes_request_client).new(Object.new)
-    FoldingRelease.stub(:client, client) do
-      Release.stub(:configured_version, "1.0.0") do
-        ReleasePipeline.stub(:all, rows) { assert_equal "1.0.1", Release.beta_version }
+  def test_promotion_reuses_the_exact_processed_record_without_allocating_or_building
+    source = "a" * 40
+    receipt = {"app" => "folding", "sha" => source, "version" => "1.0.0", "build" => "42", "release_tag" => "folding/build-42"}
+    record = Record.new({"commit_sha" => source, "marketing_version" => "1.0.0", "build_number" => 42})
+    promoted = []
+    FoldingRelease.stub(:clean_commit!, source) do
+      FoldingRelease::Record.stub(:new, record) do
+        FoldingRelease.stub(:reserve, ->(*) { flunk "Promotion must not allocate a new binary" }) do
+          FoldingRelease::Operations.stub(:verify_processed!, nil) do
+            Release.stub(:plan, "1.0.0") do
+              Release.stub(:finish, ->(context, candidate) { promoted << candidate }) do
+                assert_same record, Release.promote(Object.new, receipt)
+                assert_equal [record], promoted
+                assert_raises(RuntimeError) { Release.promote(nil, receipt.merge("build" => "43")) }
+                assert_raises(RuntimeError) { Release.promote(nil, receipt.merge("sha" => "other")) }
+              end
+            end
+          end
+        end
       end
     end
   end

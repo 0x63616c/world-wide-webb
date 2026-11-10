@@ -20,9 +20,8 @@ class StandardGateTests(unittest.TestCase):
         steps = job['steps']
         installed = next(index for index, step in enumerate(steps) if step.get('uses') == './.github/actions/github-cli')
         for index, step in enumerate(steps):
-            if step.get('run') == 'python3 scripts/resume-release.py':
-                self.assertIn("vars.STANDARD_IOS_DELIVERY_ENABLED == 'true'", step['if'])
-            if step.get('run') == 'python3 scripts/resume-release.py' or 'ASC_KEY_CONTENT' in step.get('env', {}):
+            self.assertNotEqual(step.get('run'), 'python3 scripts/resume-release.py')
+            if 'ASC_KEY_CONTENT' in step.get('env', {}):
                 self.assertLess(installed, index)
 
     def test_selected_jobs_must_succeed_and_unselected_jobs_must_skip(self):

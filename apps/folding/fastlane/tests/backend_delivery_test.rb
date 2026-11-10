@@ -68,46 +68,13 @@ class BackendDeliveryTest < Minitest::Test
     assert_raises(KeyError) { Delivery.configuration(@source) }
   end
 
-  def test_native_queue_coalesces_inputs_and_never_rolls_back_a_newer_delivered_source
+  def test_processed_distribution_receipt_is_recorded_once
     store = Store.new
-    input = "same-native-inputs"
     record = Struct.new(:data).new({"commit_sha" => @old, "tag" => "folding/build-42", "build_number" => 42, "asc_processing_state" => "VALID", "testflight_distributed_build_id" => "apple42", "testflight_group_ids" => ["group42"], "testflight_group_assignment_verified_at" => "2026-11-08T00:00:00Z"})
     Delivery.stub(:store, store) do
-      Delivery.stub(:native_input_hash, ->(_source) { input }) do
-        Delivery.record_native_delivery(record)
-        FoldingRelease.stub(:clean_commit!, @source) do
-          Delivery.stub(:superseded?, false) do
-            refute Delivery.native_needed?, "Backend-only source with identical native inputs must not ship a beta"
-            input = "new-native-inputs"
-            assert Delivery.native_needed?, "A replaced queued native request must be picked up by the newer source"
-          end
-          Delivery.stub(:superseded?, true) do
-            input = "obsolete-inputs"
-            refute Delivery.native_needed?, "A late older CI completion cannot roll back the distributed app"
-          end
-        end
-        Delivery.record_native_delivery(record)
+      Delivery.stub(:native_input_hash, "same-native-inputs") do
+        2.times { Delivery.record_native_delivery(record) }
         assert_equal 1, store.assets.length
-      end
-    end
-  end
-
-  def test_submission_retry_reuses_a_distributed_candidate_instead_of_skipping_it
-    source = @source
-    delivered = {"source_sha" => source, "input_hash" => "same", "release_tag" => "folding/build-42"}
-    store = Object.new
-    store.define_singleton_method(:latest) { |_| delivered }
-    record = Struct.new(:data).new({"state" => "processed"})
-    Delivery.stub(:store, store) do
-      Delivery.stub(:native_input_hash, "same") do
-        FoldingRelease.stub(:clean_commit!, source) do
-          FoldingRelease::Record.stub(:new, record) do
-            refute Delivery.native_needed?
-            assert Delivery.native_needed?(include_submission: true)
-            record.data["state"] = "submitted"
-            refute Delivery.native_needed?(include_submission: true)
-          end
-        end
       end
     end
   end

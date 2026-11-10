@@ -4,7 +4,7 @@ A free, native iPhone Duo folding tracker: personal statistics, guided Shortcuts
 
 **Status:** **1.0.0 (21)** is available in **Folding Internal** on TestFlight and
 **Waiting for Review** at Apple, with automatic release after approval enabled.
-Native source, the live Rust Worker and future automatic main deliveries use WWW.
+Native source, the live Rust Worker and main TestFlight delivery and tagged App Store promotion use WWW.
 Final device/provider acceptance remains owner-deferred under F13. The registered app is
 Folding (`app.getfolding.Folding`), at **getfolding.app**. Source lives here;
 the [original repository](https://github.com/0x63616c/folding) retains historical artifacts and

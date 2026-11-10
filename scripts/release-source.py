@@ -2,6 +2,8 @@
 """Fence automatic delivery when newer main changes affect this app's release."""
 import argparse
 import json
+import os
+from ios_delivery import tag_target
 from pathlib import Path
 import subprocess
 
@@ -20,7 +22,7 @@ def current(app, source, latest):
                       check=False).returncode != 0:
         return False
     config = yaml.safe_load(git("show", f"{latest}:apps/{app}/app.yml"))
-    if config.get("testflight") is not True or config.get("app_store_automatic") is not True:
+    if config.get("testflight") is not True:
         return False
     affected = json.loads(subprocess.check_output(
         ["scripts/affected", source, "--head", latest, "--intent", "ship"], cwd=ROOT, text=True))
@@ -34,6 +36,12 @@ def main():
     parser.add_argument("app")
     parser.add_argument("source")
     args = parser.parse_args()
+    if os.environ.get("GITHUB_REF_TYPE") == "tag":
+        app, _version = tag_target(os.environ["GITHUB_REF"], args.source)
+        if app != args.app:
+            raise ValueError("Release tag names another app")
+        print(json.dumps({"current": True, "latest": args.source}))
+        return
     # Full ancestry is needed for both impact and ownership checks. Refresh under
     # the per-app publisher lock, including immediately before Apple mutations.
     fetch = ["fetch", "--no-tags", "origin", "+refs/heads/main:refs/remotes/origin/main"]
