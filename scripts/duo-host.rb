@@ -6,9 +6,10 @@ require "securerandom"
 # Owns one Device Hub process and scoped XCTest controller. Product tests remain
 # responsible for checking the resulting native geometry and capture contents.
 class DuoHost
-  def initialize(directory:, device_name:)
+  def initialize(directory:, device_name:, device_id:)
     @directory = File.expand_path(directory)
     @device_name = device_name
+    @device_id = device_id
     @processes = []
     @logs = []
   end
@@ -38,7 +39,8 @@ class DuoHost
     app = spawn({}, File.join(application, "Contents/MacOS/DeviceHub"), log: "application.log")
     environment = {"TEST_RUNNER_DUO_HOST_APPLICATION_PATH" => application,
       "TEST_RUNNER_DUO_HOST_APPLICATION_PID" => app.to_s, "TEST_RUNNER_DUO_HOST_CONTROL_DIR" => @directory,
-      "TEST_RUNNER_DUO_HOST_DEVICE_NAME" => @device_name}
+      "TEST_RUNNER_DUO_HOST_DEVICE_NAME" => @device_name,
+      "TEST_RUNNER_DUO_HOST_DEVICE_ID" => @device_id}
     stage("starting_controller")
     spawn(environment, "xcodebuild", "test-without-building", *build_arguments,
       "-parallel-testing-enabled", "NO", "-test-timeouts-enabled", "NO",

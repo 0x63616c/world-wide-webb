@@ -201,3 +201,11 @@ WWW PR #1006: Astra requested two P2 fixes (lost202 plus expired receipt, and un
 avatar cleanup pause), then approved the fix diff subject to green required checks. Both have
 focused regression coverage. Final local native verification passes 84 tests; backend passes 33
 runtime tests plus Rust workspace/Wasm. No device/provider flows were exercised by this review.
+
+
+CI capture repair: the existing Device Hub controller checked the window label although its
+selected simulator is exposed as its title. It then scanned truncated sidebar names, timing out
+at selecting_capture_device. The helper now checks title and selects the owned simulator via its
+UUID-backed row identifier. Astra approved this supplemental diff, subject to build/capture proof.
+Local controller build-for-testing and all 53 Fastlane tests (730 assertions) pass. Application
+native CI at 1d03d66 passed; the new head must demonstrate the repaired capture before merge.
