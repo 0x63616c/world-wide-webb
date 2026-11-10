@@ -24,7 +24,11 @@ import XCTest
     func testFaceIsTheHomeViewGreenWithNoComplications() throws {
         let store = MockHomeDataSource(latency: .zero, fixedNow: FixtureClock.now)
         let size = CGSize(width: 1376, height: 1032)
-        let image = try render(PresenceClockFace(store: store).faceContent(at: FixtureClock.now), size: size)
+        let renderer = ImageRenderer(
+            content: PresenceClockFace(store: store).faceContent(at: FixtureClock.now)
+                .frame(width: size.width, height: size.height))
+        renderer.scale = 1
+        let image = try XCTUnwrap(renderer.uiImage?.cgImage)
         let pixels = try rgba(image)
         // A corner sample sits where the old complications were.
         for (x, y) in [(120, 120), (image.width - 120, 120), (image.width - 120, image.height - 200)] {
@@ -36,7 +40,9 @@ import XCTest
     }
 
     private func inkBounds(_ view: some View, size: CGSize) throws -> CGRect {
-        let cg = try render(view.background(.white), size: size)
+        let renderer = ImageRenderer(content: view.frame(width: size.width, height: size.height).background(.white))
+        renderer.scale = 1
+        let cg = try XCTUnwrap(renderer.uiImage?.cgImage)
         let pixels = try rgba(cg)
         var minX = Int.max
         var minY = Int.max
@@ -54,19 +60,6 @@ import XCTest
         }
         XCTAssertLessThan(minX, Int.max, "Must measure rendered numerals")
         return CGRect(x: minX, y: minY, width: maxX - minX + 1, height: maxY - minY + 1)
-    }
-
-    private func render(_ view: some View, size: CGSize) throws -> CGImage {
-        let renderer = ImageRenderer(content: view.frame(width: size.width, height: size.height))
-        let context = try XCTUnwrap(
-            CGContext(
-                data: nil, width: Int(size.width), height: Int(size.height),
-                bitsPerComponent: 8, bytesPerRow: Int(size.width) * 4, space: CGColorSpaceCreateDeviceRGB(),
-                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
-        // uiImage uses an asynchronous image provider that can time out during
-        // cold simulator shader compilation. Draw the same content synchronously.
-        renderer.render { _, draw in draw(context) }
-        return try XCTUnwrap(context.makeImage())
     }
 
     private func rgba(_ cg: CGImage) throws -> [UInt8] {
