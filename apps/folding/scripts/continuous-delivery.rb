@@ -1,6 +1,5 @@
 #!/usr/bin/env ruby
 require_relative "../fastlane/lib/backend_delivery"
-require "yaml"
 
 begin
   case ARGV.fetch(0)
@@ -9,10 +8,6 @@ begin
   when "receipt"
     path = FoldingRelease::BackendDelivery.download(ENV.fetch("RUNNER_TEMP"))
     File.open(ENV.fetch("GITHUB_ENV"), "a") { |file| file.puts("FOLDING_BACKEND_DEPLOYMENT_RECEIPT=#{path}") }
-  when "native-needed"
-    config = YAML.safe_load(File.read(File.join(FoldingRelease::ROOT, "app.yml")))
-    needed = FoldingRelease::BackendDelivery.native_needed?(include_submission: config["app_store_automatic"] == true)
-    File.open(ENV.fetch("GITHUB_OUTPUT"), "a") { |file| file.puts("beta=#{needed}") }
   when "evidence"
     source = FoldingRelease.clean_commit!
     checks = %w[contracts domain-storage native-build localization].map do |name|

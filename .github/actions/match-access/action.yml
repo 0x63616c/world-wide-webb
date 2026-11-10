@@ -1,0 +1,15 @@
+name: Private Match access
+description: Load only signing-repository authentication from the existing encrypted CI vault
+inputs:
+  age-key:
+    description: Existing CI vault decryption key
+    required: true
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: brew list sops >/dev/null 2>&1 || brew install sops
+    - shell: bash
+      env:
+        SOPS_AGE_KEY: ${{ inputs.age-key }}
+      run: sops exec-env "$GITHUB_WORKSPACE/secrets/vault.yaml" 'python3 "$GITHUB_WORKSPACE/scripts/match_access.py"'

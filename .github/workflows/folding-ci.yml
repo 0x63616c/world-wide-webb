@@ -115,6 +115,11 @@ jobs:
     - run: swift test --package-path apps/ios/Packages/FoldingKit
     - name: Host presentation tests
       run: swift test --package-path .
+    - uses: ./.github/actions/folding-tools
+      with:
+        target: release
+    - name: Release invariants without provider access
+      run: bundle exec ruby -e 'Dir["fastlane/tests/*_test.rb"].sort.each { |file| require_relative file }'
     - name: Native formatting and generated icons
       run: |
         swift format lint --strict -r apps/ios/Packages/FoldingKit/Sources apps/ios/Packages/FoldingKit/Tests apps/ios/App apps/ios/BuildTests

@@ -29,6 +29,6 @@ jobs:
         env:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
-          ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
+          ASC_KEY_CONTENT: ${{ inputs.app == 'folding' && secrets.FOLDING_ASC_PRIVATE_KEY || secrets.ASC_KEY_CONTENT }}
           APP: ${{ inputs.app }}
         run: bundle exec ruby scripts/review-status.rb "$APP"

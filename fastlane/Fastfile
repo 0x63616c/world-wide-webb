@@ -34,7 +34,7 @@ def r_app(options)
   )
 end
 
-# Durable decisions let the hourly monitor coalesce changes after an active review.
+# Record the result of an explicit release attempt.
 def release_paused(config, error)
   state = error.is_a?(ReleasePipeline::AlreadySubmitted) ? "submitted" : "deferred"
   FileUtils.mkdir_p(File.join(REPO_ROOT, "build"))
@@ -43,6 +43,7 @@ def release_paused(config, error)
   }))
   File.open(ENV.fetch("GITHUB_ENV"), "a") { |f| f.puts("RELEASE_SKIP=true") }
   File.open(ENV.fetch("GITHUB_STEP_SUMMARY"), "a") { |f| f.puts("## Release #{state}\n\n#{error.message}") }
+  raise error if ENV["GITHUB_REF_TYPE"] == "tag" && error.is_a?(ReleasePipeline::Deferred)
   UI.success(error.message)
 end
 
@@ -288,7 +289,6 @@ platform :ios do
   desc "Plan an automatic update, reusing a pipeline-owned waiting version"
   lane :plan_release do |options|
     config = r_app(options)
-    UI.user_error!("Automatic App Store delivery is not enabled") unless config["app_store_automatic"] == true
     begin
       ReleaseSource.current!(config["slug"], ENV.fetch("GITHUB_SHA"))
       connect_api_key
@@ -297,6 +297,7 @@ platform :ios do
       rows = ReleasePipeline.all(asc, "v1/apps/#{record.id}/appStoreVersions?filter[platform]=IOS&limit=50")
       planner = PendingRelease.new(asc, record.id, ENV.fetch("GITHUB_SHA"), ancestor: ReleaseSource.method(:ancestor?))
       target, id = planner.plan(rows, config.fetch("version"))
+      UI.user_error!("Tagged version must match the processed beta version; bump app.yml before building a new version") unless target == config.fetch("version")
       unless id
         asc.post("v1/appStoreVersions", { data: { type: "appStoreVersions",
           attributes: { platform: "IOS", versionString: target, releaseType: "AFTER_APPROVAL" },
@@ -323,7 +324,6 @@ platform :ios do
   desc "Verify replacement evidence, replace a waiting bundle, and submit the exact build"
   lane :finish_release do |options|
     config = r_app(options)
-    UI.user_error!("Automatic App Store delivery is not enabled") unless config["app_store_automatic"] == true
     manifest = JSON.parse(File.read(ENV.fetch("RELEASE_MANIFEST")))
     UI.user_error!("Release provenance mismatch") unless manifest.values_at("app", "sha") == [config["slug"], ENV.fetch("GITHUB_SHA")]
     target, number = manifest.values_at("version", "build")

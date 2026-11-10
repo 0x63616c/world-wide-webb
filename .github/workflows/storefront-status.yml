@@ -4,7 +4,7 @@ name: App Store availability
 # changing the submission, or conflating App Store Connect approval with a working page.
 on:
   workflow_run:
-    workflows: [TestFlight]
+    workflows: [App delivery]
     branches: [main]
     types: [completed]
   schedule:
@@ -13,7 +13,7 @@ on:
 
 permissions:
   contents: read
-  actions: write
+  actions: read
 
 concurrency:
   group: storefront-status
@@ -38,10 +38,3 @@ jobs:
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
           ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
         run: bundle exec ruby scripts/storefront-status.rb
-      - name: Resume changes deferred by an earlier review
-        # A protected/untracked waiting bundle must not create an immediate
-        # workflow_run -> deferral -> workflow_run redispatch loop.
-        if: vars.STANDARD_IOS_DELIVERY_ENABLED == 'true' && steps.store.outputs.resumable == 'true' && github.event_name != 'workflow_run'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: python3 scripts/resume-release.py

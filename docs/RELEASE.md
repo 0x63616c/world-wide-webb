@@ -15,18 +15,42 @@ bundle exec fastlane ios verify app:tendr
 bundle exec fastlane ios beta app:tendr
 ```
 
-Tendr retains its listing, screenshot, submission and storefront handlers. Automatic standard
-delivery requires `STANDARD_IOS_DELIVERY_ENABLED`; manual dispatch remains available. New apps
-keep delivery disabled until their account/signing setup is ready. Root lanes reject Folding,
-Callkeep and Control Center; use their own handlers.
+## Tendr and Folding
 
-Folding owns `apps/folding/Gemfile`, Fastlane, immutable build ledger, backend compatibility
-and build-policy receipts. Successful trusted-main CI selects backend/native inputs independently.
-`FOLDING_DELIVERY_ENABLED` controls automatic delivery. Signed artifacts and manifests remain
-in authenticated GitHub draft releases in WWW, including after Apple submission. Legacy tag
-readers also target WWW; the deleted Folding repository had no GitHub releases. Legacy records
-remain read-only. Preview captures are separate from App Store screenshot sets. Follow the
-[product instructions](../apps/folding/AGENTS.md) for current App Review and device deferrals.
+`release.yml` is the event owner. It calls the shared reusable `testflight.yml` coordinator,
+which verifies source/selection once and calls the Tendr or Folding reusable delivery handler.
+Existing reusable product CI remains the verification owner. There are no app delivery
+enablement variables.
+
+- A successful trusted main `CI` run delivers affected apps to internal TestFlight. Tests/docs
+  and unrelated products do not request app uploads. Folding backend inputs deploy the exact
+  tested Worker before the native beta, retaining recovery bookmarks and compatibility checks.
+- Each processed beta retains an `ios-beta-<app>-<source>` artifact for 90 days. Its receipt
+  names the app, source, marketing version, build and successful source CI attempt. Folding’s
+  immutable build ledger and private archive remain the durable product owner.
+- Push `tendr/vX.Y.Z` or `folding/vX.Y.Z` at that tested main commit to submit its existing
+  processed build for App Review. The tag must match the binary’s version in `app.yml`.
+  Promotion captures/verifies store assets and submits ready purchases with the app. It does
+  not archive, sign or upload another binary. Public release follows Apple approval.
+
+For example, after main delivery confirms Tendr 1.1.1:
+
+```sh
+git tag -a tendr/v1.1.1 <tested-main-commit> -m 'Tendr 1.1.1'
+git push origin tendr/v1.1.1
+```
+
+A release tag can select an older main commit even while newer betas continue. Both channels
+share one publisher lock per app. Moved tags, mismatched versions, missing/expired beta receipts,
+failed source CI and builds that Apple has not processed fail visibly. Preserve an active Apple
+review; a tag retry can reconcile an already submitted build. The status watcher is read-only
+and never submits newer untagged main changes.
+
+Tendr uses the root locked Ruby bundle, signing setup and listing/screenshot handlers. Folding
+keeps its product bundle, readonly Match signing from private `certificates` branch `folding`,
+backend/build-policy receipts and private immutable
+archives. Root lanes reject Folding, Callkeep and Control Center. Existing physical-device
+acceptance deferrals remain recorded in Folding’s product instructions.
 
 Callkeep publishes signed/notarized universal ZIPs and symbols from selected main CI under
 `callkeep/v1.0.N`. The publisher updates only Callkeep’s cask in the separate `homebrew-tap`

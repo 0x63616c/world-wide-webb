@@ -11,7 +11,6 @@ module FoldingRelease
   module AutomaticRelease
     def self.configured_version
       value = YAML.safe_load(File.read(File.join(ROOT, "app.yml")))
-      raise "Automatic Folding App Store delivery is disabled" unless value["app_store_automatic"] == true
       value.fetch("version")
     end
 
@@ -29,6 +28,7 @@ module FoldingRelease
       app_id = FoldingAppleAccount.config.fetch("production").fetch("app_store_id")
       rows = ReleasePipeline.all(asc, "v1/apps/#{app_id}/appStoreVersions?filter[platform]=IOS&limit=50")
       target, id = planner(source).plan(rows, configured)
+      raise "Tagged version must match the processed beta; bump app.yml before building a new version" unless target == configured
       unless id
         asc.post("v1/appStoreVersions", {data: {type: "appStoreVersions",
           attributes: {platform: "IOS", versionString: target, releaseType: "AFTER_APPROVAL"},
@@ -37,19 +37,22 @@ module FoldingRelease
       target
     end
 
-    def self.beta_version
-      # A protected review may close the configured version's upload train.
-      # Keep TestFlight updates on a new patch until the planner can submit it.
-      configured = Gem::Version.new(configured_version)
-      app_id = FoldingAppleAccount.config.fetch("production").fetch("app_store_id")
-      rows = ReleasePipeline.all(FoldingRelease.client.tunes_request_client,
-        "v1/apps/#{app_id}/appStoreVersions?filter[platform]=IOS&limit=50")
-      latest = rows.map { |row| Gem::Version.new(row.dig("attributes", "versionString")) }.max
-      return configured.to_s if !latest || configured > latest
-      parts = latest.to_s.split(".").map(&:to_i)
-      parts << 0 while parts.length < 3
-      parts[-1] += 1
-      parts.join(".")
+    def self.promote(context, receipt)
+      source = FoldingRelease.clean_commit!
+      raise "Beta receipt belongs to another app/source" unless receipt.values_at("app", "sha") == ["folding", source]
+      record = FoldingRelease::Record.new(receipt.fetch("release_tag"))
+      raise "Beta receipt differs from the immutable release" unless record.data.values_at("commit_sha", "marketing_version") == [source, receipt.fetch("version")] &&
+        record.data.fetch("build_number").to_s == receipt.fetch("build").to_s
+      Operations.verify_processed!(record)
+      begin
+        version = plan
+        raise "Planned version differs from the tested beta" unless version == receipt.fetch("version")
+      rescue ReleasePipeline::AlreadySubmitted
+        raise "Apple submission could not be reconciled" unless Operations.observe_submission(record)
+        return record
+      end
+      finish(context, record)
+      record
     end
 
     def self.mark_source(record)

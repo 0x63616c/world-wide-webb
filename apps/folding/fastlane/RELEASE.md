@@ -6,7 +6,7 @@ This is implemented orchestration, not live release acceptance. Run through the 
 
 - `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_PRIVATE_KEY`: existing App Store Connect API identity.
 - Team `X9E4HG27NK` is pinned in `release-config.json` from the portal. Optional `APPLE_TEAM_ID` must match it.
-- Match credentials (`MATCH_PASSWORD` and SSH access) for the private `git@github.com:0x63616c/folding-signing.git` repository. Signing must already be provisioned; archive uses readonly match and a temporary keychain, removed on exit.
+- Match credentials (`MATCH_PASSWORD` and private repository access) for the `folding` branch of private `0x63616c/certificates`. Signing must already be provisioned; archive uses readonly match and a temporary keychain, removed on exit.
 - `FOLDING_WORKFLOW_RUN_URL`: durable run identity for the reservation.
 - `FOLDING_COPYRIGHT`: actual operator/copyright owner, supplied before sealing release assets.
 - `FOLDING_TESTFLIGHT_GROUPS`: explicit comma-separated internal group names.
@@ -201,25 +201,21 @@ captures the full existing locale/display matrix on an explicit main-branch disp
 `DUO_HOST_CONTROL=1` with the repository's scoped native controller on an isolated Mac guest.
 Capture artifacts stay private; no screenshot branches or public comments are created.
 
-## Automatic delivery on main merge
+## Main betas and tagged App Store promotion
 
-`folding-release.yml` consumes only a successful trusted main push from `folding-ci.yml` and
-its source-bound selection. `FOLDING_DELIVERY_ENABLED` stays off through setup. Backend inputs
-reuse the exact Worker Wasm tested in CI, record a D1 recovery bookmark before checksum-fenced
-migrations, and publish an immutable provider-version receipt. Native inputs verify named
-source CI jobs, reuse the live compatible backend receipt, reserve once, archive once and wait
-for Apple's processing before explicit internal-group distribution. A retry reads Apple and
-retained artifacts; it does not blindly upload again.
+The shared `release.yml` → `testflight.yml` orchestration calls reusable `folding-release.yml`.
+Successful trusted main CI delivers changed Folding inputs without an enablement variable.
+Backend inputs reuse tested Worker Wasm, record recovery bookmarks before migrations and
+publish an immutable provider receipt. Native delivery verifies source CI and backend compatibility,
+reserves/archives once, waits for Apple processing and confirms internal-group distribution.
+The app.yml version is the marketing version; bump it before building a new release version.
 
-With `app_store_automatic: true`, the same publisher plans the App Store version before
-archiving, then submits that exact processed build and ready tips after capturing/sealing
-the full storefront matrix. It reuses Tendr's version/review decisions and latest-main
-source fence. A waiting submission is replaced only after its replacement build and
-assets are verified; an in-review submission is preserved. Required source CI, merged-PR
-provenance, deployed backend receipt/CI, live app features, Apple declarations and exact
-uploaded listing/gallery readback remain mandatory. Failed submission stages resume the
-same immutable candidate even when internal TestFlight distribution already succeeded.
-Approved tips are retained rather than submitted again.
+Each beta emits a small source/version/build receipt alongside the existing immutable product
+record. Push `folding/vX.Y.Z` at that main source to promote the exact processed beta. Tags must
+match app.yml and the receipt; no binary is built or uploaded on the tag path. Promotion captures
+and seals store assets, verifies live prerequisites and Apple declarations, then submits the app
+with ready tips. Waiting-review replacements retain the existing ownership/evidence protections;
+in-review submissions are preserved. Retry the same tag after a visible review deferral.
 
 The owner-approved post-submission device schedule in `docs/review-spec.md` applies to
 the release gate as well. Required live capabilities retain their existing acceptance;
@@ -228,13 +224,12 @@ This does not enable new runtime claims or mark device checks passed. The full r
 also verifies actual Cloudflare bindings have push and avatar features enabled. Final
 physical, visual and native-language acceptance remains tracked separately.
 
-The consolidated delivery workflow reads the encrypted `signing/folding` branch in WWW
-with its short-lived built-in GitHub token. Match clones that branch directly and stays readonly;
-no additional signing-repository SSH key is needed. The source store remains preserved until a
-real signed archive proves this consumer handover. Local operations can still override
-`FOLDING_SIGNING_GIT_URL` and supply a nonempty `FOLDING_SIGNING_GIT_PRIVATE_KEY` for SSH.
-Current required secrets are listed in `folding-release.yml`; they enter runner memory/environment
-and temporary files only.
+The delivery workflow reads encrypted Match material from the `folding` branch of private
+`0x63616c/certificates`. It uses the existing scoped signing-repository authentication from
+the encrypted CI vault and readonly Match. The current original `folding-signing` repository
+and public imported signing branches remain preserved until private signed-build verification
+and explicit cleanup. Local signing defaults use the same private repository/branch.
+
 Cloudflare Time Travel bookmark commands are documented at
 https://developers.cloudflare.com/d1/reference/time-travel/ . Live restore acceptance remains required.
 

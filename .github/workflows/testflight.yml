@@ -1,264 +1,72 @@
-name: TestFlight
+name: iOS delivery
 'on':
-  workflow_dispatch:
-    inputs:
-      app:
-        description: App folder under apps/ (for example tendr)
-        type: string
-        default: tendr
-      confirm_branch_release:
-        description: Publish this selected non-main branch to TestFlight
-        type: boolean
-        default: false
-      submit_store:
-        description: Also refresh store assets and submit the processed build
-        type: boolean
-        default: false
-  workflow_run:
-    workflows:
-    - CI
-    types:
-    - completed
-    branches:
-    - main
+  workflow_call: {}
 permissions:
   contents: read
   actions: read
 jobs:
-  changes:
-    if: (github.event_name == 'workflow_dispatch' || (vars.STANDARD_IOS_DELIVERY_ENABLED == 'true' && github.event.workflow_run.conclusion
-      == 'success' && github.event.workflow_run.event == 'push')) && (github.ref == 'refs/heads/main' || inputs.confirm_branch_release)
-    runs-on: ubuntu-24.04-arm
-    timeout-minutes: 5
-    outputs:
-      apps: ${{ steps.detect.outputs.apps }}
-    steps:
-    - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
-      with:
-        ref: ${{ github.event.workflow_run.head_sha || github.sha }}
-        persist-credentials: false
-    - uses: actions/download-artifact@v4
-      if: github.event_name == 'workflow_run'
-      with:
-        name: repository-selection
-        run-id: ${{ github.event.workflow_run.id }}
-        github-token: ${{ github.token }}
-    - id: detect
-      env:
-        INPUT_APP: ${{ inputs.app }}
-        EVENT: ${{ github.event_name }}
-      run: |-
-        python3 - <<'PYTHON'
-        import json,os
-        if os.environ['EVENT'] == 'workflow_run':
-            selected=json.load(open('ci-selection.json'))['delivery_candidates']
-            apps=['tendr'] if 'tendr.native' in selected else []
-        else:
-            app=os.environ['INPUT_APP']
-            if app != 'tendr': raise SystemExit('Use the selected product delivery workflow')
-            apps=[app]
-        with open(os.environ['GITHUB_OUTPUT'],'a') as output: output.write('apps='+json.dumps(apps)+'\n')
-        PYTHON
   verify:
-    needs: changes
-    if: github.event_name == 'workflow_dispatch' && needs.changes.outputs.apps != '[]'
     runs-on: ubuntu-24.04-arm
-    timeout-minutes: 85
-    steps:
-    - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
-    - uses: ./.github/actions/github-cli
-    - name: Require CI for this exact main revision
-      if: github.ref == 'refs/heads/main'
-      env:
-        GH_TOKEN: ${{ github.token }}
-      run: python3 scripts/wait-release-ci.py
-  beta:
-    needs:
-    - changes
-    - verify
-    if: always() && !cancelled() && needs.changes.result == 'success' && needs.changes.outputs.apps != '[]' && (needs.verify.result
-      == 'success' || needs.verify.result == 'skipped')
-    strategy:
-      fail-fast: true
-      matrix:
-        app: ${{ fromJSON(needs.changes.outputs.apps) }}
-    concurrency:
-      group: app-store-${{ matrix.app }}
-      cancel-in-progress: false
-    runs-on: xcode-27
-    timeout-minutes: 180
-    env:
-      DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
-      LANG: en_US.UTF-8
-      LC_ALL: en_US.UTF-8
-      FASTLANE_SKIP_UPDATE_CHECK: '1'
-      FASTLANE_HIDE_CHANGELOG: '1'
-      FASTLANE_SKIP_DOCS: '1'
-      APP: ${{ matrix.app }}
-      DUO_HOST_CONTROL: '1'
-      RELEASE_MANIFEST: ${{ github.workspace }}/build/release-manifest.json
-      SOURCE_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+    timeout-minutes: 10
+    outputs:
+      tendr: ${{ steps.source.outputs.tendr }}
+      folding: ${{ steps.source.outputs.folding }}
+      backend: ${{ steps.source.outputs.backend }}
+      source: ${{ steps.source.outputs.source }}
+      channel: ${{ steps.source.outputs.channel }}
+      ci_run_id: ${{ steps.source.outputs.ci_run_id }}
+      ci_run_attempt: ${{ steps.source.outputs.ci_run_attempt }}
+      ci_run_url: ${{ steps.source.outputs.ci_run_url }}
+      receipt_run_id: ${{ steps.source.outputs.receipt_run_id }}
+      version: ${{ steps.source.outputs.version }}
     steps:
     - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
       with:
         ref: ${{ github.event.workflow_run.head_sha || github.sha }}
-    - name: Check release secrets
-      env:
-        ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
-        ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
-        ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
-        ASC_BETA_FEEDBACK_EMAIL: ${{ secrets.ASC_BETA_FEEDBACK_EMAIL }}
-        BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
-        P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
-      run: |
-        export GITHUB_SHA="$SOURCE_SHA"
-        missing=0
-        for name in ASC_KEY_ID ASC_ISSUER_ID ASC_KEY_CONTENT ASC_BETA_FEEDBACK_EMAIL BUILD_CERTIFICATE_BASE64 P12_PASSWORD; do
-          if [[ -z "${!name}" ]]; then
-            echo "::error::Missing repository secret $name; see docs/RELEASE.md"
-            missing=1
-          fi
-        done
-        exit "$missing"
-    - name: Select release toolchain
-      run: |
-        export GITHUB_SHA="$SOURCE_SHA"
-        # An app.yml developer_dir overrides the runner default for this job only.
-        if dir=$(ruby scripts/app-config.rb "$APP" developer_dir 2>/dev/null); then
-          echo "DEVELOPER_DIR=$dir" >> "$GITHUB_ENV"
-          export DEVELOPER_DIR="$dir"
-        fi
-        xcodebuild -version
-    - uses: ./.github/actions/ruby-tools
-      with:
-        ruby-version: '3.4'
-        bundler-cache: true
+        fetch-depth: 0
+        persist-credentials: false
+    - uses: ./.github/actions/github-cli
     - uses: actions/setup-python@v5
-      if: matrix.app == 'tendr' && github.ref == 'refs/heads/main'
       with:
         python-version: '3.12'
-    - name: Install release planning dependencies
-      if: matrix.app == 'tendr' && github.ref == 'refs/heads/main'
-      run: |-
-        export GITHUB_SHA="$SOURCE_SHA"
-        python3 -m pip install -r scripts/requirements.txt
-    - name: Plan automatic App Store version
-      if: inputs.submit_store == true && matrix.app == 'tendr' && github.ref == 'refs/heads/main'
+    - run: python3 -m pip install -r scripts/requirements.txt
+    - id: source
+      name: Resolve verified source and release channel
       env:
-        ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
-        ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
-        ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
-      run: |-
-        export GITHUB_SHA="$SOURCE_SHA"
-        bundle exec fastlane ios plan_release app:"$APP"
-    - name: Install release signing assets
-      if: env.RELEASE_SKIP != 'true'
-      env:
-        BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
-        P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
-      run: |
-        export GITHUB_SHA="$SOURCE_SHA"
-        umask 077
-        certificate="$RUNNER_TEMP/$APP-signing.p12"
-        keychain="$RUNNER_TEMP/$APP-signing.keychain-db"
-        keychain_password=$(openssl rand -hex 32)
-        echo "::add-mask::$keychain_password"
-        printf '%s' "$BUILD_CERTIFICATE_BASE64" | base64 --decode > "$certificate"
-        security create-keychain -p "$keychain_password" "$keychain"
-        security set-keychain-settings -lut 21600 "$keychain"
-        security unlock-keychain -p "$keychain_password" "$keychain"
-        security import "$certificate" -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k "$keychain"
-        security set-key-partition-list -S apple-tool:,apple:,codesign: -k "$keychain_password" "$keychain"
-        # Preserve the hosted runner's login keychain alongside the temporary signing keychain.
-        security list-keychains -d user | xargs > "$RUNNER_TEMP/$APP-keychains-before"
-        # shellcheck disable=SC2046
-        security list-keychains -d user -s "$keychain" $(cat "$RUNNER_TEMP/$APP-keychains-before")
-    - name: Generate app project
-      if: env.RELEASE_SKIP != 'true'
-      run: |
-        export GITHUB_SHA="$SOURCE_SHA"
-        if [[ -f "apps/$APP/project.yml" ]]; then
-          brew list xcodegen >/dev/null 2>&1 || brew install xcodegen
-          (cd "apps/$APP" && xcodegen generate --quiet)
-        fi
-    - name: Test, upload, and distribute to the app's TestFlight group
-      if: env.RELEASE_SKIP != 'true'
-      env:
-        ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
-        ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
-        ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
-        ASC_BETA_FEEDBACK_EMAIL: ${{ secrets.ASC_BETA_FEEDBACK_EMAIL }}
-      run: |
-        export GITHUB_SHA="$SOURCE_SHA"
-        mkdir -p build
-        args=(ios beta "app:$APP" "changelog:Build from $GITHUB_REF_NAME ($GITHUB_SHA)")
-        if [[ -n "${RELEASE_VERSION:-}" ]]; then args+=("version:$RELEASE_VERSION"); fi
-        bundle exec fastlane "${args[@]}"
-    - name: Check latest app source before capture
-      if: inputs.submit_store == true && matrix.app == 'tendr' && github.ref == 'refs/heads/main' && env.RELEASE_SKIP != 'true'
-      run: |-
-        export GITHUB_SHA="$SOURCE_SHA"
-        bundle exec fastlane ios check_release_source app:"$APP"
-    - name: Capture and verify all App Store screenshots
-      if: inputs.submit_store == true && matrix.app == 'tendr' && github.ref == 'refs/heads/main' && env.RELEASE_SKIP != 'true'
-      run: |
-        export GITHUB_SHA="$SOURCE_SHA"
-        python3 -m pip install -r scripts/requirements-screenshots.txt
-        selected=$(python3 scripts/select-duo-xcode.py "$DEVELOPER_DIR")
-        export DEVELOPER_DIR="$selected"
-        scripts/ci/apple-desktop.sh scripts/capture-screenshots.sh "$APP"
-        scripts/frame-screenshots.sh "$APP"
-        scripts/ci/apple-desktop.sh scripts/capture-duo-screenshots.sh "$APP"
-        python3 scripts/stage-duo-screenshots.py "apps/$APP/screenshots.json" \
-          "build/duo-screenshots/$APP/raw" "apps/$APP/fastlane/screenshots/en-US"
-    - name: Upload listing, verify Apple received images, and submit app with purchases
-      if: inputs.submit_store == true && matrix.app == 'tendr' && github.ref == 'refs/heads/main' && env.RELEASE_SKIP != 'true'
-      env:
-        ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
-        ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
-        ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
-        ASC_BETA_FEEDBACK_EMAIL: ${{ secrets.ASC_BETA_FEEDBACK_EMAIL }}
-        ASC_REVIEW_PHONE: ${{ secrets.ASC_REVIEW_PHONE }}
-        ASC_REVIEW_EMAIL: ${{ secrets.ASC_REVIEW_EMAIL }}
-      run: |-
-        export GITHUB_SHA="$SOURCE_SHA"
-        bundle exec fastlane ios finish_release app:"$APP"
-    - name: Preserve release state for automatic review deferrals
-      if: always() && matrix.app == 'tendr'
-      uses: actions/upload-artifact@v4
-      with:
-        name: release-state
-        path: build/release-state.json
-        if-no-files-found: ignore
-    - name: Preserve release evidence
-      if: always() && matrix.app == 'tendr'
-      uses: actions/upload-artifact@v4
-      with:
-        name: release-evidence-${{ matrix.app }}-${{ github.run_id }}
-        path: |
-          build/release-manifest.json
-          apps/${{ matrix.app }}/fastlane/screenshots/en-US/*.png
-          build/duo-screenshots/${{ matrix.app }}/raw
-        if-no-files-found: warn
-    - name: Remove release signing assets
-      if: always()
-      run: |
-        export GITHUB_SHA="$SOURCE_SHA"
-        keychain="$RUNNER_TEMP/$APP-signing.keychain-db"
-        if [[ -f "$RUNNER_TEMP/$APP-keychains-before" ]]; then
-          # shellcheck disable=SC2046
-          security list-keychains -d user -s $(cat "$RUNNER_TEMP/$APP-keychains-before")
-          rm -f "$RUNNER_TEMP/$APP-keychains-before"
-        fi
-        if [[ -f "$keychain" ]]; then
-          security delete-keychain "$keychain"
-        fi
-        shopt -s nullglob
-        for profile in "$RUNNER_TEMP/$APP.mobileprovision" "$RUNNER_TEMP/$APP-"*.mobileprovision; do
-          [[ -f "$profile" ]] || continue
-          security cms -D -i "$profile" > "$RUNNER_TEMP/$APP-profile.plist"
-          profile_uuid=$(/usr/libexec/PlistBuddy -c 'Print UUID' "$RUNNER_TEMP/$APP-profile.plist")
-          [[ "$profile_uuid" =~ ^[A-Fa-f0-9-]{36}$ ]]
-          rm -f "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles/$profile_uuid.mobileprovision" "$profile"
-        done
-        rm -f "$RUNNER_TEMP/$APP-signing.p12" "$RUNNER_TEMP/$APP-profile.plist"
+        GH_TOKEN: ${{ github.token }}
+      run: python3 scripts/ios_delivery.py
+  tendr:
+    name: Tendr
+    needs: verify
+    if: needs.verify.outputs.tendr == 'true'
+    permissions:
+      contents: write
+      actions: read
+      pull-requests: read
+    uses: ./.github/workflows/tendr-delivery.yml
+    with:
+      source: ${{ needs.verify.outputs.source }}
+      channel: ${{ needs.verify.outputs.channel }}
+      ci_run_id: ${{ needs.verify.outputs.ci_run_id }}
+      ci_run_attempt: ${{ needs.verify.outputs.ci_run_attempt }}
+      ci_run_url: ${{ needs.verify.outputs.ci_run_url }}
+      receipt_run_id: ${{ needs.verify.outputs.receipt_run_id }}
+    secrets: inherit
+  folding:
+    name: Folding
+    needs: verify
+    if: needs.verify.outputs.folding == 'true'
+    permissions:
+      contents: write
+      actions: read
+      pull-requests: read
+    uses: ./.github/workflows/folding-release.yml
+    with:
+      source: ${{ needs.verify.outputs.source }}
+      channel: ${{ needs.verify.outputs.channel }}
+      ci_run_id: ${{ needs.verify.outputs.ci_run_id }}
+      ci_run_attempt: ${{ needs.verify.outputs.ci_run_attempt }}
+      ci_run_url: ${{ needs.verify.outputs.ci_run_url }}
+      receipt_run_id: ${{ needs.verify.outputs.receipt_run_id }}
+      backend: ${{ needs.verify.outputs.backend == 'true' }}
+    secrets: inherit
