@@ -1,5 +1,9 @@
 # Folding work tracker
 
+Repository consolidation is complete. Active issues belong to `0x63616c/world-wide-webb`;
+references below to old `folding` issue/PR numbers are historical. That source repository
+was snapshotted into private `github-archive` and deleted by owner request.
+
 ## Current scope: internal TestFlight, then App Store preparation
 
 Implementation and live infrastructure are present. The current owner request is to test the

@@ -3,7 +3,7 @@
 # the Mac mini), for the apps repository.
 #
 #   scripts/setup-mac-runner.sh [options] OWNER/REPO [OWNER/REPO ...]
-#   scripts/setup-mac-runner.sh --use 0x63616c/apps
+#   scripts/setup-mac-runner.sh --use 0x63616c/world-wide-webb
 #
 # Repositories on a personal account cannot share a runner, so this registers one runner per
 # repository, each in its own directory under ~/actions-runners and each running as its own

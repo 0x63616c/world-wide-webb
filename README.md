@@ -2,9 +2,10 @@
 
 Independent apps, websites and homelab operations in one repository.
 
-Source consolidation is merged. Homelab configuration, home Cloudflare infrastructure and
-website publication follow WWW. The [migration tracker](docs/plans/monorepo-migration-progress.md)
-records completed handovers and remaining release/reference cleanup. WWW is currently public.
+Repository consolidation is complete. Apps, homelab configuration, Cloudflare infrastructure
+and delivery tooling live here. WWW is currently public; `dotfiles`, `homebrew-tap` and private
+`github-archive` remain separate. The [migration record](docs/plans/monorepo-migration-progress.md)
+records completed handovers and the deleted source repositories.
 
 ## Products
 
@@ -37,11 +38,13 @@ describe the shared lifecycle and current handler boundaries.
 
 ## Delivery and migration
 
-The [current finish plan](docs/plans/monorepo-remaining-work-2026-11-09.md) covers remaining
-delivery references and old-repository cleanup. Earlier private-repository proposals are historical.
+The [completion record](docs/plans/monorepo-remaining-work-2026-11-09.md) documents retained
+archives and separate follow-ups. Tendr’s former GitHub Pages host was deleted by owner request;
+replacement Cloudflare hosting and app/listing link updates are tracked in [#1007](https://github.com/0x63616c/world-wide-webb/issues/1007).
 The selection policy in `scripts/ci/units.json` separates verification from delivery candidates;
 selection alone never authorizes publication. Use each product’s release instructions and
 channel flags; documentation changes do not request a product release.
 
-Keep original repositories and worktrees until their imports, active changes, releases, issues,
-compatibility URLs and recovery paths are accounted for. Excluded personal projects/data remain separate.
+The old `apps`, `folding`, `callkeep`, `homelab` and `homelab-cli` repositories were snapshotted
+into private `github-archive` and deleted. Old local checkouts are historical; develop here.
+Preserve active worktrees, signing storage and the agreed excluded projects/data.

@@ -1,9 +1,9 @@
 # Homelab
 
 Desired configuration for the MacBook and Mac mini, colocated with the setup CLI in
-[`cli`](cli/README.md). This is the imported monorepo candidate. Live hosts still follow their
-existing repository until the [migration handover](../docs/plans/monorepo-migration-progress.md)
-is verified; the historical instructions below describe that existing authority.
+[`cli`](cli/README.md). Both Macs follow WWW’s `deploy/homelab` ref after successful
+Homelab CI/promotion. The [migration record](../docs/plans/monorepo-migration-progress.md)
+records the completed source handover; the old homelab repositories were deleted.
 
 Use repository-root `flake.nix`, `flake.lock`, `homelab.json`, `bootstrap/installer.json`
 and host ciphertext in `secrets/` for enrollment. These are regular compatibility files.
@@ -22,19 +22,13 @@ cargo test --locked --manifest-path homelab/runner/Cargo.toml
 
 These checks do not activate a host. `Homelab CI` selects configuration/controller/operations
 checks for host changes and CLI checks for CLI changes. CLI changes also verify host compatibility.
-Promotion, private CLI distribution and preserve-state repository rebind are pending; source imports
-alone do not transfer deployment ownership. Existing dirty source work remains in its original checkout.
-
-## Historical deployment documentation
-
-Private configuration for the macOS homelab. The MacBook is enrolled and configured
-for disposable CI runners. Application migration remains disabled; the Mac mini
-continues running its existing services.
+CLI publication produces public WWW release archives and updates the separate Homebrew tap.
+Host promotion and app-image promotion retain their own checked handlers.
 
 ## Start here
 
-Install the public [homelab CLI](https://github.com/0x63616c/homelab-cli), open
-`homelab`, and attach **`0x63616c/homelab`** when asked.
+Install the public [homelab CLI](cli/README.md) with `brew install 0x63616c/tap/homelab`,
+open `homelab`, and attach **`0x63616c/world-wide-webb`** when asked.
 
 1. On the target Mac, create its administrator and enable Remote Login.
 2. Attach this repository in the CLI, select its Git-defined Mac and confirm the address.
@@ -42,7 +36,7 @@ Install the public [homelab CLI](https://github.com/0x63616c/homelab-cli), open
 4. It publishes encrypted configuration to `main`, installs that exact commit,
    reboots and verifies the Mac. Required or existing PRs still wait for review.
 
-Use [CLI 0.4.0](https://github.com/0x63616c/homelab-cli/releases/tag/v0.4.0)
+Use the current [WWW CLI release](https://github.com/0x63616c/world-wide-webb/releases?q=homelab)
 for the live checklist and direct-publication flow. Begin setup authorizes direct
 publication when GitHub rules permit it; the CLI never force-pushes or bypasses
 required PR review. Version 0.3.2 uses PR-based enrollment.
@@ -81,7 +75,7 @@ flowchart TB
 | `homelab.json` | Host facts shared by the CLI and Nix; no duplicate host lists |
 | 1Password | Operator credentials and recovery keys; never installed on nodes |
 | SOPS + age | Encrypted Git secrets; each node gets only its own key |
-| Comin | Pull and apply reviewed changes from `main` after enrollment |
+| Comin | Pull and apply CI-promoted `deploy/homelab` changes after enrollment |
 | launchd | Start services at boot, including Comin |
 
 ## Hosts
@@ -93,7 +87,7 @@ flowchart TB
 
 ## What a merge does
 
-After a Mac completes enrollment, Comin checks `main` every 30 seconds and applies
+After a Mac completes enrollment, Comin checks `deploy/homelab` every 30 seconds and applies
 changes automatically. The interval is declared as `poller.period = 30` in
 [`modules/updates.nix`](modules/updates.nix). Review and
 test before merging; the node uses a read-only deploy key and needs no Actions token.

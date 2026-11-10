@@ -1,6 +1,6 @@
 # Set up a Mac
 
-Use [CLI 0.4.0](https://github.com/0x63616c/homelab-cli/releases/tag/v0.4.0)
+Use the current [WWW CLI release](https://github.com/0x63616c/world-wide-webb/releases?q=homelab)
 for this guide’s live checklist and direct-publication flow. Version 0.3.2 has
 Git-first selection and automatic prerequisites but uses an enrollment PR.
 
@@ -24,7 +24,7 @@ brew install 0x63616c/tap/homelab
 homelab
 ```
 
-For this repository enter `0x63616c/homelab` when asked to attach configuration.
+For this repository enter `0x63616c/world-wide-webb` when asked to attach configuration.
 The CLI lists the hosts from this repository’s `homelab.json` and uses each host’s
 Git-defined administrator. Select the host and confirm its address, which defaults
 to `<host>.local`; there is no separate profile-name or administrator form.
@@ -34,7 +34,7 @@ connections require resolution rather than an automatic choice. Select **Edit
 address** to correct a saved route; its alias, SSH identity and setup state remain
 intact.
 
-On your laptop, GitHub CLI must be signed in with access to this private repository.
+On your laptop, GitHub CLI must be signed in with access to this repository.
 Install the `op` CLI and unlock 1Password with desktop integration enabled. Connect
 the standalone Tailscale app and CLI; the App Store variant does not supply the
 SSH wrapper used for verification. The tailnet must permit your identity to SSH

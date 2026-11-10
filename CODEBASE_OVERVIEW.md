@@ -11,12 +11,11 @@ Start with [README.md](README.md) and the relevant product README.
   [source map](apps/control-center/CODEBASE_OVERVIEW.md) before changing it.
 - `homelab`: desired host state, operations, runners and local CLI; root flake/enrollment files delegate here.
 - `scripts/ci`: repository-wide input selection and isolation tests. Test-only changes verify without delivery.
-- `scripts`, `fastlane`, `templates`: imported Tendr delivery/scaffolding handlers, being adapted.
-- `sites`: static website source; installed legacy URLs are retained until replacement proof.
+- `scripts`, `fastlane`, `templates`: shared standard-iOS delivery and independent-app scaffolding handlers.
+- `sites`: static website source; Folding publishes to Cloudflare, while Tendr hosting is tracked in #1007.
 - `infra/cloudflare`: retained home infrastructure; separate home and Folding state roots with preserved resource addresses.
 - `.github`: selective product pipelines and shared actions, with product pins and configured hosted/homelab routes. The migration tracker records live channel ownership.
 - `.agents/skills`: pinned Apple and Matt Pocock guidance; provenance in `SOURCES.md`.
 
-[Migration progress](docs/plans/monorepo-migration-progress.md) distinguishes local evidence from
-unverified delivery. Source relocation changes no bundle identity, installed service, data directory
-or production ownership by itself.
+[Migration progress](docs/plans/monorepo-migration-progress.md) records completed consolidation and
+separate product follow-ups. Product runbooks and current workflow receipts describe ongoing delivery.

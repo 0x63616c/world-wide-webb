@@ -45,7 +45,7 @@
     "phone_number": "FOLDING_REVIEW_PHONE",
     "email_address": "FOLDING_REVIEW_EMAIL"
   },
-  "historical_repository": "0x63616c/folding",
+  "historical_repository": "0x63616c/world-wide-webb",
   "post_submission_device_capabilities": [
     "auth.apple",
     "auth.refresh",

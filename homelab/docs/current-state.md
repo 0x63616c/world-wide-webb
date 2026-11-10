@@ -1,5 +1,9 @@
 # Current state
 
+Source consolidation is complete: both Macs and CLI delivery use WWW. Old-repository links
+below are historical observations. See the [migration record](../../docs/plans/monorepo-migration-progress.md)
+for current ownership; inspect live host state before operations.
+
 ## Read-only refresh — November 8, 2026
 
 Live SSH inspection used the existing trusted names `calum@homelab` and

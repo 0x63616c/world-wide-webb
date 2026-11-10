@@ -1,41 +1,32 @@
 # Monorepo migration progress
 
-## Current status — November 9, 2026
+## Complete — November 10, 2026
+
+Repository consolidation and source retirement are complete. Apps, homelab configuration/CLI,
+Cloudflare infrastructure, sites and active delivery tooling belong to WWW. WWW is public.
+Both Macs follow WWW; Callkeep/CLI Homebrew recipes download WWW releases.
 
 November 10: Air Miles is retired at the owner's request. This change removes its application,
 fixtures, import tools and active CI unit.
 The records below describe the historical migration, not an active product. The separate
 personal-flight dataset and other repositories are outside this removal.
 
-Use [Finish the migration](monorepo-remaining-work-2026-11-09.md) for remaining delivery
-references, documentation and old-repository cleanup. It supersedes the older execution contract.
+The five original repositories (`apps`, `folding`, `callkeep`, `homelab`, `homelab-cli`) were
+snapshotted into private `github-archive`, verified remotely, then deleted at the owner’s request.
+Old local checkouts and archive snapshots are historical, never development/publication roots.
+The old Folding repository had no GitHub releases; legacy artifact readers now target WWW.
+Signing storage, dotfiles, homebrew-tap and agreed excluded projects remain separate.
 
-Source consolidation is merged and WWW is public. Both Macs follow WWW; their source handover
-was independently verified at `0b046d9b6d20bd80a94951f26b22a9e105e490cf`. Subsequent host changes
-continue through their normal updaters. The old homelab repository is archived. Earlier mini
-backup and bedroom-switch readbacks remain recorded below; no new physical-switch check is claimed.
+The [completion record](monorepo-remaining-work-2026-11-09.md) records archive locations and
+separate follow-ups. Tendr’s replacement Cloudflare pages and app/listing link updates remain
+[#1007](https://github.com/0x63616c/world-wide-webb/issues/1007); the owner explicitly accepted
+interim loss of the deleted `apps` Pages URLs. Its dead publisher is removed. This exception is
+not a claim that Tendr’s replacement site is delivered.
 
-Cloudflare and sites handed over in [#972](https://github.com/0x63616c/world-wide-webb/pull/972):
-[Sites publication](https://github.com/0x63616c/world-wide-webb/actions/runs/42649259019) and
-[home infrastructure apply](https://github.com/0x63616c/world-wide-webb/actions/runs/42649263710/attempts/2)
-passed. Existing website URLs work, old site deployment is disabled, and the legacy Pages host
-is retained. Existing encrypted infrastructure state and resources were reused.
-
-Folding delivery preparation is in [#974](https://github.com/0x63616c/world-wide-webb/pull/974).
-Signed **1.0.0 (15)** is **VALID** and confirmed in **Folding Internal**; future main delivery
-is enabled. The [release checkpoint](../../apps/folding/docs/experiments/monorepo-testflight-2026-11-09.md)
-records source, CI, immutable artifacts and remaining device/store deferrals. Production
-serves the exact main-CI-tested
-Worker `8ed02ee38473f91580c74b6466fcdf47411d334c`, with all 23 checksum migrations and a verified
-provider-version receipt. Live staging history-import and badge queue checks used temporary
-synthetic accounts, removed afterward; they do not establish Apple enrollment or APNs delivery.
-
-GitHub’s hosted `xcode-27` image supports Xcode 27.2 and Duo. Earlier claims that the toolchain
-required homelab were wrong. Xcode 27.2 jobs now target hosted `xcode-27`; other hosted routes remain intact.
-
-Normal relevant CI and checks of changed sites/infrastructure are sufficient for the remaining
-migration. Product releases happen when needed; extra release, screenshot, restore and review
-campaigns are not migration prerequisites. Delegated reviews require Calum's explicit request.
+Cloudflare/sites handover was merged in #972; Folding delivery preparation in #974; Control
+Center’s Xcode 27.2 native/promotion handover in #984. Subsequent app fixes and individual beta
+processing are product work, not source-migration gates. No new release, screenshot or restore
+campaign is required to close consolidation.
 
 ## Historical execution record
 

@@ -1,5 +1,9 @@
 # Application releases and deployment ownership
 
+Source consolidation is complete: both Macs and CLI delivery use WWW. Old-repository links
+below are historical observations. See the [migration record](../../docs/plans/monorepo-migration-progress.md)
+for current ownership; inspect live host state before operations.
+
 Control Center source is in `apps/control-center`; homelab owns the mini's service runtime,
 shared backups, host updates and private networking. The consolidation's live acceptance is
 tracked in [the migration progress](../../docs/plans/monorepo-migration-progress.md).

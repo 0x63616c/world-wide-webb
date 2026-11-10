@@ -41,7 +41,7 @@ Choose and download **Parakeet Ultra** or **Whisper Turbo** in Settings to trans
 
 ## Get started
 
-1. Install and open Callkeep using the authenticated Homebrew recipe described below.
+1. Install and open Callkeep using the public Homebrew recipe described below.
 2. Open **Settings → Permissions** and enable microphone and system audio access. The app guides you to the relevant macOS controls.
 3. In **Settings → Transcription**, download a model for local after-call transcripts (Apple silicon).
 4. Click **New recording**, then **Stop recording** when the call ends.
@@ -110,5 +110,5 @@ published immutable release. Retries reuse sealed artifacts; interrupted unseale
 The tap uses a standard ZIP URL and SHA-256, without custom Git download strategies or
 migration enable switches. Intel slices are built and checked; this does not prove Intel runtime behavior.
 
-The old `callkeep` repository retains historical releases for existing downloads. New releases
-come from [WWW](https://github.com/0x63616c/world-wide-webb/releases).
+Releases come from [WWW](https://github.com/0x63616c/world-wide-webb/releases). The old
+`callkeep` source was snapshotted into private `github-archive` and its repository was deleted.
