@@ -11,7 +11,7 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
 UNIT_WORKFLOWS = (
-    'homelab-ci.yml', 'folding-ci.yml', 'folding-screenshots.yml',
+    'homelab-ci.yml', 'folding-ci.yml',
     'site.yml', 'callkeep-ci.yml', 'folding-store-checks.yml',
 )
 
@@ -69,7 +69,7 @@ class SparseSelectionTests(unittest.TestCase):
             self.assertEqual(set(full['delivery_candidates']),
                              {'folding.native', 'callkeep.native', 'homelab.config', 'control-center.server'})
             self.assertTrue(full_control_center['image'])
-            for filename, control_center in [(name, False) for name in UNIT_WORKFLOWS] + [('ci.yml', True)]:
+            for filename, control_center in [(name, False) for name in UNIT_WORKFLOWS] + [('control-center-ci.yml', True)]:
                 with self.subTest(workflow=filename):
                     jobs = yaml.safe_load((ROOT / '.github/workflows' / filename).read_text())['jobs']
                     job = jobs['changes' if control_center else 'selection']

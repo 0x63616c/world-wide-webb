@@ -6,17 +6,17 @@ module FoldingRelease
       "contracts" => [[".venv/contracts/bin/python", "scripts/check-contracts.py"]],
       "domain-storage" => [["swift", "test", "--package-path", "apps/ios/Packages/FoldingKit"]],
       "backend" => [["scripts/check-backend"]],
-      "simulator" => [["bundle", "exec", "fastlane", "ios", "verify_app"]],
+      "native-build" => [["xcodebuild", "-project", "apps/ios/Folding.xcodeproj", "-scheme", "Folding", "-destination", "generic/platform=iOS Simulator", "CODE_SIGNING_ALLOWED=NO", "build"]],
       "localization" => [["python3", "scripts/check-localization.py"], ["python3", "scripts/test-localization.py"]],
       "screenshots" => [["bundle", "exec", "fastlane", "ios", "screenshots", "environment:production"]]
     }.freeze
     # Exact workflow path + job display name; an unrelated green job cannot satisfy a gate.
     CI_JOBS = {
-      "contracts" => [".github/workflows/folding-ci.yml", "Folding contracts"],
-      "domain-storage" => [".github/workflows/folding-ci.yml", "Folding domain and storage"],
-      "backend" => [".github/workflows/folding-ci.yml", "Folding backend"],
-      "simulator" => [".github/workflows/folding-ci.yml", "Folding native"],
-      "localization" => [".github/workflows/folding-ci.yml", "Folding localization"],
+      "contracts" => [".github/workflows/ci.yml", "Folding / Folding contracts"],
+      "domain-storage" => [".github/workflows/ci.yml", "Folding / Folding domain and storage"],
+      "backend" => [".github/workflows/ci.yml", "Folding / Folding backend"],
+      "native-build" => [".github/workflows/ci.yml", "Folding / Folding native"],
+      "localization" => [".github/workflows/ci.yml", "Folding / Folding localization"],
       "screenshots" => [".github/workflows/folding-store-checks.yml", "Folding App Store screenshots"]
     }.freeze
 

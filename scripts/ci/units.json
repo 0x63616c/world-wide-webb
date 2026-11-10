@@ -1,17 +1,14 @@
 {
   "version": 1,
-  "retired_paths": ["apps/airmiles/**"],
-  "shared_verify": [
-    "scripts/ci/**",
-    "lefthook.yml",
-    "scripts/dev",
-    "fastlane/**",
-    "Gemfile",
-    "Gemfile.lock"
+  "retired_paths": [
+    "apps/airmiles/**"
   ],
+  "shared_verify": [],
   "units": {
     "golink.safari": {
-      "paths": ["apps/golink-safari/**"],
+      "paths": [
+        "apps/golink-safari/**"
+      ],
       "delivery": null
     },
     "tendr.native": {
@@ -39,13 +36,6 @@
         "**/BuildTests/**",
         "**/ScreenshotTests/**",
         "**/StorefrontTests/**"
-      ],
-      "preview_paths": [
-        "apps/tendr/**",
-        ".github/workflows/pr-screenshots.yml",
-        ".github/workflows/component-snapshots.yml",
-        ".github/workflows/icon.yml",
-        ".github/workflows/tip-jar.yml"
       ]
     },
     "folding.native": {
@@ -53,7 +43,9 @@
         "apps/folding/apps/ios/**",
         "apps/folding/cloudkit/**",
         "apps/folding/fastlane/**",
-        "apps/folding/app.yml"
+        "apps/folding/app.yml",
+        "apps/folding/Package.swift",
+        "apps/folding/HostTests/**"
       ],
       "delivery": "testflight",
       "delivery_paths": [
@@ -76,17 +68,6 @@
         "**/BuildTests/**",
         "**/ScreenshotTests/**",
         "**/StorefrontTests/**"
-      ],
-      "preview_paths": [
-        "apps/folding/apps/ios/**",
-        "apps/folding/cloudkit/**",
-        "apps/folding/fastlane/**",
-        "apps/folding/app.yml",
-        "scripts/ci/apple-desktop.sh",
-        ".github/workflows/folding-screenshots.yml",
-        ".github/actions/folding-tools/**",
-        "apps/folding/scripts/capture*",
-        "apps/folding/scripts/apple-build-environment.py"
       ]
     },
     "folding.backend": {
@@ -111,9 +92,6 @@
         "**/BuildTests/**",
         "**/ScreenshotTests/**",
         "**/StorefrontTests/**"
-      ],
-      "verify_dependents": [
-        "folding.native"
       ]
     },
     "folding.contracts": {
@@ -137,12 +115,13 @@
         "apps/folding/rust-toolchain.toml",
         "apps/folding/tool-versions.json",
         "apps/folding/Gemfile",
-        "apps/folding/Gemfile.lock"
-      ],
-      "verify_dependents": [
-        "folding.native",
-        "folding.backend",
-        "folding.contracts"
+        "apps/folding/Gemfile.lock",
+        "apps/folding/design/**",
+        "apps/folding/.cursor/**",
+        "apps/folding/.githooks/**",
+        "apps/folding/.editorconfig",
+        "apps/folding/.gitignore",
+        "apps/folding/app.yml"
       ],
       "delivery": null
     },
@@ -171,11 +150,6 @@
         "**/BuildTests/**",
         "**/ScreenshotTests/**",
         "**/StorefrontTests/**"
-      ],
-      "preview_paths": [
-        "apps/callkeep/**",
-        "scripts/distribution/**",
-        "scripts/ci/apple-desktop.sh"
       ]
     },
     "control-center.native": {
@@ -198,10 +172,6 @@
         "**/BuildTests/**",
         "**/ScreenshotTests/**",
         "**/StorefrontTests/**"
-      ],
-      "preview_paths": [
-        "apps/control-center/apple/**",
-        "scripts/ci/apple-desktop.sh"
       ]
     },
     "control-center.server": {
@@ -248,12 +218,11 @@
         "apps/control-center/tools/**",
         "apps/control-center/scripts/**",
         "apps/control-center/deny.toml",
-        "apps/control-center/.swift-format"
-      ],
-      "verify_dependents": [
-        "control-center.native",
-        "control-center.server",
-        "control-center.contracts"
+        "apps/control-center/.swift-format",
+        "apps/control-center/Cargo.toml",
+        "apps/control-center/.gitignore",
+        "apps/control-center/rust-toolchain.toml",
+        "apps/control-center/app.yml"
       ],
       "delivery": null,
       "exclude": [
@@ -419,10 +388,40 @@
         "cloudflare.home"
       ],
       "delivery": null
+    },
+    "repo.tooling": {
+      "paths": [
+        "scripts/**",
+        ".github/**",
+        "tools/**",
+        "fastlane/**",
+        "templates/**",
+        "Gemfile",
+        "Gemfile.lock",
+        "lefthook.yml",
+        "renovate.json",
+        "ruff.toml",
+        ".gitleaks.toml",
+        ".wtp.yml",
+        ".gitignore",
+        ".opentofu-version",
+        ".claude/**",
+        ".codex/**",
+        "opencode.jsonc",
+        "tui.json",
+        ".config/**"
+      ],
+      "delivery": null,
+      "exclude": [
+        "scripts/homelab/**",
+        "scripts/distribution/**"
+      ]
     }
   },
   "workflow_units": {
-    ".github/workflows/golink-safari-ci.yml": ["golink.safari"],
+    ".github/workflows/golink-safari-ci.yml": [
+      "golink.safari"
+    ],
     ".github/workflows/homelab-ci.yml": [
       "homelab.config",
       "homelab.cli"
@@ -436,17 +435,11 @@
     ".github/workflows/homelab-operations-canary.yml": [
       "homelab.config"
     ],
-    ".github/workflows/homelab-runner-recovery.yml": [
-      "homelab.config"
-    ],
-    ".github/workflows/homelab-runners.yml": [
-      "homelab.config"
-    ],
     ".github/workflows/homelab-cli-release.yml": [
       "homelab.cli"
     ],
     ".github/workflows/ci.yml": [
-      "control-center.tooling"
+      "repo.tooling"
     ],
     ".github/workflows/apple-panel-testflight.yml": [
       "control-center.tooling"
@@ -458,12 +451,12 @@
       "cloudflare.home"
     ],
     ".github/workflows/folding-ci.yml": [
+      "folding.native",
+      "folding.backend",
+      "folding.contracts",
       "folding.tooling"
     ],
     ".github/workflows/folding-release.yml": [
-      "folding.tooling"
-    ],
-    ".github/workflows/folding-screenshots.yml": [
       "folding.tooling"
     ],
     ".github/workflows/folding-store-checks.yml": [
@@ -481,22 +474,7 @@
     ".github/workflows/testflight.yml": [
       "tendr.native"
     ],
-    ".github/workflows/pr-screenshots.yml": [
-      "tendr.native"
-    ],
-    ".github/workflows/component-snapshots.yml": [
-      "tendr.native"
-    ],
-    ".github/workflows/duo-screenshots.yml": [
-      "tendr.native"
-    ],
-    ".github/workflows/icon.yml": [
-      "tendr.native"
-    ],
     ".github/workflows/iap.yml": [
-      "tendr.native"
-    ],
-    ".github/workflows/tip-jar.yml": [
       "tendr.native"
     ],
     ".github/workflows/release.yml": [
@@ -516,10 +494,15 @@
       "sites.folding"
     ],
     ".github/actions/folding-tools/action.yml": [
+      "folding.native",
+      "folding.backend",
+      "folding.contracts",
       "folding.tooling"
     ],
-    ".github/actions/folding-tools/test_action.py": [
-      "folding.tooling"
+    ".github/workflows/control-center-ci.yml": [
+      "control-center.tooling",
+      "control-center.native",
+      "control-center.server"
     ]
   },
   "checks": {
@@ -600,7 +583,6 @@
         "apps/control-center/rust-toolchain.toml",
         "apps/control-center/deny.toml",
         "apps/control-center/contracts/**",
-        "apps/control-center/tools/**",
         "secrets/vault.yaml"
       ],
       "exclude": [
@@ -634,7 +616,7 @@
         "apps/control-center/rust-toolchain.toml",
         "apps/control-center/contracts/**",
         "apps/control-center/apple/Packages/PanelKit/**",
-        "apps/control-center/tools/**"
+        "apps/control-center/tools/test_native_api.py"
       ]
     },
     "control-center.apple": {
@@ -646,8 +628,7 @@
       "paths": [
         "apps/control-center/apple/**",
         "apps/control-center/.swift-format",
-        "apps/control-center/contracts/**",
-        "apps/control-center/tools/**"
+        "apps/control-center/contracts/**"
       ],
       "exclude": [
         "apps/control-center/tools/infra_apply.py",
@@ -689,15 +670,5 @@
         "flake.lock"
       ]
     }
-  },
-  "standard_preview_paths": [
-    "scripts/capture*",
-    "scripts/export-screenshots.py",
-    "scripts/boot-simulator.sh",
-    "scripts/duo-simulator.py",
-    "scripts/ci/apple-desktop.sh",
-    "scripts/app-config.rb",
-    "scripts/screenshot-build-settings.py",
-    ".github/actions/ruby-tools/**"
-  ]
+  }
 }

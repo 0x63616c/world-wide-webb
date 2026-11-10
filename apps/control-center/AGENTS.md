@@ -47,12 +47,14 @@ updates in `.agents/skills/SOURCES.md`.
 For SwiftUI changes use `swiftui-expert-skill`, `apple-hig`, `animation-patterns` and the platform's
 `swiftui-liquid-glass` skill. Use system glass APIs.
 
-`tools/check` exposes `lint`, `rust`, `ops`, `apple`, `integration` and `infra`. Run checks for the changed
-area. Use `tools/test_apple.sh` for Apple changes and existing UI tests when interaction behavior changes;
-do not run Apple builds, UI suites or restore drills for unrelated server, operations or documentation edits.
+`tools/check` exposes `lint`, `rust`, `ops`, `apple`, `integration` and `infra`. Follow the root testing
+policy: run affected host tests and compile changed native targets without booting simulators. Move
+provider/state/layout assertions out of app-hosted tests as their code changes. `tools/test_apple.sh`
+is a legacy simulator diagnostic, not the default for every Apple edit. Use platform diagnostics only
+when specifically required by the task; unrelated server, operations and docs need no Apple build.
 Pinned linters cover Rust, Python, Swift, shell and workflow files. `tools/check dependencies` enforces
 cargo-deny advisories, licenses, dependency constraints and allowed sources. Pre-commit guards formatting/syntax,
-private information, encrypted secrets and worktree rules; pre-push runs Rust and operations tests.
+private information, encrypted secrets and worktree rules. Run affected runtime checks explicitly.
 
 ## Credentials
 

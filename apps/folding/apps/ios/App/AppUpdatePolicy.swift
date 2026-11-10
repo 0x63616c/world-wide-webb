@@ -98,37 +98,40 @@ import SwiftUI
   }
 }
 
-struct AppUpdateRequiredView: View {
-  let policy: AppUpdatePolicy
-  @Environment(\.openURL) private var openURL
-  var body: some View {
-    ScrollView {
-      VStack(spacing: 24) {
-        Image(systemName: "arrow.down.app").font(.largeTitle).accessibilityHidden(true)
-        Text(String(localized: "update.title", defaultValue: "A newer version is required"))
-          .font(.largeTitle.bold()).accessibilityAddTraits(.isHeader)
-        Button(String(localized: "update.open", defaultValue: "Update")) {
-          openURL(policy.updateURL)
-        }
-        .buttonStyle(.borderedProminent)
-        if policy.checking { ProgressView() }
-        if policy.checkFailed {
-          Text(
-            String(
-              localized: "update.offline",
-              defaultValue: "Couldn’t check for updates.")
+#if canImport(UIKit)
+  struct AppUpdateRequiredView: View {
+    let policy: AppUpdatePolicy
+    @Environment(\.openURL) private var openURL
+    var body: some View {
+      ScrollView {
+        VStack(spacing: 24) {
+          Image(systemName: "arrow.down.app").font(.largeTitle).accessibilityHidden(true)
+          Text(String(localized: "update.title", defaultValue: "A newer version is required"))
+            .font(.largeTitle.bold()).accessibilityAddTraits(.isHeader)
+          Button(String(localized: "update.open", defaultValue: "Update")) {
+            openURL(policy.updateURL)
+          }
+          .buttonStyle(.borderedProminent)
+          if policy.checking { ProgressView() }
+          if policy.checkFailed {
+            Text(
+              String(
+                localized: "update.offline",
+                defaultValue: "Couldn’t check for updates.")
+            )
+            .font(.footnote).foregroundStyle(.secondary)
+          }
+          Link(
+            String(localized: "update.support", defaultValue: "Contact support"),
+            destination: URL(string: "https://getfolding.app/support")!
           )
-          .font(.footnote).foregroundStyle(.secondary)
+          .font(.footnote)
         }
-        Link(
-          String(localized: "update.support", defaultValue: "Contact support"),
-          destination: URL(string: "https://getfolding.app/support")!
-        )
-        .font(.footnote)
+        .multilineTextAlignment(.center).padding(32).frame(maxWidth: .infinity)
       }
-      .multilineTextAlignment(.center).padding(32).frame(maxWidth: .infinity)
+      .frame(maxWidth: .infinity, maxHeight: .infinity)
+      .background(Color(.systemBackground))
     }
-    .frame(maxWidth: .infinity, maxHeight: .infinity)
-    .background(Color(.systemBackground))
   }
-}
+
+#endif

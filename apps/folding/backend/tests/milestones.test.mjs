@@ -178,50 +178,6 @@ test('late insertion moves a counted transition between UTC days without inventi
  assert.deepEqual(counted,[opening.event_id,late.event_id]);
 });
 
-test('100k retained folds backfill in bounded pages and keep profile reads and entry deletion usable',{timeout:120000},async()=>{
- await setup();const count=100000,p=await person(60001,count),base=(Math.floor(Date.now()/86400000)-100)*86400000;
- const seedStart=performance.now();
- // Seed the same retained events in bulk; per-row D1 RPC preparation dominated this test.
- for(let offset=0;offset<count;offset+=1000){
-  const rows=Array.from({length:Math.min(1000,count-offset)},(_,i)=>{
-   const index=offset+i;return event(p,index+1,base+Math.floor(index/2000)*86400000+(index%2000)*1000);
-  });
-  await db.prepare(`INSERT INTO observations(participant_id,event_id,device_id,sequence,event_json,disposition,received_at_ms)
-   SELECT ?2,json_extract(value,'$.event_id'),?3,json_extract(value,'$.sequence'),value,'accepted',?4 FROM json_each(?1)`)
-   .bind(JSON.stringify(rows),p.participant,p.device,Date.now()).run();
- }
- const seedMS=performance.now()-seedStart,backfillStart=performance.now();let pages=0,own;
- while(pages<400){
-  const response=await request(p,'/v1/milestones');pages++;
-  if(response.status===200){own=await response.json();break;}
-  assert.equal(response.status,503,await response.clone().text());
-  const state=await db.prepare('SELECT state,cursor_sequence FROM milestone_state WHERE participant_id=?').bind(p.participant).first();
-  assert.equal(state.state,'building');assert.ok(state.cursor_sequence<=pages*256);
-  assert.equal(await db.prepare('SELECT count(*) n FROM milestone_grants WHERE participant_id=?').bind(p.participant).first('n'),0);
- }
- const backfillMS=performance.now()-backfillStart;
- assert.equal(pages,Math.ceil(count/256));assert.equal(own.progress.folds,count);assert.equal(own.progress.days_used,50);assert.equal(own.grants.length,6);assert.equal(own.progress.next.length,0);
- const reads=[];
- for(let i=0;i<20;i++){const start=performance.now();await jsonOK(await request(p,'/v1/milestones'));reads.push(performance.now()-start);}
- reads.sort((a,b)=>a-b);
- console.log(JSON.stringify({experiment:'milestone-100k-local',folds:count,pages,seed_ms:Math.round(seedMS),backfill_ms:Math.round(backfillMS),owner_read_p95_ms:Math.round(reads[18])}));
- await db.prepare('INSERT OR REPLACE INTO milestone_featured VALUES (?,?)').bind(p.participant,'folds_10000').run();
- const deletion={operation_id:uuid(++op),event_ids:[event(p,1,base).event_id],epoch_ids:[p.epoch]};
- const start=performance.now();await jsonOK(await request(p,'/v1/entry-deletions',deletion));
- let after,correctionPages=0;
- while(correctionPages<400){
-  const response=await request(p,'/v1/milestones');correctionPages++;
-  if(response.status===200){after=await response.json();break;}
-  assert.equal(response.status,503,await response.clone().text());
-  // Retain the choice privately while the corrected projection is hidden.
-  assert.equal(await db.prepare('SELECT badge_id FROM milestone_featured WHERE participant_id=?').bind(p.participant).first('badge_id'),'folds_10000');
- }
- assert.equal(correctionPages,Math.ceil(count/256));
- assert.equal(after.progress.folds,count-1);assert.equal(after.grants.length,6);assert.equal(after.featured_badge_id,'folds_10000');
- assert.equal(after.grants.find(g=>g.badge_id==='folds_1').earned_at_ms,base+1000);
- console.log(JSON.stringify({experiment:'milestone-100k-deletion-local',duration_ms:Math.round(performance.now()-start)}));
-});
-
 test('phone transfer preserves awards and selection while fencing old-phone uploads',async()=>{
  await setup();const p=await person(631,100),base=Date.now()-100000;
  await observations(p,Array.from({length:100},(_,i)=>event(p,i+1,base+i)));

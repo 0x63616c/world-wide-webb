@@ -23,10 +23,6 @@ screenshot_test: StillUITests/ScreenshotTests
 duo_screenshot_test: StillUITests/DuoScreenshotTests
 # Repeat capture across appearances; run the complete interaction suite once.
 duo_capture_test: StillUITests/DuoScreenshotTests/testMainScreens
-# PR preview screens from the synthetic fixture, posted on UI PRs by pr-screenshots.yml.
-pr_screenshot_test: StillUITests/PRScreenshotTests
-# Component galleries rendered with ImageRenderer (scripts/capture-snapshots.sh).
-snapshot_test: StillSnapshots
 site: tendr
 age_rating:
   medicalOrTreatmentInformation: INFREQUENT_OR_MILD

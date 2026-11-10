@@ -1,0 +1,266 @@
+name: Control Center checks
+'on':
+  workflow_call:
+    inputs:
+      force_all:
+        type: boolean
+        default: false
+defaults:
+  run:
+    working-directory: apps/control-center
+permissions:
+  contents: read
+jobs:
+  changes:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 5
+    outputs:
+      publish_image: ${{ steps.select.outputs.publish_image }}
+      checks: ${{ steps.select.outputs.checks }}
+      rust: ${{ steps.select.outputs.rust }}
+      ops: ${{ steps.select.outputs.ops }}
+      native: ${{ steps.select.outputs.native }}
+      contract: ${{ steps.select.outputs.contract }}
+      unit_tests: ${{ steps.select.outputs.unit_tests }}
+      apple: ${{ steps.select.outputs.apple }}
+      image: ${{ steps.select.outputs.image }}
+      infra: ${{ steps.select.outputs.infra }}
+    steps:
+    - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      with:
+        fetch-depth: 0
+        sparse-checkout: |
+          .github/actions/select
+          scripts/ci
+          apps/control-center/tools
+        persist-credentials: true
+    - id: select
+      env:
+        BASE: ${{ github.event.pull_request.base.sha || github.event.before || github.sha }}
+        HEAD: ${{ github.sha }}
+        FORCE: ${{ inputs.force_all || false }}
+      run: |
+        args=()
+        if [ "$FORCE" = true ]; then args+=(--force); fi
+        python3 tools/ci_changes.py "$BASE" "$HEAD" "${args[@]}"
+    - uses: actions/upload-artifact@v4
+      with:
+        name: ci-selection
+        path: apps/control-center/ci-selection.json
+        retention-days: 7
+  typecheck:
+    needs: changes
+    if: needs.changes.outputs.checks == 'true'
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 15
+    steps:
+    - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+    - run: bash tools/install_ci_linters.sh
+    - run: bash tools/check lint
+    - if: needs.changes.outputs.ops == 'true'
+      run: bash tools/check ops
+    - name: Install pinned Rust
+      uses: actions-rust-lang/setup-rust-toolchain@a188e68d0fd2bd36ad51dccb2b07ba6e75105f30
+      with:
+        cache: false
+        build-warnings: ''
+        rustflags: ''
+      if: needs.changes.outputs.rust == 'true'
+    - uses: actions/cache@v4
+      if: needs.changes.outputs.rust == 'true'
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          apps/control-center/target
+        key: rust-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('apps/control-center/rust-toolchain.toml', 'apps/control-center/Cargo.lock')
+          }}-check-${{ github.sha }}
+        restore-keys: rust-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('apps/control-center/rust-toolchain.toml', 'apps/control-center/Cargo.lock')
+          }}-check-
+    - if: needs.changes.outputs.rust == 'true'
+      run: cargo fmt --all -- --check
+    - if: needs.changes.outputs.rust == 'true'
+      run: cargo clippy --locked --workspace --all-targets -- -D warnings
+  test-unit:
+    needs: changes
+    if: needs.changes.outputs.unit_tests == 'true'
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 15
+    steps:
+    - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+    - name: Install pinned Rust
+      uses: actions-rust-lang/setup-rust-toolchain@a188e68d0fd2bd36ad51dccb2b07ba6e75105f30
+      with:
+        cache: false
+        build-warnings: ''
+        rustflags: ''
+    - uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          apps/control-center/target
+        key: rust-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('apps/control-center/rust-toolchain.toml', 'apps/control-center/Cargo.lock')
+          }}-test-${{ github.sha }}
+        restore-keys: rust-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('apps/control-center/rust-toolchain.toml', 'apps/control-center/Cargo.lock')
+          }}-test-
+    - run: cargo test --locked --workspace
+    - run: bash tools/check dependencies
+  apple:
+    needs: changes
+    if: needs.changes.outputs.apple == 'true'
+    runs-on: xcode-27
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
+    timeout-minutes: 12
+    steps:
+    - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+    - name: Install pinned Rust
+      if: needs.changes.outputs.contract == 'true'
+      uses: actions-rust-lang/setup-rust-toolchain@a188e68d0fd2bd36ad51dccb2b07ba6e75105f30
+      with:
+        cache: false
+        build-warnings: ''
+    - name: Select supported Xcode
+      id: xcode
+      run: |
+        xcodebuild -version
+        echo "cache-key=$(xcodebuild -version | shasum -a 256 | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+    - if: needs.changes.outputs.native == 'true'
+      run: brew install xcodegen
+    - id: apple-cache
+      uses: actions/cache/restore@v4
+      with:
+        path: |
+          apps/control-center/apple/Packages/PanelKit/.build
+          ${{ runner.temp }}/apple-derived
+        key: apple-${{ runner.os }}-${{ runner.arch }}-${{ steps.xcode.outputs.cache-key }}-${{ hashFiles('apps/control-center/apple/project.yml',
+          'apps/control-center/apple/**/Package.resolved') }}-${{ github.sha }}
+        restore-keys: apple-${{ runner.os }}-${{ runner.arch }}-${{ steps.xcode.outputs.cache-key }}-${{ hashFiles('apps/control-center/apple/project.yml',
+          'apps/control-center/apple/**/Package.resolved') }}-
+    - if: needs.changes.outputs.native == 'true'
+      run: xcrun swift-format lint --strict --recursive apple/App apple/Extensions apple/Packages/PanelKit/Sources apple/Tests
+    - uses: actions/cache@v4
+      if: needs.changes.outputs.contract == 'true'
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          apps/control-center/target
+        key: rust-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('apps/control-center/rust-toolchain.toml', 'apps/control-center/Cargo.lock')
+          }}-native-contract-${{ github.sha }}
+        restore-keys: rust-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('apps/control-center/rust-toolchain.toml', 'apps/control-center/Cargo.lock')
+          }}-native-contract-
+    - run: bash tools/check apple
+    - name: Exercise actual Swift and Rust contract
+      if: needs.changes.outputs.contract == 'true'
+      run: bash tools/check integration
+    - name: Compile the affected iOS app without a simulator
+      if: needs.changes.outputs.native == 'true'
+      env:
+        APPLE_DERIVED_DATA: ${{ runner.temp }}/apple-derived
+      run: |-
+        xcodegen generate --spec apple/project.yml --project apple
+        xcodebuild -project apple/WorldWideWebb.xcodeproj -scheme Panel -destination "generic/platform=iOS Simulator" -derivedDataPath "$APPLE_DERIVED_DATA" CODE_SIGNING_ALLOWED=NO build -quiet
+    - uses: actions/cache/save@v4
+      if: always() && steps.apple-cache.outputs.cache-hit != 'true'
+      with:
+        path: |
+          apps/control-center/apple/Packages/PanelKit/.build
+          ${{ runner.temp }}/apple-derived
+        key: ${{ steps.apple-cache.outputs.cache-primary-key }}
+    - uses: actions/upload-artifact@v4
+      if: failure()
+      with:
+        name: apple-failure-evidence
+        path: |
+          ${{ runner.temp }}/apple-derived/*.xcresult
+          ${{ runner.temp }}/apple-derived/*.log
+        retention-days: 3
+  image:
+    needs: changes
+    if: needs.changes.outputs.image == 'true'
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 20
+    steps:
+    - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+    - uses: docker/setup-buildx-action@v4
+    - uses: actions/cache@v4
+      with:
+        path: ${{ runner.temp }}/docker-cargo
+        key: docker-cargo-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('apps/control-center/rust-toolchain.toml',
+          'apps/control-center/Cargo.lock') }}-${{ github.sha }}
+        restore-keys: docker-cargo-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('apps/control-center/rust-toolchain.toml',
+          'apps/control-center/Cargo.lock') }}-
+    - name: Reuse Cargo cache mount across disposable builders
+      uses: reproducible-containers/buildkit-cache-dance@4b2444fec0c0fb9dbf175a96c094720a692ef810
+      with:
+        cache-source: ${{ runner.temp }}/docker-cargo
+        cache-target: /cargo-cache
+        scratch-dir: ${{ runner.temp }}/cargo-cache-transfer
+    - uses: docker/build-push-action@v7
+      with:
+        context: apps/control-center
+        load: true
+        tags: www-server:check
+        build-args: BUILD_HASH=${{ github.sha }}
+        cache-from: type=gha,scope=www-mini
+        cache-to: type=gha,mode=max,scope=www-mini
+    - uses: ./.github/actions/ghcr-login
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.publish_image == 'true'
+      env:
+        SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
+    - name: Publish the built image without rebuilding
+      id: image
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.publish_image == 'true'
+      env:
+        IMAGE: ghcr.io/0x63616c/www-control-center-mini:${{ github.sha }}
+      run: |
+        docker tag www-server:check "$IMAGE"
+        docker push "$IMAGE"
+        python3 tools/ci_image.py record "$GITHUB_SHA" --tag "$IMAGE"
+    - name: Verify image identity and runtime
+      env:
+        IMAGE: ${{ steps.image.outputs.image || 'www-server:check' }}
+      run: python3 tools/test_container.py "$IMAGE" "$GITHUB_SHA"
+    - uses: actions/upload-artifact@v4
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.publish_image == 'true'
+      with:
+        name: ci-image
+        path: apps/control-center/ci-image.json
+        retention-days: 7
+  infra:
+    env:
+      TF_VAR_state_passphrase: fixture-only-open-tofu-encryption-passphrase
+    needs: changes
+    if: needs.changes.outputs.infra == 'true'
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 10
+    steps:
+    - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+    - uses: ./.github/actions/archive-tools
+    - uses: opentofu/setup-opentofu@v1
+      with:
+        tofu_version_file: .opentofu-version
+        tofu_wrapper: false
+    - run: tofu -chdir=../../infra/cloudflare/home fmt -check
+    - run: tofu -chdir=../../infra/cloudflare/home init -backend=false -lockfile=readonly
+    - run: tofu -chdir=../../infra/cloudflare/home validate
+    - run: tofu -chdir=../../infra/cloudflare/home test
+    - run: python3 tools/test_state_backend.py
+  build-and-test:
+    if: always() && !cancelled()
+    needs:
+    - changes
+    - typecheck
+    - test-unit
+    - apple
+    - image
+    - infra
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 5
+    steps:
+    - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+    - env:
+        CI_NEEDS: ${{ toJSON(needs) }}
+      run: python3 tools/ci_gate.py

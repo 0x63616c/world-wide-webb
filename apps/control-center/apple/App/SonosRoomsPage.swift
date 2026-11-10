@@ -145,36 +145,3 @@ struct SonosRoomsPage: View {
 }
 
 /// A snapshot of the room mix, reused for every preview in a Master gesture.
-struct SonosVolumeBalance {
-    let levels: [String: Int]
-
-    static func average(_ levels: [Int]) -> Int {
-        guard !levels.isEmpty else { return 0 }
-        return Int((Double(levels.reduce(0, +)) / Double(levels.count)).rounded())
-    }
-
-    func adjusted(to target: Int) -> [String: Int] {
-        if target == 0 || target == 100 { return levels.mapValues { _ in target } }
-        if target == Self.average(Array(levels.values)) { return levels }
-
-        var remainingVolume = target * levels.count
-        var remainingWeight = levels.values.reduce(0, +)
-        var remainingRooms = levels.count
-        var adjusted: [String: Int] = [:]
-        // Reserve 100% for saturated rooms before scaling the quieter ones.
-        // When every remaining room started silent, split the remaining volume evenly.
-        for (id, weight) in levels.sorted(by: { $0.value > $1.value }) {
-            let volume =
-                remainingWeight > 0
-                ? Double(weight * remainingVolume) / Double(remainingWeight)
-                : Double(remainingVolume) / Double(remainingRooms)
-            adjusted[id] = min(100, Int(volume.rounded()))
-            if volume >= 100 {
-                remainingVolume -= 100
-                remainingWeight -= weight
-                remainingRooms -= 1
-            }
-        }
-        return adjusted
-    }
-}

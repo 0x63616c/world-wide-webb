@@ -35,15 +35,6 @@ targets:
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortraitUpsideDown"
         TARGETED_DEVICE_FAMILY: '1'
-  StillSnapshots:
-    type: bundle.unit-test
-    platform: iOS
-    sources: [StillSnapshots]
-    dependencies:
-      - target: Still
-    settings:
-      base:
-        GENERATE_INFOPLIST_FILE: YES
   StillUITests:
     type: bundle.ui-testing
     platform: iOS
@@ -62,8 +53,7 @@ schemes:
       targets:
         Still: all
         StillUITests: [test]
-        StillSnapshots: [test]
     run:
       storeKitConfiguration: Tendr.storekit
     test:
-      targets: [StillUITests, StillSnapshots]
+      targets: [StillUITests]

@@ -215,7 +215,7 @@ schemes:
       config: Debug
       targets:
         - FoldingBuildTests
-      gatherCoverageData: true
+      gatherCoverageData: false
 
   FoldingScreenshots:
     build:

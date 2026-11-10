@@ -10,7 +10,7 @@ import time
 for _ in range(160):
     runs = json.loads(subprocess.check_output([
         "gh", "run", "list", "--repo", os.environ["GITHUB_REPOSITORY"],
-        "--workflow", "tendr-ci.yml", "--commit", os.environ["GITHUB_SHA"],
+        "--workflow", "ci.yml", "--commit", os.environ["GITHUB_SHA"],
         "--branch", "main", "--event", "push", "--limit", "1",
         "--json", "status,conclusion,url",
     ]))

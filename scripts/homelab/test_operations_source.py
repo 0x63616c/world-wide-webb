@@ -15,11 +15,11 @@ class OperationsSourceTests(unittest.TestCase):
     def fixture(self):
         run = {'id': 12, 'run_attempt': 2, 'head_sha': 'a' * 40, 'head_branch': 'main',
                'head_repository': {'full_name': '0x63616c/world-wide-webb'},
-               'path': '.github/workflows/homelab-ci.yml', 'event': 'push',
+               'path': '.github/workflows/ci.yml', 'event': 'push',
                'status': 'completed', 'conclusion': 'success'}
         jobs = [{'name': name, 'status': 'completed', 'conclusion': 'success'} for name in
-                ('Homelab selection', 'Homelab operations', 'Homelab Linux controller',
-                 'Homelab Darwin configuration', 'Homelab checks')]
+                ('Homelab / Homelab selection', 'Homelab / Homelab operations', 'Homelab / Homelab Linux controller',
+                 'Homelab / Homelab Darwin configuration', 'Homelab / Homelab checks')]
         return run, jobs
 
     def check(self, run, jobs):
@@ -33,7 +33,7 @@ class OperationsSourceTests(unittest.TestCase):
         manual = dict(run, event='workflow_dispatch')
         self.assertEqual(self.check(manual, jobs), 'a' * 40)
         for field, value in [('head_sha', 'c' * 40), ('head_branch', 'feature'),
-                             ('path', '.github/workflows/ci.yml'), ('event', 'pull_request'),
+                             ('path', '.github/workflows/folding-ci.yml'), ('event', 'pull_request'),
                              ('conclusion', 'failure')]:
             with self.subTest(field=field), self.assertRaises(ValueError):
                 self.check(dict(run, **{field: value}), jobs)

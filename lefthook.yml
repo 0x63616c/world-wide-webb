@@ -14,7 +14,3 @@ pre-commit:
       run: bash .claude/hooks/guard-worktree-only.test.sh
     gitleaks:
       run: gitleaks git --staged --redact --no-banner -c .gitleaks.toml
-pre-push:
-  commands:
-    rust-and-ops:
-      run: bash tools/check rust && bash tools/check ops

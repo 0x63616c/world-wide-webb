@@ -126,7 +126,7 @@ module FoldingRelease
       ReleaseSource.current!("folding", source)
       raise "Production only" unless record.data.fetch("environment") == "production"
       checks = record.data.fetch("beta_source_checks")
-      %w[contracts domain-storage simulator localization].each do |name|
+      %w[contracts domain-storage native-build localization].each do |name|
         selected = checks.select { |check| check["name"] == name }
         raise "Missing or ambiguous source CI check: #{name}" unless selected.one?
         CheckEvidence.validate!(selected.first, source: source, base: record.directory)

@@ -22,9 +22,3 @@ hooks:
 
     - type: command
       command: "lefthook install --force"
-
-    # Per-machine Claude Code permission grants (gitignored). Not present on
-    # every machine — kept last so its absence does not block setup.
-    - type: copy
-      from: ".claude/settings.local.json"
-      to: ".claude/settings.local.json"

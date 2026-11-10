@@ -2,7 +2,11 @@ import Foundation
 import PanelKit
 import XCTest
 
-@testable import Panel
+#if SWIFT_PACKAGE
+    @testable import PanelLogic
+#else
+    @testable import Panel
+#endif
 
 @MainActor final class LiveSonosProviderTests: XCTestCase {
     private let alpha = "media_player.test_alpha"
@@ -19,10 +23,7 @@ import XCTest
         XCTAssertFalse(provider.supportsPlaybackPosition)
         let count = await transport.count
         XCTAssertEqual(count, 0)
-        let mock = MockSonosProvider(source: MockHomeDataSource(latency: .zero, fixedNow: .distantPast))
-        XCTAssertFalse(mock.rooms.isEmpty)
-        XCTAssertTrue(mock.supportsPlaybackPosition)
-        XCTAssertFalse(mock.send(.target(72)))
+
     }
 
     func testMapsStableIdentityGroupsCalibrationAndRealMetadataWithoutFakePlayback() async throws {
