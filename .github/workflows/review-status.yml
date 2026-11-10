@@ -21,6 +21,8 @@ jobs:
       FASTLANE_SKIP_UPDATE_CHECK: '1'
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: ./.github/actions/ruby-tools
         with:
           ruby-version: '3.4'
@@ -32,3 +34,10 @@ jobs:
           ASC_KEY_CONTENT: ${{ inputs.app == 'folding' && secrets.FOLDING_ASC_PRIVATE_KEY || secrets.ASC_KEY_CONTENT }}
           APP: ${{ inputs.app }}
         run: bundle exec ruby scripts/review-status.rb "$APP"
+      - name: Read-only Folding backend receipt check
+        if: inputs.app == 'folding'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FOLDING_PRODUCTION_WORKER_CONFIG: ${{ secrets.FOLDING_PRODUCTION_WORKER_CONFIG }}
+          FOLDING_RELEASE_POLICY_TOKEN: ${{ secrets.FOLDING_RELEASE_POLICY_TOKEN }}
+        run: bundle exec ruby apps/folding/scripts/continuous-delivery.rb receipt

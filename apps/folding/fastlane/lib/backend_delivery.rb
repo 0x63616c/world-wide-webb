@@ -5,6 +5,7 @@ module FoldingRelease
   # tested CI Wasm bytes, and the existing release evidence validator.
   module BackendDelivery
     ENVIRONMENT = "production"
+    class ValidationError < RuntimeError; end
     Record = Struct.new(:data) do
       def save(values); data.merge!(values); end
     end
@@ -14,19 +15,19 @@ module FoldingRelease
       identity = FoldingAppleAccount.config.fetch(ENVIRONMENT)
       variables = value.fetch("vars")
       database = value.fetch("d1_databases")
-      raise "Wrong production Worker configuration" unless value["name"] == "folding-api-production" &&
+      raise ValidationError, "Wrong production Worker configuration" unless value["name"] == "folding-api-production" &&
         value.fetch("account_id").match?(/\A[0-9a-f]{32}\z/) && variables["DEPLOYMENT"] == ENVIRONMENT &&
         variables["APP_ATTEST_APP_ID"] == "#{CONFIG.fetch('apple_team_id')}.#{identity.fetch('bundle_id')}" &&
         database.length == 1 && database.first["binding"] == "DB" && database.first["database_name"] == "folding-production"
       claims = JSON.parse(variables.fetch("VERIFIED_CAPABILITIES"))
-      raise "Invalid configured capability claims" unless claims.is_a?(Array) && claims.uniq == claims && claims.all? { |claim| claim.is_a?(String) && !claim.empty? }
+      raise ValidationError, "Invalid configured capability claims" unless claims.is_a?(Array) && claims.uniq == claims && claims.all? { |claim| claim.is_a?(String) && !claim.empty? }
       flags = %w[APNS_ENABLED AVATAR_UPLOADS_ENABLED ADMIN_EMAIL_ENABLED]
-      raise "Explicit configured feature flags are required" unless flags.all? { |name| %w[true false].include?(variables.fetch(name)) }
+      raise ValidationError, "Explicit configured feature flags are required" unless flags.all? { |name| %w[true false].include?(variables.fetch(name)) }
       promoted = !claims.empty? || %w[APNS_ENABLED AVATAR_UPLOADS_ENABLED ADMIN_EMAIL_ENABLED].any? { |name| variables[name] == "true" }
       approved = variables.fetch("WORKER_VERSION")
-      raise "Invalid approved Worker source" unless approved.match?(/\A[0-9a-f]{40}\z/)
+      raise ValidationError, "Invalid approved Worker source" unless approved.match?(/\A[0-9a-f]{40}\z/)
       if promoted && approved != source && FoldingRelease.backend_input_hash(approved) != FoldingRelease.backend_input_hash(source)
-        raise "Refresh the source-bound configuration through the existing readiness/evidence generator before deploying changed backend inputs"
+        raise ValidationError, "Refresh the source-bound configuration through the existing readiness/evidence generator before deploying changed backend inputs"
       end
       variables["WORKER_VERSION"] = source
       value["main"] = File.join(ROOT, "backend/crates/worker/build/worker/shim.mjs")
@@ -42,21 +43,21 @@ module FoldingRelease
     def self.current(configuration)
       deployment = provider(configuration, "deployments")
       versions = deployment.dig("result", "deployments", 0, "versions")
-      raise "Expected one current production Worker version" unless deployment["success"] == true && versions.is_a?(Array) &&
+      raise ValidationError, "Expected one current production Worker version" unless deployment["success"] == true && versions.is_a?(Array) &&
         versions.length == 1 && versions.first["percentage"] == 100 && versions.first["version_id"].to_s.match?(/\A[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\z/)
       version = versions.first.fetch("version_id")
       uploaded = provider(configuration, "versions/#{version}")
       bindings = uploaded.dig("result", "resources", "bindings")
-      raise "Cannot identify current Worker source" unless uploaded["success"] == true && uploaded.dig("result", "id") == version && bindings.is_a?(Array)
+      raise ValidationError, "Cannot identify current Worker source" unless uploaded["success"] == true && uploaded.dig("result", "id") == version && bindings.is_a?(Array)
       %w[DEPLOYMENT APP_ATTEST_APP_ID].each do |name|
         matching = bindings.select { |binding| binding["name"] == name }
-        raise "Live Worker belongs to another application/environment" unless matching.length == 1 && matching.first["type"] == "plain_text" && matching.first["text"] == configuration.fetch("vars").fetch(name)
+        raise ValidationError, "Live Worker belongs to another application/environment" unless matching.length == 1 && matching.first["type"] == "plain_text" && matching.first["text"] == configuration.fetch("vars").fetch(name)
       end
       database = bindings.select { |binding| binding["name"] == "DB" }
-      raise "Configured migration database is not bound to the live Worker" unless database.length == 1 && database.first["type"] == "d1" &&
+      raise ValidationError, "Configured migration database is not bound to the live Worker" unless database.length == 1 && database.first["type"] == "d1" &&
         database.first["id"] == configuration.fetch("d1_databases").first.fetch("database_id")
       sources = bindings.select { |binding| binding["name"] == "WORKER_VERSION" && binding["type"] == "plain_text" }
-      raise "Missing unique Worker source binding" unless sources.length == 1 && sources.first["text"].to_s.match?(/\A[0-9a-f]{40}\z/)
+      raise ValidationError, "Missing unique Worker source binding" unless sources.length == 1 && sources.first["text"].to_s.match?(/\A[0-9a-f]{40}\z/)
       [sources.first.fetch("text"), version]
     end
 
@@ -105,11 +106,14 @@ module FoldingRelease
 
     def self.download(directory)
       source = FoldingRelease.clean_commit!
+      warn "Folding receipt: validate source-bound configuration"
       configuration = configuration(source)
+      warn "Folding receipt: read current provider identity"
       worker_source, version = current(configuration)
       name = receipt_name(worker_source, version)
       FileUtils.mkdir_p(directory)
       path = File.join(directory, name)
+      warn "Folding receipt: resolve immutable deployment evidence"
       store.download(name, directory) unless File.exist?(path)
       path
     end

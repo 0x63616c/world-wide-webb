@@ -7,7 +7,6 @@ import subprocess
 import tempfile
 import unittest
 from unittest.mock import patch
-import zipfile
 
 import yaml
 
@@ -62,19 +61,28 @@ class DeliveryTests(unittest.TestCase):
     def test_promotion_uses_a_successful_receipt_and_its_exact_ci_attempt(self):
         receipt = dict(app="tendr", sha=self.source, version="1.2.3", build="8", ci_run_id=11, ci_run_attempt=2)
         name = f"ios-beta-tendr-{self.source}"
-        archive = io.BytesIO()
-        with zipfile.ZipFile(archive, "w") as output:
-            output.writestr("beta-receipt.json", json.dumps(receipt))
         artifact = dict(id=9, name=name, expired=False, workflow_run={"id": 8})
         run = dict(path=".github/workflows/release.yml", event="workflow_run", status="completed",
                    conclusion="success", head_repository={"full_name": self.repo})
         def gh(*args):
-            return archive.getvalue() if args[-1].endswith("/zip") else json.dumps([{"artifacts": [artifact]}])
+            if args[:2] == ("run", "download"):
+                (Path(args[args.index("--dir") + 1]) / "beta-receipt.json").write_text(json.dumps(receipt))
+                return b""
+            return json.dumps([{"artifacts": [artifact]}])
+        producer = dict(name="Delivery / Tendr / publish", status="completed", conclusion="success")
         def api(path):
+            if "/jobs?" in path:
+                return {"jobs": [producer]}
             return self.ci if path.endswith("/attempts/2") else run
         with patch.object(delivery, "gh", side_effect=gh), patch.object(delivery, "api", side_effect=api):
             result, run_id, ci = delivery.beta_receipt(self.repo, "tendr", self.source, "1.2.3")
             self.assertEqual((result["build"], run_id, ci["run_attempt"]), ("8", 8, 2))
+            run["conclusion"] = "failure"
+            self.assertEqual(delivery.beta_receipt(self.repo, "tendr", self.source, "1.2.3")[0]["build"], "8")
+            producer["conclusion"] = "failure"
+            with self.assertRaisesRegex(ValueError, "No successful processed"):
+                delivery.beta_receipt(self.repo, "tendr", self.source, "1.2.3")
+            producer["conclusion"] = "success"
             run["event"] = "pull_request"
             with self.assertRaisesRegex(ValueError, "No successful processed"):
                 delivery.beta_receipt(self.repo, "tendr", self.source, "1.2.3")
@@ -110,6 +118,27 @@ class DeliveryTests(unittest.TestCase):
                 git("tag", "tendr/v1.2.4", source)
                 with self.assertRaisesRegex(ValueError, "app.yml version"):
                     delivery.tag_target("refs/tags/tendr/v1.2.4", source)
+
+    def test_ruby_dependency_caches_do_not_dirty_release_source_but_source_edits_do(self):
+        with tempfile.TemporaryDirectory() as directory:
+            repo = Path(directory)
+            def git(*args):
+                return subprocess.check_output(["git", "-c", "core.excludesFile=/dev/null", *args], cwd=repo, text=True).strip()
+            git("init", "-q", "-b", "main")
+            git("config", "user.name", "Fixture")
+            git("config", "user.email", "fixture@example.invalid")
+            git("config", "commit.gpgsign", "false")
+            (repo / ".gitignore").write_text((ROOT / ".gitignore").read_text())
+            (repo / "App.swift").write_text("// source")
+            git("add", ".")
+            git("commit", "-qm", "Fixture")
+            for filename in (".bundle/config", "vendor/bundle/cache/fixture.gem"):
+                path = repo / filename
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("synthetic dependency cache")
+            self.assertEqual(git("status", "--porcelain"), "")
+            (repo / "App.swift").write_text("// changed source")
+            self.assertIn("App.swift", git("status", "--porcelain"))
 
     def test_signing_access_exports_only_the_required_vault_field(self):
         import contextlib
