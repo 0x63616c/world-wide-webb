@@ -166,7 +166,7 @@ jobs:
           export PATH="$RUNNER_TEMP/folding-release-python/bin:$PATH"
           ../../scripts/ci/apple-desktop.sh bundle exec fastlane ios finish_release "tag:$RELEASE_TAG"
       - name: Retain native capture failure diagnostics
-        if: failure() && steps.native.outputs.beta == 'true'
+        if: (failure() || cancelled()) && steps.native.outputs.beta == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: folding-native-capture-failure

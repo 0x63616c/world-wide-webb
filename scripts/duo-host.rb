@@ -16,12 +16,14 @@ class DuoHost
   def start
     raise "Device Hub is already running; use an isolated capture session" if system("pgrep", "-x", "DeviceHub", out: File::NULL)
     FileUtils.mkdir_p(@directory)
+    stage("generating_host")
     project = File.join(@directory, "host-project")
     raise "Controller output already exists; use a fresh capture directory" if File.exist?(project)
     FileUtils.cp_r(File.join(__dir__, "duo-host-control"), project)
     run("xcodegen", "generate", "--quiet", chdir: project)
     @project = File.join(project, "DuoCaptureHost.xcodeproj")
     @derived = File.join(@directory, "HostDerivedData")
+    stage("building_host")
     run("xcodebuild", "build-for-testing", *build_arguments, "-quiet")
     runner = File.join(@derived, "Build/Products/Debug/DuoHostControlTests-Runner.app")
     entitlements, _error, status = Open3.capture3("codesign", "-d", "--entitlements", ":-", runner)
@@ -32,10 +34,12 @@ class DuoHost
       grants["com.apple.security.temporary-exception.files.absolute-path.read-write"] == [@directory + "/"]
     developer = ENV["DEVELOPER_DIR"] || Open3.capture2("xcode-select", "-p").first.strip
     application = File.expand_path("../Applications/DeviceHub.app", developer)
+    stage("launching_hub")
     app = spawn({}, File.join(application, "Contents/MacOS/DeviceHub"), log: "application.log")
     environment = {"TEST_RUNNER_DUO_HOST_APPLICATION_PATH" => application,
       "TEST_RUNNER_DUO_HOST_APPLICATION_PID" => app.to_s, "TEST_RUNNER_DUO_HOST_CONTROL_DIR" => @directory,
       "TEST_RUNNER_DUO_HOST_DEVICE_NAME" => @device_name}
+    stage("starting_controller")
     spawn(environment, "xcodebuild", "test-without-building", *build_arguments,
       "-parallel-testing-enabled", "NO", "-test-timeouts-enabled", "NO",
       "-resultBundlePath", File.join(@directory, "HostControl.xcresult"), log: "controller.log")
@@ -82,6 +86,12 @@ class DuoHost
   end
 
   private
+
+  def stage(value)
+    File.open(File.join(@directory, "host-stage.txt"), "w", 0o600) { |file| file.puts(value) }
+    puts JSON.generate({"event" => "native_capture", "stage" => value})
+    $stdout.flush
+  end
 
   def build_arguments
     ["-project", @project, "-scheme", "DuoCaptureHost", "-destination", "platform=macOS",

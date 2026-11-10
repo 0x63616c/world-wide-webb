@@ -56,8 +56,10 @@ module FoldingRelease
       entries = []
       controller = nil
       begin
+        puts JSON.generate({"event" => "storefront_capture", "stage" => "booting_device", "device_name" => name})
         FoldingRelease.run("xcrun", "simctl", "boot", device)
         FoldingRelease.run("xcrun", "simctl", "bootstatus", device, "-b")
+        puts JSON.generate({"event" => "storefront_capture", "stage" => "device_booted", "device_name" => name})
         FoldingRelease.run("xcrun", "simctl", "ui", device, "appearance", PLAN.fetch("appearance"))
         FoldingRelease.run("xcrun", "simctl", "status_bar", device, "override", "--time", "9:41", "--batteryState", "charged", "--batteryLevel", "100")
         controller = DuoHost.new(directory: File.join(output, "native-control"), device_name: name).start if ENV["DUO_HOST_CONTROL"] == "1"
