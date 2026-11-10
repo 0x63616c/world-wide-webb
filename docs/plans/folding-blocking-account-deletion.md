@@ -209,3 +209,7 @@ at selecting_capture_device. The helper now checks title and selects the owned s
 UUID-backed row identifier. Astra approved this supplemental diff, subject to build/capture proof.
 Local controller build-for-testing and all 53 Fastlane tests (730 assertions) pass. Application
 native CI at 1d03d66 passed; the new head must demonstrate the repaired capture before merge.
+
+The standard screenshot shell launcher also consumes the shared controller. CI exposed its
+missing DeviceID handoff; it now passes its owned UUID as well. Astra approved the one-line
+contract completion, and all 34 portable capture tests pass.
