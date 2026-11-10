@@ -15,5 +15,18 @@ case "$platform" in
   ios) scheme=Golink-iOS; destination='generic/platform=iOS' ;;
   *) echo 'Usage: Scripts/build.sh [macos|macos-release|simulator|ios] [xcodebuild arguments...]' >&2; exit 64 ;;
 esac
-exec xcodebuild -project "$root/Golink.xcodeproj" -scheme "$scheme" \
+finish_build() {
+  build_status=$?
+  trap - EXIT
+  case "$platform" in
+    macos|macos-release)
+      cleanup_status=0
+      python3 "$root/Scripts/package_macos.py" "$root/build/$platform" "$build_status" || cleanup_status=$?
+      if (( build_status == 0 )); then build_status=$cleanup_status; fi
+      ;;
+  esac
+  exit "$build_status"
+}
+trap finish_build EXIT
+xcodebuild -project "$root/Golink.xcodeproj" -scheme "$scheme" \
   -destination "$destination" -derivedDataPath "$root/build/$platform" "$@" build
