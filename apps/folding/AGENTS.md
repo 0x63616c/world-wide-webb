@@ -6,9 +6,12 @@
 - For live integration changes, consult `docs/experiments/live-integration-2026-11-07.md` and `docs/deferred-shipping-work.md`, then inspect the provider state being changed. Follow the root simplicity/checking rules. Delegated reviews, including Astra, require an explicit user request. Preserve recorded shipping and device-check deferrals without making unrelated deferred checks prerequisites for ordinary app work.
 - Only the primary agent accesses credentials or performs deployments. All `op` and secret-dependent commands reuse its persistent shell; delegated agents must never independently call `op` or trigger authorization prompts. Independent reviewers remain read-only.
 
+The original `folding` repository was archived into private `github-archive` and deleted.
+Old issue/PR references in product records are historical, not an active repository.
+
 ## Keep completion tracking current
 
-- [Folding — Ship v1](https://github.com/users/0x63616c/projects/9) and GitHub Issues in `0x63616c/folding` are the live work tracker; `docs/work-tracker.md` is its repository summary.
+- [Folding — Ship v1](https://github.com/users/0x63616c/projects/9) and GitHub Issues in `0x63616c/world-wide-webb` are the live work tracker; `docs/work-tracker.md` is its repository summary.
 - For tracked work, update the existing issue/checklist and repository summary at the end of a useful batch; link the implementing commit and relevant result. Do not create a sub-issue or evidence packet for every small step.
 - Distinguish implemented, verified, deferred and blocked work. Close completed issues; preserve unfinished requirements and material deferrals. Do not present ticket-count percentage as an effort-weighted shipping percentage.
 - Physical-device checks are owner-approved deferrals to F13 after App Store submission. Mark them deferred, never passed. The full shipping goal remains incomplete until those checks and any resulting fixes are done.

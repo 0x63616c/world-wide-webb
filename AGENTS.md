@@ -1,8 +1,9 @@
 # Agent instructions
 
 Read `CODEBASE_OVERVIEW.md`, then the product README/local instructions for the area being changed.
-Migration acceptance and current evidence live in `docs/plans/monorepo-migration-progress.md`;
-read the linked accepted plan before changing delivery, infrastructure or repository ownership.
+Repository consolidation is complete; `docs/plans/monorepo-migration-progress.md` records ownership.
+Develop migrated products here, never in deleted source repositories or `github-archive` snapshots.
+Tendr’s replacement Cloudflare hosting is tracked separately in #1007.
 
 ## Working
 
@@ -11,7 +12,8 @@ Keep the main checkout, other worktrees and branches intact. Use Conventional Co
 Review your own completed changes; delegated reviews, including Astra, require an explicit user request.
 Pass required checks before merging. Never bypass a required check.
 
-Progress updates include an estimated overall completion percentage and current stage; distinguish estimates from verified delivery.
+Use one quiet tool-side watcher for CI/delivery. Report meaningful stage changes, failures and
+completion; avoid repeated unchanged status messages, percentage estimates and model-driven polling.
 
 Prefer substantial working batches, existing product handlers and relevant checks. Reuse valid
 exact-source artifacts/evidence. Products own their UI/components, architecture, fixtures and
@@ -80,5 +82,5 @@ Respect vault locking/expiry. Recovery must remain possible without the homelab 
 Verify the outcome relevant to the request: for example, a processed Apple build, working install or
 live service revision and one core interaction. Do not repeat unrelated product acceptance or backup
 restores for an ordinary change. Report what ran and any material gaps honestly; do not call a build
-a completed deployment. Update existing tracking for the work completed. Archive old sources after consumers and
-recovery paths move; repository deletion requires its separate agreed cleanup decision.
+a completed deployment. Update existing tracking for the work completed. The five migrated source
+repositories were snapshotted into private `github-archive` and deleted by owner request. Preserve historical receipts and active worktrees; do not recreate retired publishers.

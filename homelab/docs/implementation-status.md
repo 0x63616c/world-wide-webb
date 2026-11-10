@@ -1,5 +1,9 @@
 # Implementation status
 
+Source consolidation is complete: both Macs and CLI delivery use WWW. Old-repository links
+below are historical observations. See the [migration record](../../docs/plans/monorepo-migration-progress.md)
+for current ownership; inspect live host state before operations.
+
 The private [homelab repository](https://github.com/0x63616c/homelab) owns host and
 service configuration. The public [CLI](https://github.com/0x63616c/homelab-cli)
 owns guided enrollment; private health and restore operations live in `host/`.

@@ -2,11 +2,11 @@
 
 The enrollment wizard handles base-host secrets. **1Password stays on the
 personal laptop; Git stores ciphertext; each Mac receives only its own identity
-and runtime credentials.** No production host ciphertext is committed yet.
+and runtime credentials.** Host ciphertext stays encrypted in Git.
 
 ## What setup does
 
-Run [homelab](https://github.com/0x63616c/homelab-cli#readme) on the personal
+Run [homelab](../cli/README.md) on the personal
 laptop. Unlock 1Password and approve GitHub access when prompted; no manual token
 pasting, key-file copying or backup checkbox is required.
 
@@ -32,7 +32,7 @@ pasting, key-file copying or backup checkbox is required.
    still require the user. The wizard does not approve migration of existing data.
 
 These are implementation responsibilities, not separate commands to remember.
-See the [setup guide](https://github.com/0x63616c/homelab-cli/blob/main/docs/setup.md)
+See the [setup guide](../cli/docs/setup.md)
 for prerequisites and recovery prompts.
 
 ## Where secrets live

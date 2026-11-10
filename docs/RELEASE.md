@@ -1,12 +1,12 @@
 # Releases
 
-Use the product’s release handler and exact verified source. Source consolidation is merged;
-channel flags determine which publishers are active. Home Cloudflare and site handovers are
-complete. Current delivery evidence and remaining handovers are in the migration tracker.
+Publish from WWW using the product’s handler and verified source. Repository consolidation
+is complete; the [migration record](plans/monorepo-migration-progress.md) records ownership.
+WWW and its Callkeep/CLI release downloads are currently public.
 
 ## Product handlers
 
-Tendr and future standard iOS apps use the root locked Ruby bundle and explicit app selection:
+Tendr and standard iOS apps use the root locked Ruby bundle and explicit app selection:
 
 ```sh
 bundle install
@@ -15,69 +15,59 @@ bundle exec fastlane ios verify app:tendr
 bundle exec fastlane ios beta app:tendr
 ```
 
-Tendr retains its existing automatic listing/screenshot/submission behavior, review coalescing
-and storefront checks. Other standard apps follow their declared channels. Automatic standard delivery also requires
-`STANDARD_IOS_DELIVERY_ENABLED`; explicit manual dispatch remains available for the handover canary. Root lanes reject
-custom-handler products; do not route Folding, Callkeep or Control Center through this interface.
-Historical Tendr release details remain in `docs/legacy-apps/RELEASE.md`; its old hosted-runner,
-shared-package and repository-layout descriptions are superseded by the current workflows.
+Tendr retains its listing, screenshot, submission and storefront handlers. Automatic standard
+delivery requires `STANDARD_IOS_DELIVERY_ENABLED`; manual dispatch remains available. New apps
+keep delivery disabled until their account/signing setup is ready. Root lanes reject Folding,
+Callkeep and Control Center; use their own handlers.
 
-Folding owns `apps/folding/Gemfile`, Fastlane, immutable build ledger, backend-compatibility and
-build-policy receipts. Its successful trusted-main CI attempt selects changed backend/native
-inputs independently. Automatic beta delivery requires `FOLDING_DELIVERY_ENABLED`, scoped signing
-and provider configuration, exact processed builds and confirmed internal-group membership.
-Existing source-bound shipping/device deferrals remain explicit. Preview captures are separate
-from the full App Store screenshot matrix and cannot satisfy its evidence requirements.
+Folding owns `apps/folding/Gemfile`, Fastlane, immutable build ledger, backend compatibility
+and build-policy receipts. Successful trusted-main CI selects backend/native inputs independently.
+`FOLDING_DELIVERY_ENABLED` controls automatic delivery. Signed artifacts and manifests remain
+in authenticated GitHub draft releases in WWW, including after Apple submission. Legacy tag
+readers also target WWW; the deleted Folding repository had no GitHub releases. Legacy records
+remain read-only. Preview captures are separate from App Store screenshot sets. Follow the
+[product instructions](../apps/folding/AGENTS.md) for current App Review and device deferrals.
 
-Callkeep owns signed universal archives, Apple notarization/symbol receipts and monotonic
-source reservations. Its prepared private Git-artifact transport needs a visibility/consumer
-decision for public WWW before activation. `CALLKEEP_DELIVERY_ENABLED` remains gated on
-actual signing/private Homebrew install and upgrade acceptance. The tap is the update authority;
-no public appcast or public release download is needed. Older-source promotion is fenced before
-changing the tap, including interrupted and ambiguous publication outcomes.
+Callkeep publishes signed/notarized universal ZIPs and symbols from selected main CI under
+`callkeep/v1.0.N`. The publisher updates only Callkeep’s cask in the separate `homebrew-tap`
+repository, using an ordinary release URL and SHA-256. Homebrew owns updates; no private Git
+transport, appcast or migration enable gate is required. See the [product README](../apps/callkeep/README.md).
 
-Control Center retains its native/Rust handler, exact built image and private home service.
-Its native automatic publisher requires `PANEL_DELIVERY_ENABLED` before activation.
-Homelab owns host configuration, monitoring and shared recovery; app deployment must not replace
-those responsibilities. Homelab CLI distribution/deploy-ref/repository-rebind cutover is pending.
+Homelab CLI publishes `homelab/vVERSION` archives from successful selected Homelab CI and
+updates its Homebrew formula. Install with `brew install 0x63616c/tap/homelab`. Both the formula
+and Callkeep’s cask download WWW releases. See the [CLI README](../homelab/cli/README.md).
 
-## Credentials and artifact ownership
+Control Center’s `Apple Panel TestFlight` workflow follows successful main `CI`, selects native
+publication and archives with Xcode 27.2. It waits for Apple processing, records the source/build
+receipt and announces the processed build through the private API. Its native/image publishers
+have no temporary migration enable gates. Backend delivery publishes the tested immutable image;
+`deploy-mini.yml` proposes its digest in `homelab/services/control-center/release.json`, then
+normal Homelab CI/promotion and the mini updater activate it. `HOMELAB_DELIVERY_ENABLED` controls
+host promotion; authoring `main` and deployment `deploy/homelab` remain distinct.
 
-Standard Apple workflows use the existing `ASC_*`, distribution certificate/profile and P12
-secrets. Folding and Callkeep use their product-scoped configuration and secret names declared
-in their workflows. Do not copy a complete vault into job-wide environment variables or reuse
-unrelated product credentials. Signing and publication secrets enter only the steps that need them.
-Use one primary-agent credential session; pass values directly to operations without displaying
-or saving them in Git. Existing protected recovery material stays in its approved store.
+## Credentials and publication
 
-The earlier private Homebrew proposal pins orphan artifact tags and exact commits. Those tags
-are not private in public WWW. Resolve artifact visibility and remaining release references
-before activating that transport or switching the tap. Preserve aliases, app data, modes/symlinks
-and recovery artifacts; keep homebrew-tap separate. Source/tag checkout filtering avoids
-fetching unrelated binary history but is not an access-control boundary.
+Use the existing product-scoped credentials and approved signing stores. Load secrets only in
+steps that need them; do not copy a complete vault into job-wide environment variables. All
+operator credential access reuses the primary agent’s persistent shell. Never print secret values.
+Signing repositories and encrypted recovery storage remain separate from source retirement.
 
-## Verification and public pages
+Required checks must pass before merge/delivery. Verify the affected outcome: Apple processing,
+installation, or the deployed service revision as appropriate. An upload alone is not a processed
+build. Reuse valid evidence for unchanged mechanisms rather than repeating unrelated acceptance.
+Delegated reviews require an explicit owner request.
 
-Required checks must be green for the exact source before delivery. Confirm Apple's processing
-and group assignment, signed/notarized installation, current service revision/worker ownership,
-retained data and backup/restore as applicable. An archive/upload alone is insufficient.
-Review the candidate before publication; delegated reviews require an explicit owner request.
-WWW is public. Folding’s signed artifacts and manifests remain authenticated GitHub draft
-releases permanently, including after Apple submission. Ordinary Git branches/orphan tags do
-not provide private storage in a public repository; the earlier private Homebrew artifact
-proposal remains a separate unresolved consumer handover. The owner chose no GitHub branch
-protections or Pro upgrade;
-GitHub does not enforce those automation gates against direct pushes.
+Verification and delivery selection are separate. Test/docs changes and forced verification do
+not authorize app releases. Use one quiet watcher and report meaningful changes or failures.
 
-Tendr's installed privacy/support URLs remain under the old apps Pages endpoint. The scoped
-publisher sends generated static assets only; preserve that legacy host while those URLs are
-needed. Folding retains getfolding.app. See `sites/README.md` for flags, ownership and live canaries.
-Archive old source authorities only after consumers and recovery move; deletion is a separate
-agreed cleanup decision. Preserve every excluded repository and active worktree.
+## Websites and infrastructure
 
+Folding’s production/staging websites publish from `sites/folding` through `Sites`, controlled by
+`FOLDING_SITE_DELIVERY_ENABLED`. OpenTofu applies retained home infrastructure through the
+`Apply Cloudflare` workflow with `OPEN_TOFU_DEPLOY_ENABLED`; it reuses existing encrypted state.
 
-Control Center image publication additionally requires `CONTROL_CENTER_IMAGE_DELIVERY_ENABLED`.
-Docker build and local runtime checks still run. `OPEN_TOFU_DEPLOY_ENABLED` is enabled after
-the verified home infrastructure handover. Other channel flags require their own handover;
-do not infer their live state from source alone. Imported paths alone do not authorize a
-production apply or image publication.
+Tendr’s former `apps/gh-pages` host was deleted at the owner’s request. The legacy publisher
+is removed; existing app/listing links need replacement Cloudflare URLs in [#1007](https://github.com/0x63616c/world-wide-webb/issues/1007).
+Until that follow-up lands, static Tendr source still builds locally/CI but has no maintained
+publication destination. See [sites](../sites/README.md). Do not restore the deleted repository
+or describe the old URLs as supported.
