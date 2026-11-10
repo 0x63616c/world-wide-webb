@@ -79,11 +79,8 @@ import XCTest
         let fanSpan = HomeGrid.span(2, 1)
         func fanImage() throws -> Data {
             let tile = try XCTUnwrap(host.gridTile(.fan, span: fanSpan, open: {}))
-            return try XCTUnwrap(
-                ImageRenderer(
-                    content: tile.frame(width: fanSpan.width, height: fanSpan.height)
-                        .environment(\.motionPhase, 0)
-                ).uiImage?.pngData())
+            let image = try TestBitmap.render(tile.environment(\.motionPhase, 0), size: fanSpan)
+            return try XCTUnwrap(UIImage(cgImage: image).pngData())
         }
         let onImage = try fanImage()
         await transport.setFixture("fan/off.json", for: "controls.list")
