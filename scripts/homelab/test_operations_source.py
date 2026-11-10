@@ -33,7 +33,7 @@ class OperationsSourceTests(unittest.TestCase):
         manual = dict(run, event='workflow_dispatch')
         self.assertEqual(self.check(manual, jobs), 'a' * 40)
         for field, value in [('head_sha', 'c' * 40), ('head_branch', 'feature'),
-                             ('path', '.github/workflows/ci.yml'), ('event', 'pull_request'),
+                             ('path', '.github/workflows/folding-ci.yml'), ('event', 'pull_request'),
                              ('conclusion', 'failure')]:
             with self.subTest(field=field), self.assertRaises(ValueError):
                 self.check(dict(run, **{field: value}), jobs)

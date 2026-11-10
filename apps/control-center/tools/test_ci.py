@@ -185,11 +185,12 @@ class InfrastructureIsolationTests(unittest.TestCase):
 
 
 class DeliveryAuthorityTests(unittest.TestCase):
-    def test_shared_and_unmapped_verification_never_publish_or_apply(self):
+    def test_shared_and_unmapped_inputs_do_not_verify_or_publish_unrelated_product(self):
         for path in ["fastlane/Fastfile", "Gemfile", "unmapped-config.json"]:
             selected = classify_repository([path])
-            self.assertTrue(selected["image"])
-            self.assertTrue(selected["infra"])
+            self.assertFalse(selected["image"], path)
+            self.assertFalse(selected["infra"], path)
+            self.assertFalse(selected["apple"], path)
             self.assertFalse(selected["publish_image"], path)
             self.assertFalse(selected["apply_infra"], path)
 
