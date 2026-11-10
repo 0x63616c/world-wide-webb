@@ -86,40 +86,6 @@ jobs:
               expected = 'success' if unit in selected else 'skipped'
               assert results[job]['result'] == expected, f'{job}: expected {expected}'
           PYTHON
-  legacy-publication:
-    name: Preserve installed privacy and support URLs
-    needs: [selection, gate]
-    if: >-
-      (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main' &&
-      vars.LEGACY_SITE_DELIVERY_ENABLED == 'true' &&
-      (github.event_name == 'workflow_dispatch' || contains(fromJSON(needs.selection.outputs.delivery), 'sites.pages'))
-    runs-on: ubuntu-24.04-arm
-    environment: production
-    timeout-minutes: 10
-    concurrency:
-      group: legacy-apps-pages
-      cancel-in-progress: false
-    steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-        with:
-          fetch-depth: 0
-          filter: blob:none
-          persist-credentials: false
-      - uses: actions/download-artifact@v4
-        with:
-          name: public-pages-${{ github.sha }}
-          path: ${{ runner.temp }}/public-site
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-        with:
-          repository: 0x63616c/apps
-          ref: gh-pages
-          ssh-key: ${{ secrets.LEGACY_SITE_DEPLOY_KEY }}
-          path: build/legacy-pages
-      - name: Publish tested static assets to the legacy endpoint
-        run: |
-          git -C build/legacy-pages config user.name 'github-actions[bot]'
-          git -C build/legacy-pages config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          scripts/publish-site.sh "$GITHUB_WORKSPACE/build/legacy-pages" "$RUNNER_TEMP/public-site"
   folding-publication:
     name: Publish Folding websites
     needs: [selection, gate]

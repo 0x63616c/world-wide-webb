@@ -4,7 +4,7 @@ require_relative "../lib/release_manifest"
 class HistoricalArtifactsTest < Minitest::Test
   Status = Struct.new(:success?, :exitstatus)
 
-  def test_legacy_record_reads_use_the_original_artifact_repository
+  def test_legacy_record_reads_use_the_consolidated_artifact_repository
     commands = []
     inspect = lambda do |*args, **_options|
       commands << args
@@ -21,7 +21,7 @@ class HistoricalArtifactsTest < Minitest::Test
       end
     end
     assert_equal 2, commands.length
-    commands.each { |args| assert_equal "0x63616c/folding", args.fetch(args.index("--repo") + 1) }
+    commands.each { |args| assert_equal "0x63616c/world-wide-webb", args.fetch(args.index("--repo") + 1) }
   end
 
   def test_legacy_artifact_mutations_fail_before_any_provider_operation
@@ -37,7 +37,7 @@ class HistoricalArtifactsTest < Minitest::Test
     end
   end
 
-  def test_namespaced_new_records_still_use_the_private_consolidated_repository
+  def test_namespaced_new_records_use_the_consolidated_repository
     inspect = lambda do |*args, **_options|
       assert_equal "0x63616c/world-wide-webb", args.fetch(args.index("--repo") + 1)
       ['{"assets":[]}', "", Status.new(true, 0)]

@@ -9,8 +9,8 @@ are canonical regular files required by enrollment guards. Preserve approved set
 journals, host identities, age recovery material and exact revisions during repository rebind.
 
 Build the CLI and host tools from their filtered local Nix source sets. Keep package inputs
-independent of app assets. Main is the authoring branch; the planned `deploy/homelab` handover
-requires explicit promotion and current-state verification before a host follows it.
+independent of app assets. Main is the authoring branch; checked changes are promoted to
+`deploy/homelab`, which both Macs follow in WWW. Preserve that promotion boundary; the old source repository was deleted.
 
 Use the root working/credential rules. Verification builds must not activate hosts, release
 maintenance holds, register runners or change Serve routes. Live changes preserve operation locks,
