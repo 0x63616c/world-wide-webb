@@ -4,7 +4,7 @@ Erfasse mit Folding die Faltungen deines iPhone Duo. Richte Automationen zum Öf
 • Entdecke deinen Verlauf und Nutzungsmuster.
 • Synchronisiere deinen Verlauf über iCloud und nutze Widgets.
 • Nimm mit „Mit Apple anmelden“ an Wochen-, Monats- und Gesamtranglisten teil.
-• Verdiene Abzeichen für Faltungen und Nutzungstage, entdecke Profile und zeige dein Lieblingsabzeichen.
+• Verdiene private Abzeichen für Faltungen und Nutzungstage und entdecke Profile.
 • Exportiere deinen Verlauf als CSV-Paket oder setze ihn in der App zurück.
 
 Alle Funktionen sind kostenlos. Freiwillige Trinkgelder unterstützen die Entwicklung und schalten nichts frei.

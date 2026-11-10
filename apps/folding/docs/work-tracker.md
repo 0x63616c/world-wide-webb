@@ -498,3 +498,9 @@ and all public pages. This is deployment evidence, not device/provider feature a
 Local release and shared review fixtures passed; publication and actual Apple submission
 remain pending. A cold hosted screenshot job exposed Fastlane's three-second build-settings
 timeout; product Fastlane now uses a 60-second base timeout with three bounded attempts.
+
+The final listing review also found all ten descriptions still promising a featured
+public badge after the owner paused that feature. Sources and Apple metadata files
+now describe private badges and community profiles accurately. All ten sources match
+their files and meet Apple limits; localization and its ten regressions pass. Formal
+native-speaker acceptance remains unverified.
