@@ -1,7 +1,7 @@
 import ImageIO
 import PanelKit
-import UniformTypeIdentifiers
 import UIKit
+import UniformTypeIdentifiers
 import XCTest
 
 @testable import Panel
@@ -14,14 +14,16 @@ import XCTest
             // UIKit image provider and invalid tiny-frame pixel-buffer path.
             let size = CGSize(width: 640, height: 480)
             let context = try XCTUnwrap(
-                CGContext(data: nil, width: 640, height: 480, bitsPerComponent: 8,
+                CGContext(
+                    data: nil, width: 640, height: 480, bitsPerComponent: 8,
                     bytesPerRow: 640 * 4, space: CGColorSpaceCreateDeviceRGB(),
                     bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
             context.setFillColor(color.cgColor)
             context.fill(CGRect(origin: .zero, size: size))
             let image = try XCTUnwrap(context.makeImage())
             let bytes = NSMutableData()
-            let encoder = try XCTUnwrap(CGImageDestinationCreateWithData(bytes, UTType.jpeg.identifier as CFString, 1, nil))
+            let encoder = try XCTUnwrap(
+                CGImageDestinationCreateWithData(bytes, UTType.jpeg.identifier as CFString, 1, nil))
             CGImageDestinationAddImage(encoder, image, [kCGImageDestinationLossyCompressionQuality: 1] as CFDictionary)
             XCTAssertTrue(CGImageDestinationFinalize(encoder))
             return bytes as Data
