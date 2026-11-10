@@ -13,7 +13,10 @@ Production resources were excluded from the destroy plan. Build/release/configur
 support now accepts production only; the site builds and publishes once. Historical SQL
 migrations and dated experiment receipts remain unchanged. Folding Staging was removed from App Store Connect, its dedicated service key was
 revoked and both staging provisioning profiles were deleted. All three dedicated staging
-vault items were deleted. Apple does not permit CloudKit container deletion.
+vault items were deleted and the shared setup note was updated. The staging widget ID
+and app group were removed; revoked profiles were removed from `signing/folding` in
+`23ef0fc4b35de6f7e948b9568bb05cfeca13dd70`. Apple refuses deletion of the used main
+App ID and does not permit CloudKit container deletion.
 
 ## Current scope: internal TestFlight, then App Store preparation
 

@@ -147,7 +147,7 @@ const authenticatedRuntime = new Miniflare(convertV4MiniflareOptions({ workers: 
   queueConsumers: {"folding-local-jobs":{maxBatchSize:1,maxBatchTimeout:0}},
   bindings: {
     WORKER_VERSION:"synthetic-local-worker",VERIFIED_CAPABILITIES:'["profiles.milestones"]',ADMIN_ORIGIN:"https://admin.example",ACCESS_TEAM_DOMAIN:"https://folding-test.cloudflareaccess.com",ACCESS_AUDIENCE:"local-admin",ADMIN_EMAIL_ALLOWLIST:JSON.stringify(["admin@example.test"]),AVATAR_UPLOADS_ENABLED:"true",
-    APP_ATTEST_APP_ID:"TEAM123456.app.test.Folding",APP_ATTEST_ENVIRONMENT:"development",APP_ATTEST_BUNDLE_VERSIONS:JSON.stringify(["1"]),
+    APP_ATTEST_APP_ID:"TEAM123456.app.test.Folding",APP_ATTEST_ENVIRONMENT:"production",APP_ATTEST_BUNDLE_VERSIONS:JSON.stringify(["1"]),
     APPLE_SIGN_IN_CLIENT_ID:"app.test.Folding",APPLE_SIGN_IN_TEAM_ID:"TEAM123456",APPLE_SIGN_IN_KEY_ID:"KEY1234567",
     APPLE_SIGN_IN_PRIVATE_KEY_PKCS8:appleClient.privateKey.export({type:"pkcs8",format:"der"}).toString("base64url"),
     AUTH_SUBJECT_HMAC_KEY_VERSION:"test-v1",AUTH_SUBJECT_HMAC_KEYS:JSON.stringify({"test-v1":Buffer.alloc(32,9).toString("base64url")}),
@@ -512,7 +512,7 @@ for (const documentedNames of [true, false]) test(`actual Worker verifies ${docu
     db.prepare("INSERT INTO profiles VALUES (?,'Folder',NULL,'approved','none')").bind(participant),
     db.prepare("INSERT INTO sessions VALUES (?, ?, ?, 'production', ?, ?, ?, ?, 0)").bind(session, participant, device, now, now, now + 900000, now + 900000),
     db.prepare("INSERT INTO access_tokens VALUES (?, ?, ?)").bind(hash(token), session, now + 900000),
-    db.prepare("INSERT INTO attestation_keys(key_id,participant_id,device_id,deployment,public_key_sec1,counter,revoked,attestation_environment) VALUES (?, ?, ?, 'production', ?, 0, 0, 'development')").bind(keyID, participant, device, publicKey),
+    db.prepare("INSERT INTO attestation_keys(key_id,participant_id,device_id,deployment,public_key_sec1,counter,revoked,attestation_environment) VALUES (?, ?, ?, 'production', ?, 0, 0, 'production')").bind(keyID, participant, device, publicKey),
   ]);
   const headers = { Authorization: "Bearer " + token.toString("base64url"), "Content-Type": "application/json" };
   const challengeResponse = await authenticatedRuntime.dispatchFetch("https://api.example/v1/attestation/challenges", {
@@ -526,7 +526,7 @@ for (const documentedNames of [true, false]) test(`actual Worker verifies ${docu
   const length = (major, n) => Buffer.from(n < 24 ? [(major << 5) | n] : [(major << 5) | 24, n]);
   const bytes = value => Buffer.concat([length(2, value.length), value]);
   const text = value => { const b = Buffer.from(value); return Buffer.concat([length(3, b.length), b]); };
-  const category = Buffer.alloc(4); category.writeUInt32LE(3);
+  const category = Buffer.alloc(4); category.writeUInt32LE(2);
   const extensions = Buffer.concat([Buffer.from([0xa2]), text(documentedNames ? "validationCategory" : "apple_validation_category_01"), bytes(category), text(documentedNames ? "bundleVersion" : "apple_bundle_version_01"), text("1")]);
   const auth = Buffer.concat([hash("TEAM123456.app.test.Folding"), Buffer.from([documentedNames ? 0x80 : 0xc0, 0, 0, 0, 1]), extensions]);
   const signature = sign("sha256", hash(Buffer.concat([auth, binding])), pair.privateKey);
@@ -691,7 +691,7 @@ test("published build policy authorizes exact signed versions without a Worker r
       db.prepare("INSERT INTO profiles VALUES (?,'Folder',NULL,'approved','none')").bind(participant),
       db.prepare("INSERT INTO sessions VALUES (?,?,?,'production',?,?,?,?,0)").bind(session,participant,device,time,time,time+900000,time+900000),
       db.prepare("INSERT INTO access_tokens VALUES (?,?,?)").bind(hash(token),session,time+900000),
-      db.prepare("INSERT INTO attestation_keys(key_id,participant_id,device_id,deployment,public_key_sec1,counter,revoked,attestation_environment) VALUES (?,?,?,'production',?,0,0,'development')").bind(keyID,participant,device,publicKey),
+      db.prepare("INSERT INTO attestation_keys(key_id,participant_id,device_id,deployment,public_key_sec1,counter,revoked,attestation_environment) VALUES (?,?,?,'production',?,0,0,'production')").bind(keyID,participant,device,publicKey),
     ]);
     if(scenario.registered) await db.prepare("INSERT INTO published_ios_builds VALUES (?,?,?,?,?)")
       .bind(scenario.deployment??"production",scenario.appID??"TEAM123456.app.test.Folding",Number(scenario.header),"a".repeat(40),time).run();
@@ -703,7 +703,7 @@ test("published build policy authorizes exact signed versions without a Worker r
     const length=(major,n)=>Buffer.from(n<24?[(major<<5)|n]:[(major<<5)|24,n]);
     const bytes=value=>Buffer.concat([length(2,value.length),value]);
     const text=value=>{const b=Buffer.from(value);return Buffer.concat([length(3,b.length),b]);};
-    const category=Buffer.alloc(4);category.writeUInt32LE(3);
+    const category=Buffer.alloc(4);category.writeUInt32LE(2);
     const extensions=Buffer.concat([Buffer.from([0xa2]),text("validationCategory"),bytes(category),text("bundleVersion"),text(scenario.signed)]);
     const auth=Buffer.concat([hash("TEAM123456.app.test.Folding"),Buffer.from([0x80,0,0,0,1]),extensions]);
     const signature=sign("sha256",hash(Buffer.concat([auth,binding])),pair.privateKey);
@@ -762,7 +762,7 @@ test("enrollment recovers an expired challenge after cleanup without treating it
   const input = JSON.parse(body);
   const normalized = JSON.stringify({challenge_id: input.challenge_id, device_id: device, key_id: key, operation_id: input.operation_id});
   await db.batch([
-    db.prepare("INSERT INTO attestation_keys(key_id,participant_id,device_id,deployment,public_key_sec1,counter,revoked,attestation_environment) VALUES (?,?,?,'production',?,0,0,'development')").bind(key, participant, device, Buffer.alloc(65, 1)),
+    db.prepare("INSERT INTO attestation_keys(key_id,participant_id,device_id,deployment,public_key_sec1,counter,revoked,attestation_environment) VALUES (?,?,?,'production',?,0,0,'production')").bind(key, participant, device, Buffer.alloc(65, 1)),
     db.prepare("INSERT INTO attestation_operations VALUES (?,?,?,?,?,?)").bind(participant, input.operation_id, device, key, createHash("sha256").update(normalized).digest(), JSON.stringify({key_id: key, enrolled: true})),
   ]);
   const replay = await enroll();
