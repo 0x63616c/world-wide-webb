@@ -36,11 +36,14 @@ module FoldingRelease
         product = matches.first
         raise "Tip not ready for review" unless %w[READY_TO_SUBMIT WAITING_FOR_REVIEW IN_REVIEW APPROVED].include?(product.dig("attributes", "state"))
         versions = api.all("/v2/inAppPurchases/#{product.fetch('id')}/versions")
-        eligible = versions.select { |v| %w[READY_FOR_REVIEW WAITING_FOR_REVIEW IN_REVIEW].include?(v.dig("attributes", "state")) }
+        # Draft versions become READY_FOR_REVIEW only after attachment to a
+        # review submission. Existing and newly created drafts start editable.
+        review_states = %w[PREPARE_FOR_SUBMISSION READY_FOR_REVIEW WAITING_FOR_REVIEW IN_REVIEW]
+        eligible = versions.select { |v| review_states.include?(v.dig("attributes", "state")) }
         if eligible.empty? && versions.empty?
           api.request("POST", "/v1/inAppPurchaseVersions", body: resource("inAppPurchaseVersions",
             relationships: {"inAppPurchase" => relationship("inAppPurchases", product.fetch("id"))}))
-          eligible = api.all("/v2/inAppPurchases/#{product.fetch('id')}/versions").select { |v| v.dig("attributes", "state") == "READY_FOR_REVIEW" }
+          eligible = api.all("/v2/inAppPurchases/#{product.fetch('id')}/versions").select { |v| review_states.include?(v.dig("attributes", "state")) }
         end
         raise "Tip version is not uniquely ready; reconcile Apple metadata" unless eligible.length == 1
         {"product_id" => product_id, "id" => product.fetch("id"), "version_id" => eligible.first.fetch("id")}

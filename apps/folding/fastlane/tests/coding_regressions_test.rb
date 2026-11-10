@@ -189,26 +189,40 @@ class CodingRegressionsTest < Minitest::Test
     assert_equal ["profiles.milestones", "events.history_import", "notifications.badges"], record.data.fetch("preview_backend_verification").fetch("capabilities")
   end
   class Apple
-    attr_reader :review_items, :created
+    attr_reader :review_items, :created, :tip_versions, :version_creations
     def initialize
       @review_items = []
       @created = 0
+      @version_creations = 0
+      @tip_versions = 3.times.to_h do |i|
+        ["p#{i}", [{"id" => "vp#{i}", "attributes" => {"state" => "PREPARE_FOR_SUBMISSION"}}]]
+      end
     end
     def all(path)
       case path
       when /inAppPurchasesV2/
         FoldingRelease::CONFIG.fetch("tip_product_ids").each_with_index.map { |name, i| {"id" => "p#{i}", "attributes" => {"productId" => name, "state" => "READY_TO_SUBMIT"}} }
       when %r{/v2/inAppPurchases/(p\d)/versions}
-        [{"id" => "v#{Regexp.last_match(1)}", "attributes" => {"state" => "READY_FOR_REVIEW"}}]
+        @tip_versions.fetch(Regexp.last_match(1))
       when /\/items/ then @review_items
       when /reviewSubmissions\?/ then [{"id" => "s1", "attributes" => {"state" => "READY_FOR_REVIEW"}}]
       else raise "Unexpected read #{path}"
       end
     end
     def request(method, path, body: nil)
+      if method == "POST" && path == "/v1/inAppPurchaseVersions"
+        @version_creations += 1
+        product = body.dig("data", "relationships", "inAppPurchase", "data", "id")
+        row = {"id" => "v#{product}", "attributes" => {"state" => "PREPARE_FOR_SUBMISSION"}}
+        @tip_versions.fetch(product) << row
+        return {"data" => row}
+      end
       if method == "POST" && path == "/v1/reviewSubmissionItems"
         @created += 1
         @review_items << body.fetch("data").merge("id" => "item#{@created}")
+        if (version = body.dig("data", "relationships", "inAppPurchaseVersion", "data", "id"))
+          @tip_versions.values.flatten.find { |row| row["id"] == version }.fetch("attributes")["state"] = "READY_FOR_REVIEW"
+        end
         return {"data" => @review_items.last}
       end
       if method == "GET" && path =~ %r{/v1/inAppPurchaseVersions/v(p\d)}
@@ -226,9 +240,30 @@ class CodingRegressionsTest < Minitest::Test
     record = Record.new({"asc_app_id" => "app"})
     2.times { FoldingRelease::ReviewSubmission.prepare(record, "app-version", api: api) }
     assert_equal 4, api.created
+    assert_equal 0, api.version_creations
     assert_equal 3, record.data.fetch("submission_tip_versions").length
     api.review_items.pop
     assert_raises(RuntimeError) { FoldingRelease::ReviewSubmission.verify_items!(record, api: api) }
+  end
+
+  def test_new_tip_versions_are_attached_from_prepare_for_submission_and_reused
+    api = Apple.new
+    api.tip_versions.each_value(&:clear)
+    record = Record.new({"asc_app_id" => "app"})
+    2.times { FoldingRelease::ReviewSubmission.prepare(record, "app-version", api: api) }
+    assert_equal 3, api.version_creations
+    assert_equal 4, api.created
+    assert_equal 3, record.data.fetch("submission_tip_versions").length
+  end
+
+  def test_multiple_editable_tip_versions_are_not_adopted
+    api = Apple.new
+    api.tip_versions.fetch("p0") << {"id" => "unrelated", "attributes" => {"state" => "PREPARE_FOR_SUBMISSION"}}
+    assert_raises(RuntimeError) do
+      FoldingRelease::ReviewSubmission.prepare(Record.new({"asc_app_id" => "app"}), "app-version", api: api)
+    end
+    assert_equal 0, api.created
+    assert_equal 0, api.version_creations
   end
 
   def test_unrelated_draft_item_is_never_adopted
