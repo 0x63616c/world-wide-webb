@@ -20,6 +20,7 @@ begin
     raise "Unknown Folding delivery operation"
   end
 rescue StandardError => error
-  warn "Folding delivery stopped (#{error.class}); reconcile provider state before retrying. Provider payloads and credentials are suppressed."
+  detail = error.is_a?(FoldingRelease::BackendDelivery::ValidationError) ? error.message : error.class.to_s
+  warn "Folding delivery stopped: #{detail}. Provider payloads and credentials are suppressed."
   exit 1
 end
