@@ -60,7 +60,13 @@ def main():
                 text=True,
             )
         )
-        names = ["mac-mini", "macbook", "deployment-inputs"] if service_only(paths) else outputs
+        # Cache the locally compiled tools, not whole Darwin generations and their
+        # upstream runtime closures (3.73 GB in the measured full-check trial).
+        # Both tools are installed by base.nix on both hosts, so service-only
+        # builds also realize them. The runner is an explicit full-check output.
+        names = ["management-client", "host-operations"]
+        if not service_only(paths):
+            names.append("runner-controller")
         args.roots_output.write_text(json.dumps(sorted({outputs[name] for name in names})) + "\n")
 
 

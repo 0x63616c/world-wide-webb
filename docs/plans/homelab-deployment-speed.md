@@ -432,3 +432,11 @@ descriptor regression proves exclusion while owned and release while an unrelate
 still alive. The CLI patch version advances to 0.4.3 because 0.4.2 is already immutable/released.
 Its compiler cache also restores a compatible toolchain snapshot across lockfile/version changes;
 Cargo still validates every dependency and reruns all selected checks.
+
+The first signed-cache trial (42742435406) passed all builds but measured a
+3,729,512,128-byte whole-system closure, correctly exceeding the 2 GiB cap.
+Cache roots now contain only the compiled management client and host operations
+(and runner controller for full checks), retaining their runtime dependencies.
+Full flake evaluation, host builds and descriptor checks are unchanged. The
+focused cache-root regression and all 31 automation tests pass; independent
+review confirmed those roots are realized by the existing build commands.
