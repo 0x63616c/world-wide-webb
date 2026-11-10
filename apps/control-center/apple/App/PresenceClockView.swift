@@ -16,25 +16,30 @@ struct PresenceClockFace: View {
     @Environment(\.motionPhase) private var phase
     var body: some View {
         TimelineView(.animation(minimumInterval: face == .tide ? 1 : 1.0 / 30, paused: phase != nil)) { _ in
-            let now = store.now
-            let night =
-                !previewDay
-                && (previewNight
-                    || SolarClock.appearanceIsNight(
-                        at: now, sunrise: store.weather.sunrise,
-                        sunset: store.weather.sunset, nextSunrise: store.weather.nextSunrise,
-                        weatherSymbol: store.status(for: .weather) == .live ? store.weather.symbol : nil))
-            ZStack {
-                switch face {
-                case .green:
-                    night ? Color.black : GreenClockDial.green
-                    GreenClockDial(date: now, night: night)
-                case .tide:
-                    TideClockDial(date: now, night: night)
-                }
-            }.accessibilityIdentifier("clock-face")
+            faceContent(at: store.now)
         }
     }
+
+    // Keep timeline scheduling separate from the content rendered at a known instant.
+    func faceContent(at now: Date) -> some View {
+        let night =
+            !previewDay
+            && (previewNight
+                || SolarClock.appearanceIsNight(
+                    at: now, sunrise: store.weather.sunrise,
+                    sunset: store.weather.sunset, nextSunrise: store.weather.nextSunrise,
+                    weatherSymbol: store.status(for: .weather) == .live ? store.weather.symbol : nil))
+        return ZStack {
+            switch face {
+            case .green:
+                night ? Color.black : GreenClockDial.green
+                GreenClockDial(date: now, night: night)
+            case .tide:
+                TideClockDial(date: now, night: night)
+            }
+        }.accessibilityIdentifier("clock-face")
+    }
+
     private var previewNight: Bool {
         #if DEBUG
             ProcessInfo.processInfo.arguments.contains("-previewNightClock")

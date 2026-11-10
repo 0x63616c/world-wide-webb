@@ -14,47 +14,22 @@ import XCTest
         defer { app.terminate() }
         let clock = app.buttons["launcher-clock"]
         XCTAssertTrue(clock.waitForExistence(timeout: 20))
-        let initial = app.frame.size
-        let expected: CGSize =
-            max(initial.width, initial.height) >= 1100
-            ? CGSize(width: 1366, height: 1024)
-            : min(initial.width, initial.height) >= 600
-                ? CGSize(width: 951, height: 669) : CGSize(width: 466, height: 678)
-        // XCTest can keep reporting the physical device's portrait app frame
-        // after a scene requests landscape. Read the actual content surface.
+        let screen = app.windows.firstMatch.frame
+        let expected = screen.size
+        // Measure the current window, never the device or a canonical screen size.
         let oriented = XCTNSPredicateExpectation(
             predicate: NSPredicate { _, _ in
                 abs(clock.frame.width - expected.width) < 1 && abs(clock.frame.height - expected.height) < 1
             }, object: nil)
         XCTAssertEqual(
             XCTWaiter.wait(for: [oriented], timeout: 15), .completed,
-            "Production canvas must request its supported orientation")
-        let screen = CGRect(origin: .zero, size: expected)
+            "Production canvas must fill the current window")
         print("CANVAS_DISPLAY \(screen) XCTEST_APP \(app.frame) CLOCK \(clock.frame)")
         XCTAssertEqual(clock.frame.minX, screen.minX, accuracy: 1)
         XCTAssertEqual(clock.frame.minY, screen.minY, accuracy: 1)
         XCTAssertEqual(clock.frame.maxX, screen.maxX, accuracy: 1)
         XCTAssertEqual(clock.frame.maxY, screen.maxY, accuracy: 1)
         capture("clock", app)
-
-        // The green artwork must reach the bottom centre, beyond the old
-        // 20-point black strip (away from the device's rounded corners).
-        // XCTest's main screen remains the outer display on Duo, including
-        // when its app window is on the inner display. Physical Duo captures
-        // are verified through simctl's explicitly selected display instead.
-        if expected.width == 1366 {
-            let image = XCUIScreen.main.screenshot().image
-            let pixel = image.cgImage!.cropping(
-                to: CGRect(
-                    x: image.size.width * image.scale / 2,
-                    y: (image.size.height - 2) * image.scale, width: 1, height: 1))!
-            let context = CGContext(
-                data: nil, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4,
-                space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
-            context.draw(pixel, in: CGRect(x: 0, y: 0, width: 1, height: 1))
-            let rgba = context.data!.assumingMemoryBound(to: UInt8.self)
-            XCTAssertGreaterThan(rgba[1], 60, "Clock artwork must fill the bottom of the physical screen")
-        }
 
         let face = clock.value as? String ?? ""
         clock.swipeLeft()
@@ -87,6 +62,53 @@ import XCTest
             XCTAssertEqual(button.frame.size.height, anchor.height, accuracy: 1)
             XCTAssertEqual(button.staticTexts.firstMatch.frame, label)
         }
+    }
+
+    func testPhoneLauncherAndFullBleedClimateReturn() throws {
+        try XCTSkipIf(UIDevice.current.userInterfaceIdiom != .phone, "Phone resize regression")
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = [
+            "-hybridFixtures", "-hybridStill", "-previewDayClock", "-panel.idleDimming", "NO",
+            "-updateCheckFakeBuild", "1",
+        ]
+        app.launch()
+        let clock = app.buttons["launcher-clock"]
+        XCTAssertTrue(clock.waitForExistence(timeout: 20))
+        clock.tap()
+        let profile = app.buttons["home-profile"]
+        XCTAssertTrue(profile.waitForExistence(timeout: 10))
+        print("LAYOUT_PROFILE \(profile.frame) WINDOW \(app.windows.firstMatch.frame)")
+        let windowBeforeOpen = app.windows.firstMatch.frame
+        let calendar = app.buttons["app-calendar"]
+        if windowBeforeOpen.width > windowBeforeOpen.height {
+            let walks = app.buttons["app-walks"]
+            XCTAssertEqual(calendar.frame.minY, walks.frame.minY, accuracy: 2, "Wide launcher should use five columns")
+            XCTAssertFalse(profile.frame.intersects(walks.frame), "Profile must stay outside the last launcher tile")
+        }
+        app.buttons["app-climate"].tap()
+        let surface = app.descendants(matching: .any)["climate-temperature-surface"].firstMatch
+        XCTAssertTrue(surface.waitForExistence(timeout: 10))
+        let window = app.windows.firstMatch.frame
+        print("LAYOUT_CLIMATE \(surface.frame) WINDOW \(window)")
+        XCTAssertEqual(surface.frame.minX, window.minX, accuracy: 1)
+        XCTAssertEqual(surface.frame.maxX, window.maxX, accuracy: 1)
+        XCTAssertEqual(surface.frame.maxY, window.maxY, accuracy: 1)
+        app.buttons["climate-more"].tap()
+        let automatic = app.buttons["climate-fan-auto"]
+        let menu = app.scrollViews.firstMatch
+        XCTAssertTrue(menu.waitForExistence(timeout: 5))
+        XCTAssertGreaterThanOrEqual(menu.frame.minY, window.minY, "Menu must fit below the top edge")
+        menu.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.8))
+            .press(forDuration: 0.05, thenDragTo: menu.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.2)))
+        XCTAssertLessThanOrEqual(automatic.frame.maxY, menu.frame.maxY, "Last fan choice must scroll into view")
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.15, dy: 0.5)).tap()
+        app.buttons["app-back"].tap()
+        XCTAssertTrue(calendar.waitForExistence(timeout: 10))
+        app.buttons["app-climate"].tap()
+        XCTAssertTrue(app.buttons["app-back"].waitForExistence(timeout: 10))
+        app.buttons["app-back"].tap()
+        XCTAssertTrue(calendar.waitForExistence(timeout: 10))
     }
 
     private func capture(_ name: String, _ app: XCUIApplication) {

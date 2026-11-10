@@ -1,24 +1,14 @@
 import CoreGraphics
 
-/// The three supported compositions, in points. Duo sizes come from Xcode's
-/// device displays (1398×2034 and 2853×2007 pixels at 3×); the iPad is the
-/// household's landscape 12.9-inch Pro. Intermediate proposals never resize type.
+/// Presentation density follows the proposed width, never a particular device
+/// or a fixed physical display size. Canvas dimensions always come from the view.
 enum PanelCanvasProfile: String, CaseIterable {
-    case iPad, duoClosed, duoOpen
-
-    var size: CGSize {
-        switch self {
-        case .iPad: CGSize(width: 1366, height: 1024)
-        case .duoClosed: CGSize(width: 466, height: 678)
-        case .duoOpen: CGSize(width: 951, height: 669)
-        }
-    }
+    case spacious, compact, regular
 
     static func resolve(size: CGSize) -> Self {
-        if max(size.width, size.height) >= 1100 { return .iPad }
-        return min(size.width, size.height) >= 600 ? .duoOpen : .duoClosed
+        if size.width >= 1100 { return .spacious }
+        return size.width >= 600 ? .regular : .compact
     }
-
 }
 
 /// Deliberate launcher composition for each supported canvas.
@@ -29,30 +19,39 @@ struct LauncherLayout {
     let headerInset: CGFloat
     let labelSize: CGFloat
     let rowSpacing: CGFloat
+    let columnSpacing: CGFloat
+    let bottomInset: CGFloat
 
-    init(profile: PanelCanvasProfile) {
+    init(profile: PanelCanvasProfile, availableWidth: CGFloat, availableHeight: CGFloat = .infinity) {
+        let preferredColumns: Int
         switch profile {
-        case .iPad:
-            columns = 5
+        case .spacious:
+            preferredColumns = 5
             iconFrameSide = 112
             horizontalInset = 72
             headerInset = 40
             labelSize = 21
             rowSpacing = 48
-        case .duoClosed:
-            columns = 3
+        case .compact:
+            preferredColumns = 5
             iconFrameSide = 76
             horizontalInset = 20
             headerInset = 20
             labelSize = 15
-            rowSpacing = 32
-        case .duoOpen:
-            columns = 5
+            rowSpacing = availableHeight < 500 ? 20 : 32
+        case .regular:
+            preferredColumns = 5
             iconFrameSide = 96
             horizontalInset = 36
             headerInset = 24
             labelSize = 18
             rowSpacing = 36
         }
+        columnSpacing = profile == .compact ? 20 : 28
+        bottomInset = availableHeight < 500 ? 24 : 48
+        let columnWidth = max(iconFrameSide, labelSize * 6)
+        let fittingColumns = Int(
+            max(0, availableWidth - horizontalInset * 2 + columnSpacing) / (columnWidth + columnSpacing))
+        columns = min(preferredColumns, max(1, fittingColumns))
     }
 }

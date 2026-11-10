@@ -21,30 +21,22 @@ final class PanelPlatformPolicyTests: XCTestCase {
         XCTAssertEqual(Bundle.main.object(forInfoDictionaryKey: "LSRequiresIPhoneOS") as? Bool, true)
     }
 
-    func testLauncherFitsEverySupportedCanvas() {
-        for profile in PanelCanvasProfile.allCases {
-            let layout = LauncherLayout(profile: profile)
+    func testLauncherFitsResizedWindows() {
+        for width: CGFloat in [320, 382, 466, 585, 600, 669, 750, 867, 951, 1024, 1100, 1366] {
+            let profile = PanelCanvasProfile.resolve(size: CGSize(width: width, height: 900))
+            let layout = LauncherLayout(profile: profile, availableWidth: width)
             let occupied =
-                Double(layout.columns) * layout.iconFrameSide
-                + Double(max(0, layout.columns - 1)) * 28 + layout.horizontalInset * 2
-            XCTAssertLessThanOrEqual(occupied, profile.size.width, "Launcher overflow on \(profile)")
+                CGFloat(layout.columns) * max(layout.iconFrameSide, layout.labelSize * 6)
+                + CGFloat(max(0, layout.columns - 1)) * layout.columnSpacing + layout.horizontalInset * 2
+            XCTAssertLessThanOrEqual(occupied, width, "Launcher overflow at width \(width)")
             XCTAssertGreaterThanOrEqual(layout.iconFrameSide, 44)
         }
     }
 
-    func testCanvasSizesMatchThePanelAndDuoDisplays() {
-        XCTAssertEqual(PanelCanvasProfile.iPad.size, CGSize(width: 1366, height: 1024))
-        XCTAssertEqual(PanelCanvasProfile.duoClosed.size, CGSize(width: 1398 / 3, height: 2034 / 3))
-        XCTAssertEqual(PanelCanvasProfile.duoOpen.size, CGSize(width: 2853 / 3, height: 2007 / 3))
-        for profile in PanelCanvasProfile.allCases {
-            XCTAssertEqual(PanelCanvasProfile.resolve(size: profile.size), profile)
-            XCTAssertEqual(
-                PanelCanvasProfile.resolve(size: CGSize(width: profile.size.height, height: profile.size.width)),
-                profile)
-        }
-        // An intermediate fold proposal selects a composition, never an
-        // intermediate font size or canvas.
-        XCTAssertEqual(PanelCanvasProfile.resolve(size: CGSize(width: 750, height: 669)), .duoOpen)
-        XCTAssertEqual(PanelCanvasProfile.resolve(size: CGSize(width: 500, height: 678)), .duoClosed)
+    func testPresentationUsesAvailableWidthInsteadOfDeviceDimensions() {
+        XCTAssertEqual(PanelCanvasProfile.resolve(size: CGSize(width: 466, height: 1200)), .compact)
+        XCTAssertEqual(PanelCanvasProfile.resolve(size: CGSize(width: 750, height: 669)), .regular)
+        XCTAssertEqual(PanelCanvasProfile.resolve(size: CGSize(width: 1366, height: 1024)), .spacious)
+        XCTAssertEqual(PanelCanvasProfile.resolve(size: CGSize(width: 500, height: 678)), .compact)
     }
 }

@@ -15,6 +15,8 @@ struct PanelAppNavigationBar: View {
 
 struct PanelAppBackButton: View {
     let back: () -> Void
+    var respectsCanvasInsets = false
+    @Environment(\.panelContentInsets) private var contentInsets
     var body: some View {
         Button(action: back) {
             Image(systemName: "xmark")
@@ -23,5 +25,6 @@ struct PanelAppBackButton: View {
         }.buttonStyle(.plain)
             .accessibilityLabel("Close").accessibilityIdentifier("app-back")
             .accessibilityHint("Returns to apps")
+            .padding(respectsCanvasInsets ? contentInsets : EdgeInsets())
     }
 }
