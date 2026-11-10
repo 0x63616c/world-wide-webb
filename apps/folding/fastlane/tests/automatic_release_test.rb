@@ -5,6 +5,23 @@ class AutomaticReleaseTest < Minitest::Test
   Release = FoldingRelease::AutomaticRelease
   Record = Struct.new(:data)
 
+  def test_saved_review_contact_is_preserved_without_forwarding_private_values_to_deliver
+    previous = FoldingRelease::CONFIG.fetch("review_contact_env").values.to_h { |name| [name, ENV.delete(name)] }
+    detail = Struct.new(:contact_first_name, :contact_last_name, :contact_phone, :contact_email)
+      .new("Reviewer", "Contact", "synthetic-phone", "reviewer@example.invalid")
+    selected = Object.new
+    selected.define_singleton_method(:fetch_app_store_review_detail) { |client:| detail }
+    FoldingRelease.stub(:client, Object.new) do
+      FoldingRelease::Operations.stub(:version, selected) do
+        assert_empty FoldingRelease::Operations.review_contact(nil)
+        detail.contact_phone = ""
+        assert_raises(RuntimeError) { FoldingRelease::Operations.review_contact(nil) }
+      end
+    end
+  ensure
+    previous&.each { |name, value| ENV[name] = value }
+  end
+
   def test_deferred_testflight_uses_an_open_new_patch_train
     rows = [{"attributes" => {"versionString" => "1.0.0", "appStoreState" => "IN_REVIEW"}}]
     client = Struct.new(:tunes_request_client).new(Object.new)

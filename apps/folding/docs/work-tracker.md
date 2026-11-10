@@ -512,3 +512,8 @@ failed with the same 409 using the accepted, byte-verified Worker artifact. It n
 seeds through real signed ingestion, always crosses the active week boundary and
 verifies weekly 1 → 0 while preserving all-time folds and correcting days used.
 The focused fixture passes; runtime behavior and deployed inputs are unchanged.
+
+Automatic listing preparation validates the saved Apple review contact in place.
+It does not forward those private provider values into Deliver's printed options;
+only review notes are updated. A focused regression checks preservation and rejection
+of incomplete contact details.

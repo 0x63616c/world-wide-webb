@@ -411,19 +411,23 @@ module FoldingRelease
       true
     end
 
+    def self.review_contact(record)
+      contact = CONFIG.fetch("review_contact_env").transform_values { |name| ENV[name] }
+      return contact if contact.values.all? { |value| !value.to_s.strip.empty? }
+      detail = version(record).fetch_app_store_review_detail(client: FoldingRelease.client)
+      raise "Existing Apple review contact is incomplete" unless detail &&
+        [detail.contact_first_name, detail.contact_last_name, detail.contact_phone, detail.contact_email].all? { |value| !value.to_s.strip.empty? }
+      # Deliver prints its options. Keep the verified contact in Apple rather
+      # than forwarding private provider values to its configuration summary.
+      {}
+    end
+
     # Upload and verify the listing without requesting App Review.
     def self.storefront(context, record, evidence_path = nil)
       evidence_path ? preflight(record, evidence_path, final: true) : AutomaticRelease.preflight(record)
       raise "Expected processed or ready_to_submit" unless %w[processed ready_to_submit].include?(record.data.fetch("state"))
       assets = restore_assets(record)
-      contact = CONFIG.fetch("review_contact_env").transform_values { |name| ENV[name] }
-      if contact.values.any? { |value| value.to_s.strip.empty? }
-        detail = version(record).fetch_app_store_review_detail(client: FoldingRelease.client)
-        raise "Existing Apple review contact is incomplete" unless detail
-        contact = {"first_name" => detail.contact_first_name, "last_name" => detail.contact_last_name,
-          "phone_number" => detail.contact_phone, "email_address" => detail.contact_email}
-        raise "Existing Apple review contact is incomplete" if contact.values.any? { |value| value.to_s.strip.empty? }
-      end
+      contact = review_contact(record)
       options = {api_key: FoldingRelease.api_key, app_identifier: record.data.fetch("bundle_id"),
         app_version: record.data.fetch("marketing_version"), build_number: record.data.fetch("build_number").to_s,
         skip_binary_upload: true, metadata_path: File.join(assets, "metadata"), screenshots_path: File.join(assets, "screenshots"),
