@@ -74,11 +74,15 @@ module FoldingRelease
       status.success?
     end
 
-    def self.native_needed?
+    def self.native_needed?(include_submission: false)
       source = FoldingRelease.clean_commit!
       delivered = store.latest("native-delivery")
       return true unless delivered
       return false if superseded?(source, delivered.fetch("source_sha"))
+      if include_submission && source == delivered.fetch("source_sha")
+        record = FoldingRelease::Record.new(delivered.fetch("release_tag"))
+        return true if STATES.index(record.data.fetch("state")) < STATES.index("submitted")
+      end
       delivered.fetch("input_hash") != native_input_hash(source)
     end
 

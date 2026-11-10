@@ -35,6 +35,7 @@ module FoldingRelease
         raise "Missing or ambiguous tip #{product_id}" unless matches.length == 1
         product = matches.first
         raise "Tip not ready for review" unless %w[READY_TO_SUBMIT WAITING_FOR_REVIEW IN_REVIEW APPROVED].include?(product.dig("attributes", "state"))
+        next if product.dig("attributes", "state") == "APPROVED"
         versions = api.all("/v2/inAppPurchases/#{product.fetch('id')}/versions")
         eligible = versions.select { |v| %w[READY_FOR_REVIEW WAITING_FOR_REVIEW IN_REVIEW].include?(v.dig("attributes", "state")) }
         if eligible.empty? && versions.empty?
@@ -44,7 +45,7 @@ module FoldingRelease
         end
         raise "Tip version is not uniquely ready; reconcile Apple metadata" unless eligible.length == 1
         {"product_id" => product_id, "id" => product.fetch("id"), "version_id" => eligible.first.fetch("id")}
-      end
+      end.compact
       expected = [["appStoreVersion", version_id]] + selected.map { |p| ["inAppPurchaseVersion", p.fetch("version_id")] }
       if (id = record.data["prepared_submission_id"])
         submission = api.request("GET", "/v1/reviewSubmissions/#{id}").fetch("data")

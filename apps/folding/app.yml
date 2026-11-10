@@ -2,6 +2,7 @@ name: Folding
 delivery_handler: folding
 platform: ios
 testflight: true
+app_store_automatic: true
 version: 1.0.0
 ci_workflow: folding-ci.yml
 release_workflow: folding-release.yml

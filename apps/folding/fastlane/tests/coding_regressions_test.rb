@@ -240,6 +240,20 @@ class CodingRegressionsTest < Minitest::Test
     assert_equal 0, api.created
   end
 
+  def test_approved_tips_are_not_resubmitted_with_an_app_update
+    api = Apple.new
+    original = api.method(:all)
+    api.define_singleton_method(:all) do |path|
+      rows = original.call(path)
+      rows.each { |row| row.fetch("attributes")["state"] = "APPROVED" } if path.include?("inAppPurchasesV2")
+      rows
+    end
+    record = Record.new({"asc_app_id" => "app"})
+    FoldingRelease::ReviewSubmission.prepare(record, "app-update", api: api)
+    assert_equal 1, api.created
+    assert_empty record.data.fetch("submission_tip_versions")
+  end
+
   def test_local_evidence_binds_command_and_actual_log_hash
     Dir.mktmpdir do |directory|
       File.write(File.join(directory, "output.log"), "passed\n")
@@ -304,6 +318,23 @@ class CodingRegressionsTest < Minitest::Test
         File.write(File.join(assets, "tip-review-manifest.json"), '{"changed":true}')
         assert_raises(RuntimeError) { FoldingRelease::Operations.assets(nil, record) }
       end
+    end
+  end
+
+  def test_assets_can_be_sealed_after_testflight_without_regressing_the_record
+    Dir.mktmpdir do |directory|
+      assets = File.join(directory, "assets")
+      FileUtils.mkdir_p(File.join(assets, "metadata"))
+      %w[screenshot-manifest.json tip-review-manifest.json tip-review-screenshots.json metadata-manifest.json].each { |name| File.write(File.join(assets, name), "{}") }
+      File.write(File.join(assets, "metadata/copyright.txt"), "owner")
+      remote = Object.new
+      def remote.upload_artifact(_); end
+      record = Record.new({"state" => "processed", "artifacts" => {"ipa" => "Folding.ipa"}}, directory, remote)
+      FoldingRelease::Assets.stub(:validate!, nil) { FoldingRelease::Operations.assets(nil, record) }
+      assert_equal "processed", record.data.fetch("state")
+      assert_equal "Folding.ipa", record.data.fetch("artifacts").fetch("ipa")
+      assert_equal "assets.zip", record.data.fetch("artifacts").fetch("assets")
+      refute_empty record.data.fetch("assets_sha256")
     end
   end
 end

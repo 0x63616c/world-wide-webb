@@ -37,7 +37,9 @@ module FoldingRelease
     end
 
     def self.assets(context, record)
-      require_state!(record, "validated")
+      return restore_assets(record) if record.data.fetch("state") != "validated" && record.data.fetch("artifacts").key?("assets")
+      raise "Expected validated or processed release" unless %w[validated processed].include?(record.data.fetch("state"))
+      record.verify_identity!
       directory = File.join(record.directory, "assets")
       Assets.metadata(record) unless File.exist?(File.join(record.directory, "assets/metadata-manifest.json"))
       Assets.capture(context, record) unless File.exist?(File.join(record.directory, "assets/screenshot-manifest.json"))
@@ -58,8 +60,9 @@ module FoldingRelease
         record.save("assets_candidate_sha256" => FoldingRelease.sha(bundle), "assets_candidate_manifests" => manifest_hashes)
       end
       record.remote.upload_artifact(bundle)
-      record.advance("assets_ready", manifest_hashes.merge("assets_sha256" => FoldingRelease.sha(bundle),
-        "artifacts" => record.data.fetch("artifacts").merge("assets" => File.basename(bundle))))
+      changes = manifest_hashes.merge("assets_sha256" => FoldingRelease.sha(bundle),
+        "artifacts" => record.data.fetch("artifacts").merge("assets" => File.basename(bundle)))
+      record.data.fetch("state") == "validated" ? record.advance("assets_ready", changes) : record.save(changes)
     end
 
     def self.restore_assets(record)
@@ -409,11 +412,18 @@ module FoldingRelease
     end
 
     # Upload and verify the listing without requesting App Review.
-    def self.storefront(context, record, evidence_path)
-      preflight(record, evidence_path, final: true)
+    def self.storefront(context, record, evidence_path = nil)
+      evidence_path ? preflight(record, evidence_path, final: true) : AutomaticRelease.preflight(record)
       raise "Expected processed or ready_to_submit" unless %w[processed ready_to_submit].include?(record.data.fetch("state"))
       assets = restore_assets(record)
-      contact = CONFIG.fetch("review_contact_env").transform_values { |name| ENV.fetch(name) }
+      contact = CONFIG.fetch("review_contact_env").transform_values { |name| ENV[name] }
+      if contact.values.any? { |value| value.to_s.strip.empty? }
+        detail = version(record).fetch_app_store_review_detail(client: FoldingRelease.client)
+        raise "Existing Apple review contact is incomplete" unless detail
+        contact = {"first_name" => detail.contact_first_name, "last_name" => detail.contact_last_name,
+          "phone_number" => detail.contact_phone, "email_address" => detail.contact_email}
+        raise "Existing Apple review contact is incomplete" if contact.values.any? { |value| value.to_s.strip.empty? }
+      end
       options = {api_key: FoldingRelease.api_key, app_identifier: record.data.fetch("bundle_id"),
         app_version: record.data.fetch("marketing_version"), build_number: record.data.fetch("build_number").to_s,
         skip_binary_upload: true, metadata_path: File.join(assets, "metadata"), screenshots_path: File.join(assets, "screenshots"),
@@ -431,8 +441,8 @@ module FoldingRelease
       selected
     end
 
-    def self.submit(context, record, evidence_path)
-      preflight(record, evidence_path, final: true)
+    def self.submit(context, record, evidence_path = nil)
+      evidence_path ? preflight(record, evidence_path, final: true) : AutomaticRelease.preflight(record)
       return if record.data["submission_id"] && observe_submission(record)
       if record.data["submission_attempt_started_at"]
         return if observe_submission(record)

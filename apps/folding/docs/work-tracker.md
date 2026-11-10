@@ -474,3 +474,27 @@ the owner's post-update totals remain pending.
 The owner now requests App Store review submission after the fix and automatic
 on-merge review delivery matching Tendr's behavior. That submission work is active;
 no App Review submission is claimed by the TestFlight-only delivery above.
+
+### Automatic App Review handoff — November 9
+
+The upload contention, bounded retry and named JSON export fix merged in WWW
+[PR #990](https://github.com/0x63616c/world-wide-webb/pull/990) at
+`2b348c171c59a0872970bdde94f24e087b310ab6`. Required PR checks and the actual
+Folding native check passed. Main CI and the replacement internal build are pending.
+
+The local automatic-release candidate extends the existing single publisher through
+version planning, exact-build App Store metadata/gallery readback and joint app/tip
+submission. It reuses Tendr's latest-source and waiting-review replacement rules,
+preserves active review, and resumes a failed submission after successful TestFlight
+distribution without rebuilding that reservation. Already-approved tips are retained.
+
+The release gate now follows the owner's documented post-submission device-testing
+exception. Missing broader capability acceptance remains explicitly deferred in the
+manifest; runtime capability claims are unchanged. Source CI, matching backend CI and
+immutable provider deployment, enabled production push/avatar bindings, exact signed
+artifacts, Apple processing/group membership and storefront verification remain required.
+A live read-only check verified the current backend receipt/source, enabled features
+and all public pages. This is deployment evidence, not device/provider feature acceptance.
+Local release and shared review fixtures passed; publication and actual Apple submission
+remain pending. A cold hosted screenshot job exposed Fastlane's three-second build-settings
+timeout; product Fastlane now uses a 60-second base timeout with three bounded attempts.

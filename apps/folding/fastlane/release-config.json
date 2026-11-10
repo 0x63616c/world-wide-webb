@@ -13,27 +13,6 @@
     "notifications.badges"
   ],
   "minimum_backend_capabilities": [
-    "auth.apple",
-    "auth.refresh",
-    "auth.reauthenticate",
-    "attest.enroll",
-    "enrollment.join",
-    "enrollment.transfer",
-    "events.submit",
-    "events.receipt",
-    "account.delete",
-    "account.deletion_status",
-    "account.deletion_recovery",
-    "history.reset",
-    "leaderboard.live",
-    "results.finalized",
-    "results.share",
-    "avatars.upload",
-    "avatars.moderation",
-    "profiles.edit",
-    "moderation.reports",
-    "moderation.blocks",
-    "notifications.results",
     "profiles.milestones",
     "events.history_import",
     "notifications.badges"
@@ -66,5 +45,28 @@
     "phone_number": "FOLDING_REVIEW_PHONE",
     "email_address": "FOLDING_REVIEW_EMAIL"
   },
-  "historical_repository": "0x63616c/folding"
+  "historical_repository": "0x63616c/folding",
+  "post_submission_device_capabilities": [
+    "auth.apple",
+    "auth.refresh",
+    "auth.reauthenticate",
+    "attest.enroll",
+    "enrollment.join",
+    "enrollment.transfer",
+    "events.submit",
+    "events.receipt",
+    "account.delete",
+    "account.deletion_status",
+    "account.deletion_recovery",
+    "history.reset",
+    "leaderboard.live",
+    "results.finalized",
+    "results.share",
+    "avatars.upload",
+    "avatars.moderation",
+    "profiles.edit",
+    "moderation.reports",
+    "moderation.blocks",
+    "notifications.results"
+  ]
 }
