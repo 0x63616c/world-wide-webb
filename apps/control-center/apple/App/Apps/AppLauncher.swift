@@ -7,22 +7,25 @@ struct AppLauncher: View {
     let close: () -> Void
     let isPresented: Bool
     let namespace: Namespace.ID
-    @Environment(\.panelCanvasProfile) private var canvas
     @Environment(\.panelContentInsets) private var contentInsets
     @State private var isAtTop = true
     @State private var swipeStartedAtTop: Bool?
     var body: some View {
         GeometryReader { proxy in
-            let layout = LauncherLayout(profile: canvas)
+            let width = max(1, proxy.size.width - contentInsets.leading - contentInsets.trailing)
+            let height = max(1, proxy.size.height - contentInsets.top - contentInsets.bottom)
+            let canvas = PanelCanvasProfile.resolve(size: CGSize(width: width, height: height))
+            let layout = LauncherLayout(profile: canvas, availableWidth: width, availableHeight: height)
             let columns = layout.columns
             let iconFrameSide = layout.iconFrameSide
             let iconSide = iconFrameSide * 0.9
             let headerInset = layout.headerInset
-            let firstRowTop = headerInset + PanelProfileSelector.avatarSide + 24
+            let profileFitsBesideGrid = contentInsets.trailing >= PanelProfileSelector.avatarSide + 16
+            let firstRowTop = headerInset + (profileFitsBesideGrid ? 0 : PanelProfileSelector.avatarSide + 24)
             ScrollView(.vertical) {
                 GlassEffectContainer(spacing: 32) {
                     LazyVGrid(
-                        columns: Array(repeating: GridItem(.flexible(), spacing: 28), count: columns),
+                        columns: Array(repeating: GridItem(.flexible(), spacing: layout.columnSpacing), count: columns),
                         spacing: layout.rowSpacing
                     ) {
                         ForEach(apps) { app in
@@ -31,7 +34,9 @@ struct AppLauncher: View {
                             } label: {
                                 VStack(spacing: 14) {
                                     LauncherAppIcon(app: app, side: iconSide)
-                                        .matchedTransitionSource(id: app.id, in: namespace)
+                                        .matchedTransitionSource(id: app.id, in: namespace) { source in
+                                            source.clipShape(.rect(cornerRadius: iconSide * 0.25, style: .continuous))
+                                        }
                                         .frame(width: iconFrameSide, height: iconFrameSide)
                                     Text(app.name).font(.system(size: layout.labelSize, weight: .medium))
                                         .foregroundStyle(.white).lineLimit(1)
@@ -40,9 +45,9 @@ struct AppLauncher: View {
                         }
                     }.padding(.horizontal, layout.horizontalInset)
                         .padding(.top, firstRowTop)
-                        .padding(.bottom, 48)
+                        .padding(.bottom, layout.bottomInset)
                 }
-                .frame(minHeight: proxy.size.height, alignment: .top)
+                .frame(minHeight: height, alignment: .top)
             }.scrollIndicators(.hidden).scrollBounceBehavior(.basedOnSize)
                 .onScrollGeometryChange(for: Bool.self) { geometry in
                     geometry.contentOffset.y <= -geometry.contentInsets.top + 1
@@ -63,9 +68,9 @@ struct AppLauncher: View {
                             close()
                         }
                 )
+                .padding(contentInsets)
                 .modifier(PanelProfileSelector(isAvailable: isPresented, inset: headerInset))
         }
-        .padding(contentInsets)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("app-launcher")
         .accessibilityAction(named: "Return to clock") { close() }
@@ -77,7 +82,7 @@ struct AppLauncher: View {
 struct LauncherGlassSurface: View {
     static let edgeInset: CGFloat = 8
     var body: some View {
-        let shape = RoundedRectangle(cornerRadius: PanelSurface.cornerRadius - Self.edgeInset)
+        let shape = ConcentricRectangle()
         Color.clear.glassEffect(preview == "regular" ? .regular.tint(.white.opacity(0.06)) : .clear, in: shape)
             .background(.black.opacity(preview == "clearDim" ? 0.22 : 0), in: shape)
             .padding(Self.edgeInset)

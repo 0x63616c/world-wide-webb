@@ -67,7 +67,7 @@ struct WeatherPage: View {
                     VStack(alignment: .leading, spacing: 24) {
                         LazyVGrid(
                             columns: Array(
-                                repeating: GridItem(.flexible()), count: compact ? 3 : canvas == .duoOpen ? 6 : 12),
+                                repeating: GridItem(.flexible()), count: compact ? 3 : canvas == .regular ? 6 : 12),
                             spacing: 24
                         ) {
                             ForEach(weather.hours) { hour in
@@ -85,7 +85,7 @@ struct WeatherPage: View {
                         LazyVGrid(
                             columns: Array(
                                 repeating: GridItem(.flexible(), alignment: .leading),
-                                count: compact || canvas == .duoOpen ? 2 : 4),
+                                count: compact || canvas == .regular ? 2 : 4),
                             alignment: .leading, spacing: 24
                         ) {
                             weatherMetric("Feels like", value: "\(weather.feels)°", symbol: "thermometer.medium")
@@ -96,7 +96,7 @@ struct WeatherPage: View {
                     }.padding(24).background(.black.opacity(0.18), in: .rect(cornerRadius: 28))
                 }.padding(.horizontal, compact ? 24 : 48).padding(.top, 32).padding(.bottom, 96)
                     .frame(minHeight: geometry.size.height, alignment: .top)
-            }.scrollDisabled(!compact && canvas == .iPad)
+            }.scrollDisabled(!compact && canvas == .spacious)
         }.foregroundStyle(.white).background { WeatherAtmosphere(weather: weather).ignoresSafeArea() }
     }
     private func weatherMetric(_ title: String, value: String, symbol: String) -> some View {

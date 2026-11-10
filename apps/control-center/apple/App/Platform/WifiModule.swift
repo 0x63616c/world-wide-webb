@@ -8,7 +8,7 @@ struct WifiModule: View {
     @State private var passwordVisible = false
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.panelCanvasProfile) private var canvas
-    private var compact: Bool { canvas == .duoClosed }
+    private var compact: Bool { canvas == .compact }
 
     var body: some View {
         GeometryReader { geometry in
@@ -43,8 +43,8 @@ struct WifiModule: View {
                     if let payload = provider.qrPayload, let image = GuestWifiCode.render(payload: payload) {
                         VStack(spacing: 20) {
                             WifiQRHero(image: image).frame(
-                                width: compact ? 260 : canvas == .duoOpen ? 300 : 380,
-                                height: compact ? 260 : canvas == .duoOpen ? 300 : 380
+                                width: compact ? 260 : canvas == .regular ? 300 : 380,
+                                height: compact ? 260 : canvas == .regular ? 300 : 380
                             )
                             .accessibilityIdentifier("wifi-inline-qr")
                             Label("scan to connect", systemImage: "qrcode.viewfinder")

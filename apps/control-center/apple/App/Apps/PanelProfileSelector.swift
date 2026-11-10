@@ -26,6 +26,7 @@ struct PanelProfileSelector: ViewModifier {
     @AppStorage("panel.profiles") private var storage = Data()
     @AppStorage("panel.profilePhoto") private var legacyPhoto = Data()
     @Environment(\.homeIntegration) private var integration
+    @Environment(\.panelContentInsets) private var contentInsets
     @Environment(\.horizontalSizeClass) private var sizeClass
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var showingProfiles = false
@@ -54,30 +55,33 @@ struct PanelProfileSelector: ViewModifier {
                     .transition(.opacity)
                 }
             }
-            .overlay(alignment: .topTrailing) {
-                // Keep the avatar in the moving launcher even while Home is offscreen.
-                VStack(alignment: .trailing, spacing: 18) {
-                    Button {
-                        showProfiles(!isOpen)
-                    } label: {
-                        ProfileAvatar(photo: profiles.selected?.photo ?? launcherPhoto, side: Self.avatarSide)
-                            .foregroundStyle(.white.opacity(0.85))
-                            .contentShape(.circle)
+            .overlay {
+                GeometryReader { geometry in
+                    // Keep the avatar in the moving launcher even while Home is offscreen.
+                    VStack(alignment: .trailing, spacing: 18) {
+                        Button {
+                            showProfiles(!isOpen)
+                        } label: {
+                            ProfileAvatar(photo: profiles.selected?.photo ?? launcherPhoto, side: Self.avatarSide)
+                                .foregroundStyle(.white.opacity(0.85))
+                                .contentShape(.circle)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(isOpen ? "Close Profiles" : "Profiles")
+                        .accessibilityValue(profiles.selected?.name ?? "")
+                        .accessibilityIdentifier("home-profile")
+                        if isOpen {
+                            profileGrid(profiles)
+                                .transition(.opacity)
+                        }
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(isOpen ? "Close Profiles" : "Profiles")
-                    .accessibilityValue(profiles.selected?.name ?? "")
-                    .accessibilityIdentifier("home-profile")
-                    if isOpen {
-                        profileGrid(profiles)
-                            .transition(.opacity)
-                    }
+                    .padding(profileInsets(in: geometry))
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                    .foregroundStyle(.white)
+                    .allowsHitTesting(isAvailable)
+                    .accessibilityHidden(!isAvailable)
+                    .accessibilityAction(.escape) { showProfiles(false) }
                 }
-                .padding(inset)
-                .foregroundStyle(.white)
-                .allowsHitTesting(isAvailable)
-                .accessibilityHidden(!isAvailable)
-                .accessibilityAction(.escape) { showProfiles(false) }
             }
             .sheet(isPresented: $addingUser) {
                 ProfileCreationSheet(pin: integration?.panelPIN, cancel: { addingUser = false }, save: add)
@@ -91,6 +95,25 @@ struct PanelProfileSelector: ViewModifier {
                     addingUser = false
                 }
             }
+    }
+
+    private func profileInsets(in geometry: GeometryProxy) -> EdgeInsets {
+        var result = EdgeInsets(
+            top: contentInsets.top + inset, leading: inset, bottom: contentInsets.bottom + inset,
+            trailing: contentInsets.trailing + inset)
+        if #available(iOS 27.1, *) {
+            let cameras = geometry.reservedRegions(kind: .occlusion).filter {
+                $0.isActive && $0.frame.width > 0 && $0.frame.height > 0 && $0.frame.midX > geometry.size.width * 0.6
+            }
+            if let camera = cameras.max(by: { $0.frame.midX < $1.frame.midX }) {
+                let top = camera.frame.maxY + camera.margins.bottom + 12
+                if top + Self.avatarSide + inset <= geometry.size.height - contentInsets.bottom {
+                    result.top = max(contentInsets.top + inset, top)
+                    result.trailing = max(inset / 2, geometry.size.width - camera.frame.midX - Self.avatarSide / 2)
+                }
+            }
+        }
+        return result
     }
 
     private var launcherPhoto: Data {
