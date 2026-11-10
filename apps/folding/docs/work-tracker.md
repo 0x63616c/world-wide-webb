@@ -11,8 +11,9 @@ Cloudflare staging Workers and 14 managed resources were deleted through the exi
 staging state; its remote state/backups and dedicated state/runtime vault items were removed.
 Production resources were excluded from the destroy plan. Build/release/configuration
 support now accepts production only; the site builds and publishes once. Historical SQL
-migrations and dated experiment receipts remain unchanged. Apple app removal is pending
-App Store Connect authentication; Apple does not permit CloudKit container deletion.
+migrations and dated experiment receipts remain unchanged. Folding Staging was removed from App Store Connect, its dedicated service key was
+revoked and both staging provisioning profiles were deleted. All three dedicated staging
+vault items were deleted. Apple does not permit CloudKit container deletion.
 
 ## Current scope: internal TestFlight, then App Store preparation
 
