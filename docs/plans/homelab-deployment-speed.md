@@ -424,3 +424,11 @@ its original assertions pass without mutation retries or production changes. The
 test explicitly models a descendant retaining stdin after `set` exits and waits for bounded
 quiescence, retaining held-lease, command-order and cleanup assertions. Focused reproductions
 failed before these corrections; all 30 runtime and 123 runner unit tests passed afterward.
+
+Nix subsequently exposed the same inherited-description issue in repeated CLI migrations.
+Process-owned migration/source locks now explicitly unlock when their owner exits, including
+error paths; intentionally delegated Tart leases retain their existing lifetime. A real-child
+descriptor regression proves exclusion while owned and release while an unrelated inheritor is
+still alive. The CLI patch version advances to 0.4.3 because 0.4.2 is already immutable/released.
+Its compiler cache also restores a compatible toolchain snapshot across lockfile/version changes;
+Cargo still validates every dependency and reruns all selected checks.

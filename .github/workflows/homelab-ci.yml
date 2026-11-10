@@ -196,7 +196,9 @@ jobs:
             ~/.cargo/git
             homelab/cli/target
           key: homelab-cli-${{ runner.os }}-${{ runner.arch }}-1.99.0-${{ hashFiles('homelab/cli/Cargo.lock') }}-${{ github.sha }}
-          restore-keys: homelab-cli-${{ runner.os }}-${{ runner.arch }}-1.99.0-${{ hashFiles('homelab/cli/Cargo.lock') }}-
+          restore-keys: |
+            homelab-cli-${{ runner.os }}-${{ runner.arch }}-1.99.0-${{ hashFiles('homelab/cli/Cargo.lock') }}-
+            homelab-cli-${{ runner.os }}-${{ runner.arch }}-1.99.0-
       - run: brew install age sops shellcheck
       - run: |
           cargo fmt --check
