@@ -6,7 +6,7 @@ pkgs.rustPlatform.buildRustPackage {
     root = ../.;
     fileset = pkgs.lib.fileset.unions [
       ../host/Cargo.toml ../host/Cargo.lock ../host/src ../host/tests
-      ../cli/Cargo.toml ../cli/build.rs ../cli/src
+      ../process/Cargo.toml ../process/src
     ];
   };
   cargoRoot = "host";

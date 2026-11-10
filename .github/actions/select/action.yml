@@ -1,6 +1,9 @@
 name: Select repository units
 description: Resolve verification and delivery inputs from committed paths
 outputs:
+  checks:
+    description: Selected checks within product verification
+    value: ${{ steps.selection.outputs.checks }}
   verify:
     description: Verification units
     value: ${{ steps.selection.outputs.verify }}

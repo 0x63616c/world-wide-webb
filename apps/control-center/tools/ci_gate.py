@@ -12,7 +12,7 @@ def verify(needs):
     selected = needs["changes"].get("outputs", {})
     for job, output in [
         ("typecheck", "checks"),
-        ("test-unit", "checks"),
+        ("test-unit", "unit_tests"),
         ("apple", "apple"),
         ("image", "image"),
         ("infra", "infra"),

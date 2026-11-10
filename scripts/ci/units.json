@@ -2,7 +2,6 @@
   "version": 1,
   "shared_verify": [
     "scripts/ci/**",
-    ".github/**",
     "lefthook.yml",
     "scripts/dev",
     "fastlane/**",
@@ -322,13 +321,15 @@
         "**/ScreenshotTests/**",
         "**/StorefrontTests/**",
         ".sops.yaml",
-        "scripts/homelab/**"
+        "scripts/homelab/**",
+        "homelab/process/Cargo.lock"
       ]
     },
     "homelab.cli": {
       "paths": [
         "homelab/cli/**",
-        "scripts/distribution/**"
+        "scripts/distribution/**",
+        "homelab/process/**"
       ],
       "verify_dependents": [
         "homelab.config"
@@ -350,7 +351,9 @@
         "homelab/cli/Cargo.lock",
         "homelab/cli/build.rs",
         "homelab/cli/schema/**",
-        "scripts/distribution/homelab.py"
+        "scripts/distribution/homelab.py",
+        "homelab/process/Cargo.toml",
+        "homelab/process/src/**"
       ]
     },
     "templates": {
@@ -390,6 +393,274 @@
         "cloudflare.home"
       ],
       "delivery": null
+    }
+  },
+  "workflow_units": {
+    ".github/workflows/homelab-ci.yml": [
+      "homelab.config",
+      "homelab.cli"
+    ],
+    ".github/workflows/homelab-delivery.yml": [
+      "homelab.config"
+    ],
+    ".github/workflows/homelab-hindsight-recovery.yml": [
+      "homelab.config"
+    ],
+    ".github/workflows/homelab-operations-canary.yml": [
+      "homelab.config"
+    ],
+    ".github/workflows/homelab-runner-recovery.yml": [
+      "homelab.config"
+    ],
+    ".github/workflows/homelab-runners.yml": [
+      "homelab.config"
+    ],
+    ".github/workflows/homelab-cli-release.yml": [
+      "homelab.cli"
+    ],
+    ".github/workflows/ci.yml": [
+      "control-center.tooling"
+    ],
+    ".github/workflows/apple-panel-testflight.yml": [
+      "control-center.tooling"
+    ],
+    ".github/workflows/deploy-mini.yml": [
+      "control-center.tooling"
+    ],
+    ".github/workflows/cloudflare.yml": [
+      "cloudflare.home"
+    ],
+    ".github/workflows/folding-ci.yml": [
+      "folding.tooling"
+    ],
+    ".github/workflows/folding-release.yml": [
+      "folding.tooling"
+    ],
+    ".github/workflows/folding-screenshots.yml": [
+      "folding.tooling"
+    ],
+    ".github/workflows/folding-store-checks.yml": [
+      "folding.tooling"
+    ],
+    ".github/workflows/callkeep-ci.yml": [
+      "callkeep.native"
+    ],
+    ".github/workflows/callkeep-release.yml": [
+      "callkeep.native"
+    ],
+    ".github/workflows/tendr-ci.yml": [
+      "tendr.native"
+    ],
+    ".github/workflows/testflight.yml": [
+      "tendr.native"
+    ],
+    ".github/workflows/pr-screenshots.yml": [
+      "tendr.native"
+    ],
+    ".github/workflows/component-snapshots.yml": [
+      "tendr.native"
+    ],
+    ".github/workflows/duo-screenshots.yml": [
+      "tendr.native"
+    ],
+    ".github/workflows/icon.yml": [
+      "tendr.native"
+    ],
+    ".github/workflows/iap.yml": [
+      "tendr.native"
+    ],
+    ".github/workflows/tip-jar.yml": [
+      "tendr.native"
+    ],
+    ".github/workflows/release.yml": [
+      "tendr.native"
+    ],
+    ".github/workflows/submit-review.yml": [
+      "tendr.native"
+    ],
+    ".github/workflows/testers.yml": [
+      "tendr.native"
+    ],
+    ".github/workflows/register-ids.yml": [
+      "tendr.native"
+    ],
+    ".github/workflows/site.yml": [
+      "sites.pages",
+      "sites.folding"
+    ],
+    ".github/actions/folding-tools/action.yml": [
+      "folding.tooling"
+    ],
+    ".github/actions/folding-tools/test_action.py": [
+      "folding.tooling"
+    ]
+  },
+  "checks": {
+    "homelab.operations": {
+      "units": [
+        "homelab.config"
+      ],
+      "paths": [
+        "homelab/**",
+        "homelab.json",
+        "flake.*",
+        "bootstrap/**",
+        ".sops.yaml",
+        "secrets/*.sops.yaml",
+        "scripts/homelab/**"
+      ],
+      "exclude": [
+        "homelab/cli/**",
+        "homelab/host/**",
+        "homelab/process/**",
+        "homelab/runner/src/**",
+        "homelab/runner/Cargo.*",
+        "homelab/runner/tests/**"
+      ]
+    },
+    "homelab.linux": {
+      "units": [
+        "homelab.config"
+      ],
+      "paths": [
+        "homelab/runner/**",
+        "homelab/packages/runner.nix",
+        "flake.lock"
+      ]
+    },
+    "homelab.darwin": {
+      "units": [
+        "homelab.config"
+      ],
+      "paths": [
+        "homelab/**",
+        "homelab.json",
+        "flake.*",
+        "bootstrap/**",
+        "secrets/*.sops.yaml",
+        "scripts/homelab/check_nix.py"
+      ],
+      "exclude": [
+        "homelab/tests/**",
+        "homelab/cli/tests/**",
+        "homelab/runner/tests/**",
+        "homelab/host/tests/**",
+        "homelab/cli/examples/**",
+        "homelab/cli/docs/**",
+        "homelab/process/tests/**"
+      ]
+    },
+    "homelab.cli": {
+      "units": [
+        "homelab.cli"
+      ],
+      "paths": [
+        "homelab/cli/**",
+        "homelab/process/**",
+        "scripts/distribution/**"
+      ]
+    },
+    "control-center.rust": {
+      "units": [
+        "control-center.server",
+        "control-center.tooling",
+        "control-center.contracts",
+        "credentials.home"
+      ],
+      "paths": [
+        "apps/control-center/server/**",
+        "apps/control-center/Cargo.*",
+        "apps/control-center/rust-toolchain.toml",
+        "apps/control-center/deny.toml",
+        "apps/control-center/contracts/**",
+        "apps/control-center/tools/**",
+        "secrets/vault.yaml"
+      ],
+      "exclude": [
+        "apps/control-center/tools/infra_apply.py",
+        "apps/control-center/tools/test_infra_apply.py",
+        "apps/control-center/tools/test_state_backend.py"
+      ]
+    },
+    "control-center.ops": {
+      "units": [
+        "control-center.server",
+        "control-center.tooling",
+        "control-center.native"
+      ],
+      "paths": [
+        "apps/control-center/deploy/**",
+        "apps/control-center/tools/**",
+        "apps/control-center/scripts/**"
+      ]
+    },
+    "control-center.contract": {
+      "units": [
+        "control-center.server",
+        "control-center.native",
+        "control-center.contracts",
+        "control-center.tooling"
+      ],
+      "paths": [
+        "apps/control-center/server/**",
+        "apps/control-center/Cargo.*",
+        "apps/control-center/rust-toolchain.toml",
+        "apps/control-center/contracts/**",
+        "apps/control-center/apple/Packages/PanelKit/**",
+        "apps/control-center/tools/**"
+      ]
+    },
+    "control-center.apple": {
+      "units": [
+        "control-center.native",
+        "control-center.tooling",
+        "control-center.contracts"
+      ],
+      "paths": [
+        "apps/control-center/apple/**",
+        "apps/control-center/.swift-format",
+        "apps/control-center/contracts/**",
+        "apps/control-center/tools/**"
+      ],
+      "exclude": [
+        "apps/control-center/tools/infra_apply.py",
+        "apps/control-center/tools/test_infra_apply.py",
+        "apps/control-center/tools/test_state_backend.py"
+      ]
+    },
+    "control-center.image": {
+      "units": [
+        "control-center.server",
+        "control-center.tooling",
+        "credentials.home"
+      ],
+      "paths": [
+        "apps/control-center/server/**",
+        "apps/control-center/Cargo.*",
+        "apps/control-center/rust-toolchain.toml",
+        "apps/control-center/Dockerfile",
+        "apps/control-center/.dockerignore",
+        "apps/control-center/deploy/mini/compose.yaml",
+        "apps/control-center/tools/test_container.py",
+        "secrets/vault.yaml",
+        "apps/control-center/deploy/mini/**"
+      ],
+      "exclude": [
+        "apps/control-center/server/tests/**",
+        "apps/control-center/deploy/mini/test_*",
+        "apps/control-center/deploy/mini/penpot_*"
+      ]
+    },
+    "homelab.host": {
+      "units": [
+        "homelab.config"
+      ],
+      "paths": [
+        "homelab/host/**",
+        "homelab/process/**",
+        "homelab/packages/host.nix",
+        "flake.lock"
+      ]
     }
   }
 }

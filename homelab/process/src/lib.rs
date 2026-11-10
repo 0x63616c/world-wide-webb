@@ -1,3 +1,4 @@
+//! Bounded process supervision shared by the interactive CLI and host executor.
 use std::cell::Cell;
 use std::io::{self, Read, Write};
 use std::os::unix::process::CommandExt;
@@ -59,7 +60,7 @@ fn read_available(
     }
 }
 
-pub(crate) fn run(
+pub fn run(
     executable: &Path,
     arguments: &[&str],
     timeout: Duration,
@@ -80,7 +81,7 @@ pub fn capture(command: &mut Command, timeout: Duration) -> Result<Output, Proce
 
 /// A bounded in-memory stdin channel. Secret input never needs a temporary file,
 /// an environment variable, a shell command, or a command-line argument.
-pub(crate) fn capture_input(
+pub fn capture_input(
     command: &mut Command,
     input: &[u8],
     timeout: Duration,
@@ -112,10 +113,7 @@ pub(crate) fn capture_input(
     })
 }
 
-pub(crate) fn capture_status(
-    command: &mut Command,
-    timeout: Duration,
-) -> Result<Output, ProcessError> {
+pub fn capture_status(command: &mut Command, timeout: Duration) -> Result<Output, ProcessError> {
     supervise(command, timeout, OutputMode::Status)
 }
 
@@ -138,7 +136,7 @@ pub fn run_diagnostic(command: &mut Command, timeout: Duration) -> Result<Output
     supervise(command, timeout, OutputMode::Diagnostic)
 }
 
-pub(crate) enum OutputMode {
+pub enum OutputMode {
     Capture,
     Diagnostic,
     Discard,
@@ -149,9 +147,9 @@ pub(crate) enum OutputMode {
 type Executor = fn(&mut Command, Duration, OutputMode) -> Result<Output, ProcessError>;
 thread_local! { static EXECUTOR: Cell<Option<Executor>> = const { Cell::new(None) }; }
 
-pub(crate) struct ExecutionScope(Option<Executor>);
+pub struct ExecutionScope(Option<Executor>);
 impl ExecutionScope {
-    pub(crate) fn enter(executor: Executor) -> Self {
+    pub fn enter(executor: Executor) -> Self {
         Self(EXECUTOR.replace(Some(executor)))
     }
 }
@@ -172,7 +170,7 @@ fn supervise(
     supervise_blocking(command, timeout, mode)
 }
 
-pub(crate) fn supervise_blocking(
+pub fn supervise_blocking(
     command: &mut Command,
     timeout: Duration,
     mode: OutputMode,

@@ -386,3 +386,19 @@ the development-loop addition; implementation remains subject to local verificat
 - Remaining: pass the corrected main CI and accept its exact source on both hosts.
   Required PR CI passed; later main runs encountered GitHub internal orchestration
   failures and the cache post-step stall. Keep writer flags and recovery generations.
+
+## CI efficiency follow-up — November 9, 2026
+
+The earlier deployment work reached both hosts at `bb5f12f`; its final evidence is in #981.
+The next candidate narrows verification through the existing repository selector, maps workflow
+consumers, separates operations/controller/Nix checks and Rust/contract/native checks, advances
+compiler snapshots, explicitly persists Docker Cargo mounts and bounds signed Nix output reuse.
+Host operations now consume a small shared process crate instead of the entire interactive CLI.
+The CLI itself is installed on hosts, so a shipped CLI edit still legitimately changes host outputs.
+
+Baseline job evidence: run 42686330040 took 21:05 for Darwin (18:25 Nix), 0:27 for operations
+and 1:09 for Linux controller verification. A release.json-only PR/merge took 18:29/11:59 for
+Darwin in runs 42711463457/42711554105. These are samples, not controlled before/after results.
+Expected savings are hypotheses: avoid platform jobs for test-only edits; reuse unchanged package
+outputs for service edits. The candidate adds an explicit same-path before/after replay and
+per-cache receipts; measured results and review/publication evidence remain pending.

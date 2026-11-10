@@ -87,14 +87,20 @@ def classify_repository(paths, force=False):
     spec.loader.exec_module(policy)
     selection = policy.select(paths, json.loads(policy.CONFIG.read_text()), force=force)
     selected = set(selection["verify"])
+    checks = set(selection["checks"])
     local = [path[len("apps/control-center/") :] for path in paths if path.startswith("apps/control-center/")]
     result = classify(local)
     result.update(
         {
-            "apple": result["apple"] or "control-center.native" in selected,
-            "image": result["image"] or "control-center.server" in selected,
+            "apple": bool(checks & {"control-center.apple", "control-center.contract"}),
+            "native": "control-center.apple" in checks,
+            "contract": "control-center.contract" in checks,
+            "rust": "control-center.rust" in checks,
+            "ops": "control-center.ops" in checks,
+            "unit_tests": "control-center.rust" in checks,
+            "image": "control-center.image" in checks,
             "infra": "cloudflare.home" in selected,
-            "checks": any(unit.startswith("control-center.") for unit in selected),
+            "checks": bool(checks & {"control-center.rust", "control-center.ops"}),
         }
     )
     # Build verification and deployment authority are separate decisions.

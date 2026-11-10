@@ -1,0 +1,16 @@
+[package]
+name = "homelab-process"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.89"
+publish = false
+
+[dependencies]
+rustix = { version = "1", features = ["process", "fs", "pipe"] }
+thiserror = "2"
+tempfile = "3"
+
+[lints.rust]
+unsafe_code = "forbid"
+[lints.clippy]
+all = "warn"

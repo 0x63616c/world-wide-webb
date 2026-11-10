@@ -38,6 +38,15 @@ def validate(config):
         for dependent in unit.get("verify_dependents", []):
             if dependent not in config["units"]:
                 raise ValueError(f"Unknown dependent: {dependent}")
+    for path, consumers in config.get("workflow_units", {}).items():
+        if not path.startswith(".github/") or any(name not in config["units"] for name in consumers):
+            raise ValueError(f"Invalid workflow consumers: {path}")
+    for name, check in config.get("checks", {}).items():
+        if not check.get("units") or any(unit not in config["units"] for unit in check["units"]):
+            raise ValueError(f"Invalid check consumers: {name}")
+        for pattern in check.get("paths", []) + check.get("exclude", []):
+            if not isinstance(pattern, str) or pattern.startswith("/") or ".." in pattern.split("/"):
+                raise ValueError(f"Invalid check input: {name}")
     return config
 
 
@@ -47,12 +56,21 @@ def select(paths, config, force=False):
     delivery = set()
     unknown = set()
     shared = False
+    reasons = {}
+    workflow_consumers = set()
     for path in paths:
         if not path:
             continue
         if path.startswith("/") or ".." in path.split("/"):
             raise ValueError("Changes must use repository-relative paths")
         if documentation(path):
+            continue
+        consumers = config.get("workflow_units", {}).get(path)
+        if consumers is not None:
+            direct.update(consumers)
+            workflow_consumers.update(consumers)
+            for name in consumers:
+                reasons.setdefault(name, []).append(path)
             continue
         if matches(path, config.get("shared_verify", [])):
             shared = True
@@ -63,25 +81,51 @@ def select(paths, config, force=False):
             if matches(path, unit["paths"]) and not matches(path, unit.get("exclude", []))
         }
         direct.update(owners)
-        delivery.update(name for name in owners if units[name].get("delivery") and
-                        matches(path, units[name].get("delivery_paths", units[name]["paths"])) and
-                        not matches(path, units[name].get("delivery_exclude", [])))
+        for name in owners:
+            reasons.setdefault(name, []).append(path)
+        delivery.update(
+            name
+            for name in owners
+            if units[name].get("delivery")
+            and matches(path, units[name].get("delivery_paths", units[name]["paths"]))
+            and not matches(path, units[name].get("delivery_exclude", []))
+        )
         if not owners:
             unknown.add(path)
     # Unknown paths fail conservatively into verification, never deployment.
     verify = set(units) if force or shared or unknown else set(direct)
     pending = list(verify)
     while pending:
-        for dependent in units[pending.pop()].get("verify_dependents", []):
+        pending_name = pending.pop()
+        for dependent in units[pending_name].get("verify_dependents", []):
             if dependent not in verify:
                 verify.add(dependent)
+                reasons.setdefault(dependent, []).append("dependency: " + pending_name)
                 pending.append(dependent)
+    checks = {}
+    for name, check in config.get("checks", {}).items():
+        consumers = set(check["units"])
+        inputs = [
+            path
+            for path in paths
+            if path
+            and not documentation(path)
+            and matches(path, check["paths"])
+            and not matches(path, check.get("exclude", []))
+        ]
+        if force or shared or unknown or consumers.intersection(workflow_consumers):
+            inputs.append("forced/shared/unmapped/workflow consumer")
+        if inputs and consumers.intersection(verify):
+            checks[name] = sorted(set(inputs))
     return {
         "version": 1,
         "verify": sorted(verify),
         "delivery_candidates": sorted(delivery),
         "shared_tooling": shared,
         "unmapped": sorted(unknown),
+        "checks": sorted(checks),
+        "check_reasons": checks,
+        "reasons": {name: sorted(set(reasons.get(name, ["forced/shared/unmapped"]))) for name in sorted(verify)},
     }
 
 
@@ -115,7 +159,7 @@ def main():
     args.output.write_text(json.dumps(result, indent=2) + "\n")
     if os.environ.get("GITHUB_OUTPUT"):
         with open(os.environ["GITHUB_OUTPUT"], "a") as output:
-            for key in ("verify", "delivery_candidates"):
+            for key in ("verify", "delivery_candidates", "checks"):
                 output.write(f"{key}={json.dumps(result[key], separators=(',', ':'))}\n")
     print(json.dumps(result))
 

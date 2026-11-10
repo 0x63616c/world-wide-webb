@@ -76,6 +76,28 @@ site, infrastructure and host inputs have separate owners. Tests/docs verify as 
 cannot upload other products or activate hosts. Shared/unknown inputs trigger conservative
 verification without authorizing publication. Forced checks are verification-only.
 
+The same manifest also names individual checks and workflow consumers. Homelab Python tests,
+Linux controller tests and Darwin configuration builds select independently. Control Center
+separates Rust, operations, wire-contract and full simulator verification. Selection artifacts
+include the input reasons; an unknown workflow/action remains a conservative full verification.
+Operations-only Control Center changes share the lint job instead of allocating a Rust test job.
+
+Compiler snapshots use source-specific keys with toolchain/lockfile-compatible restore prefixes.
+Docker's Cargo mount is transferred explicitly between disposable builders. Nix verification can
+restore signed output closures from the private repository cache; export is limited to 2 GiB and
+120 seconds, with a separate two-minute cache upload limit. Only protected-main pushes and explicit
+manual runs receive the signing key. Cache errors remain visible and fall back to required builds;
+production Nix trust and host activation ownership are unchanged. The shared `homelab/process`
+crate lets host operations depend on process supervision without compiling interactive CLI code.
+
+For comparable measurements, dispatch **Homelab CI** on the candidate with `benchmark=backup-test`
+or `benchmark=service` and a full `baseline` SHA. Two fresh Mac jobs replay each source's selector
+and real handlers, then repeat on the same runner for a local-warm measurement. Artifacts contain
+per-check execution seconds. This is a same-path handler replay, not full distributed CI latency;
+use Actions job timestamps for queue, setup, cache download/upload and actual critical-path time.
+Benchmark evidence cannot authorize host promotion. Normal dispatch (`benchmark=none`) retains
+full verification and can exercise signed cross-run output reuse after review.
+
 The standard iOS resolver also discovers independent `standard_ios` app manifests. Product
 workflows retain their existing handlers for Folding, Callkeep and Control Center. Always-reporting
 gates fail selected failed/cancelled/skipped jobs; review and successful checks remain part of the publication process. The owner chose

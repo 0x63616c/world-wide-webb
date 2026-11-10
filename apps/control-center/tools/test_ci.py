@@ -91,7 +91,7 @@ class CITests(unittest.TestCase):
 
     def test_gate_rejects_missing_failed_cancelled_and_unexpectedly_skipped_checks(self):
         needs = {k: {"result": "success"} for k in ["changes", "typecheck", "test-unit", "apple", "image", "infra"]}
-        needs["changes"]["outputs"] = dict(apple="true", image="true", infra="false", checks="true")
+        needs["changes"]["outputs"] = dict(apple="true", image="true", infra="false", checks="true", unit_tests="true")
         needs["infra"]["result"] = "skipped"
         verify(needs)
         for job in ["changes", "typecheck", "test-unit", "apple", "image", "infra"]:
@@ -135,7 +135,9 @@ class RepositorySelectionTests(unittest.TestCase):
 
     def test_product_native_keeps_existing_publication_policy(self):
         selected = classify_repository(["apps/control-center/apple/App/Clock.swift"])
-        self.assertTrue(selected["checks"])
+        self.assertFalse(selected["checks"])
+        self.assertFalse(selected["rust"])
+        self.assertTrue(selected["native"])
         self.assertTrue(selected["publish_apple"])
         self.assertFalse(selected["image"])
 
@@ -143,7 +145,7 @@ class RepositorySelectionTests(unittest.TestCase):
         needs = {key: {"result": "skipped"} for key in ["typecheck", "test-unit", "apple", "image", "infra"]}
         needs["changes"] = {
             "result": "success",
-            "outputs": dict(checks="false", apple="false", image="false", infra="false"),
+            "outputs": dict(checks="false", apple="false", image="false", infra="false", unit_tests="false"),
         }
         verify(needs)
         needs["test-unit"]["result"] = "failure"
@@ -170,6 +172,11 @@ class InfrastructureIsolationTests(unittest.TestCase):
                 publish_apple=False,
                 publish_image=False,
                 apply_infra=True,
+                native=False,
+                contract=False,
+                rust=False,
+                ops=False,
+                unit_tests=False,
             ),
         )
 
@@ -179,7 +186,7 @@ class InfrastructureIsolationTests(unittest.TestCase):
 
 class DeliveryAuthorityTests(unittest.TestCase):
     def test_shared_and_unmapped_verification_never_publish_or_apply(self):
-        for path in ["fastlane/Fastfile", "Gemfile", ".github/workflows/ci.yml", "unmapped-config.json"]:
+        for path in ["fastlane/Fastfile", "Gemfile", "unmapped-config.json"]:
             selected = classify_repository([path])
             self.assertTrue(selected["image"])
             self.assertTrue(selected["infra"])

@@ -2,8 +2,10 @@
 """Evaluate the full flake; build host outputs for service-only changes."""
 
 import argparse
+import json
 import re
 import subprocess
+from pathlib import Path
 
 
 def service_only(paths):
@@ -14,6 +16,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--base", default="")
     parser.add_argument("--head", default="")
+    parser.add_argument("--roots-output", type=Path)
     args = parser.parse_args()
     paths = []
     if all(re.fullmatch("[a-f0-9]{40}", value) for value in (args.base, args.head)) and args.base != "0" * 40:
@@ -42,6 +45,23 @@ def main():
         )
     else:
         subprocess.run(command, check=True)
+    if args.roots_output:
+        outputs = json.loads(
+            subprocess.check_output(
+                [
+                    "nix",
+                    "eval",
+                    "--no-update-lock-file",
+                    "--json",
+                    ".#checks.aarch64-darwin",
+                    "--apply",
+                    "checks: builtins.mapAttrs (name: value: value.outPath) checks",
+                ],
+                text=True,
+            )
+        )
+        names = ["mac-mini", "macbook", "deployment-inputs"] if service_only(paths) else outputs
+        args.roots_output.write_text(json.dumps(sorted({outputs[name] for name in names})) + "\n")
 
 
 if __name__ == "__main__":
