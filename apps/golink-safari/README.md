@@ -32,11 +32,13 @@ Those are verification builds. Safari installation needs trusted Apple signing.
 For a Developer ID Mac release, use an identity installed in your keychain:
 
 ```sh
-bash Scripts/build.sh macos -configuration Release ONLY_ACTIVE_ARCH=NO \
-  CODE_SIGN_STYLE=Manual 'CODE_SIGN_IDENTITY=Developer ID Application: NAME (TEAM)'
-codesign --verify --deep --strict build/macos/Build/Products/Release/Golink.app
+bash Scripts/build.sh macos-release \
+  'CODE_SIGN_IDENTITY=Developer ID Application: NAME (TEAM)'
+codesign --verify --deep --strict build/macos-release/Build/Products/Release/Golink.app
 ```
 
+The release preset builds both Mac architectures, requests secure signing timestamps,
+and disables injected development entitlements (including `get-task-allow`).
 Notarize a ZIP made with `ditto -c -k --keepParent`, staple the accepted ticket to
 `Golink.app`, and verify with `spctl --assess --type execute`. Keep the notarization
 key outside Git. Install the accepted app in `/Applications` or `~/Applications`,
