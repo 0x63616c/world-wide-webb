@@ -7,6 +7,7 @@ Start with [README.md](README.md) and the relevant product README.
 - `apps/airmiles`: SwiftUI flight journal, domain package and offline import tests.
 - `apps/folding`: preserved iOS/Rust Worker/contracts layout and product Fastlane machinery.
 - `apps/callkeep`: macOS recording/transcription source, packages and release scripts.
+- `apps/golink-safari`: macOS/iPhone/iPad Safari extension and native setup app; independent from the Golink server.
 - `apps/control-center`: complete native Swift/Rust/SQLite product. Read its
   [source map](apps/control-center/CODEBASE_OVERVIEW.md) before changing it.
 - `homelab`: desired host state, operations, runners and local CLI; root flake/enrollment files delegate here.

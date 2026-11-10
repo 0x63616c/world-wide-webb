@@ -1,0 +1,6 @@
+:root { color-scheme: light dark; font-family: system-ui, sans-serif; }
+body { margin: 0; }
+main { box-sizing: border-box; padding: 24px; min-width: 280px; max-width: 480px; margin: auto; }
+h1 { font-size: 1.4rem; margin: 0 0 12px; }
+p { line-height: 1.5; margin: 0 0 12px; }
+#status { color: light-dark(#53535a, #bcbcc5); }
