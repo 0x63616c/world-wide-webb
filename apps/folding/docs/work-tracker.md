@@ -615,3 +615,8 @@ all 53 release tests / 730 assertions pass locally.
 This release-tooling-only change selects no native delivery, preserving the pending
 build 21 review. The hosted controller startup timeout remains a separate delivery
 hardening follow-up; its underlying cause is unverified.
+
+
+November 10 follow-up: [#1005](https://github.com/0x63616c/world-wide-webb/issues/1005) tracks automatic
+profile-picture content filtering. It is deferred from the blocking/account-deletion release;
+no paid provider signup, manual approvals or preset-avatar replacement is authorized.

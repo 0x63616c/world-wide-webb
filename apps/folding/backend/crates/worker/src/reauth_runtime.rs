@@ -115,6 +115,20 @@ pub(crate) async fn exchange(
         return Err(Failure::unauthorized());
     }
     let owner = &owners[0];
+    // Reject expired/unknown receipts before exchanging an Apple code for a fresh revocation grant.
+    if recovery {
+        #[derive(Deserialize)]
+        struct RecoveryWindow {
+            recover_until_ms: Option<i64>,
+        }
+        let window = statement(db, "SELECT recover_until_ms FROM deletion_operations WHERE participant_id=?1 AND operation_id=?2", &[text(&owner.participant_id), text(input.deletion_operation_id.as_ref().ok_or_else(Failure::malformed)?.as_str())])?
+            .first::<RecoveryWindow>(None).await.map_err(|_| Failure::unavailable())?
+            .ok_or(Failure { status: 404, code: "not_found", retryable: false })?;
+        if window.recover_until_ms.is_some_and(|expiry| expiry <= time) {
+            return Err(Failure::unauthorized());
+        }
+    }
+
     let normalized=Sha256::digest(serde_json::to_vec(&serde_json::json!({"operation_id":input.operation_id,"purpose":purpose,"challenge_id":input.challenge_id,"device_id":input.device_id,"deletion_operation_id":input.deletion_operation_id})).map_err(|_|Failure::unavailable())?);
     if recovery
         && let Some(value) = crate::deletion_runtime::recover_receipt(

@@ -147,16 +147,10 @@ struct FoldingRootView: View {
       NavigationStack {
         List(
           model.competition.previous?.entries.filter {
-            $0.rank == rank && !model.hiddenParticipantIDs.contains($0.id)
+            $0.rank == rank
           } ?? []
         ) { entry in
-          NavigationLink {
-            ProfileDestinationScreen(participantID: entry.id, model: model, actions: actions)
-          } label: {
-            LeaderboardRow(entry: entry)
-          }.contextMenu {
-            ParticipantMenu(entry: entry, model: model, actions: actions)
-          }
+          LeaderboardMemberLink(entry: entry, model: model, actions: actions)
         }
         .navigationTitle(String(localized: "leaderboard.tiedRank", defaultValue: "Tied places"))
         .toolbar {
@@ -790,8 +784,13 @@ private struct SettingsScreen: View {
             NavigationLink(String(localized: "profile.yours", defaultValue: "Your Profile")) {
               YourProfileScreen(model: model, actions: actions)
             }
-            ProfileAccountActions(model: model, actions: actions)
+            NavigationLink(String(localized: "block.list", defaultValue: "Blocked players")) {
+              BlockedPlayersScreen(model: model, actions: actions)
+            }
           }
+        }
+        if model.competitionAccountExists {
+          Section { ProfileAccountActions(model: model, actions: actions) }
         }
         Section(String(localized: "settings.data", defaultValue: "Data")) {
           if model.privateHistoryHealth?.requiresAttention == true {
@@ -1419,7 +1418,7 @@ private struct LeaderboardScreen: View {
         }
         let podium = Dictionary(
           grouping: value.entries.filter {
-            (1...3).contains($0.rank) && !model.hiddenParticipantIDs.contains($0.id)
+            (1...3).contains($0.rank)
           }, by: \.rank)
         Group {
           HStack(alignment: .bottom, spacing: 16) {
@@ -1433,7 +1432,7 @@ private struct LeaderboardScreen: View {
                       CompetitionAvatar(entry: first, size: rank == 1 ? 64 : 48)
                       Text(first.displayName).font(.caption).lineLimit(2)
                     }
-                  }.buttonStyle(.plain)
+                  }.buttonStyle(.plain).disabled(first.isBlocked)
                   if entries.count > 1 {
                     Button("+\((entries.count - 1).formatted())") { model.present(.tiedRank(rank)) }
                       .font(.caption).frame(minWidth: 44, minHeight: 44)
@@ -1472,14 +1471,8 @@ private struct LeaderboardScreen: View {
           Text(String(localized: "leaderboard.empty", defaultValue: "No folds yet"))
             .foregroundStyle(.secondary)
         }
-        ForEach(value.entries.filter { !model.hiddenParticipantIDs.contains($0.id) }) { entry in
-          NavigationLink {
-            ProfileDestinationScreen(participantID: entry.id, model: model, actions: actions)
-          } label: {
-            LeaderboardRow(entry: entry)
-          }.contextMenu {
-            ParticipantMenu(entry: entry, model: model, actions: actions)
-          }
+        ForEach(value.entries) { entry in
+          LeaderboardMemberLink(entry: entry, model: model, actions: actions)
         }
         if value.nextCursor != nil, actions.loadLeaderboardPage != nil {
           if model.leaderboardLoadingMore {
@@ -1524,7 +1517,7 @@ private struct LeaderboardScreen: View {
   }
 }
 
-private struct LeaderboardRow: View {
+struct LeaderboardRow: View {
   let entry: LeaderboardEntry
   var body: some View {
     HStack(spacing: 12) {

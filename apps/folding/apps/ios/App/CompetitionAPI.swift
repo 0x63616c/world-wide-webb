@@ -27,6 +27,7 @@ struct CompetitionWireRank: Decodable, Sendable {
   // swift-format-ignore: AlwaysUseLowerCamelCase
   let participant_id: String
   let nickname: String
+  let blocked: Bool?
   // swift-format-ignore: AlwaysUseLowerCamelCase
   let avatar_id: String?
   let folds: Int
@@ -57,6 +58,8 @@ struct CompetitionOperation: Codable, Sendable {
   // swift-format-ignore: AlwaysUseLowerCamelCase
   let operation_id: String
   let state: String
+  // swift-format-ignore: AlwaysUseLowerCamelCase
+  var error_code: String? = nil
 }
 
 actor CompetitionAPI {

@@ -74,7 +74,7 @@ struct HiddenParticipantsPage: Sendable {
 }
 
 enum CompetitionSheet: String { case join, profile, results, liveShare, milestones }
-enum CompetitionRemovalState { case deleting, deleteFailed }
+enum CompetitionRemovalState { case deleting, deleteFailed, cleanupAttention, statusUnavailable }
 
 extension FoldingPresentation {
   func beginJoin(suggestedNickname: String) {
@@ -199,5 +199,38 @@ extension FoldingPresentation {
       resultsLoading = false
       resultsFailed = !(error is CancellationError)
     }
+  }
+}
+
+func blockedPlayerName(_ id: String) -> String {
+  String(localized: "block.player", defaultValue: "Blocked player") + " · "
+    + id.prefix(8).uppercased()
+}
+
+extension FoldingPresentation {
+  /// Retire in-flight requests before removing identity from every retained board.
+  func updateBlockedParticipant(_ id: String, blocked: Bool) {
+    invalidateLeaderboardRequests()
+    invalidateMilestones()
+    resultsRequestID = UUID()
+    hiddenRequestID = UUID()
+    hiddenLoading = false
+    if blocked { hiddenParticipantIDs.insert(id) } else { hiddenParticipantIDs.remove(id) }
+    func project(_ board: LeaderboardPresentation) -> LeaderboardPresentation {
+      var board = board
+      board = LeaderboardPresentation(
+        periodTitle: board.periodTitle,
+        entries: board.entries.map { entry in
+          guard entry.id == id, blocked else { return entry }
+          return LeaderboardEntry(
+            id: entry.id, rank: entry.rank, displayName: blockedPlayerName(id),
+            folds: entry.folds, approvedAvatarURL: nil, isCurrentUser: false, isBlocked: true)
+        }, currentUser: board.currentUser, updatedAt: board.updatedAt, population: board.population,
+        nextCursor: nil, snapshotVersion: nil, periodID: board.periodID)
+      return board
+    }
+    if let board = competition.previous { competition = .loaded(project(board)) }
+    if let board = allTimeResult { allTimeResult = project(board) }
+    if blocked, case .tiedRank = sheet { sheet = nil }
   }
 }

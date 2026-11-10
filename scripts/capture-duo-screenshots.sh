@@ -171,6 +171,7 @@ ENTITLEMENTSPY
   TEST_RUNNER_DUO_HOST_APPLICATION_PATH="${DEVELOPER_DIR%/Developer}/Applications/DeviceHub.app" \
   TEST_RUNNER_DUO_HOST_APPLICATION_PID="$host_application_worker" \
   TEST_RUNNER_DUO_HOST_CONTROL_DIR="$work" TEST_RUNNER_DUO_HOST_DEVICE_NAME="$simulator_name" \
+  TEST_RUNNER_DUO_HOST_DEVICE_ID="$udid" \
     xcodebuild test-without-building -project "$work/host-project/DuoCaptureHost.xcodeproj" \
     -scheme DuoCaptureHost -destination 'platform=macOS' -derivedDataPath "$work/HostDerivedData" \
     DUO_HOST_CONTROL_DIRECTORY="$work" -parallel-testing-enabled NO -test-timeouts-enabled NO -resultBundlePath "$work/DuoHostControl.xcresult" \

@@ -196,6 +196,7 @@ struct LeaderboardEntry: Identifiable, Sendable {
   let isCurrentUser: Bool
   var approvedAvatarData: Data? = nil
   var featuredBadge: MilestoneBadge? = nil
+  var isBlocked = false
 }
 
 struct LeaderboardPresentation: Sendable {
@@ -437,6 +438,7 @@ enum ExportChoice { case json, csv }
     }
   }
 
+  var competitionAccountExists = false
   var competitionJoined = false
   var publicTrackingPhone: TrackingPhoneSelection?
   var localDeviceID: UUID?

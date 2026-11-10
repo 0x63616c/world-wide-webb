@@ -241,3 +241,139 @@ extension CompetitionTransportTests {
     XCTAssertNil(CompetitionTransport.serverRetryDelay(nil, fallback: nil, status: 503, nowMS: 0))
   }
 }
+
+/// Hold a successful identity response until after the block mutation has completed.
+private final class DelayedIdentityProtocol: URLProtocol, @unchecked Sendable {
+  static let lock = NSLock()
+  nonisolated(unsafe) static var waiting: [DelayedIdentityProtocol] = []
+  nonisolated(unsafe) static var started: XCTestExpectation?
+  override class func canInit(with request: URLRequest) -> Bool { true }
+  override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+  override func startLoading() {
+    if request.httpMethod == "PUT" {
+      finish(Data(#"{"blocked":true}"#.utf8), mime: "application/json")
+    } else {
+      let expectation = Self.lock.withLock {
+        Self.waiting.append(self)
+        return Self.started
+      }
+      expectation?.fulfill()
+    }
+  }
+  override func stopLoading() {}
+  func finish(_ data: Data, mime: String) {
+    let response = HTTPURLResponse(
+      url: request.url!, statusCode: 200, httpVersion: nil, headerFields: ["Content-Type": mime])!
+    client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+    client?.urlProtocol(self, didLoad: data)
+    client?.urlProtocolDidFinishLoading(self)
+  }
+}
+
+@MainActor final class BlockVisibilityTests: XCTestCase {
+  func testDelayedBoardProfileAndAvatarCannotRestoreBlockedIdentity() async throws {
+    let started = expectation(description: "Identity reads started")
+    started.expectedFulfillmentCount = 3
+    DelayedIdentityProtocol.lock.withLock {
+      DelayedIdentityProtocol.waiting = []
+      DelayedIdentityProtocol.started = started
+    }
+    let configuration = URLSessionConfiguration.ephemeral
+    configuration.protocolClasses = [DelayedIdentityProtocol.self]
+    let session = URLSession(configuration: configuration)
+    defer { session.invalidateAndCancel() }
+    let transport = try CompetitionTransport(
+      origin: URL(string: "https://api.getfolding.app")!, deployment: "production",
+      deviceID: UUID(), bundleID: "app.getfolding.tests.\(UUID())", session: session)
+    try await transport.saveSession(
+      CompetitionSession(
+        access_token: "synthetic", refresh_token: "synthetic", expires_at_ms: Int64.max))
+    defer {
+      DelayedIdentityProtocol.lock.withLock {
+        DelayedIdentityProtocol.started = nil
+        DelayedIdentityProtocol.waiting = []
+      }
+    }
+    struct Identity: Decodable, Sendable { let nickname: String }
+    let board = Task {
+      let _: Identity = try await transport.send("GET", path: "/v1/leaderboards?kind=all")
+    }
+    let profile = Task {
+      let _: Identity = try await transport.send("GET", path: "/v1/participants/\(UUID())")
+    }
+    let avatar = Task { _ = try await transport.avatarImage(UUID().uuidString.lowercased()) }
+    await fulfillment(of: [started], timeout: 5)
+    struct Block: Decodable, Sendable { let blocked: Bool }
+    let _: Block = try await transport.send(
+      "PUT", path: "/v1/blocks/\(UUID())", body: Data("{}".utf8))
+    let waiting = DelayedIdentityProtocol.lock.withLock { DelayedIdentityProtocol.waiting }
+    for request in waiting {
+      let image = request.request.url!.path.hasSuffix("/image")
+      request.finish(
+        image ? Data([1, 2, 3]) : Data(#"{"nickname":"Hidden name"}"#.utf8),
+        mime: image ? "image/jpeg" : "application/json")
+    }
+    for result in [await board.result, await profile.result, await avatar.result] {
+      switch result {
+      case .success: XCTFail("A stale identity response escaped the visibility fence")
+      case .failure(let error): XCTAssertTrue(error is CancellationError, "\(error)")
+      }
+    }
+    try await transport.clearSession()
+  }
+}
+
+@MainActor private final class ExpiredDeletionAuthorization: CompetitionAccountAuthorizing {
+  let status: Int
+  var existingOnlyAttempts: [Bool] = []
+  init(status: Int) { self.status = status }
+  func recoverDeletion(transport: CompetitionTransport, deviceID: UUID, operationID: String)
+    async throws -> CompetitionDeletionReceipt
+  {
+    throw CompetitionTransportError.server(status)
+  }
+  func reauthenticate(transport: CompetitionTransport, deviceID: UUID) async throws -> String {
+    throw CompetitionTransportError.unauthorized
+  }
+  func signIn(
+    transport: CompetitionTransport, deviceID: UUID, existingParticipantID: String?,
+    existingAccountOnly: Bool
+  ) async throws -> CompetitionSignInResult {
+    existingOnlyAttempts.append(existingAccountOnly)
+    throw CompetitionTransportError.server(404)
+  }
+}
+
+@MainActor final class DeletionRecoveryTests: XCTestCase {
+  func testLostAcceptedResponseAfterRetentionShowsUnverifiedStatusWithoutRecreatingAccount()
+    async throws
+  {
+    for status in [401, 404] {
+      let device = UUID()
+      let transport = try CompetitionTransport(
+        origin: URL(string: "https://api.getfolding.app")!, deployment: "production",
+        deviceID: device, bundleID: "app.getfolding.tests.\(UUID())")
+      let operation = CompetitionRemovalOperation(
+        kind: .delete, operationID: UUID().uuidString.lowercased(), accepted: false,
+        deletionReceipt: nil)
+      // Server accepted the request, but its response was lost; this is the exact durable client state.
+      try await transport.saveRemoval(operation)
+      let authorization = ExpiredDeletionAuthorization(status: status)
+      let suite = "folding.deletion.tests.\(UUID())"
+      let defaults = UserDefaults(suiteName: suite)!
+      defer { defaults.removePersistentDomain(forName: suite) }
+      let controller = AppController(
+        preferencesStore: defaults,
+        competitionAPI: CompetitionAPI(transport: transport, deviceID: device),
+        appleSignIn: authorization)
+      try await controller.pollRemoval(allowRecovery: true)
+      XCTAssertEqual(controller.presentation.competitionRemoval, .statusUnavailable)
+      let saved = try await transport.pendingRemoval()
+      XCTAssertEqual(saved?.operationID, operation.operationID)
+      XCTAssertEqual(saved?.accepted, false)
+      XCTAssertEqual(authorization.existingOnlyAttempts, status == 404 ? [true] : [])
+      try await transport.finishRemoval()
+      try await transport.clearSession()
+    }
+  }
+}

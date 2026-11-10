@@ -9,6 +9,7 @@ final class DuoHostControlTests: XCTestCase {
         let env = ProcessInfo.processInfo.environment
         let directory = URL(fileURLWithPath: try XCTUnwrap(env["DUO_HOST_CONTROL_DIR"]))
         let name = try XCTUnwrap(env["DUO_HOST_DEVICE_NAME"])
+        let deviceID = try XCTUnwrap(env["DUO_HOST_DEVICE_ID"]).uppercased()
         func stage(_ value: String) throws {
             try Data(value.utf8).write(to: directory.appendingPathComponent("host-stage.txt"), options: .atomic)
         }
@@ -28,35 +29,25 @@ final class DuoHostControlTests: XCTestCase {
         XCTAssertTrue(running.isFinishedLaunching)
         let hub = XCUIApplication(url: application)
         try stage("activating_application")
-        hub.activate()
+        // Device Hub streams the simulator continuously. XCTest activation can
+        // wait indefinitely for it to idle; AppKit sends activation without that
+        // quiescence wait, and the process-state assertion still verifies focus.
+        XCTAssertTrue(running.activate(options: []))
         XCTAssertTrue(hub.wait(for: .runningForeground, timeout: 15), "The selected Xcode's Device Hub must be running")
         try stage("finding_window")
         try Data(hub.debugDescription.utf8).write(to: directory.appendingPathComponent("host-hierarchy.txt"), options: .atomic)
         let window = hub.windows.firstMatch
         XCTAssertTrue(window.waitForExistence(timeout: 30))
-        // A fresh Device Hub can open with no selection. Select the owned device
-        // by its full accessible value; never depend on a remembered selection.
-        if !window.label.contains(name) {
+        // The window exposes its device name as title, not label. Sidebar display
+        // names can be truncated; select by the owned simulator's stable identifier.
+        if !window.title.contains(name) {
             try stage("selecting_capture_device")
-            // Other descendants have numeric values (sliders/switches). A
-            // string predicate over every value can crash Foundation before
-            // finding the row. Inspect each value's actual type instead.
-            func captureRow() -> XCUIElement? {
-                window.descendants(matching: .any).allElementsBoundByIndex.first {
-                    $0.label.contains(name) || ($0.value as? String)?.contains(name) == true
-                }
-            }
-            let selectionDeadline = Date().addingTimeInterval(30)
-            var candidate = captureRow()
-            while candidate == nil && Date() < selectionDeadline {
-                RunLoop.current.run(until: Date().addingTimeInterval(0.1))
-                candidate = captureRow()
-            }
-            let row = try XCTUnwrap(candidate, "The disposable Duo must be present")
+            let row = window.cells
+                .containing(.staticText, identifier: "TableRow.Device.\(deviceID)").firstMatch
+            XCTAssertTrue(row.waitForExistence(timeout: 30), "The disposable Duo must be present")
             row.click()
-            XCTAssertTrue(window.waitForExistence(timeout: 10))
             let selected = XCTNSPredicateExpectation(
-                predicate: NSPredicate(format: "label CONTAINS %@", name), object: window)
+                predicate: NSPredicate(format: "title CONTAINS %@", name), object: window)
             XCTAssertEqual(XCTWaiter.wait(for: [selected], timeout: 10), .completed,
                 "Device Hub must select the disposable Duo")
         }
@@ -76,7 +67,8 @@ final class DuoHostControlTests: XCTestCase {
                 continue
             }
             previous = id
-            hub.activate()
+            XCTAssertTrue(running.activate(options: []))
+            XCTAssertTrue(hub.wait(for: .runningForeground, timeout: 15))
             if let pose = request["pose"] {
                 XCTAssertTrue(["inner", "outer"].contains(pose))
                 let control = window.buttons[pose == "inner" ? "Open" : "Closed"]

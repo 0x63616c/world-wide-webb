@@ -337,3 +337,59 @@ test('badge pushes are opt-in, group new awards, suppress viewed awards and do n
  assert.equal(await db.prepare('SELECT count(*) n FROM badge_notification_jobs WHERE participant_id=?').bind(fresh.participant).first('n'),0);
  assert.equal((await request({headers:{'Content-Type':'application/json'}},'/v1/preferences',{operation_id:uuid(++op),preferences:prefs},'PUT')).status,401);
 });
+
+
+test('blocking anonymizes live and frozen ranks and denies direct profiles without reranking',async()=>{
+ await setup();const viewer=await person(194000,10),target=await person(195000,200);
+ await db.prepare("UPDATE profiles SET nickname='Visible name' WHERE participant_id=?").bind(target.participant).run();
+ await observations(target,Array.from({length:200},(_,i)=>event(target,i+1,Date.now()-100000+i)));
+ const initial=await jsonOK(await request(viewer,'/v1/leaderboards?kind=all'));
+ const prior=initial.page.items.find(row=>row.participant_id===target.participant);assert.ok(prior);
+ const block={operation_id:uuid(++op)};
+ await jsonOK(await request(viewer,'/v1/blocks/'+target.participant,block,'PUT'));
+ await jsonOK(await request(viewer,'/v1/blocks/'+target.participant,block,'PUT'));
+ const masked=await jsonOK(await request(viewer,'/v1/leaderboards?kind=all'));
+ const row=masked.page.items.find(row=>row.participant_id===target.participant);
+ assert.equal(masked.population,initial.population);assert.equal(row.rank,prior.rank);assert.equal(row.folds,prior.folds);
+ assert.equal(row.blocked,true);assert.equal(row.nickname,'Blocked player');assert.equal(row.avatar_id,null);assert.equal(row.featured_badge_id,null);
+ assert.equal((await request(viewer,'/v1/participants/'+target.participant)).status,404);
+ const list=await jsonOK(await request(viewer,'/v1/blocks'));assert.ok(list.items.some(r=>r.participant_id===target.participant));
+ const period='week:blocked-fixture';
+ await db.prepare("INSERT INTO periods(period_id,kind,start_ms,end_ms,cutoff_ms,state,published_version,population) VALUES (?,'week',1,2,3,'finalized',1,2)").bind(period).run();
+ await db.prepare("INSERT INTO results VALUES (?,1,?,0,?,0,200,1,2,100,'gold')").bind(period,target.participant,nil).run();
+ const frozen=await jsonOK(await request(viewer,'/v1/leaderboards?kind=week&period_id='+encodeURIComponent(period)));
+ assert.equal(frozen.population,2);assert.equal(frozen.page.items[0].rank,1);assert.equal(frozen.page.items[0].blocked,true);assert.equal(frozen.page.items[0].nickname,'Blocked player');
+ await jsonOK(await request(viewer,'/v1/blocks/'+target.participant,{operation_id:uuid(++op)},'DELETE'));
+ const unmasked=await jsonOK(await request(viewer,'/v1/leaderboards?kind=all'));
+ assert.equal(unmasked.page.items.find(r=>r.participant_id===target.participant).nickname,'Visible name');
+ assert.equal((await request(viewer,'/v1/participants/'+target.participant)).status,200);
+});
+
+test('nonjoined and restricted accounts can delete; polling exposes cleanup failures and retry recovery',async()=>{
+ await setup();
+ for (const [n,membership,restriction] of [[96000,'not_joined','none'],[97000,'joined','banned']]) {
+  const p=await person(n),token=createHash("sha256").update(`privacy-${n}`).digest(),time=Date.now();
+  await db.prepare('UPDATE participants SET membership=?,restriction=? WHERE participant_id=?').bind(membership,restriction,p.participant).run();
+  await db.prepare('INSERT INTO reauthentications VALUES (?,?,?,?,?,?,?,?,?,0)').bind(createHash('sha256').update(token).digest(),p.participant,`milestone-session-${n}`,uuid(++op),'synthetic',Buffer.alloc(32),Buffer.alloc(32),'test-v1',time+300000).run();
+  const operation=uuid(++op);
+  const response=await request(p,'/v1/account/delete',{operation_id:operation,reauthentication_token:token.toString('base64url')});
+  assert.equal(response.status,202,await response.clone().text());const receipt=await response.json();
+  const poll=()=>runtime.dispatchFetch('https://api.example/v1/operations/'+operation,{headers:{Authorization:'Deletion '+receipt.polling_token}});
+  assert.equal((await jsonOK(await poll())).state,'pending');
+  await db.prepare("INSERT INTO external_retry_state VALUES (?,'avatar_cleanup','','paused',0,0,?,'configuration_or_authorization')").bind(uuid(++op),time).run();
+  let unrelated=await jsonOK(await poll());assert.equal(unrelated.state,'pending');assert.equal(unrelated.error_code,null);
+  await db.prepare("INSERT INTO avatar_purge_jobs(object_key,participant_id) VALUES (?,?)").bind('paused-avatar-'+operation,p.participant).run();
+  assert.equal((await jsonOK(await poll())).error_code,'cleanup_requires_attention');
+  await db.prepare("DELETE FROM avatar_purge_jobs WHERE participant_id=?").bind(p.participant).run();
+  await db.prepare("DELETE FROM external_retry_state WHERE kind='avatar_cleanup'").run();
+
+  await db.prepare("INSERT INTO external_retry_state VALUES (?,'account_revocation',?,'failed',12,0,?,'external_failure')").bind(uuid(++op),operation,time).run();
+  let status=await jsonOK(await poll());assert.equal(status.state,'failed');assert.equal(status.error_code,'cleanup_requires_attention');
+  // The existing operator retry changes state; status polling alone never resets exhaustion.
+  await db.prepare("UPDATE external_retry_state SET state='pending',attempts=0 WHERE work_key=?").bind(operation).run();
+  status=await jsonOK(await poll());assert.equal(status.state,'pending');assert.equal(status.error_code,'cleanup_retrying');
+  await db.prepare("DELETE FROM external_retry_state WHERE work_key=?").bind(operation).run();
+  await db.prepare("UPDATE deletion_operations SET state='completed' WHERE operation_id=?").bind(operation).run();
+  status=await jsonOK(await poll());assert.equal(status.state,'completed');assert.equal(status.error_code,null);
+ }
+});

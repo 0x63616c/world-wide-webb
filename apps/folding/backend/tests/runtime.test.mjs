@@ -270,6 +270,21 @@ test("actual Worker verifies Apple exchange, recovers one sign-in and fences cha
     assert.equal((await post("apple",{...input,operation_id:"00000000-0000-0000-0000-000000000805",challenge_id:otherChallenge.challenge_id,identity_token:original,authorization_code:code})).status,503);
   }
   assert.equal(await db.prepare("SELECT count(*) n FROM sessions WHERE participant_id=?").bind(participant).first("n"),1);
+  // Privacy recovery must require the existing account, even when Apple authorization is valid.
+  const recoveryChallenge=await (await post("challenges",{purpose:"sign_in"})).json();
+  const recoveryNonce=createHash("sha256").update(recoveryChallenge.nonce).digest("hex");
+  const recoveryToken=appleToken({sub:"synthetic-new-subject",nonce:recoveryNonce});
+  appleCodes.set("privacy-code",recoveryToken);
+  await db.prepare("UPDATE participants SET restriction='banned' WHERE participant_id=?").bind(participant).run();
+  const recoveryInput={...input,operation_id:"00000000-0000-0000-0000-000000000815",challenge_id:recoveryChallenge.challenge_id,identity_token:recoveryToken,authorization_code:"privacy-code",existing_account_only:true};
+  const recovered=await post("apple",recoveryInput);assert.equal(recovered.status,200);assert.equal((await recovered.json()).profile.participant_id,participant);
+  assert.equal((await post("apple",recoveryInput)).status,200);
+  const absentChallenge=await (await post("challenges",{purpose:"sign_in"})).json();
+  const absentToken=appleToken({sub:"never-registered-privacy-subject",nonce:createHash("sha256").update(absentChallenge.nonce).digest("hex")});
+  appleCodes.set("absent-code",absentToken);
+  const beforeCount=await db.prepare("SELECT count(*) n FROM participants").first("n");
+  assert.equal((await post("apple",{...recoveryInput,operation_id:"00000000-0000-0000-0000-000000000816",challenge_id:absentChallenge.challenge_id,identity_token:absentToken,authorization_code:"absent-code"})).status,404);
+  assert.equal(await db.prepare("SELECT count(*) n FROM participants").first("n"),beforeCount);
   const expiryChallenge=await (await post("challenges",{purpose:"sign_in"})).json();
   const expiryNonce=createHash("sha256").update(expiryChallenge.nonce).digest("hex");
   const expiryToken=appleToken({sub:"expiry-subject",nonce:expiryNonce});
