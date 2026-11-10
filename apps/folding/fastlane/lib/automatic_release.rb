@@ -78,7 +78,14 @@ module FoldingRelease
       raise "Apple content rights differ from owner approval" if actual && actual != expected
       unless actual
         api.request("PATCH", "/v1/apps/#{id}", body: ReviewSubmission.resource("apps", id: id, attributes: {"contentRightsDeclaration" => expected}))
-        raise "Apple content rights readback differs" unless api.request("GET", "/v1/apps/#{id}").dig("data", "attributes", "contentRightsDeclaration") == expected
+        # Apple's successful PATCH can precede its GET readback. Observe the
+        # same write for at most 30 seconds; never retry the mutation here.
+        7.times do |attempt|
+          actual = api.request("GET", "/v1/apps/#{id}").dig("data", "attributes", "contentRightsDeclaration")
+          break if actual == expected
+          sleep 5 if attempt < 6
+        end
+        raise "Apple content rights readback differs" unless actual == expected
       end
       schedule = api.request("GET", "/v1/apps/#{id}/appPriceSchedule", missing: true)&.fetch("data")
       unless schedule
