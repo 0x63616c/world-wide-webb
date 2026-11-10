@@ -9,6 +9,7 @@ final class DuoHostControlTests: XCTestCase {
         let env = ProcessInfo.processInfo.environment
         let directory = URL(fileURLWithPath: try XCTUnwrap(env["DUO_HOST_CONTROL_DIR"]))
         let name = try XCTUnwrap(env["DUO_HOST_DEVICE_NAME"])
+        let deviceID = try XCTUnwrap(env["DUO_HOST_DEVICE_ID"])
         func stage(_ value: String) throws {
             try Data(value.utf8).write(to: directory.appendingPathComponent("host-stage.txt"), options: .atomic)
         }
@@ -31,40 +32,35 @@ final class DuoHostControlTests: XCTestCase {
         hub.activate()
         XCTAssertTrue(hub.wait(for: .runningForeground, timeout: 15), "The selected Xcode's Device Hub must be running")
         try stage("finding_window")
-        try Data(hub.debugDescription.utf8).write(to: directory.appendingPathComponent("host-hierarchy.txt"), options: .atomic)
         let window = hub.windows.firstMatch
         XCTAssertTrue(window.waitForExistence(timeout: 30))
-        // A fresh Device Hub can open with no selection. Select the owned device
-        // by its full accessible value; never depend on a remembered selection.
-        if !window.label.contains(name) {
-            try stage("selecting_capture_device")
-            // Other descendants have numeric values (sliders/switches). A
-            // string predicate over every value can crash Foundation before
-            // finding the row. Inspect each value's actual type instead.
-            func captureRow() -> XCUIElement? {
-                window.descendants(matching: .any).allElementsBoundByIndex.first {
-                    $0.label.contains(name) || ($0.value as? String)?.contains(name) == true
-                }
-            }
-            let selectionDeadline = Date().addingTimeInterval(30)
-            var candidate = captureRow()
-            while candidate == nil && Date() < selectionDeadline {
-                RunLoop.current.run(until: Date().addingTimeInterval(0.1))
-                candidate = captureRow()
-            }
-            let row = try XCTUnwrap(candidate, "The disposable Duo must be present")
+        try Data(window.debugDescription.utf8).write(to: directory.appendingPathComponent("host-hierarchy.txt"), options: .atomic)
+        try stage("finding_capture_row")
+        // Names can be truncated in the sidebar or repeated in title text.
+        // Device Hub exposes the simulator UUID on its sidebar image instead.
+        let rows = window.descendants(matching: .outlineRow)
+            .containing(.image, identifier: "TableRow.Device.\(deviceID)")
+        let row = rows.firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 30), "The owned simulator must be present")
+        XCTAssertEqual(rows.count, 1, "Simulator identity must be unique")
+        if !row.isSelected {
+            try stage("selecting_capture_row")
             row.click()
-            XCTAssertTrue(window.waitForExistence(timeout: 10))
-            let selected = XCTNSPredicateExpectation(
-                predicate: NSPredicate(format: "label CONTAINS %@", name), object: window)
-            XCTAssertEqual(XCTWaiter.wait(for: [selected], timeout: 10), .completed,
-                "Device Hub must select the disposable Duo")
         }
-        try Data(hub.debugDescription.utf8).write(to: directory.appendingPathComponent("host-hierarchy.txt"), options: .atomic)
-        try stage("finding_pose_controls")
-        XCTAssertTrue(window.buttons["Open"].waitForExistence(timeout: 10))
-        XCTAssertTrue(window.buttons["Closed"].exists)
-        try Data("ready".utf8).write(to: directory.appendingPathComponent("host-ready"), options: .atomic)
+        try stage("waiting_for_display")
+        let open = window.buttons["Open"]
+        let closed = window.buttons["Closed"]
+        let displayDeadline = Date().addingTimeInterval(60)
+        func displayReady() -> Bool {
+            row.isSelected && open.exists && closed.exists && open.isEnabled && closed.isEnabled
+        }
+        while !displayReady() && Date() < displayDeadline {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.25))
+        }
+        try Data(window.debugDescription.utf8).write(to: directory.appendingPathComponent("host-hierarchy.txt"), options: .atomic)
+        XCTAssertTrue(displayReady(), "The owned simulator display must finish connecting")
+        let ready = try JSONSerialization.data(withJSONObject: ["device_id": deviceID, "device_name": name])
+        try ready.write(to: directory.appendingPathComponent("host-ready"), options: .atomic)
         try stage("ready")
         let deadline = Date().addingTimeInterval(90 * 60)
         var previous: String?
@@ -77,6 +73,7 @@ final class DuoHostControlTests: XCTestCase {
             }
             previous = id
             hub.activate()
+            XCTAssertTrue(row.isSelected, "Pose requests must only control the owned simulator")
             if let pose = request["pose"] {
                 XCTAssertTrue(["inner", "outer"].contains(pose))
                 let control = window.buttons[pose == "inner" ? "Open" : "Closed"]

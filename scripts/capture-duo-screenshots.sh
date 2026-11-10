@@ -170,17 +170,19 @@ ENTITLEMENTSPY
   host_application_worker=$!
   TEST_RUNNER_DUO_HOST_APPLICATION_PATH="${DEVELOPER_DIR%/Developer}/Applications/DeviceHub.app" \
   TEST_RUNNER_DUO_HOST_APPLICATION_PID="$host_application_worker" \
+  TEST_RUNNER_DUO_HOST_DEVICE_ID="$udid" \
   TEST_RUNNER_DUO_HOST_CONTROL_DIR="$work" TEST_RUNNER_DUO_HOST_DEVICE_NAME="$simulator_name" \
     xcodebuild test-without-building -project "$work/host-project/DuoCaptureHost.xcodeproj" \
     -scheme DuoCaptureHost -destination 'platform=macOS' -derivedDataPath "$work/HostDerivedData" \
     DUO_HOST_CONTROL_DIRECTORY="$work" -parallel-testing-enabled NO -test-timeouts-enabled NO -resultBundlePath "$work/DuoHostControl.xcresult" \
     > "$work/host-control.log" 2>&1 &
   host_worker=$!
-  python3 - "$work" "$host_worker" <<'HOSTPY'
-import os, pathlib, subprocess, sys, time
+  python3 - "$work" "$host_worker" "$udid" <<'HOSTPY'
+import json, os, pathlib, subprocess, sys, time
 folder, process = pathlib.Path(sys.argv[1]), int(sys.argv[2])
-for _ in range(120):
-    if (folder / "host-ready").exists():
+for _ in range(180):
+    ready = folder / "host-ready"
+    if ready.exists() and json.loads(ready.read_text()).get("device_id") == sys.argv[3]:
         break
     try:
         os.kill(process, 0)

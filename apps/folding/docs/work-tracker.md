@@ -611,3 +611,26 @@ all 53 release tests / 730 assertions pass locally.
 This release-tooling-only change selects no native delivery, preserving the pending
 build 21 review. The hosted controller startup timeout remains a separate delivery
 hardening follow-up; its underlying cause is unverified.
+
+
+### November 10 capture-controller selection follow-up
+
+The optional #998 hosted preview retained a concrete selection failure: Device Hub
+already had the task simulator selected and was connecting its display, while the
+controller clicked matching title text and waited for a window label. The sidebar
+name was also truncated. Selection now uses the owned simulator UUID exposed on its
+sidebar image, requires one matching row and waits for enabled Open/Closed controls
+before acknowledging readiness. The controller checks that same row remains selected
+before every pose request. Its ready receipt carries the simulator identity; the
+parent requires that identity before proceeding. Scoped window snapshots replace
+expensive whole-application snapshots, and the bounded controller startup allowance
+includes XCTest initialization and display connection. App upload retry policy is
+unaffected.
+
+The native controller compiles locally. The attempted local UI execution failed to
+initialize macOS automation before running the controller test; it is not claimed as
+runtime validation. Hosted preview capture remains the behavior check, independently
+asserting actual iOS window geometry. The local disposable simulator/runner were
+removed and the owner's original Device Hub selection was preserved. Build 21's
+accepted review submission remains unchanged; this tooling change selects no app
+delivery. Final hosted verification is tracked in F12 (#13).
