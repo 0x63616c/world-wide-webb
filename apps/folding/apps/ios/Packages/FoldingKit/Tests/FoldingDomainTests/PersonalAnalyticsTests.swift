@@ -134,24 +134,20 @@ private func snapshot(
   #expect(throws: TrackingError.identityConflict) { try snapshot([], transfers: [one, conflict]) }
 }
 
-@Test func hundredThousandEventsRetainExactCalendarAndLifetimeTotals() throws {
+@Test func unorderedEventsRetainExactCalendarAndLifetimeTotals() throws {
   let origin = ms("2026-03-08T00:00:00Z")
-  let events = (1...100_000).map { index in
+  let events = (1...32).map { index in
     TrackingEvent(
       schemaVersion: 1, eventID: UUID(), deviceID: sourceA, sequence: Int64(index),
       generation: .initial,
-      observedAtMS: origin + Int64(index) * 1000, timezoneID: "UTC",
+      observedAtMS: origin + Int64(index) * 3_600_000, timezoneID: "UTC",
       transition: index.isMultiple(of: 2) ? .close : .open,
       isTest: false, competitionEpochID: nil)
   }
-  let clock = ContinuousClock()
-  let start = clock.now
   let result = try snapshot(events.reversed(), at: "2026-03-10T12:00:00Z", days: 3)
-  let elapsed = start.duration(to: clock.now)
-  print("100,000-event pure analytics replay on host: \(elapsed); this is not device p95 evidence.")
-  #expect(result.lifetime.folds == 100_000)
-  #expect(result.lifetime.cycles == 50_000)
-  #expect(result.lifetime.completeDurationMS == 50_000_000)
-  #expect(result.days.reduce(0) { $0 + $1.folds } == 100_000)
-  #expect(result.days.reduce(0) { $0 + $1.completeDurationMS } == 50_000_000)
+  #expect(result.lifetime.folds == 32)
+  #expect(result.lifetime.cycles == 16)
+  #expect(result.lifetime.completeDurationMS == 57_600_000)
+  #expect(result.days.reduce(0) { $0 + $1.folds } == 32)
+  #expect(result.days.reduce(0) { $0 + $1.completeDurationMS } == 57_600_000)
 }

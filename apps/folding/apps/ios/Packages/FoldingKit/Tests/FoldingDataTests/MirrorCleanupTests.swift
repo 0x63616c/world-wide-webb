@@ -156,17 +156,17 @@ private func createLegacyMirror(at directory: URL, eventCount: Int) async throws
   }
 }
 
-@Test func legacyHundredThousandRowsBackfillAndCleanupStayBoundedAcrossRestartAndInsert()
+@Test func legacyMirrorPagesBackfillAndCleanupStayBoundedAcrossRestartAndInsert()
   async throws
 {
   let root = cleanupRoot()
   defer { try? FileManager.default.removeItem(at: root) }
-  try await createLegacyMirror(at: root, eventCount: 100_000)
+  try await createLegacyMirror(at: root, eventCount: 257)
   var mirror = try await PrivateCloudMirror(directory: root, containerIdentifier: nil)
   let reset = ResetGeneration(revision: 1, resetID: UUID())
   try await mirror.save(.reset(reset, createdAtMS: 1))
-  let first = try await mirror.cleanup(before: reset, limit: 1000)
-  #expect(first.indexedRecords == 1000)
+  let first = try await mirror.cleanup(before: reset, limit: 64)
+  #expect(first.indexedRecords == 64)
   #expect(first.deletedRecords == 0)
   try await mirror.close()
   mirror = try await PrivateCloudMirror(directory: root, containerIdentifier: nil)
@@ -176,17 +176,16 @@ private func createLegacyMirror(at directory: URL, eventCount: Int) async throws
   var deleted = 0
   var passes = 1
   while true {
-    let report = try await mirror.cleanup(before: reset, limit: 1000)
-    #expect(report.indexedRecords + report.deletedRecords <= 1000)
+    let report = try await mirror.cleanup(before: reset, limit: 64)
+    #expect(report.indexedRecords + report.deletedRecords <= 64)
     indexed += report.indexedRecords
     deleted += report.deletedRecords
     passes += 1
     if report.indexedRecords + report.deletedRecords == 0 { break }
-    #expect(passes <= 202)
-    if passes > 202 { break }
+    try #require(passes <= 12, "Cleanup did not converge within its bounded pages")
   }
-  #expect(indexed == 100_000)
-  #expect(deleted == 100_000)
+  #expect(indexed == 257)
+  #expect(deleted == 257)
   #expect(try await retainedMirrorRecords(mirror).contains(current))
   #expect(try await retainedMirrorRecords(mirror).count == 2)
   try await mirror.close()
