@@ -1,4 +1,4 @@
-//! Live board snapshots: ranking includes blocked rows; presentation filters them after ranking.
+//! Live board snapshots: ranking includes blocked rows; presentation anonymizes them after ranking.
 use crate::{
     auth_runtime::{
         Configuration, Failure, community_session, now, number, response, statement, text,
@@ -140,7 +140,7 @@ pub(crate) async fn board(
     let ranks = rank_scores(&scores).map_err(|_| Failure::unavailable())?;
     let population = ranks.len();
     let profiles: BTreeMap<_, _> = rows.iter().map(|r| (&r.participant_id, r)).collect();
-    let entries:Vec<_>=ranks.iter().filter(|r|!blocks.contains(&r.participant_id)).map(|r|{let profile=profiles[&r.participant_id];serde_json::json!({"participant_id":r.participant_id,"nickname":profile.nickname,"avatar_id":profile.avatar_id,"folds":r.folds,"rank":r.rank,"percentile":r.percentile,"medal":r.medal,"featured_badge_id":profile.featured_badge_id})}).collect();
+    let entries:Vec<_>=ranks.iter().map(|r|{let profile=profiles[&r.participant_id];project_entry(serde_json::json!({"participant_id":r.participant_id,"nickname":profile.nickname,"avatar_id":profile.avatar_id,"folds":r.folds,"rank":r.rank,"percentile":r.percentile,"medal":r.medal,"featured_badge_id":profile.featured_badge_id}), blocks.contains(&r.participant_id))}).collect();
     let snapshot = crate::assertion::hex(&Sha256::digest(
         serde_json::to_vec(
             &serde_json::json!({"period":period,"population":population,"entries":entries}),
@@ -223,4 +223,34 @@ pub(crate) async fn board(
     response(
         &serde_json::json!({"period":descriptor,"page":{"items":items,"next_cursor":next,"snapshot_version":snapshot},"you":you,"population":population,"request_id":request_id}),
     )
+}
+
+/// Keep the established non-null nickname for shipped decoders. Ranking is never viewer-specific.
+pub(crate) fn project_entry(mut entry: serde_json::Value, blocked: bool) -> serde_json::Value {
+    entry["blocked"] = blocked.into();
+    if blocked {
+        entry["nickname"] = "Blocked player".into();
+        entry["avatar_id"] = serde_json::Value::Null;
+        entry["featured_badge_id"] = serde_json::Value::Null;
+    }
+    entry
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn blocking_preserves_rank_and_score_without_identity() {
+        let original = serde_json::json!({"participant_id":"id", "nickname":"Name", "avatar_id":"photo", "featured_badge_id":"folds_1", "rank":1, "folds":400, "percentile":99, "medal":"gold"});
+        let masked = super::project_entry(original.clone(), true);
+        for field in ["participant_id", "rank", "folds", "percentile", "medal"] {
+            assert_eq!(masked[field], original[field]);
+        }
+        assert_eq!(masked["nickname"], "Blocked player");
+        assert_eq!(masked["blocked"], true);
+        assert!(masked["avatar_id"].is_null());
+        assert!(masked["featured_badge_id"].is_null());
+        let visible = super::project_entry(original.clone(), false);
+        assert_eq!(visible["nickname"], original["nickname"]);
+        assert_eq!(visible["avatar_id"], original["avatar_id"]);
+    }
 }

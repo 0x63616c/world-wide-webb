@@ -288,6 +288,7 @@ struct ProfileDestinationScreen: View {
 }
 
 struct ParticipantProfileScreen: View {
+  @Environment(\.dismiss) private var dismiss
   @Environment(\.scenePhase) private var phase
   let participantID: String
   @Bindable var model: FoldingPresentation
@@ -334,6 +335,21 @@ struct ParticipantProfileScreen: View {
       {
         ToolbarItem(placement: .topBarTrailing) {
           Menu {
+            if let block = actions.setParticipantBlocked {
+              Button(
+                String(localized: "block.action", defaultValue: "Block player"), role: .destructive
+              ) {
+                Task {
+                  await model.command(
+                    String(localized: "block.saving", defaultValue: "Updating block")
+                  ) {
+                    try await block(participantID, true)
+                    value = nil
+                    dismiss()
+                  }
+                }
+              }
+            }
             ForEach(ParticipantReportReason.allCases) { reason in
               Button(reason.title) {
                 Task {

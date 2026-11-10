@@ -146,6 +146,17 @@ pub(crate) async fn read(
     {
         return Err(Failure::malformed());
     }
+    let block_guard = "INSERT INTO mutation_guards VALUES (?1,CASE WHEN NOT EXISTS(SELECT 1 FROM blocks WHERE participant_id=?2 AND subject_participant_id=?3) THEN 1 ELSE 0 END)";
+    // Check before loading identity, then fence again atomically with the final access checks.
+    #[derive(Deserialize)]
+    struct BlockCount {
+        count: i64,
+    }
+    let blocked = statement(db, "SELECT count(*) AS count FROM blocks WHERE participant_id=?1 AND subject_participant_id=?2", &[text(&session.participant_id), text(&id)])?
+        .first::<BlockCount>(None).await.map_err(|_| Failure::unavailable())?.ok_or_else(Failure::unavailable)?;
+    if blocked.count != 0 {
+        return Err(missing());
+    }
     let target = participant(db, &id).await?;
     let state = ready(db, env, &target).await?;
     let value = if owner {
@@ -158,6 +169,20 @@ pub(crate) async fn read(
     };
     let guard = uuid()?;
     let mut fence = guards(db, config, &session, &target, &guard)?;
+    fence.push(statement(
+        db,
+        block_guard,
+        &[
+            text(&format!("{guard}-block")),
+            text(&session.participant_id),
+            text(&id),
+        ],
+    )?);
+    fence.push(statement(
+        db,
+        "DELETE FROM mutation_guards WHERE guard_id=?1",
+        &[text(&format!("{guard}-block"))],
+    )?);
     fence.push(crate::competition_runtime::cleanup(db, &guard)?);
     db.batch(fence).await.map_err(|_| Failure::conflict())?;
     response(&value)

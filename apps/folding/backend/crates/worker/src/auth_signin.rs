@@ -131,14 +131,37 @@ pub(crate) async fn sign_in(
         .find(|(version, _)| version == subjects.version())
         .ok_or_else(Failure::unavailable)?
         .1;
-    let normalized=Sha256::digest(serde_json::to_vec(&serde_json::json!({"operation_id":input.operation_id,"purpose":"sign_in","challenge_id":input.challenge_id,"device_id":input.device_id,"deletion_operation_id":null})).map_err(|_|Failure::unavailable())?);
-    if let Some(owner) = participant(db, &digests).await? {
-        if owner.account_state != "active" {
+    let mut normalized_input = serde_json::json!({"operation_id":input.operation_id,"purpose":"sign_in","challenge_id":input.challenge_id,"device_id":input.device_id,"deletion_operation_id":null});
+    if let Some(id) = &input.existing_participant_id {
+        normalized_input["existing_participant_id"] = serde_json::json!(id);
+    }
+    if input.existing_account_only {
+        normalized_input["existing_account_only"] = true.into();
+    }
+    let normalized =
+        Sha256::digest(serde_json::to_vec(&normalized_input).map_err(|_| Failure::unavailable())?);
+    let existing_owner = participant(db, &digests).await?;
+    if (input.existing_account_only || input.existing_participant_id.is_some())
+        && existing_owner.is_none()
+    {
+        return Err(Failure {
+            status: 404,
+            code: "not_found",
+            retryable: false,
+        });
+    }
+    if let Some(owner) = existing_owner {
+        if owner.account_state != "active"
+            || input
+                .existing_participant_id
+                .as_ref()
+                .is_some_and(|id| id.as_str() != owner.participant_id)
+        {
             return Err(Failure::unauthorized());
         }
         if let Some(receipt)=statement(db,"SELECT session_id,challenge_id,normalized_hash,participant_revision,ciphertext,key_version,expires_at_ms FROM sign_in_receipts WHERE participant_id=?1 AND operation_id=?2",&[text(&owner.participant_id),text(input.operation_id.as_str())])?.first::<Receipt>(None).await.map_err(|_|Failure::unavailable())? {
             if receipt.normalized_hash!=normalized.as_slice() || receipt.challenge_id!=input.challenge_id.as_str() {return Err(Failure::conflict());}
-            if receipt.expires_at_ms<=timestamp || owner.restriction!="none" {return Err(Failure::unauthorized());}
+            if receipt.expires_at_ms<=timestamp || (owner.restriction!="none" && input.existing_participant_id.is_none() && !input.existing_account_only) {return Err(Failure::unauthorized());}
             let context=format!("Folding-v1/{}/sign-in/{}/{}",config.deployment,owner.participant_id,input.operation_id.as_str());
             let plain=config.keys.open(&receipt.key_version,&context,&receipt.ciphertext).map_err(|_|Failure::unavailable())?;
             let value:serde_json::Value=serde_json::from_slice(&plain).map_err(|_|Failure::unavailable())?;
@@ -187,6 +210,25 @@ pub(crate) async fn sign_in(
     }
     for _ in 0..3 {
         let existing = participant(db, &digests).await?;
+        if let Some(expected) = &input.existing_participant_id {
+            if existing
+                .as_ref()
+                .is_none_or(|owner| owner.participant_id != expected.as_str())
+            {
+                return Err(Failure {
+                    status: 404,
+                    code: "not_found",
+                    retryable: false,
+                });
+            }
+        }
+        if input.existing_account_only && existing.is_none() {
+            return Err(Failure {
+                status: 404,
+                code: "not_found",
+                retryable: false,
+            });
+        }
         let created = existing.is_none();
         let owner = existing.unwrap_or(Participant {
             account_state: "active".into(),
@@ -298,7 +340,7 @@ INSERT INTO mutation_guards VALUES (?1,CASE WHEN EXISTS (
  JOIN sessions s ON s.participant_id=p.participant_id JOIN sign_in_receipts i ON i.session_id=s.session_id
  JOIN challenges c ON c.challenge_id=i.challenge_id
  JOIN refresh_tokens current ON current.session_id=s.session_id
- WHERE p.participant_id=?2 AND p.restriction='none' AND p.account_state='active' AND s.session_id=?3 AND i.operation_id=?4
+ WHERE p.participant_id=?2 AND p.account_state='active' AND s.session_id=?3 AND i.operation_id=?4
  AND s.revoked=0 AND s.absolute_expires_at_ms>?5 AND s.idle_expires_at_ms>?5 AND i.expires_at_ms>?5
  AND r.revision=?6 AND i.participant_revision=?6 AND s.deployment=?7 AND c.deployment=?7
  AND s.device_id=?8 AND c.challenge_id=?9 AND c.used=1 AND i.normalized_hash=?10

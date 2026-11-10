@@ -5,6 +5,55 @@ import XCTest
 @testable import Folding
 
 @MainActor final class PresentationTests: XCTestCase {
+  func testBlockedContractDecodesOldAndNewResponsesWithoutChangingRanks() throws {
+    let old = Data(
+      #"{"participant_id":"id","nickname":"Name","avatar_id":null,"folds":42,"rank":2,"medal":"silver"}"#
+        .utf8)
+    let legacy = try JSONDecoder().decode(CompetitionWireRank.self, from: old)
+    XCTAssertNil(legacy.blocked)
+    let new = Data(
+      #"{"participant_id":"id","nickname":"Blocked player","avatar_id":null,"folds":42,"rank":2,"medal":"silver","blocked":true,"featured_badge_id":null}"#
+        .utf8)
+    let masked = try JSONDecoder().decode(CompetitionWireRank.self, from: new)
+    XCTAssertEqual(masked.rank, legacy.rank)
+    XCTAssertEqual(masked.folds, legacy.folds)
+    XCTAssertEqual(masked.blocked, true)
+    // Exact shipped DTO shape: new responses retain all required legacy fields.
+    // swift-format-ignore: AlwaysUseLowerCamelCase
+    struct ShippedRank: Decodable {
+      let participant_id: String
+      let nickname: String
+      let avatar_id: String?
+      let folds: Int
+      let rank: Int
+      let medal: String?
+    }
+    XCTAssertEqual(try JSONDecoder().decode(ShippedRank.self, from: new).nickname, "Blocked player")
+  }
+
+  func testBlockingClearsRetainedIdentityAndInvalidatesProfileContext() {
+    let model = FoldingPresentation()
+    let id = UUID().uuidString.lowercased()
+    let row = LeaderboardEntry(
+      id: id, rank: 1, displayName: "Name", folds: 50, approvedAvatarURL: nil, isCurrentUser: false,
+      approvedAvatarData: Data([1]), featuredBadge: nil)
+    model.competition = .loaded(
+      LeaderboardPresentation(
+        periodTitle: "All", entries: [row], currentUser: nil, updatedAt: Date(), population: 20))
+    let context = model.milestonesContext
+    model.updateBlockedParticipant(id, blocked: true)
+    XCTAssertNotEqual(context, model.milestonesContext)
+    XCTAssertTrue(model.hiddenParticipantIDs.contains(id))
+    let masked = model.competition.previous!.entries[0]
+    XCTAssertEqual(masked.rank, 1)
+    XCTAssertEqual(masked.folds, 50)
+    XCTAssertEqual(model.competition.previous?.population, 20)
+    XCTAssertTrue(masked.isBlocked)
+    XCTAssertEqual(masked.displayName, blockedPlayerName(id))
+    XCTAssertNil(masked.approvedAvatarData)
+    XCTAssertNil(masked.featuredBadge)
+  }
+
   func testAppleNameSurvivesRepeatAuthorizationAndDoesNotCrossAccounts() throws {
     let store = CompetitionCredentialStore(service: "folding.name.test.\(UUID())")
     defer { try? store.remove("apple-name") }

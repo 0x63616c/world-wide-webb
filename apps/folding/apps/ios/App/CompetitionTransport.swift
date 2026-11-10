@@ -144,6 +144,7 @@ actor CompetitionTransport {
   private var signing = false
   private var sessionRefresh: (id: UUID, task: Task<String, Error>)?
   private var readRevision = UUID()
+  private var visibilityRevision = UUID()
   private var recentReads: [String: (data: Data, expiresMS: Int64)] = [:]
   private var pendingReads: [String: Task<Data, Error>] = [:]
   private let nowMS: @Sendable () -> Int64
@@ -270,6 +271,8 @@ actor CompetitionTransport {
       requestID: requestID ?? correlation?.requestID)
     Task { await diagnosticRecorder(entry) }
   }
+
+  func hasStoredAccount() throws -> Bool { try credentials.read("session") != nil }
 
   func replaceSession(_ value: CompetitionSession, context: UUID) throws {
     guard context == sessionRevision else { throw CancellationError() }
@@ -615,6 +618,9 @@ actor CompetitionTransport {
       method == "GET" && authorizationScheme == "Bearer"
       && (path.hasPrefix("/v1/leaderboards?") || path.hasPrefix("/v1/results?"))
     if method != "GET" { invalidateReads() }
+    let changesVisibility = method != "GET" && path.hasPrefix("/v1/blocks/")
+    if changesVisibility { visibilityRevision = UUID() }
+    let requestVisibility = visibilityRevision
     let key = sessionRevision.uuidString + readRevision.uuidString + path
     let data: Data
     if cacheable, let cached = recentReads[key], cached.expiresMS > nowMS() {
@@ -648,7 +654,15 @@ actor CompetitionTransport {
         method, path: path, body: body, token: token,
         authorizationScheme: authorizationScheme, contentType: contentType, headers: headers)
     }
-    guard requestSession == sessionRevision else { throw CancellationError() }
+    guard requestSession == sessionRevision,
+      method != "GET" || requestVisibility == visibilityRevision
+    else {
+      throw CancellationError()
+    }
+    if changesVisibility {
+      visibilityRevision = UUID()
+      invalidateReads()
+    }
     return try JSONDecoder().decode(Response.self, from: data)
   }
 
@@ -804,6 +818,7 @@ actor CompetitionTransport {
   func avatarImage(_ id: String) async throws -> Data {
     try checkServerCooldown()
     let revision = sessionRevision
+    let visibility = visibilityRevision
     guard UUID(uuidString: id) != nil,
       let url = URL(string: "/v1/avatars/\(id)/image", relativeTo: origin)?.absoluteURL
     else { throw CompetitionTransportError.invalidResponse }
@@ -828,7 +843,9 @@ actor CompetitionTransport {
       guard data.count < 512 * 1024 else { throw CompetitionTransportError.invalidResponse }
       data.append(byte)
     }
-    guard revision == sessionRevision else { throw CancellationError() }
+    guard revision == sessionRevision, visibility == visibilityRevision else {
+      throw CancellationError()
+    }
     return data
   }
 }

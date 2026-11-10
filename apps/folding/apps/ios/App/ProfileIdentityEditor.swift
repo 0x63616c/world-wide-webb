@@ -182,7 +182,10 @@ struct ProfileAccountActions: View {
     } message: {
       Text(
         String(
-          localized: "profile.removalEffect", defaultValue: "Removes public scores and results."))
+          localized: "profile.removalEffect",
+          defaultValue:
+            "Deletes your competition account, profile, photo, scores and results. Your private fold history stays."
+        ))
     }
   }
 }

@@ -25,6 +25,10 @@ pub struct AppleExchangeRequest {
     pub device_id: Id,
     #[serde(deserialize_with = "required_nullable")]
     pub deletion_operation_id: Option<Id>,
+    /// Optional existing-account recovery: never create an account for a privacy action.
+    pub existing_participant_id: Option<Id>,
+    #[serde(default)]
+    pub existing_account_only: bool,
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -74,6 +78,8 @@ impl AppleExchangeRequest {
             && self.identity_token.len() <= 16384
             && !self.authorization_code.is_empty()
             && self.authorization_code.len() <= 16384
+            && ((!self.existing_account_only && self.existing_participant_id.is_none())
+                || self.purpose == AuthPurpose::SignIn)
             && (self.purpose == AuthPurpose::RecoverDeletion)
                 == self.deletion_operation_id.is_some()
     }

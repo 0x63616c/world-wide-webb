@@ -216,7 +216,9 @@ struct CompetitionProfileScreen: View {
       Text(
         String(
           localized: "profile.removalEffect",
-          defaultValue: "Removes public scores and results."))
+          defaultValue:
+            "Deletes your competition account, profile, photo, scores and results. Your private fold history stays."
+        ))
     }
   }
 
@@ -599,7 +601,17 @@ struct ParticipantMenu: View {
   @Bindable var model: FoldingPresentation
   let actions: FoldingActions
   var body: some View {
-    if !entry.isCurrentUser {
+    if !entry.isCurrentUser && !entry.isBlocked {
+      if actions.setParticipantBlocked != nil {
+        Button(String(localized: "block.action", defaultValue: "Block player"), role: .destructive)
+        {
+          Task {
+            await model.command(String(localized: "block.saving", defaultValue: "Updating block")) {
+              try await actions.setParticipantBlocked?(entry.id, true)
+            }
+          }
+        }
+      }
       if let report = actions.reportParticipant {
         Menu(String(localized: "report.title", defaultValue: "Report")) {
           ForEach(ParticipantReportReason.allCases) { reason in
@@ -665,8 +677,38 @@ struct CompetitionRemovalScreen: View {
       Label(
         String(localized: "profile.removalPending", defaultValue: "Removal pending"),
         systemImage: "clock")
+    } description: {
+      if model.competitionRemoval == .cleanupAttention {
+        Text(
+          String(
+            localized: "profile.cleanupAttention",
+            defaultValue:
+              "Your public participation has been removed. Account cleanup needs attention from our team."
+          ))
+      } else if model.competitionRemoval == .statusUnavailable {
+        Text(
+          String(
+            localized: "profile.statusUnavailable",
+            defaultValue:
+              "We cannot verify this saved deletion request. Its recovery receipt may have expired."
+          ))
+      } else {
+        Text(
+          String(
+            localized: "profile.cleanupPending",
+            defaultValue:
+              "Account cleanup may take longer while a service is unavailable. Check again for confirmation."
+          ))
+      }
     } actions: {
-      Button(String(localized: "action.retry", defaultValue: "Retry")) {
+      if model.competitionRemoval == .cleanupAttention
+        || model.competitionRemoval == .statusUnavailable
+      {
+        Link(
+          String(localized: "support.contact", defaultValue: "Contact"),
+          destination: URL(string: "mailto:support@getfolding.app")!)
+      }
+      Button(String(localized: "profile.checkStatus", defaultValue: "Check status")) {
         Task {
           await model.command(
             String(localized: "profile.removing", defaultValue: "Removing competition data")
@@ -736,5 +778,62 @@ struct ApprovedAvatarImage: View {
           .secondary)
       }
     }
+  }
+}
+
+struct LeaderboardMemberLink: View {
+  let entry: LeaderboardEntry
+  @Bindable var model: FoldingPresentation
+  let actions: FoldingActions
+  var body: some View {
+    if entry.isBlocked {
+      LeaderboardRow(entry: entry).foregroundStyle(.secondary)
+    } else {
+      NavigationLink {
+        ProfileDestinationScreen(participantID: entry.id, model: model, actions: actions)
+      } label: {
+        LeaderboardRow(entry: entry)
+      }
+      .contextMenu { ParticipantMenu(entry: entry, model: model, actions: actions) }
+    }
+  }
+}
+
+struct BlockedPlayersScreen: View {
+  @Bindable var model: FoldingPresentation
+  let actions: FoldingActions
+  var body: some View {
+    List {
+      ForEach(model.hiddenParticipantIDs.sorted(), id: \.self) { id in
+        VStack(alignment: .leading, spacing: 8) {
+          Text(blockedPlayerName(id))
+          // Full stable reference disambiguates short references without revealing identity.
+          Text(id.uppercased()).font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
+          Button(String(localized: "block.unblock", defaultValue: "Unblock")) {
+            Task {
+              await model.command(String(localized: "block.saving", defaultValue: "Updating block"))
+              {
+                try await actions.setParticipantBlocked?(id, false)
+              }
+            }
+          }.disabled(model.operation != nil || actions.setParticipantBlocked == nil)
+        }
+      }
+      if model.hiddenLoading { ProgressView() }
+      if model.hiddenFailed {
+        Button(String(localized: "action.retry", defaultValue: "Retry")) {
+          Task { await model.requestHiddenParticipants(using: actions) }
+        }
+      } else if model.hiddenCursor != nil {
+        Button(String(localized: "leaderboard.more", defaultValue: "More places")) {
+          Task { await model.requestHiddenParticipants(using: actions, nextPage: true) }
+        }.disabled(model.hiddenLoading)
+      } else if model.hiddenParticipantIDs.isEmpty && !model.hiddenLoading {
+        Text(String(localized: "block.empty", defaultValue: "No blocked players"))
+      }
+    }
+    .navigationTitle(String(localized: "block.list", defaultValue: "Blocked players"))
+    .task { await model.requestHiddenParticipants(using: actions) }
+    .refreshable { await model.requestHiddenParticipants(using: actions) }
   }
 }

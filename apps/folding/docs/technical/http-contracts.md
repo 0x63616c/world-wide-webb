@@ -124,3 +124,25 @@ clock guards in-flight finalization; affected staged results are invalidated.
 Published historical result versions retain the formal correction workflow.
 Migration 0018 creates the indexed participant-owned tombstone table; account
 erasure removes it.
+
+
+### Blocking and deletion recovery amendment (November 10, 2026)
+
+`RankedEntry` adds optional `blocked:boolean` (absent means false for older responses).
+Blocked entries keep participant ID, score, rank, percentile and medal; nickname is the non-null
+neutral fallback `Blocked player`, avatar and featured badge are null. Population and podium awards
+remain global. This projection applies to live and frozen boards. Direct blocked profile and avatar
+reads return 404. New clients localize the explicit state; shipped decoders can ignore the new field.
+Block changes fence in-flight identity reads independently from bounded read-cache invalidation.
+
+Apple sign-in optionally accepts `existing_account_only:true` and `existing_participant_id:ID` only with `purpose:sign_in`.
+A matching existing active account is required; absence/mismatch never creates an account. This
+restores expired authentication for a privacy action without requiring community enrollment.
+Restrictions continue to deny community access; they do not prevent privacy reauthentication.
+
+Deletion polling preserves `pending|completed|failed`. Pending with `error_code:cleanup_retrying`
+means the existing automatic cleanup retry is scheduled. `failed` with
+`error_code:cleanup_requires_attention` means a failed work item or paused provider category needs
+the existing operator retry/configuration controls; polling itself never restarts those jobs.
+Recovery remains available for 30 days after completion. An expired/unknown saved receipt is
+unverified, never proof of completion, and must not cause ordinary sign-in/new account creation.

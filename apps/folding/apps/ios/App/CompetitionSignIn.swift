@@ -94,12 +94,17 @@ final class CompetitionSignIn: NSObject, ASAuthorizationControllerDelegate,
   private var expectedState: String?
   private var anchor: ASPresentationAnchor?
 
-  func signIn(transport: CompetitionTransport, deviceID: UUID) async throws
+  func signIn(
+    transport: CompetitionTransport, deviceID: UUID, existingParticipantID: String? = nil,
+    existingAccountOnly: Bool = false
+  )
+    async throws
     -> CompetitionSignInResult
   {
     let context = await transport.sessionContext()
     let (response, name) = try await authorize(
-      transport: transport, deviceID: deviceID, purpose: "sign_in")
+      transport: transport, deviceID: deviceID, purpose: "sign_in",
+      existingParticipantID: existingParticipantID, existingAccountOnly: existingAccountOnly)
     guard let access = response.access_token, let refresh = response.refresh_token,
       let profile = response.profile, let expiry = response.expires_at_ms
     else { throw CompetitionTransportError.invalidResponse }
@@ -135,7 +140,8 @@ final class CompetitionSignIn: NSObject, ASAuthorizationControllerDelegate,
 
   private func authorize(
     transport: CompetitionTransport, deviceID: UUID, purpose: String,
-    deletionOperationID: String? = nil
+    deletionOperationID: String? = nil, existingParticipantID: String? = nil,
+    existingAccountOnly: Bool = false
   )
     async throws -> (CompetitionSignInResponse, String?)
   {
@@ -194,6 +200,8 @@ final class CompetitionSignIn: NSObject, ASAuthorizationControllerDelegate,
       // swift-format-ignore: AlwaysUseLowerCamelCase
       let device_id: String
       let deletionOperationID: String?
+      let existingParticipantID: String?
+      let existingAccountOnly: Bool
       // Required explicit null; synthesized optional encoding would omit this field.
       func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: Keys.self)
@@ -203,6 +211,8 @@ final class CompetitionSignIn: NSObject, ASAuthorizationControllerDelegate,
         try container.encode(identity_token, forKey: .identity_token)
         try container.encode(authorization_code, forKey: .authorization_code)
         try container.encode(device_id, forKey: .device_id)
+        try container.encodeIfPresent(existingParticipantID, forKey: .existing_participant_id)
+        if existingAccountOnly { try container.encode(true, forKey: .existing_account_only) }
         if let deletionOperationID {
           try container.encode(deletionOperationID, forKey: .deletion_operation_id)
         } else {
@@ -212,7 +222,7 @@ final class CompetitionSignIn: NSObject, ASAuthorizationControllerDelegate,
       // swift-format-ignore: AlwaysUseLowerCamelCase
       enum Keys: String, CodingKey {
         case operation_id, purpose, challenge_id, identity_token, authorization_code, device_id,
-          deletion_operation_id
+          deletion_operation_id, existing_participant_id, existing_account_only
       }
     }
     let response: CompetitionSignInResponse = try await transport.send(
@@ -221,7 +231,8 @@ final class CompetitionSignIn: NSObject, ASAuthorizationControllerDelegate,
         Exchange(
           operation_id: UUID().uuidString.lowercased(), purpose: purpose,
           challenge_id: challenge.challenge_id, identity_token: identity, authorization_code: code,
-          device_id: deviceID.uuidString.lowercased(), deletionOperationID: deletionOperationID)),
+          device_id: deviceID.uuidString.lowercased(), deletionOperationID: deletionOperationID,
+          existingParticipantID: existingParticipantID, existingAccountOnly: existingAccountOnly)),
       authenticated: purpose == "reauthenticate")
     return (response, suggestedName)
   }

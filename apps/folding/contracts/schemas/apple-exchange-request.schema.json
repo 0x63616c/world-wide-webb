@@ -43,6 +43,13 @@
           "type": "null"
         }
       ]
+    },
+    "existing_participant_id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "existing_account_only": {
+      "type": "boolean"
     }
   },
   "required": [
@@ -75,6 +82,39 @@
         "properties": {
           "deletion_operation_id": {
             "type": "null"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "existing_participant_id"
+        ]
+      },
+      "then": {
+        "properties": {
+          "purpose": {
+            "const": "sign_in"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "existing_account_only": {
+            "const": true
+          }
+        },
+        "required": [
+          "existing_account_only"
+        ]
+      },
+      "then": {
+        "properties": {
+          "purpose": {
+            "const": "sign_in"
           }
         }
       }

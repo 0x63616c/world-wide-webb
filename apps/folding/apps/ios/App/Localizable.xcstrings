@@ -6140,67 +6140,67 @@
       }
     },
     "profile.removalEffect": {
-      "comment": "Competition UI or local notification. AI translations; native-speaker review pending.",
+      "comment": "Competition safety/account action or status; private fold history is separate.",
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Removes public scores and results."
+            "value": "Deletes your competition account, profile, photo, scores and results. Your private fold history stays."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Entfernt öffentliche Punkte und Ergebnisse."
+            "value": "Löscht dein Wettbewerbskonto, Profil, Foto, Punkte und Ergebnisse. Dein privater Faltverlauf bleibt erhalten."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Supprime les scores et résultats publics."
+            "value": "Supprime votre compte de compétition, profil, photo, scores et résultats. Votre historique privé de pliages est conservé."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Elimina las puntuaciones y los resultados públicos."
+            "value": "Elimina tu cuenta de competición, perfil, foto, puntuaciones y resultados. Tu historial privado de pliegues se conserva."
           }
         },
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "Elimina las puntuaciones y los resultados públicos."
+            "value": "Elimina tu cuenta de competencia, perfil, foto, puntuaciones y resultados. Tu historial privado de pliegues se conserva."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "公開スコアと結果を削除します。"
+            "value": "競争アカウント、プロフィール、写真、スコア、結果を削除します。非公開の折りたたみ履歴は残ります。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "공개 점수와 결과를 삭제합니다."
+            "value": "경쟁 계정, 프로필, 사진, 점수 및 결과를 삭제합니다. 비공개 접기 기록은 유지됩니다."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Remove pontuações e resultados públicos."
+            "value": "Exclui sua conta de competição, perfil, foto, pontuações e resultados. Seu histórico privado de dobras é mantido."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "删除公开分数和结果。"
+            "value": "删除你的竞赛账户、个人资料、照片、分数和成绩。你的私人折叠历史将保留。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "刪除公開分數和結果。"
+            "value": "刪除你的競賽帳號、個人資料、照片、分數和成績。你的私人摺疊記錄將保留。"
           }
         }
       }
@@ -15638,6 +15638,732 @@
           "stringUnit": {
             "state": "translated",
             "value": "重新整理報告"
+          }
+        }
+      }
+    },
+    "block.action": {
+      "comment": "Competition safety/account action or status; private fold history is separate.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Block player"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Spieler blockieren"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bloquer ce joueur"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bloquear jugador"
+          }
+        },
+        "es-419": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bloquear jugador"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "プレイヤーをブロック"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "플레이어 차단"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bloquear jogador"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "屏蔽玩家"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "封鎖玩家"
+          }
+        }
+      }
+    },
+    "block.saving": {
+      "comment": "Competition safety/account action or status; private fold history is separate.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Updating block"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Blockierung wird aktualisiert"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mise à jour du blocage"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Actualizando bloqueo"
+          }
+        },
+        "es-419": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Actualizando bloqueo"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ブロックを更新中"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "차단 업데이트 중"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atualizando bloqueio"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在更新屏蔽"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在更新封鎖"
+          }
+        }
+      }
+    },
+    "block.list": {
+      "comment": "Competition safety/account action or status; private fold history is separate.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Blocked players"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Blockierte Spieler"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Joueurs bloqués"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jugadores bloqueados"
+          }
+        },
+        "es-419": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jugadores bloqueados"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ブロックしたプレイヤー"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "차단한 플레이어"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jogadores bloqueados"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已屏蔽的玩家"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已封鎖的玩家"
+          }
+        }
+      }
+    },
+    "block.player": {
+      "comment": "Competition safety/account action or status; private fold history is separate.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Blocked player"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Blockierter Spieler"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Joueur bloqué"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jugador bloqueado"
+          }
+        },
+        "es-419": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jugador bloqueado"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ブロックしたプレイヤー"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "차단한 플레이어"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jogador bloqueado"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已屏蔽的玩家"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已封鎖的玩家"
+          }
+        }
+      }
+    },
+    "block.unblock": {
+      "comment": "Competition safety/account action or status; private fold history is separate.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unblock"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Blockierung aufheben"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Débloquer"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Desbloquear"
+          }
+        },
+        "es-419": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Desbloquear"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ブロックを解除"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "차단 해제"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Desbloquear"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "取消屏蔽"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "解除封鎖"
+          }
+        }
+      }
+    },
+    "block.empty": {
+      "comment": "Competition safety/account action or status; private fold history is separate.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No blocked players"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keine blockierten Spieler"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun joueur bloqué"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No hay jugadores bloqueados"
+          }
+        },
+        "es-419": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No hay jugadores bloqueados"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ブロックしたプレイヤーはいません"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "차단한 플레이어 없음"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nenhum jogador bloqueado"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "没有已屏蔽的玩家"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "沒有已封鎖的玩家"
+          }
+        }
+      }
+    },
+    "profile.deleted": {
+      "comment": "Competition safety/account action or status; private fold history is separate.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Competition account deleted"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wettbewerbskonto gelöscht"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Compte de compétition supprimé"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cuenta de competición eliminada"
+          }
+        },
+        "es-419": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cuenta de competencia eliminada"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "競争アカウントを削除しました"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "경쟁 계정이 삭제됨"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conta de competição excluída"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "竞赛账户已删除"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "競賽帳號已刪除"
+          }
+        }
+      }
+    },
+    "profile.cleanupAttention": {
+      "comment": "Competition safety/account action or status; private fold history is separate.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your public participation has been removed. Account cleanup needs attention from our team."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deine öffentliche Teilnahme wurde entfernt. Unser Team muss die Kontobereinigung prüfen."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre participation publique a été supprimée. Notre équipe doit intervenir pour terminer le nettoyage du compte."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu participación pública se ha eliminado. Nuestro equipo debe revisar la limpieza de la cuenta."
+          }
+        },
+        "es-419": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu participación pública se eliminó. Nuestro equipo debe revisar la limpieza de la cuenta."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "公開の参加情報は削除されました。アカウントの削除処理にはチームの対応が必要です。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "공개 참여 정보가 삭제되었습니다. 계정 정리를 완료하려면 담당 팀의 조치가 필요합니다."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sua participação pública foi removida. Nossa equipe precisa intervir para concluir a limpeza da conta."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "你的公开参赛信息已移除。账户清理需要我们的团队处理。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "你的公開參賽資訊已移除。帳號清理需要我們的團隊處理。"
+          }
+        }
+      }
+    },
+    "profile.statusUnavailable": {
+      "comment": "Competition safety/account action or status; private fold history is separate.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "We cannot verify this saved deletion request. Its recovery receipt may have expired."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diese gespeicherte Löschanfrage lässt sich nicht bestätigen. Der Wiederherstellungsbeleg ist möglicherweise abgelaufen."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cette demande de suppression enregistrée ne peut pas être vérifiée. Son justificatif de récupération a peut-être expiré."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No podemos verificar esta solicitud de eliminación guardada. Puede que su comprobante de recuperación haya caducado."
+          }
+        },
+        "es-419": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No podemos verificar esta solicitud de eliminación guardada. Es posible que su comprobante de recuperación haya vencido."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存された削除リクエストを確認できません。復元用の受領情報の有効期限が切れている可能性があります。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "저장된 삭제 요청을 확인할 수 없습니다. 복구 확인 정보가 만료되었을 수 있습니다."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Não podemos verificar esta solicitação de exclusão salva. O comprovante de recuperação pode ter expirado."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法验证已保存的删除请求。其恢复凭据可能已过期。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法驗證已儲存的刪除要求。其復原憑證可能已過期。"
+          }
+        }
+      }
+    },
+    "profile.cleanupPending": {
+      "comment": "Competition safety/account action or status; private fold history is separate.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Account cleanup may take longer while a service is unavailable. Check again for confirmation."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Kontobereinigung kann bei einem Dienstausfall länger dauern. Prüfe den Status später erneut."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le nettoyage du compte peut prendre plus de temps si un service est indisponible. Vérifiez à nouveau pour obtenir confirmation."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La limpieza de la cuenta puede tardar más si un servicio no está disponible. Vuelve a consultar para confirmarlo."
+          }
+        },
+        "es-419": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La limpieza de la cuenta puede tardar más si un servicio no está disponible. Vuelve a consultar para confirmarlo."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "サービスが利用できない場合、アカウントの削除処理に時間がかかることがあります。後で状況を再確認してください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "서비스를 이용할 수 없는 동안 계정 정리가 지연될 수 있습니다. 나중에 상태를 다시 확인하세요."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A limpeza da conta pode demorar mais se um serviço estiver indisponível. Verifique novamente para confirmar."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "服务不可用时，账户清理可能需要更长时间。请稍后再次查询确认。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "服務無法使用時，帳號清理可能需要較長時間。請稍後再次查詢確認。"
+          }
+        }
+      }
+    },
+    "profile.checkStatus": {
+      "comment": "Competition safety/account action or status; private fold history is separate.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check status"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Status prüfen"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vérifier le statut"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Consultar estado"
+          }
+        },
+        "es-419": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Consultar estado"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "状況を確認"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "상태 확인"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verificar status"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "查询状态"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "查詢狀態"
           }
         }
       }

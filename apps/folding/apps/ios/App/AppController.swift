@@ -46,6 +46,8 @@ import struct FoldingData.TrackingDiagnosticSnapshot
     self.competitionAPI = competitionAPI
     self.preferencesStore = preferencesStore
     self.notifications = NotificationSettingsStore(defaults: preferencesStore)
+    presentation.competitionAccountExists = preferencesStore.bool(
+      forKey: "folding.competitionAccountExists")
     presentation.preferences = initialPreferences
     if let data = preferencesStore.data(forKey: preferencesKey),
       let preferences = try? JSONDecoder().decode(FoldingPreferences.self, from: data),
@@ -247,6 +249,9 @@ import struct FoldingData.TrackingDiagnosticSnapshot
         self.presentation.hiddenRequestID = UUID()
         self.presentation.hiddenLoading = false
         try await self.competitionClient().setBlocked(id, blocked: blocked)
+        self.competitionIdentityRevision = UUID()
+        self.presentation.updateBlockedParticipant(id, blocked: blocked)
+        await self.presentation.requestLeaderboard(using: self.actions)
       },
       deleteCompetitionAccount: { try await self.beginAccountDeletion() },
       signInCompetition: { try await self.signInToCompetition() },
@@ -276,6 +281,28 @@ import struct FoldingData.TrackingDiagnosticSnapshot
       checkDiagnostics: { try await self.checkDiagnosticConnection() })
   }
 
+  private func setCompetitionAccountExists(_ exists: Bool, participantID: String? = nil) {
+    presentation.competitionAccountExists = exists
+    preferencesStore.set(exists, forKey: "folding.competitionAccountExists")
+    if let participantID {
+      preferencesStore.set(participantID, forKey: "folding.competitionParticipantID")
+    }
+    if !exists { preferencesStore.removeObject(forKey: "folding.competitionParticipantID") }
+  }
+
+  private func deletionProof(using api: CompetitionAPI) async throws -> String {
+    do {
+      return try await appleSignIn.reauthenticate(transport: api.transport, deviceID: api.deviceID)
+    } catch CompetitionTransportError.unauthorized {
+      let participant = preferencesStore.string(forKey: "folding.competitionParticipantID")
+      let recovered = try await appleSignIn.signIn(
+        transport: api.transport, deviceID: api.deviceID,
+        existingParticipantID: participant, existingAccountOnly: true)
+      setCompetitionAccountExists(true, participantID: recovered.profile.participant_id)
+      return try await appleSignIn.reauthenticate(transport: api.transport, deviceID: api.deviceID)
+    }
+  }
+
   private func beginAccountDeletion() async throws {
     let api = try await competitionClient()
     if try await api.transport.pendingRemoval() != nil {
@@ -285,8 +312,7 @@ import struct FoldingData.TrackingDiagnosticSnapshot
     var operation = CompetitionRemovalOperation(
       kind: .delete,
       operationID: UUID().uuidString.lowercased(), accepted: false, deletionReceipt: nil)
-    let proof = try await appleSignIn.reauthenticate(
-      transport: api.transport, deviceID: api.deviceID)
+    let proof = try await deletionProof(using: api)
     // Server deletion also removes the push binding if this best-effort call fails.
     try? await pushRegistration?.deactivate()
     pushDelegate?.discardPendingRoute()
@@ -328,9 +354,10 @@ import struct FoldingData.TrackingDiagnosticSnapshot
         do {
           operation.deletionReceipt = try await appleSignIn.recoverDeletion(
             transport: api.transport, deviceID: api.deviceID, operationID: operation.operationID)
-        } catch let failure as CompetitionTransportError where failure.statusCode == 404 {
-          let proof = try await appleSignIn.reauthenticate(
-            transport: api.transport, deviceID: api.deviceID)
+        } catch let failure as CompetitionTransportError
+          where failure.statusCode == 404 && !operation.accepted
+        {
+          let proof = try await deletionProof(using: api)
           operation.deletionReceipt = try await api.deletion(
             operationID: operation.operationID, reauthenticationToken: proof)
         }
@@ -350,11 +377,21 @@ import struct FoldingData.TrackingDiagnosticSnapshot
         try await api.transport.clearSession()
         try await api.transport.finishRemoval()
         presentation.invalidateCompetitionPresentation()
+        setCompetitionAccountExists(false)
         presentation.competitionRemoval = nil
         presentation.competition = .notJoined
+        presentation.status = String(
+          localized: "profile.deleted", defaultValue: "Competition account deleted")
+      } else if status.error_code == "cleanup_requires_attention" {
+        presentation.competitionRemoval = .cleanupAttention
       } else if status.state == "failed" {
         presentation.competitionRemoval = .deleteFailed
       }
+    } catch let failure as CompetitionTransportError
+      where operation.accepted && allowRecovery
+      && (failure.statusCode == 401 || failure.statusCode == 404)
+    {
+      presentation.competitionRemoval = .statusUnavailable
     } catch {
       presentation.competitionRemoval = .deleteFailed
       throw error
@@ -634,11 +671,13 @@ import struct FoldingData.TrackingDiagnosticSnapshot
         try await pollRemoval(allowRecovery: false)
         return
       }
+      if try await client.transport.hasStoredAccount() { setCompetitionAccountExists(true) }
       let me = try await client.me()
       guard identity == accountChangeRevision, !accountChanging else { return }
       try await showPublicTrackingPhone(me)
       let profile = await profilePresentation(me.profile)
       guard identity == accountChangeRevision, !accountChanging else { return }
+      setCompetitionAccountExists(true, participantID: me.profile.participant_id)
       presentation.competitionProfile = profile
       competitionRestored = true
       joinedParticipantID =
@@ -680,6 +719,7 @@ import struct FoldingData.TrackingDiagnosticSnapshot
     let profile = signedIn.profile
     let displayedProfile = await profilePresentation(profile)
     guard identity == accountChangeRevision, !accountChanging else { throw CancellationError() }
+    setCompetitionAccountExists(true, participantID: profile.participant_id)
     presentation.competitionProfile = displayedProfile
     competitionRestored = true
     joinedParticipantID =
@@ -726,6 +766,7 @@ import struct FoldingData.TrackingDiagnosticSnapshot
   private func loadCompetition(_ period: CompetitionPeriod, cursor: String? = nil) async throws
     -> LeaderboardPresentation
   {
+    let visibility = competitionIdentityRevision
     let api = try await competitionClient()
     if cursor == nil {
       await runtime.uploadCompetition(using: api.transport)
@@ -753,13 +794,16 @@ import struct FoldingData.TrackingDiagnosticSnapshot
       for await (id, data) in group { if let data { values[id] = data } }
       return values
     }
+    guard visibility == competitionIdentityRevision else { throw CancellationError() }
     func entry(_ row: CompetitionWireRank) -> LeaderboardEntry {
       LeaderboardEntry(
-        id: row.participant_id, rank: row.rank, displayName: row.nickname,
+        id: row.participant_id, rank: row.rank,
+        displayName: row.blocked == true ? blockedPlayerName(row.participant_id) : row.nickname,
         folds: row.folds, approvedAvatarURL: nil,
         isCurrentUser: row.participant_id == board.you?.participant_id,
         approvedAvatarData: row.avatar_id.flatMap { avatars[$0] },
-        featuredBadge: row.featured_badge_id)
+        featuredBadge: row.blocked == true ? nil : row.featured_badge_id,
+        isBlocked: row.blocked == true)
     }
     return LeaderboardPresentation(
       periodTitle: period.title, entries: board.page.items.map(entry),

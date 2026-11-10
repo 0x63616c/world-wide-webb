@@ -160,7 +160,7 @@ pub(crate) async fn recover(
     request_id: &Id,
 ) -> std::result::Result<Response, Failure> {
     let time = now();
-    let old=statement(db,"SELECT state,recover_until_ms FROM deletion_operations WHERE participant_id=?1 AND operation_id=?2",&[text(participant),text(operation.as_str())])?.first::<Operation>(None).await.map_err(|_|Failure::unavailable())?.ok_or_else(Failure::unauthorized)?;
+    let old=statement(db,"SELECT state,recover_until_ms FROM deletion_operations WHERE participant_id=?1 AND operation_id=?2",&[text(participant),text(operation.as_str())])?.first::<Operation>(None).await.map_err(|_|Failure::unavailable())?.ok_or(Failure { status: 404, code: "not_found", retryable: false })?;
     if old.recover_until_ms.is_some_and(|expiry| expiry <= time) {
         return Err(Failure::unauthorized());
     }
@@ -235,8 +235,30 @@ pub(crate) async fn poll(
     if let Some(token) = authorization.strip_prefix("Deletion ") {
         let hash = crate::session::token_hash(token).ok_or_else(Failure::unauthorized)?;
         let row=statement(db,"SELECT d.state,d.recover_until_ms FROM deletion_operations d JOIN deletion_polling_tokens t ON t.participant_id=d.participant_id AND t.operation_id=d.operation_id WHERE t.token_hash=?1 AND t.operation_id=?2 AND t.expires_at_ms>?3",&[blob(&hash),text(operation.as_str()),number(now())])?.first::<Operation>(None).await.map_err(|_|Failure::unavailable())?.ok_or_else(Failure::unauthorized)?;
+        #[derive(Deserialize)]
+        struct Cleanup {
+            operator_action: i64,
+            retrying: i64,
+        }
+        let cleanup = statement(db, CLEANUP_STATUS, &[text(operation.as_str()), blob(&hash)])?
+            .first::<Cleanup>(None)
+            .await
+            .map_err(|_| Failure::unavailable())?
+            .ok_or_else(Failure::unavailable)?;
+        let error = if row.state == "pending" && cleanup.operator_action != 0 {
+            Some("cleanup_requires_attention")
+        } else if row.state == "pending" && cleanup.retrying != 0 {
+            Some("cleanup_retrying")
+        } else {
+            None
+        };
+        let state = if error == Some("cleanup_requires_attention") {
+            "failed"
+        } else {
+            &row.state
+        };
         return response(
-            &serde_json::json!({"operation_id":operation,"state":row.state,"error_code":null,"request_id":request_id}),
+            &serde_json::json!({"operation_id":operation,"state":state,"error_code":error,"request_id":request_id}),
         );
     }
     let _ = config;
@@ -505,3 +527,17 @@ pub(crate) async fn recover_receipt(
     db.batch(vec![statement(db,"INSERT INTO mutation_guards VALUES (?1,CASE WHEN EXISTS(SELECT 1 FROM deletion_operations d JOIN deletion_polling_tokens t ON t.participant_id=d.participant_id AND t.operation_id=d.operation_id WHERE d.participant_id=?2 AND d.operation_id=?3 AND (d.recover_until_ms IS NULL OR d.recover_until_ms>?4) AND t.token_hash=?5 AND t.expires_at_ms>?4) THEN 1 ELSE 0 END)",&[text(&guard),text(participant),text(&old.deletion_operation_id),number(time),blob(&token)])?,statement(db,"DELETE FROM mutation_guards WHERE guard_id=?1",&[text(&guard)])?]).await.map_err(|_|Failure::unauthorized())?;
     Ok(Some(value))
 }
+
+// Polling reports retry exhaustion/configuration pauses without resetting operator-owned retries.
+const CLEANUP_STATUS: &str = r#"
+SELECT EXISTS(SELECT 1 FROM external_retry_state r WHERE r.state IN ('failed','paused') AND
+ ((r.kind='account_revocation' AND r.work_key IN ('',d.operation_id)) OR
+ (r.kind='avatar_cleanup' AND (r.work_key='' OR r.work_key IN
+ (SELECT object_key FROM avatar_purge_jobs WHERE participant_id=d.participant_id))))) AS operator_action,
+ EXISTS(SELECT 1 FROM external_retry_state r WHERE r.state='pending' AND
+ ((r.kind='account_revocation' AND r.work_key=d.operation_id) OR
+ (r.kind='avatar_cleanup' AND r.work_key IN
+ (SELECT object_key FROM avatar_purge_jobs WHERE participant_id=d.participant_id)))) AS retrying
+FROM deletion_operations d WHERE d.operation_id=?1 AND d.participant_id IN
+ (SELECT participant_id FROM deletion_polling_tokens WHERE token_hash=?2)
+"#;

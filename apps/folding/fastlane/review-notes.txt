@@ -1,1 +1,7 @@
 Folding is a personal fold tracker for iPhone Duo. The guided setup helps users create open and close automations in Shortcuts and test their receipts. Personal tracking does not require competition enrollment. Leaderboards use optional Sign in with Apple. All features are free; consumable tips unlock no features and confer no competition advantage. Support: support@getfolding.app.
+
+Competition is optional: use Leaderboard → Continue with Apple, then Join. Reviewers can use their own Apple Account; there is no separate password login. Personal tracking and the tip jar work without competition enrollment.
+
+UGC controls: long-press another player's leaderboard row or open their profile → ellipsis to report or block. Blocked players retain their score and rank but their name, photo and profile are hidden. Unblock in Settings → Blocked players.
+
+Account deletion: Settings → Delete competition account is available after Apple sign-in, including before Join and on restricted accounts. Confirm with Apple. It removes the competition account/profile/photo/scores/results; private fold history remains and can be reset separately in Settings → Data → Reset history. Cleanup status is shown in the app.
