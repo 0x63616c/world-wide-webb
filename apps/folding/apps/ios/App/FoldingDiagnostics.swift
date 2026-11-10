@@ -32,7 +32,8 @@ enum FoldingDiagnostics {
       case .unsupportedAttestation: return (.unsupportedAttestation, nil)
       case .server(let status): return (.service, status)
       case .service(let status, let code, _, _):
-        return (TrackingDiagnosticEntry.Reason(rawValue: code) ?? .service, status)
+        let reason = TrackingDiagnosticEntry.Reason(rawValue: code) ?? .service
+        return (reason == .busy ? .service : reason, status)
       }
     }
     if let url = error as? URLError { return (.network, url.code.rawValue) }
@@ -41,14 +42,16 @@ enum FoldingDiagnostics {
 
   static func record(
     _ store: TrackingStore?, _ event: TrackingDiagnosticEntry.Event,
-    error: Error? = nil, count: Int? = nil, durationMS: Int? = nil
+    error: Error? = nil, count: Int? = nil, durationMS: Int? = nil, attempt: Int? = nil,
+    retryDelayMS: Int? = nil
   ) async {
     guard enabled, let store else { return }
     let failure = error.map(errorInfo)
     try? await store.appendDiagnostic(
       TrackingDiagnosticEntry(
         atMS: TrackingRuntime.nowMS, event: event,
-        reason: failure?.0, detail: failure?.1, count: count, durationMS: durationMS))
+        reason: failure?.0, detail: failure?.1, count: count, durationMS: durationMS,
+        attempt: attempt, retryDelayMS: retryDelayMS))
   }
 
   static func attach(to transport: CompetitionTransport, store: TrackingStore) async {

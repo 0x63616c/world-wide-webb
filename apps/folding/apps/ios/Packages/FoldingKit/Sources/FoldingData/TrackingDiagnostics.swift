@@ -16,6 +16,21 @@ public struct TrackingDiagnosticEntry: Codable, Equatable, Sendable {
     case uploadCancelled = "upload_cancelled"
     case uploadQueueFailed = "upload_queue_failed"
     case uploadRuntimeFailed = "upload_runtime_failed"
+    case sessionRefreshStarted = "session_refresh_started"
+    case sessionRefreshJoined = "session_refresh_joined"
+    case sessionRefreshCompleted = "session_refresh_completed"
+    case sessionRefreshFailed = "session_refresh_failed"
+    case signingBusy = "signing_busy"
+    case attestationKeyGenerationStarted = "attestation_key_generation_started"
+    case attestationKeyGenerated = "attestation_key_generated"
+    case attestationEnrollmentStarted = "attestation_enrollment_started"
+    case attestationEnrollmentCompleted = "attestation_enrollment_completed"
+    case attestationEnrollmentFailed = "attestation_enrollment_failed"
+    case attestationAssertionStarted = "attestation_assertion_started"
+    case attestationAssertionCompleted = "attestation_assertion_completed"
+    case attestationAssertionFailed = "attestation_assertion_failed"
+    case uploadRetryScheduled = "upload_retry_scheduled"
+    case captureQuarantined = "capture_quarantined"
     case network
     case widgetSnapshotWritten = "widget_snapshot_written"
     case widgetFailed = "widget_failed"
@@ -54,12 +69,14 @@ public struct TrackingDiagnosticEntry: Codable, Equatable, Sendable {
   public let detail: Int?
   public let count: Int?
   public let durationMS: Int?
+  public let attempt: Int?
+  public let retryDelayMS: Int?
   public let requestID: UUID?
 
   public init(
     atMS: Int64, event: Event, reason: Reason? = nil, route: Route? = nil,
     status: Int? = nil, detail: Int? = nil, count: Int? = nil,
-    durationMS: Int? = nil, requestID: UUID? = nil
+    durationMS: Int? = nil, attempt: Int? = nil, retryDelayMS: Int? = nil, requestID: UUID? = nil
   ) {
     self.atMS = atMS
     self.event = event
@@ -69,6 +86,8 @@ public struct TrackingDiagnosticEntry: Codable, Equatable, Sendable {
     self.detail = detail.map { max(-1_000_000, min($0, 1_000_000)) }
     self.count = count.map { max(0, min($0, 1_000_000)) }
     self.durationMS = durationMS.map { max(0, min($0, 86_400_000)) }
+    self.attempt = attempt.map { max(0, min($0, 1_000_000)) }
+    self.retryDelayMS = retryDelayMS.map { max(0, min($0, 604_800_000)) }
     self.requestID = requestID
   }
 
@@ -81,7 +100,34 @@ public struct TrackingDiagnosticEntry: Codable, Equatable, Sendable {
     if let detail { parts.append("detail=\(detail)") }
     if let count { parts.append("count=\(count)") }
     if let durationMS { parts.append("duration_ms=\(durationMS)") }
+    if let attempt { parts.append("attempt=\(attempt)") }
+    if let retryDelayMS { parts.append("retry_delay_ms=\(retryDelayMS)") }
     if let requestID { parts.append("request_id=\(requestID.uuidString.lowercased())") }
     return parts.joined(separator: " ")
+  }
+}
+
+/// Versioned support export: typed events and named snapshot fields, without raw payloads.
+public struct TrackingDiagnosticSnapshot: Codable, Sendable {
+  public var formatVersion = 1
+  public var capturedAtMS: Int64
+  public var context: [String: String]
+  public var events: [TrackingDiagnosticEntry]
+  public init(
+    capturedAtMS: Int64, context: [String: String] = [:], events: [TrackingDiagnosticEntry] = []
+  ) {
+    self.capturedAtMS = capturedAtMS
+    self.context = context
+    self.events = events
+  }
+  public var text: String {
+    (["Folding diagnostics"] + context.keys.sorted().map { "\($0)=\(context[$0]!)" }
+      + ["\nRecent activity (\(events.count))"] + events.map(\.line)).joined(separator: "\n")
+  }
+  public func json() throws -> String {
+    let encoder = JSONEncoder()
+    encoder.keyEncodingStrategy = .convertToSnakeCase
+    encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+    return String(decoding: try encoder.encode(self), as: UTF8.self)
   }
 }

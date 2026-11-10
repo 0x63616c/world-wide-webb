@@ -291,6 +291,8 @@ actor TrackingRuntime {
       } catch CaptureError.invalidLease { break } catch {
         let permanent =
           error as? StoreError == .identityConflict || error as? StoreError == .invalidInput
+        await FoldingDiagnostics.record(
+          current, permanent ? .captureQuarantined : .processingFailed, error: error)
         try? await current.retryCapturedObservation(lease, nowMS: Self.nowMS, quarantine: permanent)
         break
       }
@@ -396,6 +398,9 @@ actor TrackingRuntime {
           bundleID: Bundle.main.bundleIdentifier ?? "app.getfolding.Folding")
       }
       await FoldingDiagnostics.attach(to: transport, store: current)
+      if suppliedTransport != nil {
+        try await current.resumeLocalBusyCompetitionUpload(nowMS: Self.nowMS)
+      }
       uploadAttempt = .running
       uploadAttempt = await competitionUploader.upload(from: current, transport: transport)
     } catch {
@@ -410,33 +415,44 @@ actor TrackingRuntime {
     return (uploadAttempt.rawValue, queue.rawValue)
   }
 
-  func diagnosticReport() async -> String {
+  func diagnosticReport() async -> String { await diagnosticSnapshot().text }
+
+  func diagnosticSnapshot() async -> TrackingDiagnosticSnapshot {
     let availability = await cloudConnection?.availability ?? .localOnly
-    var lines = [
-      "Folding diagnostics",
-      "environment=\(Bundle.main.object(forInfoDictionaryKey: "FoldingEnvironment") as? String ?? "development")",
-      "lifecycle=\(observedLifecycle?.rawValue ?? "unknown")",
-      "cloud_availability=\(String(describing: availability))",
-      "version=\(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "unknown") (\(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "unknown"))",
-      "os=\(ProcessInfo.processInfo.operatingSystemVersionString)",
-      "locale=\(Locale.current.identifier)",
-      "home_timezone=\(localPreferences().homeTimezone)",
-      "worker=\(uploadAttempt.rawValue)",
-      "account_suspended=\(accountSuspended)",
-      "capture_processing=\(captureReplay != nil)",
-      "scheduled_upload=\(scheduledUpload != nil)",
-      "cloud_sync_running=\(synchronizing)",
-      "cloud_sync_failed=\(privateSyncFailed)",
+    var fields: [String: String] = [
+      "environment":
+        "\(Bundle.main.object(forInfoDictionaryKey: "FoldingEnvironment") as? String ?? "development")",
+      "lifecycle": "\(observedLifecycle?.rawValue ?? "unknown")",
+      "cloud_availability": "\(String(describing: availability))",
+      "version":
+        "\(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "unknown") (\(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "unknown"))",
+      "marketing_version": Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString")
+        as? String ?? "unknown",
+      "build_number": Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String
+        ?? "unknown",
+      "os": "\(ProcessInfo.processInfo.operatingSystemVersionString)",
+      "locale": "\(Locale.current.identifier)",
+      "home_timezone": "\(localPreferences().homeTimezone)",
+      "worker": "\(uploadAttempt.rawValue)",
+      "account_suspended": "\(accountSuspended)",
+      "capture_processing": "\(captureReplay != nil)",
+      "scheduled_upload": "\(scheduledUpload != nil)",
+      "cloud_sync_running": "\(synchronizing)",
+      "cloud_sync_failed": "\(privateSyncFailed)",
     ]
+    var events: [TrackingDiagnosticEntry] = []
     do {
       // A support read must not wait for replay, network, widgets or notification delivery.
       let current = try await localCaptureStore()
-      lines.append(try await current.diagnosticReport(nowMS: Self.nowMS))
+      let local = try await current.diagnosticSnapshot(nowMS: Self.nowMS)
+      fields.merge(local.context) { _, new in new }
+      events = local.events
     } catch {
       let failure = FoldingDiagnostics.errorInfo(error)
-      lines.append("journal_error=\(failure.0.rawValue) detail=\(failure.1 ?? 0)")
+      fields["journal_error"] = failure.0.rawValue
+      fields["journal_error_detail"] = String(failure.1 ?? 0)
     }
-    return lines.joined(separator: "\n")
+    return TrackingDiagnosticSnapshot(capturedAtMS: Self.nowMS, context: fields, events: events)
   }
 
   func recordLifecycle(_ event: TrackingDiagnosticEntry.Event) async {

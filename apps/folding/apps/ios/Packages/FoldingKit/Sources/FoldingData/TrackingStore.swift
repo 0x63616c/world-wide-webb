@@ -1488,9 +1488,15 @@ public actor TrackingStore {
   }
 
   public func diagnosticReport(nowMS: Int64) throws -> String {
+    try diagnosticSnapshot(nowMS: nowMS).text
+  }
+
+  public func diagnosticSnapshot(nowMS: Int64) throws -> TrackingDiagnosticSnapshot {
     let queue = try competitionUploadQueueState(nowMS: nowMS)
     return try journalTransaction(write: false) {
-      var lines = ["queue=\(queue.rawValue)", "generation_revision=\(try generation().revision)"]
+      var fields = [
+        "queue": queue.rawValue, "generation_revision": String(try generation().revision),
+      ]
       for (name, sql) in [
         ("schema_version", "PRAGMA user_version"),
         ("sqlite_version", "SELECT sqlite_version() AS value"),
@@ -1512,38 +1518,37 @@ public actor TrackingStore {
         ),
       ] {
         let row = try database.rows(sql).first
-        lines.append("\(name)=\(row?["value"] ?? row?["user_version"] ?? "unknown")")
+        fields[name] = row?["value"] ?? row?["user_version"] ?? "unknown"
       }
       if let raw = try database.rows(
         "SELECT value FROM settings WHERE key='competition_upload_not_before'"
       ).first?["value"],
         let deadline = Int64(raw)
       {
-        lines.append("next_batch_seconds=\(deadline > nowMS ? (deadline - nowMS) / 1000 : 0)")
+        fields["next_batch_seconds"] = String(deadline > nowMS ? (deadline - nowMS) / 1000 : 0)
       }
       if let raw = try database.rows(
         "SELECT value FROM settings WHERE key='competition_upload_suspended'"
       ).first?["value"] {
-        lines.append(
-          "pause_reason=\(TrackingDiagnosticEntry.Reason(rawValue: raw)?.rawValue ?? "service")")
+        fields["pause_reason"] =
+          TrackingDiagnosticEntry.Reason(rawValue: raw)?.rawValue ?? "service"
       }
       if let raw = try database.rows("SELECT value FROM settings WHERE key='competition_upload'")
         .first?["value"],
         let work = try? decode(raw) as CompetitionUpload
       {
-        lines.append(
-          "leased_seconds=\(work.leaseUntilMS > nowMS ? (work.leaseUntilMS - nowMS) / 1000 : 0)")
-        lines.append(
-          "retry_seconds=\(work.nextAttemptMS > nowMS ? (work.nextAttemptMS - nowMS) / 1000 : 0)")
-        lines.append("batch_events=\(work.eventIDs.count)")
-        lines.append("attempts=\(work.attempts ?? 0)")
+        fields["leased_seconds"] = String(
+          work.leaseUntilMS > nowMS ? (work.leaseUntilMS - nowMS) / 1000 : 0)
+        fields["retry_seconds"] = String(
+          work.nextAttemptMS > nowMS ? (work.nextAttemptMS - nowMS) / 1000 : 0)
+        fields["batch_events"] = String(work.eventIDs.count)
+        fields["attempts"] = String(work.attempts ?? 0)
+        if let reason = work.retryReason { fields["retry_reason"] = reason.rawValue }
       }
       let raw = try database.rows("SELECT value FROM settings WHERE key='tracking_diagnostics_v1'")
         .first?["value"]
       let entries = raw.flatMap { try? decode($0) as [TrackingDiagnosticEntry] } ?? []
-      lines.append("\nRecent activity (\(entries.count))")
-      lines.append(contentsOf: entries.map(\.line))
-      return lines.joined(separator: "\n")
+      return TrackingDiagnosticSnapshot(capturedAtMS: nowMS, context: fields, events: entries)
     }
   }
 
@@ -1686,15 +1691,52 @@ public actor TrackingStore {
     }
   }
 
-  public func retryCompetitionUpload(_ upload: CompetitionUpload, atMS: Int64) throws {
+  public func retryCompetitionUpload(
+    _ upload: CompetitionUpload, atMS: Int64,
+    reason: TrackingDiagnosticEntry.Reason? = nil, incrementAttempts: Bool = true
+  ) throws {
     try validateTime(atMS)
     try journalTransaction {
       guard try validCompetitionUpload(upload) else { return }
       var pending = upload
-      pending.attempts = min((pending.attempts ?? 0) + 1, 20)
+      pending.attempts = min((pending.attempts ?? 0) + (incrementAttempts ? 1 : 0), 20)
+      pending.retryReason = reason
       pending.nextAttemptMS = atMS
       pending.leaseUntilMS = 0
       try saveCompetitionUpload(pending)
+    }
+  }
+
+  /// Recover only a proven local busy deferral, preserving server and network deadlines.
+  /// Old clients did not persist a reason on the work; their typed diagnostic tail supplies
+  /// the last upload outcome until the first new-client retry records it on the batch.
+  public func resumeLocalBusyCompetitionUpload(nowMS: Int64) throws {
+    try validateTime(nowMS)
+    try journalTransaction {
+      guard
+        let raw = try database.rows("SELECT value FROM settings WHERE key='competition_upload'")
+          .first?["value"], var work = try? decode(raw) as CompetitionUpload,
+        work.leaseUntilMS <= nowMS, work.nextAttemptMS > nowMS
+      else { return }
+      var reason = work.retryReason
+      if reason == nil {
+        let raw = try database.rows(
+          "SELECT value FROM settings WHERE key='tracking_diagnostics_v1'"
+        )
+        .first?["value"]
+        let entries = raw.flatMap { try? decode($0) as [TrackingDiagnosticEntry] } ?? []
+        let last = entries.last {
+          [
+            .uploadDeferred, .uploadAccepted, .uploadCancelled,
+            .uploadQueueFailed, .uploadRuntimeFailed,
+          ].contains($0.event)
+        }
+        if last?.event == .uploadDeferred, last?.detail == nil { reason = last?.reason }
+      }
+      guard reason == .busy else { return }
+      work.nextAttemptMS = nowMS
+      work.retryReason = .busy
+      try saveCompetitionUpload(work)
     }
   }
 

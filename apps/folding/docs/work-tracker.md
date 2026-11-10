@@ -446,3 +446,31 @@ copy Settings → Diagnostics if it remains stale. The original background stopp
 point and the owner's post-update totals remain unverified; fixture success and
 Apple distribution do not establish private-device reconciliation. Existing App
 Store and physical-device acceptance deferrals remain open.
+
+
+### Upload contention repair and structured support export — November 9
+
+A device support report isolated a local busy deferral with a persisted retry delay
+approaching an hour. An actual uploader/transport regression fixture reproduces a
+concurrent account-read session refresh causing the upload to defer without sending
+its batch. Sharing the in-flight session refresh makes that fixture pass and send
+the original batch. Local signing contention now retries after two seconds without
+increasing the failure count; normal transient backoff is capped around five minutes,
+while explicit server retry windows remain authoritative. Foreground refresh can
+resume a legacy local-busy deferral only when the saved typed diagnostic outcome
+proves it was local; server and network deadlines are preserved. Operation IDs,
+bodies and captured observations remain unchanged.
+
+Support exports are now versioned JSON with named context and typed events, including
+session-refresh sharing, App Attest generation/enrollment/assertion boundaries and
+retry reason, attempt and delay. Raw errors, credentials and captured bodies remain
+excluded. Share exports a named JSON file with app version, build and captured
+date. Local validation passed 78 app-hosted tests, 118 package tests, and the
+separate FoldingStorefront test build; seven targeted app checks and the focused
+queue/JSON checks passed after final review and the named-file change. The contention fixture failed at the real
+seam before the fix and passed afterward. Publication, replacement TestFlight and
+the owner's post-update totals remain pending.
+
+The owner now requests App Store review submission after the fix and automatic
+on-merge review delivery matching Tendr's behavior. That submission work is active;
+no App Review submission is claimed by the TestFlight-only delivery above.

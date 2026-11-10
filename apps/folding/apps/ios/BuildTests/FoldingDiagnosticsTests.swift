@@ -19,6 +19,25 @@ private actor DiagnosticGate {
 }
 
 @MainActor final class FoldingDiagnosticsTests: XCTestCase {
+  func testSharedReportIsNamedJSONFileWithVersionBuildAndCapturedDate() throws {
+    let snapshot = TrackingDiagnosticSnapshot(
+      capturedAtMS: 1_800_000_000_000,
+      context: ["marketing_version": "1.0.0", "build_number": "19"],
+      events: [
+        TrackingDiagnosticEntry(
+          atMS: 1_800_000_000_000, event: .uploadRetryScheduled,
+          reason: .busy, attempt: 3, retryDelayMS: 2000)
+      ])
+    let file = try DiagnosticReportExport(snapshot: snapshot).fileURL()
+    defer { try? FileManager.default.removeItem(at: file.deletingLastPathComponent()) }
+    XCTAssertTrue(file.lastPathComponent.hasPrefix("Folding-Diagnostics-v1.0.0-b19-"))
+    XCTAssertEqual(file.pathExtension, "json")
+    let object = try XCTUnwrap(
+      JSONSerialization.jsonObject(with: Data(contentsOf: file)) as? [String: Any])
+    XCTAssertEqual(object["format_version"] as? Int, 1)
+    XCTAssertEqual((object["events"] as? [[String: Any]])?.first?["retry_delay_ms"] as? Int, 2000)
+  }
+
   func testDiagnosticReportDoesNotWaitForBlockedUploader() async throws {
     let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: directory) }
