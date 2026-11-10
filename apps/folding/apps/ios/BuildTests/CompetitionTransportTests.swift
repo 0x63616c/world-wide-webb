@@ -322,3 +322,58 @@ private final class DelayedIdentityProtocol: URLProtocol, @unchecked Sendable {
     try await transport.clearSession()
   }
 }
+
+@MainActor private final class ExpiredDeletionAuthorization: CompetitionAccountAuthorizing {
+  let status: Int
+  var existingOnlyAttempts: [Bool] = []
+  init(status: Int) { self.status = status }
+  func recoverDeletion(transport: CompetitionTransport, deviceID: UUID, operationID: String)
+    async throws -> CompetitionDeletionReceipt
+  {
+    throw CompetitionTransportError.server(status)
+  }
+  func reauthenticate(transport: CompetitionTransport, deviceID: UUID) async throws -> String {
+    throw CompetitionTransportError.unauthorized
+  }
+  func signIn(
+    transport: CompetitionTransport, deviceID: UUID, existingParticipantID: String?,
+    existingAccountOnly: Bool
+  ) async throws -> CompetitionSignInResult {
+    existingOnlyAttempts.append(existingAccountOnly)
+    throw CompetitionTransportError.server(404)
+  }
+}
+
+@MainActor final class DeletionRecoveryTests: XCTestCase {
+  func testLostAcceptedResponseAfterRetentionShowsUnverifiedStatusWithoutRecreatingAccount()
+    async throws
+  {
+    for status in [401, 404] {
+      let device = UUID()
+      let transport = try CompetitionTransport(
+        origin: URL(string: "https://api.getfolding.app")!, deployment: "production",
+        deviceID: device, bundleID: "app.getfolding.tests.\(UUID())")
+      let operation = CompetitionRemovalOperation(
+        kind: .delete, operationID: UUID().uuidString.lowercased(), accepted: false,
+        deletionReceipt: nil)
+      // Server accepted the request, but its response was lost; this is the exact durable client state.
+      try await transport.saveRemoval(operation)
+      let authorization = ExpiredDeletionAuthorization(status: status)
+      let suite = "folding.deletion.tests.\(UUID())"
+      let defaults = UserDefaults(suiteName: suite)!
+      defer { defaults.removePersistentDomain(forName: suite) }
+      let controller = AppController(
+        preferencesStore: defaults,
+        competitionAPI: CompetitionAPI(transport: transport, deviceID: device),
+        appleSignIn: authorization)
+      try await controller.pollRemoval(allowRecovery: true)
+      XCTAssertEqual(controller.presentation.competitionRemoval, .statusUnavailable)
+      let saved = try await transport.pendingRemoval()
+      XCTAssertEqual(saved?.operationID, operation.operationID)
+      XCTAssertEqual(saved?.accepted, false)
+      XCTAssertEqual(authorization.existingOnlyAttempts, status == 404 ? [true] : [])
+      try await transport.finishRemoval()
+      try await transport.clearSession()
+    }
+  }
+}

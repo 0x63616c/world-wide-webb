@@ -26,7 +26,7 @@ import struct FoldingData.TrackingDiagnosticSnapshot
   private var competitionRestored = false
   private let preferencesStore: UserDefaults
   private var competitionAPI: CompetitionAPI?
-  private let appleSignIn = CompetitionSignIn()
+  private let appleSignIn: any CompetitionAccountAuthorizing
   private var request = UUID()
   private var accountChanging = false
   private var accountChangeRevision = UUID()
@@ -40,8 +40,10 @@ import struct FoldingData.TrackingDiagnosticSnapshot
   init(
     runtime: TrackingRuntime = .shared, preferencesStore: UserDefaults = .standard,
     initialPreferences: FoldingPreferences = FoldingPreferences(),
-    competitionAPI: CompetitionAPI? = nil
+    competitionAPI: CompetitionAPI? = nil,
+    appleSignIn: any CompetitionAccountAuthorizing = CompetitionSignIn()
   ) {
+    self.appleSignIn = appleSignIn
     self.runtime = runtime
     self.competitionAPI = competitionAPI
     self.preferencesStore = preferencesStore
@@ -342,7 +344,7 @@ import struct FoldingData.TrackingDiagnosticSnapshot
     }
   }
 
-  private func pollRemoval(allowRecovery: Bool) async throws {
+  func pollRemoval(allowRecovery: Bool) async throws {
     let api = try await competitionClient()
     guard var operation = try await api.transport.pendingRemoval() else { return }
     presentation.competitionRemoval = .deleting
@@ -388,7 +390,7 @@ import struct FoldingData.TrackingDiagnosticSnapshot
         presentation.competitionRemoval = .deleteFailed
       }
     } catch let failure as CompetitionTransportError
-      where operation.accepted && allowRecovery
+      where allowRecovery
       && (failure.statusCode == 401 || failure.statusCode == 404)
     {
       presentation.competitionRemoval = .statusUnavailable

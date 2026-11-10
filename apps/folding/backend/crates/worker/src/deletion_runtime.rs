@@ -532,7 +532,7 @@ pub(crate) async fn recover_receipt(
 const CLEANUP_STATUS: &str = r#"
 SELECT EXISTS(SELECT 1 FROM external_retry_state r WHERE r.state IN ('failed','paused') AND
  ((r.kind='account_revocation' AND r.work_key IN ('',d.operation_id)) OR
- (r.kind='avatar_cleanup' AND (r.work_key='' OR r.work_key IN
+ (r.kind='avatar_cleanup' AND ((r.work_key='' AND EXISTS(SELECT 1 FROM avatar_purge_jobs WHERE participant_id=d.participant_id)) OR r.work_key IN
  (SELECT object_key FROM avatar_purge_jobs WHERE participant_id=d.participant_id))))) AS operator_action,
  EXISTS(SELECT 1 FROM external_retry_state r WHERE r.state='pending' AND
  ((r.kind='account_revocation' AND r.work_key=d.operation_id) OR

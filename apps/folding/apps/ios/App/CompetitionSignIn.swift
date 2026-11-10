@@ -85,8 +85,29 @@ enum AppleNameSuggestion {
   }
 }
 
+@MainActor protocol CompetitionAccountAuthorizing {
+  func signIn(
+    transport: CompetitionTransport, deviceID: UUID, existingParticipantID: String?,
+    existingAccountOnly: Bool
+  ) async throws -> CompetitionSignInResult
+  func reauthenticate(transport: CompetitionTransport, deviceID: UUID) async throws -> String
+  func recoverDeletion(transport: CompetitionTransport, deviceID: UUID, operationID: String)
+    async throws -> CompetitionDeletionReceipt
+}
+
+extension CompetitionAccountAuthorizing {
+  func signIn(transport: CompetitionTransport, deviceID: UUID) async throws
+    -> CompetitionSignInResult
+  {
+    try await signIn(
+      transport: transport, deviceID: deviceID, existingParticipantID: nil,
+      existingAccountOnly: false)
+  }
+}
+
 @MainActor
-final class CompetitionSignIn: NSObject, ASAuthorizationControllerDelegate,
+final class CompetitionSignIn: NSObject, CompetitionAccountAuthorizing,
+  ASAuthorizationControllerDelegate,
   ASAuthorizationControllerPresentationContextProviding
 {
   private var continuation: CheckedContinuation<ASAuthorizationAppleIDCredential, Error>?

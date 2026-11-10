@@ -376,6 +376,13 @@ test('nonjoined and restricted accounts can delete; polling exposes cleanup fail
   assert.equal(response.status,202,await response.clone().text());const receipt=await response.json();
   const poll=()=>runtime.dispatchFetch('https://api.example/v1/operations/'+operation,{headers:{Authorization:'Deletion '+receipt.polling_token}});
   assert.equal((await jsonOK(await poll())).state,'pending');
+  await db.prepare("INSERT INTO external_retry_state VALUES (?,'avatar_cleanup','','paused',0,0,?,'configuration_or_authorization')").bind(uuid(++op),time).run();
+  let unrelated=await jsonOK(await poll());assert.equal(unrelated.state,'pending');assert.equal(unrelated.error_code,null);
+  await db.prepare("INSERT INTO avatar_purge_jobs(object_key,participant_id) VALUES (?,?)").bind('paused-avatar-'+operation,p.participant).run();
+  assert.equal((await jsonOK(await poll())).error_code,'cleanup_requires_attention');
+  await db.prepare("DELETE FROM avatar_purge_jobs WHERE participant_id=?").bind(p.participant).run();
+  await db.prepare("DELETE FROM external_retry_state WHERE kind='avatar_cleanup'").run();
+
   await db.prepare("INSERT INTO external_retry_state VALUES (?,'account_revocation',?,'failed',12,0,?,'external_failure')").bind(uuid(++op),operation,time).run();
   let status=await jsonOK(await poll());assert.equal(status.state,'failed');assert.equal(status.error_code,'cleanup_requires_attention');
   // The existing operator retry changes state; status polling alone never resets exhaustion.

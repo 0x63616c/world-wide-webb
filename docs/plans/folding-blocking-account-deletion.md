@@ -193,3 +193,11 @@ Apple read-only check at 2026-11-10T15:10:45Z: version1.0.0 still Waiting for Re
 submission intact until the replacement is ready. No deployment/submission mutation has occurred.
 Remaining delivery: final source checks, WWW PR/Astra review/fixes, green checks, merge,
 backward-compatible backend deployment, processed native replacement and exact Apple readback.
+
+
+## Independent PR review
+
+WWW PR #1006: Astra requested two P2 fixes (lost202 plus expired receipt, and unrelated global
+avatar cleanup pause), then approved the fix diff subject to green required checks. Both have
+focused regression coverage. Final local native verification passes 84 tests; backend passes 33
+runtime tests plus Rust workspace/Wasm. No device/provider flows were exercised by this review.
