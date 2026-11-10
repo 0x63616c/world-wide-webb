@@ -45,7 +45,7 @@ class PublishedBuildTests(unittest.TestCase):
                 raise RuntimeError("Write committed, response lost")
             return rows
 
-        result = policy.register(execute, "staging", "TEAM.app.folding", "43", "a" * 40)
+        result = policy.register(execute, "production", "TEAM.app.folding", "43", "a" * 40)
         self.assertEqual(result["build_number"], 43)
         self.assertEqual(len(writes), 1)
 
@@ -57,14 +57,13 @@ class PublishedBuildTests(unittest.TestCase):
             policy.confirm(self.execute, "production", "TEAM.app.folding", "43", "a" * 40)
         self.assertEqual(self.db.execute("SELECT count(*) FROM published_ios_builds").fetchone()[0], 0)
 
-    def test_app_and_environment_have_independent_policy_keys(self):
+    def test_apps_have_independent_policy_keys(self):
         for environment, app in [
-            ("staging", "TEAM.app.folding"),
             ("production", "TEAM.app.folding"),
             ("production", "TEAM.other"),
         ]:
             policy.register(self.execute, environment, app, "43", "a" * 40)
-        self.assertEqual(self.db.execute("SELECT count(*) FROM published_ios_builds").fetchone()[0], 3)
+        self.assertEqual(self.db.execute("SELECT count(*) FROM published_ios_builds").fetchone()[0], 2)
 
 
 if __name__ == "__main__":

@@ -26,7 +26,7 @@ module FoldingAppleAccount
   end
 
   def self.inventory(client: self.client)
-    %w[production staging].to_h do |environment|
+    %w[production].to_h do |environment|
       entry = config.fetch(environment)
       app = Spaceship::ConnectAPI::App.find(entry.fetch("bundle_id"), client: client)
       bundles = ["bundle_id", "widget_bundle_id"].to_h do |kind|
@@ -40,7 +40,7 @@ module FoldingAppleAccount
   end
 
   def self.register_bundles(client: self.client)
-    %w[production staging].each do |environment|
+    %w[production].each do |environment|
       entry = config.fetch(environment)
       {"bundle_id" => entry.fetch("name"), "widget_bundle_id" => "#{entry.fetch('name')} Widgets"}.each do |kind, name|
         identifier = entry.fetch(kind)
@@ -67,7 +67,7 @@ module FoldingAppleAccount
       "ICLOUD" => [{key: "ICLOUD_VERSION", options: [{key: "XCODE_6"}]}],
       "APPLE_ID_AUTH" => [{key: "APPLE_ID_AUTH_APP_CONSENT", options: [{key: "PRIMARY_APP_CONSENT"}]}]
     }
-    %w[production staging].each do |environment|
+    %w[production].each do |environment|
       entry = config.fetch(environment)
       {"bundle_id" => app_services, "widget_bundle_id" => {"APP_GROUPS" => []}}.each do |kind, services|
         bundle = Spaceship::ConnectAPI::BundleId.find(entry.fetch(kind), client: client)
@@ -101,7 +101,7 @@ module FoldingAppleAccount
     team = "X9E4HG27NK"
     keychain = "folding-signing-setup-#{SecureRandom.hex(8)}"
     password = SecureRandom.hex(32)
-    identifiers = %w[production staging].flat_map do |environment|
+    identifiers = %w[production].flat_map do |environment|
       entry = config.fetch(environment)
       [entry.fetch("bundle_id"), entry.fetch("widget_bundle_id")]
     end
@@ -113,7 +113,7 @@ module FoldingAppleAccount
         api_key: {key_id: ENV.fetch("ASC_KEY_ID"), issuer_id: ENV.fetch("ASC_ISSUER_ID"),
           key: ENV.fetch("ASC_PRIVATE_KEY"), duration: 600, in_house: false},
         keychain_name: keychain, keychain_password: password)
-      evidence = %w[production staging].to_h do |environment|
+      evidence = %w[production].to_h do |environment|
         entry = config.fetch(environment)
         profiles = %w[bundle_id widget_bundle_id].to_h do |kind|
           bundle = entry.fetch(kind)

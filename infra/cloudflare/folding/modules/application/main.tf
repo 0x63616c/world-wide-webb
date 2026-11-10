@@ -8,8 +8,8 @@ variable "zone_id" { type = string }
 variable "environment" {
   type = string
   validation {
-    condition     = contains(["staging", "production"], var.environment)
-    error_message = "Use an isolated staging or production environment."
+    condition     = var.environment == "production"
+    error_message = "Only production is supported."
   }
 }
 variable "admin_emails" {
@@ -25,9 +25,8 @@ variable "routes_enabled" {
   default = false
 }
 locals {
-  suffix      = var.environment == "production" ? "" : "-staging"
-  api_host    = "api${local.suffix}.getfolding.app"
-  admin_host  = "admin${local.suffix}.getfolding.app"
+  api_host    = "api.getfolding.app"
+  admin_host  = "admin.getfolding.app"
   worker_name = "folding-api-${var.environment}"
 }
 resource "cloudflare_d1_database" "application" {

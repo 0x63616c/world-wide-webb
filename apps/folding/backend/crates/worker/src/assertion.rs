@@ -33,7 +33,7 @@ pub struct Binding<'a> {
     pub exact_body: &'a [u8],
 }
 pub fn client_data_hash(binding: &Binding<'_>) -> Result<[u8; 32], AssertionError> {
-    if !["staging", "production"].contains(&binding.deployment)
+    if binding.deployment != "production"
         || !["POST", "PUT", "PATCH", "DELETE"].contains(&binding.method)
         || !binding.path.starts_with("/v1/")
         || binding.path.contains(['\n', '\r', '?', '#'])
@@ -248,7 +248,7 @@ mod tests {
         let id = Id::nil();
         let nonce = URL_SAFE_NO_PAD.encode([1u8; 32]);
         let mut binding = Binding {
-            deployment: "staging",
+            deployment: "production",
             method: "POST",
             path: "/v1/event-batches",
             challenge_id: &id,
@@ -256,15 +256,9 @@ mod tests {
             exact_body: b"{}",
         };
         let original = client_data_hash(&binding).unwrap();
-        let (encoded, key) = signed(&original, "TEAM.app.getfolding.Folding.Staging", 1);
+        let (encoded, key) = signed(&original, "TEAM.app.getfolding.Folding", 1);
         assert_eq!(
-            verify_assertion(
-                &encoded,
-                &key,
-                "TEAM.app.getfolding.Folding.Staging",
-                0,
-                &original
-            ),
+            verify_assertion(&encoded, &key, "TEAM.app.getfolding.Folding", 0, &original),
             Ok(1)
         );
         binding.exact_body = b"{ }";
@@ -272,7 +266,7 @@ mod tests {
             verify_assertion(
                 &encoded,
                 &key,
-                "TEAM.app.getfolding.Folding.Staging",
+                "TEAM.app.getfolding.Folding",
                 0,
                 &client_data_hash(&binding).unwrap()
             ),
@@ -283,27 +277,18 @@ mod tests {
             Err(AssertionError::WrongApplication)
         );
         assert_eq!(
-            verify_assertion(
-                &encoded,
-                &key,
-                "TEAM.app.getfolding.Folding.Staging",
-                1,
-                &original
-            ),
+            verify_assertion(&encoded, &key, "TEAM.app.getfolding.Folding", 1, &original),
             Err(AssertionError::Replay)
         );
         let mut extra = encoded;
         extra.push(0);
         assert_eq!(
-            verify_assertion(
-                &extra,
-                &key,
-                "TEAM.app.getfolding.Folding.Staging",
-                0,
-                &original
-            ),
+            verify_assertion(&extra, &key, "TEAM.app.getfolding.Folding", 0, &original),
             Err(AssertionError::Malformed)
         );
+        binding.deployment = "staging";
+        assert!(client_data_hash(&binding).is_err());
+        binding.deployment = "production";
         binding.path = "/v1/event-batches?bypass=yes";
         assert!(client_data_hash(&binding).is_err());
     }

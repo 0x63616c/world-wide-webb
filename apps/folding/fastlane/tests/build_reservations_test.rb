@@ -101,11 +101,8 @@ class BuildReservationsTest < Minitest::Test
     assert_equal 2, @stores.fetch(FoldingRelease::CONFIG.fetch("reservation_tag")).latest("reservations").fetch("reservations").length
   end
 
-  def test_staging_and_production_share_the_same_monotonic_ledger
-    production = reserve
-    staging = reserve("staging")
-    assert_equal [43, 44], [production, staging].map { |record| record.data.fetch("build_number") }
-    refute_equal production.data.fetch("bundle_id"), staging.data.fetch("bundle_id")
+  def test_removed_environment_cannot_reserve_builds
+    assert_raises(RuntimeError) { reserve("staging") }
   end
 
   def test_cas_collision_reloads_the_winner_before_allocating

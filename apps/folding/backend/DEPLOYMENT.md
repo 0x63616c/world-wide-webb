@@ -17,7 +17,7 @@ immutable. The primary agent alone provisions credentials, deploys and enables a
 
 ## Non-secret configuration
 
-- `DEPLOYMENT`: `staging` or `production`; no production fallback.
+- `DEPLOYMENT`: `production` only; other environments are rejected.
 - `WORKER_VERSION`: exact deployment identity, also returned by health/capabilities and logged.
 - `AUTH_ENCRYPTION_KEY_VERSION`, `AUTH_SUBJECT_HMAC_KEY_VERSION`: current key-ring versions, initially`v1`.
 - `APPLE_SIGN_IN_CLIENT_ID`, `APPLE_SIGN_IN_TEAM_ID`, `APPLE_SIGN_IN_KEY_ID`.

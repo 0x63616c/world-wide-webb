@@ -52,7 +52,7 @@ mod tests {
         let db = Connection::open_in_memory().unwrap();
         db.execute_batch(SCHEMA).unwrap();
         db.execute_batch(crate::session::SCHEMA).unwrap();
-        db.execute_batch("INSERT INTO participants VALUES ('p','subject','joined','none',0,'g','e','d'); INSERT INTO participant_revisions VALUES ('p',0); INSERT INTO attestation_keys VALUES ('k','p','d','staging',x'01',0,0); INSERT INTO sessions VALUES ('s','p','d','staging',0,0,1000,1000,0); INSERT INTO access_tokens VALUES (zeroblob(32),'s',1000); INSERT INTO challenges VALUES ('c','p','d','k','staging','submit_events',x'02',100,0,'s'); CREATE TABLE test_receipts (operation_id TEXT PRIMARY KEY); CREATE TABLE test_jobs (job_id TEXT PRIMARY KEY);").unwrap();
+        db.execute_batch("INSERT INTO participants VALUES ('p','subject','joined','none',0,'g','e','d'); INSERT INTO participant_revisions VALUES ('p',0); INSERT INTO attestation_keys VALUES ('k','p','d','production',x'01',0,0); INSERT INTO sessions VALUES ('s','p','d','production',0,0,1000,1000,0); INSERT INTO access_tokens VALUES (zeroblob(32),'s',1000); INSERT INTO challenges VALUES ('c','p','d','k','production','submit_events',x'02',100,0,'s'); CREATE TABLE test_receipts (operation_id TEXT PRIMARY KEY); CREATE TABLE test_jobs (job_id TEXT PRIMARY KEY);").unwrap();
         db
     }
     fn guard(db: &Connection, revision: i64, now: i64) -> rusqlite::Result<usize> {
@@ -67,7 +67,7 @@ mod tests {
                 "g",
                 "d",
                 "k",
-                "staging",
+                "production",
                 0,
                 1,
                 "c",

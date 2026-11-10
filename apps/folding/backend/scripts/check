@@ -20,4 +20,4 @@ worker_build_binary="${CARGO_HOME:-$HOME/.cargo}/bin/worker-build"
 "$worker_build_binary" crates/worker --release --no-opt
 npm ci --ignore-scripts
 npm run test:runtime
-printf '%s\n' 'Local Rust/domain/crypto/image/template and workerd/D1 checks passed. Live staging, Apple enrollment and APNs are not covered.'
+printf '%s\n' 'Local Rust/domain/crypto/image/template and workerd/D1 checks passed. Live provider behavior, Apple enrollment and APNs are not covered.'

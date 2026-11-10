@@ -134,9 +134,8 @@ actor CompetitionTransport {
       Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "0") ?? 0,
     onUpdateRequired: (@Sendable (Int) async -> Void)? = nil
   ) throws {
-    let expectedHost =
-      deployment == "production" ? "api.getfolding.app" : "api-staging.getfolding.app"
-    guard ["production", "staging"].contains(deployment), origin.scheme == "https",
+    let expectedHost = "api.getfolding.app"
+    guard deployment == "production", origin.scheme == "https",
       origin.host == expectedHost, origin.user == nil, origin.password == nil,
       origin.port == nil, origin.query == nil, origin.fragment == nil,
       origin.path.isEmpty || origin.path == "/"

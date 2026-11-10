@@ -142,7 +142,7 @@ mod origin_tests {
 
     #[test]
     fn admin_form_accepts_exact_origin_or_user_initiated_same_origin_navigation() {
-        let host = "https://admin-staging.getfolding.app";
+        let host = "https://admin-production.getfolding.app";
         assert!(allowed(Some(host), host, None, None, None, None));
         assert!(allowed(
             Some("null"),

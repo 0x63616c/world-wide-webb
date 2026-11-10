@@ -285,8 +285,7 @@ public actor PrivateCloudMirror {
       guard !closed else { throw MirrorError.closed }
       guard let options = container.persistentStoreDescriptions.first?.cloudKitContainerOptions,
         options.databaseScope == .private,
-        ["iCloud.app.getfolding.Folding", "iCloud.app.getfolding.Folding.Staging"].contains(
-          options.containerIdentifier)
+        options.containerIdentifier == "iCloud.app.getfolding.Folding"
       else { throw MirrorError.invalidRecord }
       try container.initializeCloudKitSchema(options: [])
       return PrivateCloudSchemaDescription(model: container.managedObjectModel)

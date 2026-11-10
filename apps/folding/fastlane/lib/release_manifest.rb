@@ -60,14 +60,14 @@ module FoldingRelease
   end
 
   def self.configuration(environment)
-    raise "Unknown environment" unless %w[production staging].include?(environment)
+    raise "Unknown environment" unless environment == "production"
     identity = FoldingAppleAccount.config.fetch(environment)
     {
       "environment" => environment, "identity" => identity, "apple_team_id" => CONFIG.fetch("apple_team_id"),
       "scheme" => CONFIG.fetch("scheme"), "configuration" => CONFIG.fetch("archive_configuration"),
       "project_sha256" => sha(File.join(ROOT, "apps/ios/project.yml")),
       "toolchain_sha256" => sha(File.join(ROOT, "tool-versions.json")),
-      "api_origin" => environment == "production" ? "https://api.getfolding.app" : "https://api-staging.getfolding.app",
+      "api_origin" => "https://api.getfolding.app",
       "distribution_entitlements" => {"icloud" => "Production", "app_attest" => "production", "apns" => "production"}
     }
   end
@@ -113,7 +113,7 @@ module FoldingRelease
   class GitHubArtifacts
     attr_reader :tag, :repository
     def initialize(tag)
-      raise "Invalid release tag" unless tag.match?(/\A(?:v\d+\.\d+\.\d+(?:-[A-Za-z0-9.-]+)?|folding\/build-[1-9]\d*|folding\/backend-(?:production|staging)|folding-build-reservations)\z/)
+      raise "Invalid release tag" unless tag.match?(/\A(?:v\d+\.\d+\.\d+(?:-[A-Za-z0-9.-]+)?|folding\/build-[1-9]\d*|folding\/backend-production|folding-build-reservations)\z/)
       @tag = tag
       @historical = tag.start_with?("v")
       @repository = CONFIG.fetch(@historical ? "historical_repository" : "repository")
@@ -271,7 +271,7 @@ module FoldingRelease
           file = File.join(directory, format("reservations-r%08d.json", ledger.fetch("revision")))
           atomic_json(file, ledger)
           # GitHub rejects an existing asset name. This append-only CAS is shared
-          # by staging/production, beta/store and local/CI publishers alike.
+          # by beta/store and local/CI publishers alike.
           store.upload(file)
         end
         return reservation
@@ -318,14 +318,9 @@ module FoldingRelease
     identity = config.fetch("identity")
     app = Spaceship::ConnectAPI::App.find(identity.fetch("bundle_id"), client: client)
     raise "Register the exact App Store app before reservation" unless app && app.id == identity.fetch("app_store_id")
-    maximum = %w[production staging].flat_map do |name|
-      identifier = FoldingAppleAccount.config.fetch(name)
-      registered = Spaceship::ConnectAPI::App.find(identifier.fetch("bundle_id"), client: client)
-      raise "Both App Store registrations are required" unless registered && registered.id == identifier.fetch("app_store_id")
-      registered.get_builds(client: client, includes: "preReleaseVersion").map do |build|
-        raise "Existing build number is not an integer" unless build.version.match?(/\A\d+\z/)
-        build.version.to_i
-      end
+    maximum = app.get_builds(client: client).map do |build|
+      raise "Existing build number is not an integer" unless build.version.match?(/\A\d+\z/)
+      build.version.to_i
     end.max || 0
     floor = minimum_supported_build(environment)
     reservation = allocate_build(source: source, version: version, environment: environment,
@@ -373,7 +368,8 @@ module FoldingRelease
   end
 
   def self.minimum_supported_build(environment)
-    origin = environment == "production" ? "https://api.getfolding.app" : "https://api-staging.getfolding.app"
+    configuration(environment)
+    origin = "https://api.getfolding.app"
     floor = fetch_json("#{origin}/v1/client-policy").fetch("minimum_ios_build")
     raise "Invalid live minimum build policy" unless floor.is_a?(Integer) && floor.between?(0, 2_147_483_647)
     floor

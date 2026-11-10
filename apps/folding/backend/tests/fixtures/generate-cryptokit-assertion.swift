@@ -2,7 +2,7 @@ import CryptoKit
 import Foundation
 
 let key = P256.Signing.PrivateKey()
-let appID = "TEAMID1234.app.getfolding.Folding.Staging"
+let appID = "TEAMID1234.app.getfolding.Folding"
 let clientHash = Data(SHA256.hash(data: Data("synthetic-binding-fixture".utf8)))
 var authenticator = Data(SHA256.hash(data: Data(appID.utf8)))
 authenticator.append(contentsOf: [0, 0, 0, 0, 1])

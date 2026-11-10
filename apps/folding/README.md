@@ -45,8 +45,7 @@ Folding CI selects these independently.
 
 ## Monorepo automation
 
-Run product commands from `apps/folding`. Root `folding-ci.yml` selects its checks independently
-from other products. PR previews use five English outer-display scenes; full App Store captures
-retain all locales/displays and separate evidence. Both use the native Device Hub controller
-inside an isolated Mac guest. See [release operations](fastlane/RELEASE.md) for the
-TestFlight/Worker flow, immutable retry behavior and live channel configuration.
+Run product commands from `apps/folding`. The central CI workflow selects Folding checks
+from changed inputs. Core and presentation tests run on the host; affected native code is
+compiled without booting a simulator. Production is the only app/backend environment.
+See [release operations](fastlane/RELEASE.md) for TestFlight/Worker delivery and immutable retries.

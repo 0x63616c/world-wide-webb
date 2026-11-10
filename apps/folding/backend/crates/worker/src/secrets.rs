@@ -132,6 +132,7 @@ pub fn verify_keyed_digest(key: &[u8; 32], purpose: &str, value: &str, signature
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::Read;
     #[test]
     fn ciphertext_is_bound_to_owner_purpose_key_and_nonce() {
         let keys = KeyRing::from_secret_json(
@@ -139,25 +140,35 @@ mod tests {
             &format!(r#"{{"v1":"{}"}}"#, URL_SAFE_NO_PAD.encode([7; 32])),
         )
         .unwrap();
+        let mut nonce = Vec::new();
+        std::fs::File::open("/dev/urandom")
+            .unwrap()
+            .take(12)
+            .read_to_end(&mut nonce)
+            .unwrap();
         let ciphertext = keys
-            .seal([1; 12], "staging/refresh/session/operation", b"secret pair")
+            .seal(
+                nonce.try_into().expect("96-bit OS nonce"),
+                "production/refresh/session/operation",
+                b"secret pair",
+            )
             .unwrap();
         assert_eq!(
-            keys.open("v1", "staging/refresh/session/operation", &ciphertext)
+            keys.open("v1", "production/refresh/session/operation", &ciphertext)
                 .unwrap(),
             b"secret pair"
         );
         for context in [
-            "production/refresh/session/operation",
-            "staging/refresh/other/operation",
-            "staging/apple/session/operation",
+            "other/refresh/session/operation",
+            "production/refresh/other/operation",
+            "production/apple/session/operation",
         ] {
             assert!(keys.open("v1", context, &ciphertext).is_err());
         }
         let mut corrupt = ciphertext;
         corrupt[0] ^= 1;
         assert!(
-            keys.open("v1", "staging/refresh/session/operation", &corrupt)
+            keys.open("v1", "production/refresh/session/operation", &corrupt)
                 .is_err()
         );
         assert!(keys.open("missing", "context", &[]).is_err());

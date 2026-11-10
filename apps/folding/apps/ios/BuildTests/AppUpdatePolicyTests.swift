@@ -85,14 +85,14 @@ private actor PolicyProbe {
     let session = session()
     defer { session.invalidateAndCancel() }
     let model = AppUpdatePolicy(
-      environment: "staging", origin: URL(string: "https://api-staging.getfolding.app")!,
+      environment: "production", origin: URL(string: "https://api.getfolding.app")!,
       installedBuild: 8, defaults: defaults, session: session)
     PolicyProtocol.lock.withLock { PolicyProtocol.status = 503 }
     await model.refresh()
     XCTAssertFalse(model.requiresUpdate)
-    model.require(minimumBuild: 10, environment: "production")
+    model.require(minimumBuild: 10, environment: "retired")
     XCTAssertFalse(model.requiresUpdate)
-    model.require(minimumBuild: 10, environment: "staging")
+    model.require(minimumBuild: 10, environment: "production")
     XCTAssertTrue(model.requiresUpdate)
     PolicyProtocol.lock.withLock {
       PolicyProtocol.status = 200

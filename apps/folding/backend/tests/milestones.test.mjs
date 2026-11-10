@@ -11,7 +11,7 @@ const root=fileURLToPath(new URL('../',import.meta.url));
 const runtime=new Miniflare(convertV4MiniflareOptions({workers:[{
  name:'milestones-local',modules:[{type:'ESModule',path:`${root}crates/worker/build/index.js`},{type:'CompiledWasm',path:`${root}crates/worker/build/index_bg.wasm`}],compatibilityDate:'2026-11-04',
  ratelimits:Object.fromEntries(['API_NETWORK_BURST','AUTH_NETWORK_BURST','API_CREDENTIAL_BURST'].map((name,i)=>[name,{namespace_id:String(1400+i),simple:{limit:100000,period:60}}])),
- bindings:{APP_ATTEST_APP_ID:'TEAM123456.app.test.Folding',APP_ATTEST_ENVIRONMENT:'development',APP_ATTEST_BUNDLE_VERSIONS:'["1"]',WORKER_VERSION:'milestones-local',DEPLOYMENT:'staging',AUTH_ENCRYPTION_KEY_VERSION:'test-v1',AUTH_ENCRYPTION_KEYS:JSON.stringify({'test-v1':Buffer.alloc(32,7).toString('base64url')}),AUTH_NETWORK_HMAC_KEY:Buffer.alloc(32,8).toString('base64url')},
+ bindings:{APP_ATTEST_APP_ID:'TEAM123456.app.test.Folding',APP_ATTEST_ENVIRONMENT:'production',APP_ATTEST_BUNDLE_VERSIONS:'["1"]',WORKER_VERSION:'milestones-local',DEPLOYMENT:'production',AUTH_ENCRYPTION_KEY_VERSION:'test-v1',AUTH_ENCRYPTION_KEYS:JSON.stringify({'test-v1':Buffer.alloc(32,7).toString('base64url')}),AUTH_NETWORK_HMAC_KEY:Buffer.alloc(32,8).toString('base64url')},
  d1Databases:{DB:'milestones-local'},queueProducers:{JOBS:'milestones-test-jobs',JOBS_DEAD:'milestones-test-dead'}
 }]}));
 after(()=>runtime.dispose());
@@ -32,7 +32,7 @@ async function person(n,folds=0){
   db.prepare('INSERT INTO participant_revisions VALUES (?,0)').bind(participant),
   db.prepare("INSERT INTO profiles VALUES (?, 'Folder',NULL,'approved','none')").bind(participant),
   db.prepare("INSERT INTO epochs VALUES (?,?,?,0,?,0,0,NULL)").bind(epoch,participant,device,nil),
-  db.prepare("INSERT INTO sessions VALUES (?,?,?,'staging',?,?,?,?,0)").bind(session,participant,device,time,time,time+86400000,time+86400000),
+  db.prepare("INSERT INTO sessions VALUES (?,?,?,'production',?,?,?,?,0)").bind(session,participant,device,time,time,time+86400000,time+86400000),
   db.prepare('INSERT INTO access_tokens VALUES (?,?,?)').bind(createHash('sha256').update(token).digest(),session,time+86400000),
   db.prepare("INSERT INTO live_scores VALUES (?,0,?,'all',?,0)").bind(participant,nil,folds),
  ]);
@@ -118,15 +118,15 @@ async function signer(p){
  const pair=generateKeyPairSync('ec',{namedCurve:'prime256v1'}),jwk=pair.publicKey.export({format:'jwk'});
  const publicKey=Buffer.concat([Buffer.from([4]),Buffer.from(jwk.x,'base64url'),Buffer.from(jwk.y,'base64url')]);
  const keyID=hash(publicKey).toString('base64');
- await db.prepare("INSERT INTO attestation_keys(key_id,participant_id,device_id,deployment,public_key_sec1,counter,revoked,attestation_environment) VALUES (?,?,?,'staging',?,0,0,'development')").bind(keyID,p.participant,p.device,publicKey).run();
+ await db.prepare("INSERT INTO attestation_keys(key_id,participant_id,device_id,deployment,public_key_sec1,counter,revoked,attestation_environment) VALUES (?,?,?,'production',?,0,0,'production')").bind(keyID,p.participant,p.device,publicKey).run();
  let counter=0;
  const len=(major,n)=>Buffer.from(n<24?[(major<<5)|n]:[(major<<5)|24,n]);
  const bytes=b=>Buffer.concat([len(2,b.length),b]);
  const text=t=>{const b=Buffer.from(t);return Buffer.concat([len(3,b.length),b]);};
  return async(path,input,purpose='submit_events')=>{
   const challenge=await jsonOK(await request(p,'/v1/attestation/challenges',{purpose,device_id:p.device,key_id:keyID}));
-  const body=JSON.stringify(input),binding=hash(Buffer.from(['Folding-v1','staging','POST',path,challenge.challenge_id,challenge.nonce,hash(body).toString('hex')].join('\n')));
-  const category=Buffer.alloc(4);category.writeUInt32LE(3);
+  const body=JSON.stringify(input),binding=hash(Buffer.from(['Folding-v1','production','POST',path,challenge.challenge_id,challenge.nonce,hash(body).toString('hex')].join('\n')));
+  const category=Buffer.alloc(4);category.writeUInt32LE(2);
   const extensions=Buffer.concat([Buffer.from([0xa2]),text('validationCategory'),bytes(category),text('bundleVersion'),text('1')]);
   const header=Buffer.alloc(5);header[0]=0x80;header.writeUInt32BE(++counter,1);
   const auth=Buffer.concat([hash('TEAM123456.app.test.Folding'),header,extensions]);
@@ -186,7 +186,7 @@ test('phone transfer preserves awards and selection while fencing old-phone uplo
  await jsonOK(await request(p,'/v1/milestones/acknowledgments',{operation_id:uuid(++op),generation,badge_ids:['folds_1','folds_100']}));
  const token=Buffer.alloc(32,240),time=Date.now(),device=uuid(70001),session='milestone-transfer-session';
  await db.batch([
-  db.prepare("INSERT INTO sessions VALUES (?,?,?,'staging',?,?,?,?,0)").bind(session,p.participant,device,time,time,time+86400000,time+86400000),
+  db.prepare("INSERT INTO sessions VALUES (?,?,?,'production',?,?,?,?,0)").bind(session,p.participant,device,time,time,time+86400000,time+86400000),
   db.prepare('INSERT INTO access_tokens VALUES (?,?,?)').bind(createHash('sha256').update(token).digest(),session,time+86400000),
  ]);
  const other={...p,device,headers:{...p.headers,Authorization:'Bearer '+token.toString('base64url')}};

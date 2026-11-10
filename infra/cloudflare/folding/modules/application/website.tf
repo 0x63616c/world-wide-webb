@@ -3,8 +3,8 @@ variable "website_routes_enabled" {
   default = false
 }
 locals {
-  website_host  = var.environment == "production" ? "getfolding.app" : "staging.getfolding.app"
-  website_hosts = var.environment == "production" ? toset([local.website_host, "www.getfolding.app"]) : toset([local.website_host])
+  website_host  = "getfolding.app"
+  website_hosts = toset([local.website_host, "www.getfolding.app"])
 }
 resource "cloudflare_dns_record" "website" {
   for_each = var.website_routes_enabled ? local.website_hosts : toset([])

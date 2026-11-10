@@ -13,20 +13,20 @@ class ReadinessTests(unittest.TestCase):
     def test_regeneration_preserves_reviewed_flags_and_rejects_changed_evidence(self):
         with tempfile.TemporaryDirectory() as tmp:
             directory = pathlib.Path(tmp)
-            bindings = dict(environment='staging', api_origin='https://api-staging.getfolding.app',
-                admin_origin='https://admin-staging.getfolding.app', access_audience='audience',
+            bindings = dict(environment='production', api_origin='https://api.getfolding.app',
+                admin_origin='https://admin.getfolding.app', access_audience='audience',
                 worker_name='test', account_id='test', database_id='test', database_name='test',
                 avatar_bucket='test', jobs_queue='test', dead_queue='test-dead')
             configuration = dict(APPLE_SIGN_IN_TEAM_ID='TEAM123456', APPLE_SIGN_IN_KEY_ID='KEY1234567',
-                APP_ATTEST_ENVIRONMENT='development', APP_ATTEST_BUNDLE_VERSIONS='["1"]',
+                APP_ATTEST_ENVIRONMENT='production', APP_ATTEST_BUNDLE_VERSIONS='["1"]',
                 ACCESS_TEAM_DOMAIN='https://test.cloudflareaccess.com', WORKER_VERSION='a'*40,
                 ADMIN_EMAIL_ALLOWLIST='["test@example.com"]', APNS_KEY_ID='KEY1234567')
             config = directory / 'configuration.json'
             config.write_text(json.dumps(configuration))
             artifact = directory / 'acceptance.json'
-            artifact.write_text('{"result":"passed","environment":"staging"}')
+            artifact.write_text('{"result":"passed","environment":"production"}')
             evidence = dict(path=artifact.name, sha256=hashlib.sha256(artifact.read_bytes()).hexdigest())
-            overlay = dict(environment='staging', worker_version='a'*40,
+            overlay = dict(environment='production', worker_version='a'*40,
                 bindings_sha256=hashlib.sha256(json.dumps(bindings,sort_keys=True,separators=(',', ':')).encode()).hexdigest(),
                 reviewer='local-test', reviewed_at='2026-11-07T00:00:00Z',
                 capabilities=['notifications.results'],

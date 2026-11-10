@@ -61,7 +61,7 @@ platform :ios do
     end
   end
 
-  desc "Idempotently register isolated production/staging app and widget bundle IDs"
+  desc "Idempotently register production app and widget bundle IDs"
   lane :register_bundles do
     begin
       result = FoldingAppleAccount.register_bundles
@@ -214,7 +214,7 @@ platform :ios do
 
   desc "Build an explicit Debug CloudKit schema bootstrap app; does not initialize/upload schema"
   lane :schema_bootstrap_build do |options|
-    environment = options[:environment] || "staging"
+    environment = options[:environment] || "production"
     source = FoldingRelease.clean_commit!
     config = FoldingRelease.configuration(environment)
     identity = config.fetch("identity")

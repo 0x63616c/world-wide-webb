@@ -58,7 +58,6 @@ jobs:
         name: folding-public-sites-${{ github.sha }}
         path: |
           sites/folding/dist
-          sites/folding/dist-staging
         retention-days: 14
         if-no-files-found: error
   gate:
@@ -110,7 +109,7 @@ jobs:
       with:
         name: folding-public-sites-${{ github.sha }}
         path: sites/folding
-    - name: Publish staging and production assets
+    - name: Publish production assets
       env:
         CLOUDFLARE_API_TOKEN: ${{ secrets.FOLDING_DEPLOY_TOKEN }}
         CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
@@ -120,4 +119,3 @@ jobs:
         test -n "$CLOUDFLARE_ACCOUNT_ID"
         wrangler_version=$(node -p "require('./apps/folding/backend/package.json').devDependencies.wrangler")
         npx --yes "wrangler@$wrangler_version" deploy --config sites/folding/wrangler.jsonc
-        npx --yes "wrangler@$wrangler_version" deploy --config sites/folding/wrangler.jsonc --env production

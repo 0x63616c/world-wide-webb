@@ -23,7 +23,7 @@ if args.testflight_preview and args.readiness:
 bindings = json.load(sys.stdin)
 configuration = json.loads(args.configuration.read_text())
 environment = bindings['environment']
-if environment not in ('staging', 'production'):
+if environment != 'production':
     raise SystemExit('Invalid environment')
 allowed = {
     'APPLE_SIGN_IN_TEAM_ID', 'APPLE_SIGN_IN_KEY_ID', 'APP_ATTEST_ENVIRONMENT',
@@ -53,7 +53,7 @@ for field in ('APPLE_SIGN_IN_TEAM_ID', 'APPLE_SIGN_IN_KEY_ID', 'APNS_KEY_ID'):
         raise SystemExit('Invalid Apple identifier: ' + field)
 if not re.fullmatch(r'https://[a-zA-Z0-9-]+\.cloudflareaccess\.com', configuration['ACCESS_TEAM_DOMAIN']):
     raise SystemExit('Invalid Access team domain')
-bundle = 'app.getfolding.Folding' + ('.Staging' if environment == 'staging' else '')
+bundle = 'app.getfolding.Folding'
 variables = dict(configuration, DEPLOYMENT=environment,
     AUTH_ENCRYPTION_KEY_VERSION='v1', AUTH_SUBJECT_HMAC_KEY_VERSION='v1',
     APPLE_SIGN_IN_CLIENT_ID=bundle,
