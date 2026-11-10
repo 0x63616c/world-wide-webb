@@ -98,17 +98,20 @@ struct PanelProfileSelector: ViewModifier {
     }
 
     private func profileInsets(in geometry: GeometryProxy) -> EdgeInsets {
+        let railFitsAvatar = contentInsets.trailing >= Self.avatarSide + 16
         var result = EdgeInsets(
             top: contentInsets.top + inset, leading: inset, bottom: contentInsets.bottom + inset,
-            trailing: contentInsets.trailing + inset)
+            trailing: railFitsAvatar ? (contentInsets.trailing - Self.avatarSide) / 2 : contentInsets.trailing + inset)
         if #available(iOS 27.1, *) {
             let cameras = geometry.reservedRegions(kind: .occlusion).filter {
                 $0.isActive && $0.frame.width > 0 && $0.frame.height > 0 && $0.frame.midX > geometry.size.width * 0.6
             }
             if let camera = cameras.max(by: { $0.frame.midX < $1.frame.midX }) {
-                let top = camera.frame.maxY + camera.margins.bottom + 12
-                if top + Self.avatarSide + inset <= geometry.size.height - contentInsets.bottom {
-                    result.top = max(contentInsets.top + inset, top)
+                let below = camera.frame.maxY + camera.margins.bottom + 12
+                let above = camera.frame.minY - camera.margins.top - 12 - Self.avatarSide
+                let top = below + Self.avatarSide + inset <= geometry.size.height - contentInsets.bottom ? below : above
+                if top >= contentInsets.top + inset {
+                    result.top = top
                     result.trailing = max(inset / 2, geometry.size.width - camera.frame.midX - Self.avatarSide / 2)
                 }
             }

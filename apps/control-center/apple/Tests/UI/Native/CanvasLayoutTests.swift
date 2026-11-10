@@ -84,6 +84,7 @@ import XCTest
         if windowBeforeOpen.width > windowBeforeOpen.height {
             let walks = app.buttons["app-walks"]
             XCTAssertEqual(calendar.frame.minY, walks.frame.minY, accuracy: 2, "Wide launcher should use five columns")
+            XCTAssertFalse(profile.frame.intersects(walks.frame), "Profile must stay outside the last launcher tile")
         }
         app.buttons["app-climate"].tap()
         let surface = app.descendants(matching: .any)["climate-temperature-surface"].firstMatch
