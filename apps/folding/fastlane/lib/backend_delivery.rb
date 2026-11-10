@@ -5,7 +5,7 @@ module FoldingRelease
   # tested CI Wasm bytes, and the existing release evidence validator.
   module BackendDelivery
     ENVIRONMENT = "production"
-    class ValidationError < StandardError; end
+    class ValidationError < RuntimeError; end
     Record = Struct.new(:data) do
       def save(values); data.merge!(values); end
     end
