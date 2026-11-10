@@ -698,3 +698,60 @@ test("published build policy authorizes exact signed versions without a Worker r
     assert.equal(await db.prepare("SELECT counter FROM attestation_keys WHERE key_id=?").bind(keyID).first("counter"),scenario.status===200?1:0);
   }
 });
+
+
+test("enrollment recovers an expired challenge after cleanup without treating it as a bad session", async () => {
+  const db = await authenticatedRuntime.getD1Database("DB");
+  const participant = "00000000-0000-4000-8000-000000000701";
+  const device = "00000000-0000-4000-8000-000000000702";
+  const session = "expired-enrollment-session";
+  const token = Buffer.alloc(32, 71);
+  const key = Buffer.alloc(32, 72).toString("base64");
+  const now = Date.now();
+  await db.batch([
+    db.prepare("INSERT INTO participants(participant_id,subject_hmac,membership,restriction,generation_revision,generation_id) VALUES (?,?,'not_joined','none',0,'00000000-0000-0000-0000-000000000000')").bind(participant, "expired-enrollment-subject"),
+    db.prepare("INSERT INTO participant_revisions VALUES (?,0)").bind(participant),
+    db.prepare("INSERT INTO sessions VALUES (?, ?, ?, 'staging', ?, ?, ?, ?, 0)").bind(session, participant, device, now, now, now + 900000, now + 900000),
+    db.prepare("INSERT INTO access_tokens VALUES (?, ?, ?)").bind(createHash("sha256").update(token).digest(), session, now + 900000),
+  ]);
+  const headers = {Authorization: "Bearer " + token.toString("base64url"), "Content-Type": "application/json"};
+  const issue = await authenticatedRuntime.dispatchFetch("https://api.example/v1/attestation/challenges", {
+    method: "POST", headers, body: JSON.stringify({purpose: "enroll_key", device_id: device, key_id: key}),
+  });
+  assert.equal(issue.status, 200);
+  const challenge = await issue.json();
+  const body = JSON.stringify({operation_id: "00000000-0000-4000-8000-000000000703", device_id: device, key_id: key, challenge_id: challenge.challenge_id, attestation_base64: "cHJvb2Y="});
+  const enroll = (auth = headers) => authenticatedRuntime.dispatchFetch("https://api.example/v1/attestation/keys", {method: "POST", headers: auth, body});
+  await db.prepare("UPDATE challenges SET expires_at_ms=? WHERE challenge_id=?").bind(now - 1, challenge.challenge_id).run();
+  const expired = await enroll();
+  assert.equal(expired.status, 409);
+  assert.equal((await expired.json()).code, "challenge_expired");
+  // Same deletion the scheduled retention task performs after expiry.
+  await db.prepare("DELETE FROM challenges WHERE challenge_id=? AND expires_at_ms<=?").bind(challenge.challenge_id, now).run();
+  const cleaned = await enroll();
+  assert.equal(cleaned.status, 409, "cleanup must preserve the client's expired-proof recovery signal");
+  assert.equal((await cleaned.json()).code, "challenge_expired");
+  assert.equal((await enroll({"Content-Type": "application/json"})).status, 401);
+  assert.equal(await db.prepare("SELECT count(*) n FROM attestation_keys WHERE key_id=?").bind(key).first("n"), 0);
+  // An existing challenge bound to another key must remain unauthorized.
+  const otherIssue = await authenticatedRuntime.dispatchFetch("https://api.example/v1/attestation/challenges", {
+    method: "POST", headers, body: JSON.stringify({purpose: "enroll_key", device_id: device, key_id: Buffer.alloc(32, 73).toString("base64")}),
+  });
+  assert.equal(otherIssue.status, 200);
+  const other = await otherIssue.json();
+  const wrongBinding = await authenticatedRuntime.dispatchFetch("https://api.example/v1/attestation/keys", {
+    method: "POST", headers, body: JSON.stringify({...JSON.parse(body), challenge_id: other.challenge_id}),
+  });
+  assert.equal(wrongBinding.status, 401);
+  // A successful receipt must win over cleanup, as on a lost success response.
+  const input = JSON.parse(body);
+  const normalized = JSON.stringify({challenge_id: input.challenge_id, device_id: device, key_id: key, operation_id: input.operation_id});
+  await db.batch([
+    db.prepare("INSERT INTO attestation_keys(key_id,participant_id,device_id,deployment,public_key_sec1,counter,revoked,attestation_environment) VALUES (?,?,?,'staging',?,0,0,'development')").bind(key, participant, device, Buffer.alloc(65, 1)),
+    db.prepare("INSERT INTO attestation_operations VALUES (?,?,?,?,?,?)").bind(participant, input.operation_id, device, key, createHash("sha256").update(normalized).digest(), JSON.stringify({key_id: key, enrolled: true})),
+  ]);
+  const replay = await enroll();
+  assert.equal(replay.status, 200);
+  assert.match(replay.headers.get("X-Request-ID"), /^[0-9a-f-]{36}$/);
+  assert.equal((await replay.json()).enrolled, true);
+});

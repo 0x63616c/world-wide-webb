@@ -1707,10 +1707,10 @@ public actor TrackingStore {
     }
   }
 
-  /// Recover only a proven local busy deferral, preserving server and network deadlines.
-  /// Old clients did not persist a reason on the work; their typed diagnostic tail supplies
-  /// the last upload outcome until the first new-client retry records it on the batch.
-  public func resumeLocalBusyCompetitionUpload(nowMS: Int64) throws {
+  /// Migrate local retry waits to the one-minute policy. A user-requested refresh can
+  /// retry immediately; explicit server cooldowns remain owned by the transport.
+  /// Unknown or server-derived queue deadlines are preserved.
+  public func resumeLocalCompetitionUpload(nowMS: Int64, retryNow: Bool = false) throws {
     try validateTime(nowMS)
     try journalTransaction {
       guard
@@ -1731,11 +1731,20 @@ public actor TrackingStore {
             .uploadQueueFailed, .uploadRuntimeFailed,
           ].contains($0.event)
         }
-        if last?.event == .uploadDeferred, last?.detail == nil { reason = last?.reason }
+        if last?.event == .uploadDeferred,
+          last?.reason != .busy || last?.detail == nil
+        {
+          reason = last?.reason
+        }
       }
-      guard reason == .busy else { return }
-      work.nextAttemptMS = nowMS
-      work.retryReason = .busy
+      guard let reason, [.busy, .network, .unauthorized, .unavailable].contains(reason) else {
+        return
+      }
+      let nextAttemptMS =
+        reason == .busy || retryNow ? nowMS : min(work.nextAttemptMS, nowMS + 60_000)
+      guard nextAttemptMS != work.nextAttemptMS || reason != work.retryReason else { return }
+      work.nextAttemptMS = nextAttemptMS
+      work.retryReason = reason
       try saveCompetitionUpload(work)
     }
   }

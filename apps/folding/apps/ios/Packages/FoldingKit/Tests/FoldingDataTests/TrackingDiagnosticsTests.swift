@@ -91,7 +91,7 @@ func foregroundRecoversOnlyProvenLegacyLocalBusyRetry(
     TrackingDiagnosticEntry(atMS: 1001, event: .uploadDeferred, reason: reason, detail: detail))
   // Represents the old-client format, which had no durable retry reason.
   try await store.retryCompetitionUpload(work, atMS: 3_601_000)
-  try await store.resumeLocalBusyCompetitionUpload(nowMS: 2000)
+  try await store.resumeLocalCompetitionUpload(nowMS: 2000)
   #expect(
     try await store.competitionUploadQueueState(nowMS: 2000)
       == (reason == .busy && detail == nil ? .ready : .retryWait))
@@ -119,4 +119,50 @@ func foregroundRecoversOnlyProvenLegacyLocalBusyRetry(
   #expect(events.first?["attempt"] as? Int == 20)
   #expect(events.first?["retry_delay_ms"] as? Int == 2000)
   #expect(events.first?["reason"] as? String == "busy")
+}
+
+@Test func localRetryMigrationAndManualRefreshPreserveBatchAndServerCooldowns() async throws {
+  for reason in [
+    TrackingDiagnosticEntry.Reason.network, .unauthorized, .unavailable, .rateLimited, .service,
+  ] {
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let store = try TrackingStore(directory: directory, installationID: UUID())
+    let epoch = UUID()
+    try await store.setCompetitionEpoch(epoch)
+    _ = try await store.record(
+      Observation(
+        generation: .initial, transition: .open,
+        observedAtMS: 1000, timezoneID: "UTC", competitionEpochID: epoch), nowMS: 1000)
+    let work = try #require(await store.leaseCompetitionUpload(nowMS: 1000))
+    try await store.retryCompetitionUpload(work, atMS: 3_601_000, reason: reason)
+    try await store.resumeLocalCompetitionUpload(nowMS: 2000)
+    let local = [.network, .unauthorized, .unavailable].contains(reason)
+    #expect(
+      try await store.competitionUploadQueueState(nowMS: 62_000) == (local ? .ready : .retryWait))
+    try await store.resumeLocalCompetitionUpload(nowMS: 3000, retryNow: true)
+    #expect(
+      try await store.competitionUploadQueueState(nowMS: 3000) == (local ? .ready : .retryWait))
+    if local {
+      let recovered = try #require(await store.leaseCompetitionUpload(nowMS: 3000))
+      #expect(recovered.operationID == work.operationID)
+      #expect(recovered.body == work.body)
+      #expect(recovered.attempts == 1)
+    }
+    #expect(try await store.summary().folds == 1)
+  }
+}
+
+@Test func exportedDiagnosticsIncludeUTCAndLocalTimesWithExplicitTimezoneOffset() throws {
+  let snapshot = TrackingDiagnosticSnapshot(
+    capturedAtMS: 1_794_279_184_511,
+    events: [TrackingDiagnosticEntry(atMS: 1_794_278_957_624, event: .network)])
+  let data = Data(try snapshot.json(timeZone: TimeZone(identifier: "America/Los_Angeles")!).utf8)
+  let object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+  #expect(object["captured_at_utc"] as? String == "2026-11-10T02:53:04.511Z")
+  #expect(object["captured_at_local"] as? String == "2026-11-09T18:53:04.511-08:00")
+  #expect(object["local_timezone"] as? String == "America/Los_Angeles")
+  let events = try #require(object["events"] as? [[String: Any]])
+  #expect(events[0]["at_utc"] as? String == "2026-11-10T02:49:17.624Z")
+  #expect(events[0]["at_local"] as? String == "2026-11-09T18:49:17.624-08:00")
 }

@@ -201,7 +201,7 @@ captures the full existing locale/display matrix on an explicit main-branch disp
 `DUO_HOST_CONTROL=1` with the repository's scoped native controller on an isolated Mac guest.
 Capture artifacts stay private; no screenshot branches or public comments are created.
 
-## Automatic internal beta delivery
+## Automatic delivery on main merge
 
 `folding-release.yml` consumes only a successful trusted main push from `folding-ci.yml` and
 its source-bound selection. `FOLDING_DELIVERY_ENABLED` stays off through setup. Backend inputs
@@ -209,8 +209,24 @@ reuse the exact Worker Wasm tested in CI, record a D1 recovery bookmark before c
 migrations, and publish an immutable provider-version receipt. Native inputs verify named
 source CI jobs, reuse the live compatible backend receipt, reserve once, archive once and wait
 for Apple's processing before explicit internal-group distribution. A retry reads Apple and
-retained artifacts; it does not blindly upload again. Store submission retains its existing
-full capability, screenshot, listing and final-review prerequisites.
+retained artifacts; it does not blindly upload again.
+
+With `app_store_automatic: true`, the same publisher plans the App Store version before
+archiving, then submits that exact processed build and ready tips after capturing/sealing
+the full storefront matrix. It reuses Tendr's version/review decisions and latest-main
+source fence. A waiting submission is replaced only after its replacement build and
+assets are verified; an in-review submission is preserved. Required source CI, merged-PR
+provenance, deployed backend receipt/CI, live app features, Apple declarations and exact
+uploaded listing/gallery readback remain mandatory. Failed submission stages resume the
+same immutable candidate even when internal TestFlight distribution already succeeded.
+Approved tips are retained rather than submitted again.
+
+The owner-approved post-submission device schedule in `docs/review-spec.md` applies to
+the release gate as well. Required live capabilities retain their existing acceptance;
+the remaining device/provider acceptance is recorded as deferred in the release manifest.
+This does not enable new runtime claims or mark device checks passed. The full release
+also verifies actual Cloudflare bindings have push and avatar features enabled. Final
+physical, visual and native-language acceptance remains tracked separately.
 
 The consolidated delivery workflow reads the encrypted `signing/folding` branch in WWW
 with its short-lived built-in GitHub token. Match clones that branch directly and stays readonly;

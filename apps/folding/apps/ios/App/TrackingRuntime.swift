@@ -398,9 +398,8 @@ actor TrackingRuntime {
           bundleID: Bundle.main.bundleIdentifier ?? "app.getfolding.Folding")
       }
       await FoldingDiagnostics.attach(to: transport, store: current)
-      if suppliedTransport != nil {
-        try await current.resumeLocalBusyCompetitionUpload(nowMS: Self.nowMS)
-      }
+      try await current.resumeLocalCompetitionUpload(
+        nowMS: Self.nowMS, retryNow: suppliedTransport != nil)
       uploadAttempt = .running
       uploadAttempt = await competitionUploader.upload(from: current, transport: transport)
     } catch {

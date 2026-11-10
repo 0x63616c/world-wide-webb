@@ -5,12 +5,15 @@ import Synchronization
 /// Kept independent of UIKit so widget extensions and command-line probes can use the data layer.
 public enum StorageAccess {
   public typealias Begin = @Sendable () throws -> StorageAccessLease
-  private static let provider = Mutex<Begin?>(nil)
+  // A bare closure in generic inout storage gains call frames on every read
+  // with affected Swift compilers: https://github.com/swiftlang/swift/issues/91348.
+  private struct Provider: Sendable { var begin: Begin? }
+  private static let provider = Mutex(Provider())
   @TaskLocal static var beginForTesting: Begin?
   private static let threadKey = "app.getfolding.storage-access"
 
   public static func install(_ begin: @escaping Begin) {
-    provider.withLock { $0 = begin }
+    provider.withLock { $0.begin = begin }
   }
 
   static func withProtection<T>(_ operation: (StorageAccessLease?) throws -> T) throws -> T {
@@ -20,7 +23,7 @@ public enum StorageAccess {
       try lease.checkCancellation()
       return try operation(lease)
     }
-    guard let begin = beginForTesting ?? provider.withLock({ $0 }) else {
+    guard let begin = beginForTesting ?? provider.withLock({ $0.begin }) else {
       return try operation(nil)
     }
     let lease = try begin()

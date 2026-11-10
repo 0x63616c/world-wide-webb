@@ -21,6 +21,26 @@ import XCTest
     XCTAssertEqual(generation.revision, 0)
   }
 
+  func testRepeatedStorageProtectionKeepsProviderStackBounded() throws {
+    let positions = Mutex<[UInt]>([])
+    StorageAccess.install {
+      if Thread.isMainThread {
+        var marker: UInt8 = 0
+        let position = withUnsafePointer(to: &marker) { UInt(bitPattern: $0) }
+        positions.withLock { $0.append(position) }
+      }
+      return StorageAccessLease {}
+    }
+    for _ in 0..<2048 {
+      try StorageAccess.withProtection { _ in () }
+    }
+    let values = positions.withLock { $0 }
+    XCTAssertEqual(values.count, 2048)
+    if let minimum = values.min(), let maximum = values.max() {
+      XCTAssertLessThan(maximum - minimum, 4096, "Storage reads accumulate closure call frames")
+    }
+  }
+
   func testAssertionRemainsActiveUntilProtectedStorageReturns() throws {
     let active = Mutex(false)
     let ended = Mutex(0)

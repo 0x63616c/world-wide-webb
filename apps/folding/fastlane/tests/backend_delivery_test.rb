@@ -92,6 +92,26 @@ class BackendDeliveryTest < Minitest::Test
     end
   end
 
+  def test_submission_retry_reuses_a_distributed_candidate_instead_of_skipping_it
+    source = @source
+    delivered = {"source_sha" => source, "input_hash" => "same", "release_tag" => "folding/build-42"}
+    store = Object.new
+    store.define_singleton_method(:latest) { |_| delivered }
+    record = Struct.new(:data).new({"state" => "processed"})
+    Delivery.stub(:store, store) do
+      Delivery.stub(:native_input_hash, "same") do
+        FoldingRelease.stub(:clean_commit!, source) do
+          FoldingRelease::Record.stub(:new, record) do
+            refute Delivery.native_needed?
+            assert Delivery.native_needed?(include_submission: true)
+            record.data["state"] = "submitted"
+            refute Delivery.native_needed?(include_submission: true)
+          end
+        end
+      end
+    end
+  end
+
   def test_provider_database_is_checked_before_any_migration_or_deploy
     config = Delivery.configuration(@source)
     deployments = {"success" => true, "result" => {"deployments" => [{"versions" => [{"version_id" => @version, "percentage" => 100}]}]}}

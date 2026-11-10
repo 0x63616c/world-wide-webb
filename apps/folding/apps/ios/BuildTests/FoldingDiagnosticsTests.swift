@@ -76,6 +76,8 @@ private actor DiagnosticGate {
     await FoldingDiagnostics.record(store, .uploadRuntimeFailed, error: error)
     XCTAssertEqual(
       FoldingDiagnostics.route("/v1/participants/private-subject?token=secret"), .profile)
+    XCTAssertEqual(FoldingDiagnostics.route("/v1/attestation/challenges"), .attestationChallenge)
+    XCTAssertEqual(FoldingDiagnostics.route("/v1/attestation/keys"), .attestationEnrollment)
     let report = try await store.diagnosticReport(nowMS: TrackingRuntime.nowMS)
     XCTAssertTrue(report.contains("reason=unknown detail=123"))
     for secret in [

@@ -474,3 +474,64 @@ the owner's post-update totals remain pending.
 The owner now requests App Store review submission after the fix and automatic
 on-merge review delivery matching Tendr's behavior. That submission work is active;
 no App Review submission is claimed by the TestFlight-only delivery above.
+
+### Automatic App Review handoff — November 9
+
+The upload contention, bounded retry and named JSON export fix merged in WWW
+[PR #990](https://github.com/0x63616c/world-wide-webb/pull/990) at
+`2b348c171c59a0872970bdde94f24e087b310ab6`. Required PR checks and the actual
+Folding native check passed. Main CI and the replacement internal build are pending.
+
+The local automatic-release candidate extends the existing single publisher through
+version planning, exact-build App Store metadata/gallery readback and joint app/tip
+submission. It reuses Tendr's latest-source and waiting-review replacement rules,
+preserves active review, and resumes a failed submission after successful TestFlight
+distribution without rebuilding that reservation. Already-approved tips are retained.
+
+The release gate now follows the owner's documented post-submission device-testing
+exception. Missing broader capability acceptance remains explicitly deferred in the
+manifest; runtime capability claims are unchanged. Source CI, matching backend CI and
+immutable provider deployment, enabled production push/avatar bindings, exact signed
+artifacts, Apple processing/group membership and storefront verification remain required.
+A live read-only check verified the current backend receipt/source, enabled features
+and all public pages. This is deployment evidence, not device/provider feature acceptance.
+Local release and shared review fixtures passed; publication and actual Apple submission
+remain pending. A cold hosted screenshot job exposed Fastlane's three-second build-settings
+timeout; product Fastlane now uses a 60-second base timeout with three bounded attempts.
+
+The final listing review also found all ten descriptions still promising a featured
+public badge after the owner paused that feature. Sources and Apple metadata files
+now describe private badges and community profiles accurately. All ten sources match
+their files and meet Apple limits; localization and its ten regressions pass. Formal
+native-speaker acceptance remains unverified.
+
+PR CI reproduced a date-dependent late-insertion fixture failure at the UTC week
+boundary: direct SQL seeded only the all-time score, so moving a fold out of the
+current week attempted to decrement a nonexistent weekly score. The local test
+failed with the same 409 using the accepted, byte-verified Worker artifact. It now
+seeds through real signed ingestion, always crosses the active week boundary and
+verifies weekly 1 → 0 while preserving all-time folds and correcting days used.
+The focused fixture passes; runtime behavior and deployed inputs are unchanged.
+
+Automatic listing preparation validates the saved Apple review contact in place.
+It does not forward those private provider values into Deliver's printed options;
+only review notes are updated. A focused regression checks preservation and rejection
+of incomplete contact details.
+
+
+November 9 upload recovery candidate (PR #992): build 19 diagnostics show repeated
+registration 401s after a successful session refresh. A deterministic real Worker/D1
+regression reproduces expired enrollment returning `challenge_expired` before retention
+cleanup but 401 afterward. The candidate preserves success-receipt replay, reports a
+missing challenge as expired only after session/device authorization, and retains 401
+for existing challenges with another binding. The client replaces an expired one-shot
+proof once in the same attempt and continues the original queued upload. Local upload
+backoff is capped at 60 seconds including jitter; explicit server cooldowns remain
+honored. Existing local waits migrate to this limit, and leaderboard refresh retries
+local failures immediately without changing fold history or upload operation identity.
+Diagnostics use a separately scrolling report, UTC/local timestamps with timezone,
+separate challenge/enrollment routes, error codes, pending-proof state and per-attempt
+request-ID correlation. Server rejection logs identify the validation stage and cause.
+An additional reproduced Swift Mutex closure stack-growth issue is fixed with a stored
+provider value. This is a local candidate, not verified TestFlight delivery or App Store
+submission; device totals still require live confirmation after shipping.
