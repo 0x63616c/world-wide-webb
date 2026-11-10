@@ -2,9 +2,11 @@
 
 import copy
 import json
+import tempfile
 import unittest
+from pathlib import Path
 
-from dispatch import dispatch
+from dispatch import dispatch, write_receipts
 from gate import verify
 from select_units import CONFIG
 
@@ -12,6 +14,19 @@ CONFIGURATION = json.loads(CONFIG.read_text())
 
 
 class DispatchTests(unittest.TestCase):
+    def test_unselected_control_center_artifact_matches_delivery_consumers(self):
+        receipt = {"head": "a" * 40, "verify": ["sites.folding"]}
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            write_receipts(root, receipt)
+            self.assertEqual(json.loads((root / "ci-selection.json").read_text()), receipt)
+            artifact = root / "control-center" / "ci-selection.json"
+            selected = json.loads(artifact.read_text())
+            self.assertIs(selected["publish_apple"], False)
+            self.assertIs(selected["publish_image"], False)
+            self.assertIs(selected["apply_infra"], False)
+            self.assertFalse(any(selected.values()))
+
     def test_docs_and_unrelated_products_do_not_run(self):
         self.assertEqual(dispatch(["docs/example.md"], CONFIGURATION)["products"], [])
         self.assertEqual(
