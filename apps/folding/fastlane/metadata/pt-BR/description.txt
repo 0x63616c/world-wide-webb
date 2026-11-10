@@ -4,7 +4,7 @@ Registre as dobras do seu iPhone Duo com o Folding. Configure as automações de
 • Explore seu histórico e padrões de uso.
 • Sincronize o histórico com o iCloud e veja estatísticas nos widgets.
 • Participe dos rankings semanais, mensais e gerais com “Iniciar sessão com a Apple”.
-• Ganhe distintivos de dobras e dias de uso, explore perfis e destaque seu distintivo favorito.
+• Ganhe distintivos privados por dobras e dias de uso e explore perfis.
 • Exporte o histórico como pacote CSV ou redefina-o no app.
 
 Todos os recursos são gratuitos. Gorjetas opcionais apoiam o desenvolvimento e não desbloqueiam recursos.

@@ -8,7 +8,8 @@ class BackendInputsTest < Minitest::Test
     database = "66666666-7777-8888-9999-000000000000"
     account = "b" * 32
     app = "TEAM.example.folding"
-    variables = {"WORKER_VERSION" => source, "DEPLOYMENT" => "production", "APP_ATTEST_APP_ID" => app}
+    variables = {"WORKER_VERSION" => source, "DEPLOYMENT" => "production", "APP_ATTEST_APP_ID" => app,
+      "APNS_ENABLED" => "true", "AVATAR_UPLOADS_ENABLED" => "true"}
     receipt = {"schema_version" => 1, "environment" => "production", "worker_source_sha" => source,
       "backend_input_hash" => "hash", "cloudflare_version_id" => version, "account_id" => account,
       "worker_script" => "folding-api-production", "backend_check" => {"kind" => "ci", "name" => "backend"},
@@ -24,7 +25,7 @@ class BackendInputsTest < Minitest::Test
       path = File.join(directory, "deployment.json")
       ENV["FOLDING_BACKEND_DEPLOYMENT_RECEIPT"] = path
       ENV["FOLDING_RELEASE_POLICY_TOKEN"] = "synthetic-test-value"
-      scenarios = [:valid, :wrong_check, :local_check, :split_traffic, :wrong_version, :wrong_database, :wrong_app, :wrong_receipt_database]
+      scenarios = [:valid, :wrong_check, :local_check, :split_traffic, :wrong_version, :wrong_database, :wrong_app, :wrong_receipt_database, :disabled_live_avatars]
       scenarios.each do |scenario|
         current_receipt, current_deployed, current_uploaded = [receipt, deployed, uploaded].map { |value| Marshal.load(Marshal.dump(value)) }
         case scenario
@@ -34,6 +35,7 @@ class BackendInputsTest < Minitest::Test
         when :wrong_version then current_uploaded["result"]["id"] = database
         when :wrong_database then current_uploaded["result"]["resources"]["bindings"].last["id"] = version
         when :wrong_app then current_uploaded["result"]["resources"]["bindings"][2]["text"] = "TEAM.other"
+        when :disabled_live_avatars then current_uploaded["result"]["resources"]["bindings"][4]["text"] = "false"
         when :wrong_receipt_database then current_receipt["runtime_configuration"]["d1_databases"][0]["database_id"] = version
         end
         FoldingRelease.atomic_json(path, current_receipt)
@@ -43,10 +45,10 @@ class BackendInputsTest < Minitest::Test
           FoldingRelease::CheckEvidence.stub(:validate!, nil) do
             FoldingRelease.stub(:fetch_json, fetch) do
               if scenario == :valid
-                assert_equal source, FoldingRelease.verified_backend!(record, {"worker_version" => source})
+                assert_equal source, FoldingRelease.verified_backend!(record, {"worker_version" => source}, required_features: %w[APNS_ENABLED AVATAR_UPLOADS_ENABLED])
                 assert_equal FoldingRelease.sha(path), record.data.fetch("backend_deployment_receipt_sha256")
               else
-                assert_raises(RuntimeError, scenario.to_s) { FoldingRelease.verified_backend!(record, {"worker_version" => source}) }
+                assert_raises(RuntimeError, scenario.to_s) { FoldingRelease.verified_backend!(record, {"worker_version" => source}, required_features: %w[APNS_ENABLED AVATAR_UPLOADS_ENABLED]) }
                 refute record.data.key?("backend_deployment_receipt_sha256")
               end
             end

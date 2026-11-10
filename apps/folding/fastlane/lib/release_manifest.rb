@@ -407,7 +407,12 @@ module FoldingRelease
     missing = CONFIG.fetch("minimum_backend_capabilities") - backend.fetch("capabilities")
     raise "Required backend capabilities missing: #{missing.join(',')}" unless missing.empty?
     raise "Missing deployed Worker identity" if backend["worker_version"].to_s.empty?
-    verified_backend!(record, backend)
+    verified_backend!(record, backend, required_features: %w[APNS_ENABLED AVATAR_UPLOADS_ENABLED])
+    # The owner explicitly scheduled physical provider/device checks after App
+    # Review submission. Preserve missing evidence; never promote runtime claims.
+    deferred = CONFIG.fetch("post_submission_device_capabilities") - backend.fetch("capabilities")
+    record.save("post_submission_acceptance" => {"state" => "owner_deferred", "capabilities" => deferred,
+      "reference" => "docs/review-spec.md#owner-approved-execution-update--november-7-2026"})
     CONFIG.fetch("public_urls").each do |url|
       uri = URI(url)
       response = Net::HTTP.start(uri.host, uri.port, use_ssl: true, open_timeout: 15, read_timeout: 30) { |http| http.get(uri.request_uri) }
@@ -431,7 +436,7 @@ module FoldingRelease
     Digest::SHA256.hexdigest(JSON.generate({"files" => entries.sort, "rust" => pins.fetch("rust"), "worker_build" => pins.fetch("worker_build", "0.8.7")}))
   end
 
-  def self.verified_backend!(record, backend)
+  def self.verified_backend!(record, backend, required_features: [])
     worker_source = backend.fetch("worker_version")
     input_hash = backend_input_hash(record.data.fetch("commit_sha"))
     raise "Deployed backend inputs differ from this candidate" unless backend_input_hash(worker_source) == input_hash
@@ -463,6 +468,10 @@ module FoldingRelease
     expected_vars.each do |name, value|
       matching = bindings.select { |binding| binding["name"] == name }
       raise "Deployed Worker configuration differs from its receipt" unless matching.length == 1 && matching.first["type"] == "plain_text" && matching.first["text"] == value
+    end
+    required_features.each do |name|
+      matching = bindings.select { |binding| binding["name"] == name }
+      raise "Required production feature is disabled: #{name}" unless matching.length == 1 && matching.first["type"] == "plain_text" && matching.first["text"] == "true"
     end
     databases = runtime.fetch("d1_databases")
     database = bindings.select { |binding| binding["name"] == "DB" }

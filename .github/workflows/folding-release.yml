@@ -51,6 +51,7 @@ jobs:
     permissions:
       contents: write
       actions: read
+      pull-requests: read
     defaults:
       run:
         working-directory: apps/folding
@@ -63,6 +64,10 @@ jobs:
       CLOUDFLARE_LOAD_DEV_VARS_FROM_DOT_ENV: 'false'
       WRANGLER_SEND_METRICS: 'false'
       CI: 'true'
+      # Ephemeral fetch authentication used by the shared latest-main source fence.
+      GIT_CONFIG_COUNT: '1'
+      GIT_CONFIG_KEY_0: credential.helper
+      GIT_CONFIG_VALUE_0: '!gh auth git-credential'
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
@@ -117,6 +122,7 @@ jobs:
           echo "::add-mask::$authorization"
           printf 'MATCH_GIT_BASIC_AUTHORIZATION=%s\n' "$authorization" >> "$GITHUB_ENV"
       - name: Archive once and deliver the exact processed internal beta
+        id: beta
         env:
           GH_TOKEN: ${{ github.token }}
           FOLDING_RELEASE_POLICY_TOKEN: ${{ secrets.FOLDING_RELEASE_POLICY_TOKEN }}
@@ -130,5 +136,24 @@ jobs:
           FOLDING_TESTFLIGHT_GROUPS: ${{ vars.FOLDING_TESTFLIGHT_GROUPS }}
         if: steps.native.outputs.beta == 'true'
         run: |
-          version=$(ruby ../../scripts/app-config.rb folding version)
+          python3 -m venv "$RUNNER_TEMP/folding-release-python"
+          "$RUNNER_TEMP/folding-release-python/bin/pip" install -r ../../scripts/requirements.txt
+          export PATH="$RUNNER_TEMP/folding-release-python/bin:$PATH"
+          bundle exec fastlane ios plan_release
+          # GITHUB_ENV takes effect in the next step, so read only this lane's output.
+          version=$(sed -n 's/^FOLDING_RELEASE_VERSION=//p' "$GITHUB_ENV" | tail -1)
+          test -n "$version"
           ../../scripts/ci/apple-desktop.sh bundle exec fastlane ios continuous_beta "version:$version" "evidence:$FOLDING_BETA_EVIDENCE"
+      - name: Submit the exact processed build and verify App Review
+        if: steps.native.outputs.beta == 'true' && env.FOLDING_APP_STORE_PAUSED != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FOLDING_RELEASE_POLICY_TOKEN: ${{ secrets.FOLDING_RELEASE_POLICY_TOKEN }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_PRIVATE_KEY: ${{ secrets.FOLDING_ASC_PRIVATE_KEY }}
+          DUO_HOST_CONTROL: '1'
+          RELEASE_TAG: ${{ steps.beta.outputs.tag }}
+        run: |
+          export PATH="$RUNNER_TEMP/folding-release-python/bin:$PATH"
+          ../../scripts/ci/apple-desktop.sh bundle exec fastlane ios finish_release "tag:$RELEASE_TAG"

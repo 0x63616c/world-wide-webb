@@ -228,6 +228,8 @@ actor CompetitionTransport {
         "session_present": String(data != nil),
         "session_expired": String(expiry.map { $0.expiresAtMS <= nowMS() } ?? true),
         "attest_key_enrolled": String(enrolled),
+        "attest_key_present": String((try? credentials.read("attest-key")) != nil),
+        "attest_pending_proof": String((try? credentials.read("attest-pending")) != nil),
       ]
   }
 
@@ -244,22 +246,28 @@ actor CompetitionTransport {
 
   private func recordNetwork(
     _ path: String, started: TimeInterval, data: Data? = nil, status: Int? = nil,
-    error: Error? = nil
+    error: Error? = nil, requestID: UUID? = nil
   ) {
     guard let diagnosticRecorder else { return }
     struct Correlation: Decodable {
       let requestID: UUID?
-      enum CodingKeys: String, CodingKey { case requestID = "request_id" }
+      let code: String?
+      enum CodingKeys: String, CodingKey {
+        case requestID = "request_id"
+        case code
+      }
     }
     let correlation = data.flatMap {
       $0.count <= 128 * 1024 ? try? JSONDecoder().decode(Correlation.self, from: $0) : nil
     }
     let failure = error.map(FoldingDiagnostics.errorInfo)
     let entry = TrackingDiagnosticEntry(
-      atMS: nowMS(), event: .network, reason: failure?.0,
+      atMS: nowMS(), event: .network,
+      reason: failure?.0
+        ?? correlation?.code.flatMap(TrackingDiagnosticEntry.Reason.init(rawValue:)),
       route: FoldingDiagnostics.route(path), status: status, detail: failure?.1,
       durationMS: Int(max(0, ProcessInfo.processInfo.systemUptime - started) * 1000),
-      requestID: correlation?.requestID)
+      requestID: requestID ?? correlation?.requestID)
     Task { await diagnosticRecorder(entry) }
   }
 
@@ -425,7 +433,7 @@ actor CompetitionTransport {
     }
   }
 
-  private func ensureKey() async throws -> String {
+  private func ensureKey(recoverExpiredProof: Bool = true) async throws -> String {
     let revision = sessionRevision
     let attest = attestation
     guard attest.isSupported else { throw CompetitionTransportError.unsupportedAttestation }
@@ -501,6 +509,8 @@ actor CompetitionTransport {
       // The server has explicitly confirmed no receipt exists for this proof.
       try credentials.remove("attest-pending")
       try credentials.remove("attest-key")
+      recordDiagnostic(.attestationProofExpired)
+      if recoverExpiredProof { return try await ensureKey(recoverExpiredProof: false) }
       throw CompetitionTransportError.unavailable
     }
     guard revision == sessionRevision else { throw CancellationError() }
@@ -677,7 +687,9 @@ actor CompetitionTransport {
     guard let http = response as? HTTPURLResponse else {
       throw CompetitionTransportError.invalidResponse
     }
-    recordNetwork(path, started: started, data: data, status: http.statusCode)
+    recordNetwork(
+      path, started: started, data: data, status: http.statusCode,
+      requestID: http.value(forHTTPHeaderField: "X-Request-ID").flatMap(UUID.init(uuidString:)))
     guard (200..<300).contains(http.statusCode) else {
       let failure = try? JSONDecoder().decode(CompetitionServiceFailure.self, from: data)
       if http.statusCode == 426, failure?.code == "app_update_required",

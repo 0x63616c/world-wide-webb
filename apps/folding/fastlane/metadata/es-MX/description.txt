@@ -4,7 +4,7 @@ Registra los pliegues de tu iPhone Duo con Folding. Configura las automatizacion
 • Explora tu historial y tus patrones de uso.
 • Sincroniza el historial con iCloud y consulta tus estadísticas en widgets.
 • Únete a las clasificaciones semanales, mensuales e históricas con «Iniciar sesión con Apple».
-• Gana insignias de pliegues y días de uso, explora perfiles y destaca tu insignia favorita.
+• Gana insignias privadas de pliegues y días de uso y explora perfiles.
 • Exporta el historial como paquete CSV o restablécelo en la app.
 
 Todas las funciones son gratis. Las propinas opcionales apoyan el desarrollo y no desbloquean funciones.

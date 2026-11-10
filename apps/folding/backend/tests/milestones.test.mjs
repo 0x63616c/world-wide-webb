@@ -160,15 +160,20 @@ test('signed uploads advance milestones with scores; duplicates/quarantine do no
 });
 
 test('late insertion moves a counted transition between UTC days without inventing a fold',async()=>{
- await setup();const p=await person(520),day=Math.floor(Date.now()/86400000)-2;
+ await setup();const p=await person(520),today=Math.floor(Date.now()/86400000);
+ // Always cross the active UTC week boundary. Seed through ingestion so both
+ // all-time and current-period scores exist before correcting a counted event.
+ const day=today-(new Date(today*86400000).getUTCDay()+6)%7-1;
  const opening=event(p,1,day*86400000+1),closing=event(p,3,(day+1)*86400000+1,'close');
- // Seed through ingestion so current week/month scores match retained observations.
  const send=await signer(p);
  await jsonOK(await send('/v1/event-batches',{schema_version:1,operation_id:uuid(++op),epoch_id:p.epoch,events:[opening,closing]}));
+ const weekly=()=>db.prepare("SELECT s.folds FROM live_scores s JOIN periods w ON w.period_id=s.period_id WHERE s.participant_id=? AND w.kind='week' AND w.start_ms=?").bind(p.participant,(day+1)*86400000).first('folds');
+ assert.equal(await weekly(),1);
  let own=await jsonOK(await request(p,'/v1/milestones'));assert.equal(own.progress.days_used,2);
  const late=event(p,2,day*86400000+2,'close');
  await jsonOK(await send('/v1/event-batches',{schema_version:1,operation_id:uuid(++op),epoch_id:p.epoch,events:[late]}));
  own=await jsonOK(await request(p,'/v1/milestones'));assert.equal(own.progress.folds,2);assert.equal(own.progress.days_used,1);
+ assert.equal(await weekly(),0);
  const counted=(await db.prepare('SELECT event_id FROM milestone_counted_events WHERE participant_id=? ORDER BY event_id').bind(p.participant).all()).results.map(r=>r.event_id);
  assert.deepEqual(counted,[opening.event_id,late.event_id]);
 });

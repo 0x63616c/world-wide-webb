@@ -165,6 +165,17 @@ pub(crate) fn nonce_context(
         config.deployment
     )
 }
+fn rejected(id: &Id, stage: &str, reason: &str, failure: Failure) -> Failure {
+    let event = serde_json::json!({
+        "event": "attestation_rejected", "request_id": id, "stage": stage,
+        "reason": reason, "status": failure.status, "code": failure.code,
+        "at_ms": now(),
+    });
+    if let Ok(event) = js_sys::JSON::parse(&event.to_string()) {
+        web_sys::console::warn_1(&event);
+    }
+    failure
+}
 pub(crate) async fn challenge(
     request: &Request,
     env: &Env,
@@ -178,9 +189,16 @@ pub(crate) async fn challenge(
         return Err(Failure::malformed());
     }
     let attest = AttestationConfiguration::load(env)?;
-    let session = community_session(request, db, config).await?;
+    let session = community_session(request, db, config)
+        .await
+        .map_err(|error| rejected(request_id, "challenge", "session_invalid", error))?;
     if input.device_id.as_str() != session.device_id {
-        return Err(Failure::unauthorized());
+        return Err(rejected(
+            request_id,
+            "challenge",
+            "device_mismatch",
+            Failure::unauthorized(),
+        ));
     }
     let timestamp = now();
     let window = timestamp / 60000 * 60000;
@@ -241,6 +259,18 @@ struct Challenge {
     expires_at_ms: i64,
     used: u8,
 }
+#[derive(Deserialize)]
+struct ExistingChallenge {
+    #[serde(rename = "present")]
+    _present: u8,
+}
+fn expired_challenge() -> Failure {
+    Failure {
+        status: 409,
+        code: "challenge_expired",
+        retryable: false,
+    }
+}
 pub(crate) async fn enroll(
     request: &Request,
     env: &Env,
@@ -254,26 +284,68 @@ pub(crate) async fn enroll(
         return Err(Failure::malformed());
     }
     let mut attest = AttestationConfiguration::load(env)?;
-    let session = community_session(request, db, config).await?;
+    let session = community_session(request, db, config)
+        .await
+        .map_err(|error| rejected(request_id, "enroll", "session_invalid", error))?;
     if input.device_id.as_str() != session.device_id {
-        return Err(Failure::unauthorized());
+        return Err(rejected(
+            request_id,
+            "enroll",
+            "device_mismatch",
+            Failure::unauthorized(),
+        ));
     }
-    attest.allow_published_build(request, db, config).await?;
+    attest
+        .allow_published_build(request, db, config)
+        .await
+        .map_err(|error| rejected(request_id, "enroll", "build_policy_rejected", error))?;
     let normalized=Sha256::digest(serde_json::to_vec(&serde_json::json!({"operation_id":input.operation_id,"device_id":input.device_id,"key_id":input.key_id,"challenge_id":input.challenge_id})).map_err(|_|Failure::unavailable())?);
     let timestamp = now();
     if let Some(receipt)=statement(db,"SELECT normalized_hash,response_json FROM attestation_operations WHERE participant_id=?1 AND operation_id=?2",&[text(&session.participant_id),text(input.operation_id.as_str())])?.first::<Operation>(None).await.map_err(|_|Failure::unavailable())? {
         if receipt.normalized_hash!=normalized.as_slice(){return Err(Failure::conflict());}
         let guard=uuid()?;
-        db.batch(vec![session_guard(db,&guard,&session,config,timestamp)?,statement(db,COMMUNITY_GUARD,&[text(&format!("{guard}-community")),text(&session.participant_id),number(session.revision)])?,key_guard(db,&format!("{guard}-key"),true,&session,&input.key_id,config,&attest)?,delete_guards(db,&guard)?]).await.map_err(|_|Failure::unauthorized())?;
+        db.batch(vec![session_guard(db,&guard,&session,config,timestamp)?,statement(db,COMMUNITY_GUARD,&[text(&format!("{guard}-community")),text(&session.participant_id),number(session.revision)])?,key_guard(db,&format!("{guard}-key"),true,&session,&input.key_id,config,&attest)?,delete_guards(db,&guard)?]).await.map_err(|_|rejected(request_id, "enroll", "receipt_key_or_session_invalid", Failure::unauthorized()))?;
         let value:serde_json::Value=serde_json::from_str(&receipt.response_json).map_err(|_|Failure::unavailable())?;return response(&value);
     }
-    let challenge=statement(db,"SELECT nonce_hash,expires_at_ms,used FROM challenges WHERE challenge_id=?1 AND participant_id=?2 AND device_id=?3 AND session_id=?4 AND deployment=?5 AND purpose='enroll_key' AND enrollment_key_id=?6 AND key_id IS NULL",&[text(input.challenge_id.as_str()),text(&session.participant_id),text(&session.device_id),text(&session.session_id),text(&config.deployment),text(&input.key_id)])?.first::<Challenge>(None).await.map_err(|_|Failure::unavailable())?.ok_or_else(Failure::unauthorized)?;
+    let challenge=statement(db,"SELECT nonce_hash,expires_at_ms,used FROM challenges WHERE challenge_id=?1 AND participant_id=?2 AND device_id=?3 AND session_id=?4 AND deployment=?5 AND purpose='enroll_key' AND enrollment_key_id=?6 AND key_id IS NULL",&[text(input.challenge_id.as_str()),text(&session.participant_id),text(&session.device_id),text(&session.session_id),text(&config.deployment),text(&input.key_id)])?.first::<Challenge>(None).await.map_err(|_|Failure::unavailable())?;
+    let challenge = match challenge {
+        Some(challenge) => challenge,
+        None => {
+            // Cleanup removes expired challenges. Without a durable success receipt,
+            // the client must discard its one-shot proof and enroll a fresh key.
+            // Existing challenges with another binding remain unauthorized.
+            let exists = statement(
+                db,
+                "SELECT 1 AS present FROM challenges WHERE challenge_id=?1",
+                &[text(input.challenge_id.as_str())],
+            )?
+            .first::<ExistingChallenge>(None)
+            .await
+            .map_err(|_| Failure::unavailable())?;
+            return Err(if exists.is_some() {
+                rejected(
+                    request_id,
+                    "enroll",
+                    "challenge_binding_mismatch",
+                    Failure::unauthorized(),
+                )
+            } else {
+                rejected(
+                    request_id,
+                    "enroll",
+                    "challenge_missing",
+                    expired_challenge(),
+                )
+            });
+        }
+    };
     if challenge.used != 0 || challenge.expires_at_ms <= timestamp {
-        return Err(Failure {
-            status: 409,
-            code: "challenge_expired",
-            retryable: false,
-        });
+        return Err(rejected(
+            request_id,
+            "enroll",
+            "challenge_expired_or_used",
+            expired_challenge(),
+        ));
     }
     let client_hash: [u8; 32] = challenge
         .nonce_hash
@@ -294,7 +366,7 @@ pub(crate) async fn enroll(
         allowed_bundle_versions: &versions,
     };
     let verified = verify_attestation(&bytes, &key_id, &client_hash, &policy, timestamp as u64)
-        .map_err(|_| Failure::malformed())?;
+        .map_err(|_| rejected(request_id, "enroll", "proof_invalid", Failure::malformed()))?;
     let value = serde_json::json!({"operation_id":input.operation_id,"key_id":input.key_id,"enrolled":true,"request_id":request_id});
     let sealed = config
         .keys
