@@ -65,6 +65,9 @@ jobs:
       - run: bash tools/check lint
       - if: needs.changes.outputs.ops == 'true'
         run: bash tools/check ops
+      - name: Isolate pinned Rust from the runner image
+        if: needs.changes.outputs.rust == 'true'
+        run: echo "RUSTUP_HOME=$RUNNER_TEMP/www-rustup" >> "$GITHUB_ENV"
       - name: Install pinned Rust
         if: needs.changes.outputs.rust == 'true'
         run: rustup show active-toolchain
@@ -88,6 +91,8 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Isolate pinned Rust from the runner image
+        run: echo "RUSTUP_HOME=$RUNNER_TEMP/www-rustup" >> "$GITHUB_ENV"
       - run: rustup show active-toolchain
       - uses: actions/cache@v4
         with:

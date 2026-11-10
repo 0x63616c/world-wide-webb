@@ -634,3 +634,12 @@ asserting actual iOS window geometry. The local disposable simulator/runner were
 removed and the owner's original Device Hub selection was preserved. Build 21's
 accepted review submission remains unchanged; this tooling change selects no app
 delivery. Final hosted verification is tracked in F12 (#13).
+
+
+The same follow-up CI reproduced the previously observed runner-image Rust failure:
+`rustup show active-toolchain` attempted to recover a partial 1.99.1 installation and
+failed on an existing `bin/cargo-clippy`, before project checking. The CI typecheck
+and Rust unit jobs now set `RUSTUP_HOME` to a job-local runner-temporary directory
+before installation, retaining the pinned version/components and Cargo caches.
+This avoids repairing or mutating the image's partial installation. Actionlint
+passes; actual hosted installation/checking is required before merge.
