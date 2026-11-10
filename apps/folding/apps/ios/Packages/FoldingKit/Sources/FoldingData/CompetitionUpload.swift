@@ -14,6 +14,7 @@ public struct CompetitionUpload: Codable, Sendable {
   var nextAttemptMS: Int64
   public var attempts: Int? = nil
   public var isHistory: Bool? = nil
+  public var retryReason: TrackingDiagnosticEntry.Reason? = nil
 }
 
 public enum CompetitionUploadQueueState: String, Sendable {

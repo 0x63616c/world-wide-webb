@@ -92,8 +92,17 @@ actor CompetitionUploader {
   private func handle(
     _ error: Error, work: CompetitionUpload, store: TrackingStore, transport: CompetitionTransport
   ) async {
-    var delay = min(3600.0, 15.0 * pow(2.0, Double(min(work.attempts ?? 0, 8))))
+    var delay = min(300.0, 15.0 * pow(2.0, Double(min(work.attempts ?? 0, 8))))
     do {
+      if case CompetitionTransportError.busy = error {
+        try await store.retryCompetitionUpload(
+          work, atMS: TrackingRuntime.nowMS + 2_000,
+          reason: .busy, incrementAttempts: false)
+        await FoldingDiagnostics.record(
+          store, .uploadRetryScheduled, error: error,
+          attempt: work.attempts ?? 0, retryDelayMS: 2_000)
+        return
+      }
       if case CompetitionTransportError.service(
         let status, let code, let retryable, let retryAfter) = error
       {
@@ -127,7 +136,12 @@ actor CompetitionUploader {
       }
       let jitter = Double.random(in: 0...max(1, delay * 0.1))
       let milliseconds = Int64(min(delay + jitter, 7 * 86400) * 1000)
-      try await store.retryCompetitionUpload(work, atMS: TrackingRuntime.nowMS + milliseconds)
+      try await store.retryCompetitionUpload(
+        work, atMS: TrackingRuntime.nowMS + milliseconds,
+        reason: FoldingDiagnostics.errorInfo(error).0)
+      await FoldingDiagnostics.record(
+        store, .uploadRetryScheduled, error: error,
+        attempt: min((work.attempts ?? 0) + 1, 20), retryDelayMS: Int(milliseconds))
     } catch {
       try? await store.retryCompetitionUpload(work, atMS: TrackingRuntime.nowMS + 300_000)
     }

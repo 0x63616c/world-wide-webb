@@ -67,3 +67,56 @@ import Testing
   try await store.acknowledgeCompetitionUpload(work, dispositions: ["accepted"])
   #expect(try await store.pendingCompetitionEventCount() == 0)
 }
+
+@Test(arguments: [
+  (TrackingDiagnosticEntry.Reason.busy, nil as Int?), (.busy, 503), (.rateLimited, nil),
+  (.network, nil),
+])
+func foregroundRecoversOnlyProvenLegacyLocalBusyRetry(
+  reason: TrackingDiagnosticEntry.Reason, detail: Int?
+)
+  async throws
+{
+  let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+  defer { try? FileManager.default.removeItem(at: directory) }
+  let store = try TrackingStore(directory: directory, installationID: UUID())
+  let epoch = UUID()
+  try await store.setCompetitionEpoch(epoch)
+  _ = try await store.record(
+    Observation(
+      generation: .initial, transition: .open,
+      observedAtMS: 1000, timezoneID: "UTC", competitionEpochID: epoch), nowMS: 1000)
+  let work = try #require(await store.leaseCompetitionUpload(nowMS: 1000))
+  try await store.appendDiagnostic(
+    TrackingDiagnosticEntry(atMS: 1001, event: .uploadDeferred, reason: reason, detail: detail))
+  // Represents the old-client format, which had no durable retry reason.
+  try await store.retryCompetitionUpload(work, atMS: 3_601_000)
+  try await store.resumeLocalBusyCompetitionUpload(nowMS: 2000)
+  #expect(
+    try await store.competitionUploadQueueState(nowMS: 2000)
+      == (reason == .busy && detail == nil ? .ready : .retryWait))
+  if reason == .busy && detail == nil {
+    let recovered = try #require(await store.leaseCompetitionUpload(nowMS: 2000))
+    #expect(recovered.operationID == work.operationID)
+    #expect(recovered.body == work.body)
+    #expect(recovered.attempts == 1)
+  }
+  #expect(try await store.summary().folds == 1)
+}
+
+@Test func diagnosticJSONPreservesTypedEventsAndRetryDecision() async throws {
+  let snapshot = TrackingDiagnosticSnapshot(
+    capturedAtMS: 2000, context: ["queue": "retry_wait"],
+    events: [
+      TrackingDiagnosticEntry(
+        atMS: 1000, event: .uploadRetryScheduled, reason: .busy, attempt: 20, retryDelayMS: 2000)
+    ])
+  let data = Data(try snapshot.json().utf8)
+  let object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+  #expect(object["format_version"] as? Int == 1)
+  let events = try #require(object["events"] as? [[String: Any]])
+  #expect(events.first?["event"] as? String == "upload_retry_scheduled")
+  #expect(events.first?["attempt"] as? Int == 20)
+  #expect(events.first?["retry_delay_ms"] as? Int == 2000)
+  #expect(events.first?["reason"] as? String == "busy")
+}

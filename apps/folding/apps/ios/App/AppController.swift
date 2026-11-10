@@ -4,6 +4,7 @@ import SwiftUI
 import UIKit
 
 import struct FoldingData.SetupProgress
+import struct FoldingData.TrackingDiagnosticSnapshot
 
 @MainActor final class AppController {
   let presentation = FoldingPresentation()
@@ -365,28 +366,31 @@ import struct FoldingData.SetupProgress
       phase == .active ? .foreground : phase == .background ? .background : .inactive)
   }
 
-  private func makeDiagnosticReport() async throws -> String {
+  private func makeDiagnosticReport() async throws -> TrackingDiagnosticSnapshot {
     let identity = accountChangeRevision
-    let runtimeReport = await runtime.diagnosticReport()
+    var report = await runtime.diagnosticSnapshot()
     let credentials =
-      await competitionAPI?.transport.diagnosticCredentialSummary() ?? "session_state=not_loaded"
+      await competitionAPI?.transport.diagnosticCredentialSummary() ?? [
+        "session_state": "not_loaded"
+      ]
     guard identity == accountChangeRevision, !accountChanging else { throw CancellationError() }
-    var lines = [
-      runtimeReport, credentials,
-      "server_revision=\(diagnosticServerRevision)",
-      "notification_permission=\(String(describing: presentation.notificationAuthorization))",
-      "daily_notification_enabled=\(notifications.preferences.dailyLimit)",
-      "tracking_phone=\(presentation.publicTrackingPhone == .thisPhone ? "this_phone" : presentation.publicTrackingPhone == .anotherPhone ? "other_phone" : "none")",
-    ]
+    report.context.merge(credentials) { _, new in new }
+    report.context.merge([
+      "server_revision": "\(diagnosticServerRevision)",
+      "notification_permission": "\(String(describing: presentation.notificationAuthorization))",
+      "daily_notification_enabled": "\(notifications.preferences.dailyLimit)",
+      "tracking_phone":
+        "\(presentation.publicTrackingPhone == .thisPhone ? "this_phone" : presentation.publicTrackingPhone == .anotherPhone ? "other_phone" : "none")",
+    ]) { _, new in new }
     if let personal = presentation.analytics {
-      lines.append("personal_folds=\(personal.lifetime.folds)")
+      report.context["personal_folds"] = String(describing: personal.lifetime.folds)
     }
     if let board = presentation.competition.previous {
-      lines.append("board_period=\(presentation.competitionPeriod.rawValue)")
-      lines.append("board_folds=\(board.currentUser?.folds ?? 0)")
-      lines.append("board_cached_at=\(board.updatedAt.ISO8601Format())")
+      report.context["board_period"] = String(describing: presentation.competitionPeriod.rawValue)
+      report.context["board_folds"] = String(describing: board.currentUser?.folds ?? 0)
+      report.context["board_cached_at"] = String(describing: board.updatedAt.ISO8601Format())
     }
-    return lines.joined(separator: "\n")
+    return report
   }
 
   private func checkDiagnosticConnection() async throws {

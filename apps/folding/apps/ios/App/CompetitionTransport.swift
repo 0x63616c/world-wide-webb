@@ -142,7 +142,7 @@ actor CompetitionTransport {
   private var diagnosticRecorder: (@Sendable (TrackingDiagnosticEntry) async -> Void)?
   private var uploadDiagnostics: (worker: String, queue: String)?
   private var signing = false
-  private var refreshing = false
+  private var sessionRefresh: (id: UUID, task: Task<String, Error>)?
   private var readRevision = UUID()
   private var recentReads: [String: (data: Data, expiresMS: Int64)] = [:]
   private var pendingReads: [String: Task<Data, Error>] = [:]
@@ -215,7 +215,7 @@ actor CompetitionTransport {
     diagnosticRecorder = recorder
   }
 
-  func diagnosticCredentialSummary() -> String {
+  func diagnosticCredentialSummary() -> [String: String] {
     struct Expiry: Decodable {
       let expiresAtMS: Int64
       enum CodingKeys: String, CodingKey { case expiresAtMS = "expires_at_ms" }
@@ -224,7 +224,22 @@ actor CompetitionTransport {
     let expiry = data.flatMap { try? JSONDecoder().decode(Expiry.self, from: $0) }
     let enrolled = (try? credentials.read("attest-enrolled")) != nil
     return
-      "session_present=\(data != nil)\nsession_expired=\(expiry.map { $0.expiresAtMS <= nowMS() } ?? true)\nattest_key_enrolled=\(enrolled)"
+      [
+        "session_present": String(data != nil),
+        "session_expired": String(expiry.map { $0.expiresAtMS <= nowMS() } ?? true),
+        "attest_key_enrolled": String(enrolled),
+      ]
+  }
+
+  private func recordDiagnostic(
+    _ event: TrackingDiagnosticEntry.Event, error: Error? = nil, durationMS: Int? = nil
+  ) {
+    guard let diagnosticRecorder else { return }
+    let failure = error.map(FoldingDiagnostics.errorInfo)
+    let entry = TrackingDiagnosticEntry(
+      atMS: nowMS(), event: event,
+      reason: failure?.0, detail: failure?.1, durationMS: durationMS)
+    Task { await diagnosticRecorder(entry) }
   }
 
   private func recordNetwork(
@@ -256,6 +271,8 @@ actor CompetitionTransport {
 
   func clearSession() throws {
     sessionRevision = UUID()
+    sessionRefresh?.task.cancel()
+    sessionRefresh = nil
     invalidateReads()
     avatarContextRevision = UUID()
     for account in [
@@ -336,9 +353,41 @@ actor CompetitionTransport {
     if !forceRefresh, stored.expires_at_ms > nowMS() + 30_000 {
       return stored.access_token
     }
-    guard !refreshing else { throw CompetitionTransportError.busy }
-    refreshing = true
-    defer { refreshing = false }
+    if let pending = sessionRefresh {
+      recordDiagnostic(.sessionRefreshJoined)
+      let token = try await pending.task.value
+      try Task.checkCancellation()
+      guard revision == sessionRevision else { throw CancellationError() }
+      return token
+    }
+    let id = UUID()
+    recordDiagnostic(.sessionRefreshStarted)
+    let task = Task { try await self.refreshSession(stored, revision: revision) }
+    sessionRefresh = (id, task)
+    defer { if sessionRefresh?.id == id { sessionRefresh = nil } }
+    let token = try await task.value
+    try Task.checkCancellation()
+    guard revision == sessionRevision else { throw CancellationError() }
+    return token
+  }
+
+  private func refreshSession(_ stored: CompetitionSession, revision: UUID) async throws -> String {
+    let started = ProcessInfo.processInfo.systemUptime
+    do {
+      let token = try await performSessionRefresh(stored, revision: revision)
+      recordDiagnostic(
+        .sessionRefreshCompleted,
+        durationMS: Int((ProcessInfo.processInfo.systemUptime - started) * 1000))
+      return token
+    } catch {
+      recordDiagnostic(.sessionRefreshFailed, error: error)
+      throw error
+    }
+  }
+
+  private func performSessionRefresh(_ stored: CompetitionSession, revision: UUID) async throws
+    -> String
+  {
     // Persist the exact refresh operation before sending, so response-loss retries keep its identity.
     struct Refresh: Codable {
       // swift-format-ignore: AlwaysUseLowerCamelCase
@@ -364,10 +413,16 @@ actor CompetitionTransport {
   }
 
   func enrollKey() async throws -> String {
-    guard !signing else { throw CompetitionTransportError.busy }
+    guard !signing else {
+      recordDiagnostic(.signingBusy, error: CompetitionTransportError.busy)
+      throw CompetitionTransportError.busy
+    }
     signing = true
     defer { signing = false }
-    return try await ensureKey()
+    do { return try await ensureKey() } catch {
+      recordDiagnostic(.attestationEnrollmentFailed, error: error)
+      throw error
+    }
   }
 
   private func ensureKey() async throws -> String {
@@ -379,6 +434,7 @@ actor CompetitionTransport {
     {
       return id
     }
+    recordDiagnostic(.attestationEnrollmentStarted)
     // A successful Apple proof can only be generated once per key. Persist the exact
     // request before network IO, and replay it even after challenge expiry: the server
     // checks the durable operation receipt before checking the challenge.
@@ -395,7 +451,9 @@ actor CompetitionTransport {
       {
         key = id
       } else {
+        recordDiagnostic(.attestationKeyGenerationStarted)
         key = try await attest.generateKey()
+        recordDiagnostic(.attestationKeyGenerated)
         guard revision == sessionRevision else { throw CancellationError() }
         try credentials.write(Data(key.utf8), account: "attest-key")
       }
@@ -451,6 +509,7 @@ actor CompetitionTransport {
     }
     try credentials.write(Data(key.utf8), account: "attest-enrolled")
     try credentials.remove("attest-pending")
+    recordDiagnostic(.attestationEnrollmentCompleted)
     return key
   }
 
@@ -458,7 +517,10 @@ actor CompetitionTransport {
     _ method: String, path: String, purpose: String,
     body: Data, contentType: String = "application/json"
   ) async throws -> Response {
-    guard !signing else { throw CompetitionTransportError.busy }
+    guard !signing else {
+      recordDiagnostic(.signingBusy, error: CompetitionTransportError.busy)
+      throw CompetitionTransportError.busy
+    }
     guard !path.contains("?") else { throw CompetitionTransportError.invalidResponse }
     signing = true
     defer { signing = false }
@@ -479,7 +541,11 @@ actor CompetitionTransport {
     _ method: String, path: String, purpose: String, body: Data, contentType: String
   ) async throws -> Response {
     let revision = sessionRevision
-    let key = try await ensureKey()
+    let key: String
+    do { key = try await ensureKey() } catch {
+      recordDiagnostic(.attestationEnrollmentFailed, error: error)
+      throw error
+    }
     let token = try await accessToken()
     guard revision == sessionRevision else { throw CancellationError() }
     let challenge: CompetitionChallenge = try await execute(
@@ -491,11 +557,14 @@ actor CompetitionTransport {
     let binding =
       "Folding-v1\n\(deployment)\n\(method)\n\(path)\n\(challenge.challenge_id)\n\(challenge.nonce)\n\(digest)"
     let assertion: Data
+    let assertionStarted = ProcessInfo.processInfo.systemUptime
+    recordDiagnostic(.attestationAssertionStarted)
     do {
       assertion = try await attestation.generateAssertion(
         key, clientDataHash: Data(SHA256.hash(data: Data(binding.utf8))))
     } catch {
       guard revision == sessionRevision else { throw CancellationError() }
+      recordDiagnostic(.attestationAssertionFailed, error: error)
       if (error as NSError).domain == DCError.errorDomain,
         (error as NSError).code == DCError.Code.invalidKey.rawValue
       {
@@ -506,6 +575,9 @@ actor CompetitionTransport {
       throw error
     }
     guard revision == sessionRevision else { throw CancellationError() }
+    recordDiagnostic(
+      .attestationAssertionCompleted,
+      durationMS: Int((ProcessInfo.processInfo.systemUptime - assertionStarted) * 1000))
     return try await execute(
       method, path: path, body: body, token: token, contentType: contentType,
       headers: [

@@ -7,6 +7,7 @@ import SwiftUI
 import struct FoldingData.PrivateHistoryHealth
 import enum FoldingData.SetupAction
 import struct FoldingData.SetupProgress
+import struct FoldingData.TrackingDiagnosticSnapshot
 
 // Preferences contain presentation choices only. The composition root persists their versioned value.
 enum FoldingAppearance: String, Codable, CaseIterable, Identifiable {
@@ -340,7 +341,7 @@ enum ExportChoice { case json, csv }
   /// Verified per-OS/localized instructions, supplied by composition rather than invented by views.
   var openingInstructions: String?
   var closingInstructions: String?
-  var loadDiagnostics: (() async throws -> String)?
+  var loadDiagnostics: (() async throws -> TrackingDiagnosticSnapshot)?
   var clearDiagnostics: (() async throws -> Void)?
   var checkDiagnostics: (() async throws -> Void)?
 }
