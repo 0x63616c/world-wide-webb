@@ -38,10 +38,21 @@ final class DuoHostControlTests: XCTestCase {
         // by its full accessible value; never depend on a remembered selection.
         if !window.label.contains(name) {
             try stage("selecting_capture_device")
-            let row = window.descendants(matching: .any).matching(
-                NSPredicate(format: "value CONTAINS %@ OR label CONTAINS %@", name, name)
-            ).firstMatch
-            XCTAssertTrue(row.waitForExistence(timeout: 30), "The disposable Duo must be present")
+            // Other descendants have numeric values (sliders/switches). A
+            // string predicate over every value can crash Foundation before
+            // finding the row. Inspect each value's actual type instead.
+            func captureRow() -> XCUIElement? {
+                window.descendants(matching: .any).allElementsBoundByIndex.first {
+                    $0.label.contains(name) || ($0.value as? String)?.contains(name) == true
+                }
+            }
+            let selectionDeadline = Date().addingTimeInterval(30)
+            var candidate = captureRow()
+            while candidate == nil && Date() < selectionDeadline {
+                RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+                candidate = captureRow()
+            }
+            let row = try XCTUnwrap(candidate, "The disposable Duo must be present")
             row.click()
             XCTAssertTrue(window.waitForExistence(timeout: 10))
             let selected = XCTNSPredicateExpectation(
