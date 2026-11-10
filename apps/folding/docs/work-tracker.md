@@ -654,3 +654,11 @@ The capture test now reasserts portrait on the running fixture and refreshes its
 active coordinate context before checking navigation; all geometry/reachability
 assertions remain intact. Swift parsing passes; repeated hosted shared capture is
 required to verify the fixture correction. This changes tests, not application UI.
+
+Folding preview and native CI also passed on `7bf9eb0`. Shared capture attempt 1
+timed out in Device Hub's remote AX query before clicking Open; an unchanged-source
+rerun stopped before XCTest initialized or produced a result bundle. Both failures
+are retained; the orientation correction remains unverified. Shared capture now
+samples its owned xcodebuild/Device Hub processes on failure before terminating
+them, preserving stacks and process state alongside the existing diagnostics.
+No timeout increase, assertion removal or further blind rerun is used.

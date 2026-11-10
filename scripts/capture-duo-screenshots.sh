@@ -66,6 +66,18 @@ host_worker=
 host_application_worker=
 cleanup() {
   local capture_status=$?
+  if (( capture_status != 0 )); then
+    # Capture the owned processes before stopping them: xcodebuild can stall
+    # before XCTest creates a result bundle, and AX queries can stop responding.
+    local process_label process_id
+    for process_label in controller application; do
+      if [[ "$process_label" == controller ]]; then process_id="$host_worker"; else process_id="$host_application_worker"; fi
+      if [[ -n "$process_id" ]]; then
+        ps -p "$process_id" -o pid,ppid,state,etime,comm > "$work/host-$process_label-process.txt" 2>&1 || true
+        sample "$process_id" 2 -file "$work/host-$process_label-sample.txt" >/dev/null 2>&1 || true
+      fi
+    done
+  fi
   if [[ -n "$host_worker" ]]; then
     touch "$work/host-stop"
     kill "$host_worker" 2>/dev/null || true
