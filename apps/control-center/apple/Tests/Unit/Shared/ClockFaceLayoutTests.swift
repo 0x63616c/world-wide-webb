@@ -25,8 +25,8 @@ import XCTest
         let store = MockHomeDataSource(latency: .zero, fixedNow: FixtureClock.now)
         let size = CGSize(width: 1376, height: 1032)
         let renderer = ImageRenderer(
-            content: PresenceClockFace(store: store)
-                .frame(width: size.width, height: size.height).environment(\.motionPhase, 0))
+            content: PresenceClockFace(store: store).faceContent(at: FixtureClock.now)
+                .frame(width: size.width, height: size.height))
         renderer.scale = 1
         let image = try XCTUnwrap(renderer.uiImage?.cgImage)
         let pixels = try rgba(image)
