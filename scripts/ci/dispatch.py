@@ -36,6 +36,16 @@ def dispatch(paths, config, force=False):
     }
 
 
+def write_receipts(temporary, receipt):
+    (temporary / "ci-selection.json").write_text(json.dumps(receipt) + "\n")
+    compatibility = temporary / "control-center" / "ci-selection.json"
+    compatibility.parent.mkdir(parents=True, exist_ok=True)
+    compatibility.write_text(
+        json.dumps(dict.fromkeys(("apple", "image", "infra", "publish_apple", "publish_image", "apply_infra"), False))
+        + "\n"
+    )
+
+
 def main():
     event = os.environ["EVENT"]
     paths = changed_paths(os.environ["BASE"], os.environ["HEAD"], "pull_request" if event == "pull_request" else "push")
@@ -47,11 +57,7 @@ def main():
         head=os.environ["HEAD"], base=os.environ["BASE"], event="pull_request" if event == "pull_request" else "push"
     )
     temporary = Path(os.environ.get("RUNNER_TEMP", "/tmp"))
-    (temporary / "ci-selection.json").write_text(json.dumps(receipt) + "\n")
-    (temporary / "control-center-selection.json").write_text(
-        json.dumps(dict.fromkeys(("apple", "image", "infra", "publish_apple", "publish_image", "apply_infra"), False))
-        + "\n"
-    )
+    write_receipts(temporary, receipt)
     with open(os.environ["GITHUB_OUTPUT"], "a") as output:
         for key, value in result.items():
             output.write(f"{key}={json.dumps(value, separators=(',', ':'))}\n")

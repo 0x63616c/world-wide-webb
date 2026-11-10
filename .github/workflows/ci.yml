@@ -45,7 +45,7 @@ jobs:
       if: '!contains(fromJSON(steps.select.outputs.products), ''control-center'')'
       with:
         name: ci-selection
-        path: ${{ runner.temp }}/control-center-selection.json
+        path: ${{ runner.temp }}/control-center/ci-selection.json
         retention-days: 7
         if-no-files-found: error
   typecheck:
