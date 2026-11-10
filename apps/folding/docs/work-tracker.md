@@ -504,3 +504,11 @@ public badge after the owner paused that feature. Sources and Apple metadata fil
 now describe private badges and community profiles accurately. All ten sources match
 their files and meet Apple limits; localization and its ten regressions pass. Formal
 native-speaker acceptance remains unverified.
+
+PR CI reproduced a date-dependent late-insertion fixture failure at the UTC week
+boundary: direct SQL seeded only the all-time score, so moving a fold out of the
+current week attempted to decrement a nonexistent weekly score. The local test
+failed with the same 409 using the accepted, byte-verified Worker artifact. It now
+seeds through real signed ingestion, always crosses the active week boundary and
+verifies weekly 1 → 0 while preserving all-time folds and correcting days used.
+The focused fixture passes; runtime behavior and deployed inputs are unchanged.
