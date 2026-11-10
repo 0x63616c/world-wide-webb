@@ -14,6 +14,14 @@ CONFIG = json.loads(selection.CONFIG.read_text())
 
 
 class SelectionTests(unittest.TestCase):
+    def test_safari_extension_isolated_from_apps_and_homelab_delivery(self):
+        for path in ["apps/golink-safari/Extension/redirect.js", ".github/workflows/golink-safari-ci.yml"]:
+            with self.subTest(path=path):
+                result = selection.select([path], CONFIG)
+                self.assertEqual(result["verify"], ["golink.safari"])
+                self.assertEqual(result["delivery_candidates"], [])
+                self.assertEqual(result["unmapped"], [])
+
     def test_test_only_changes_verify_their_product_without_delivery(self):
         paths = ["apps/tendr/Tests/ImportTests.swift", "apps/folding/apps/ios/Packages/FoldingKit/Tests/SyncTests.swift",
                  "apps/folding/backend/crates/worker/tests/runtime.rs", "apps/callkeep/Tests/RecorderTests.swift",

@@ -13,6 +13,7 @@ records completed handovers and remaining release/reference cleanup. WWW is curr
 - [Callkeep](apps/callkeep/README.md): native Mac recording and transcription.
 - [Air Miles](apps/airmiles/README.md): offline flight journal, independently styled.
 - [Control Center](apps/control-center/README.md): native home controls and private Rust/SQLite service.
+- [Golink Safari](apps/golink-safari/README.md): Safari address-bar shortcuts for the tailnet Golink service.
 
 `sites/` contains public website sources. `infra/cloudflare/` contains retained infrastructure.
 [Homelab](homelab/README.md) contains host configuration, runners, services and the CLI.

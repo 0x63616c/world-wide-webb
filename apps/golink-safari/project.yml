@@ -1,0 +1,74 @@
+name: Golink
+options:
+  bundleIdPrefix: co.calum.golink
+  deploymentTarget:
+    macOS: '15.0'
+    iOS: '18.0'
+settings:
+  base:
+    SWIFT_VERSION: '6.0'
+    MARKETING_VERSION: '1.0.0'
+    CURRENT_PROJECT_VERSION: '1'
+    DEVELOPMENT_TEAM: X9E4HG27NK
+    CODE_SIGN_STYLE: Automatic
+    GENERATE_INFOPLIST_FILE: YES
+    ENABLE_HARDENED_RUNTIME: YES
+    LOCALIZATION_PREFERS_STRING_CATALOGS: YES
+targetTemplates:
+  App:
+    type: application
+    sources: [App]
+    settings:
+      PRODUCT_NAME: Golink
+      PRODUCT_BUNDLE_IDENTIFIER: co.calum.golink
+      INFOPLIST_KEY_CFBundleDisplayName: Golink
+      ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+  Extension:
+    type: app-extension
+    sources:
+      - NativeExtension
+      - path: Extension
+        buildPhase: resources
+    settings:
+      PRODUCT_NAME: Golink Extension
+      PRODUCT_BUNDLE_IDENTIFIER: co.calum.golink.Extension
+      INFOPLIST_FILE: Config/Extension-Info.plist
+      INFOPLIST_KEY_CFBundleDisplayName: Golink
+      SKIP_INSTALL: YES
+      APPLICATION_EXTENSION_API_ONLY: YES
+targets:
+  Golink-macOS:
+    templates: [App]
+    platform: macOS
+    dependencies:
+      - target: Golink-Extension-macOS
+    settings:
+      CODE_SIGN_ENTITLEMENTS: Config/macOS.entitlements
+  Golink-Extension-macOS:
+    templates: [Extension]
+    platform: macOS
+    settings:
+      CODE_SIGN_ENTITLEMENTS: Config/macOS.entitlements
+  Golink-iOS:
+    templates: [App]
+    platform: iOS
+    dependencies:
+      - target: Golink-Extension-iOS
+    settings:
+      TARGETED_DEVICE_FAMILY: '1,2'
+      SUPPORTS_MACCATALYST: NO
+      INFOPLIST_KEY_UILaunchScreen_Generation: YES
+      INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight
+      INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight
+  Golink-Extension-iOS:
+    templates: [Extension]
+    platform: iOS
+schemes:
+  Golink-macOS:
+    build:
+      targets:
+        Golink-macOS: all
+  Golink-iOS:
+    build:
+      targets:
+        Golink-iOS: all

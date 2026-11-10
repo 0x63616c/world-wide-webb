@@ -7,6 +7,9 @@ instead of navigating, enter the full `http://go/` URL. The fully qualified
 address is `http://go.tail8c014d.ts.net/`; golink redirects to HTTPS when the
 tailnet enables certificates. Each user owns the links they create.
 
+The optional [Golink Safari extension](../../apps/golink-safari/README.md) turns complete
+`go/repo` Google.com searches into tailnet navigations on Mac, iPhone and iPad.
+
 ## Deployment
 
 `homelab/services/golink/compose.yaml` pins the official upstream image by digest.

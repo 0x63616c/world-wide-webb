@@ -1,0 +1,59 @@
+name: Golink Safari CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: golink-safari-ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+jobs:
+  selection:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 5
+    outputs:
+      verify: ${{ steps.select.outputs.verify }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+      - id: select
+        uses: ./.github/actions/select
+  native:
+    name: Golink Safari native
+    needs: selection
+    if: contains(fromJSON(needs.selection.outputs.verify), 'golink.safari')
+    runs-on: xcode-27
+    timeout-minutes: 20
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: '1.4.4'
+      - run: brew list xcodegen >/dev/null 2>&1 || brew install xcodegen
+      - run: scripts/ci/apple-desktop.sh bash apps/golink-safari/Scripts/check.sh
+  gate:
+    name: Golink Safari checks
+    needs: [selection, native]
+    if: always() && !cancelled()
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 5
+    steps:
+      - env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          python3 - <<'PYTHON'
+          import json, os
+          results = json.loads(os.environ['RESULTS'])
+          assert results['selection']['result'] == 'success', 'Selection failed'
+          selected = json.loads(results['selection']['outputs']['verify'])
+          expected = 'success' if 'golink.safari' in selected else 'skipped'
+          assert results['native']['result'] == expected, 'Golink Safari checks did not complete as selected'
+          PYTHON

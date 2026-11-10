@@ -9,6 +9,10 @@
     "Gemfile.lock"
   ],
   "units": {
+    "golink.safari": {
+      "paths": ["apps/golink-safari/**"],
+      "delivery": null
+    },
     "tendr.native": {
       "paths": [
         "apps/tendr/**"
@@ -427,6 +431,7 @@
     }
   },
   "workflow_units": {
+    ".github/workflows/golink-safari-ci.yml": ["golink.safari"],
     ".github/workflows/homelab-ci.yml": [
       "homelab.config",
       "homelab.cli"
