@@ -1,0 +1,32 @@
+# Official golink multi-architecture image, pinned from ghcr.io/tailscale/golink:main.
+# tsnet supplies private networking; do not publish Docker ports or enable Funnel.
+name: golink
+services:
+  golink:
+    image: ghcr.io/tailscale/golink@sha256:6eaa20d3798f6998102b1758ca0601f6bd357380a1df8804d9d2ac3d2e421eb1
+    container_name: golink
+    user: '65532:65532'
+    command: [--sqlitedb, /home/nonroot/golink.db]
+    env_file:
+      - path: ${GOLINK_ENV_FILE:?Provision the golink enrollment environment}
+        format: raw
+    volumes:
+      - golink_data:/home/nonroot
+    restart: unless-stopped
+    stop_grace_period: 120s
+    mem_limit: 256m
+    cpus: 0.5
+    pids_limit: 128
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=16m,mode=1777
+    logging:
+      driver: json-file
+      options: {max-size: 5m, max-file: '2'}
+volumes:
+  golink_data:
+    # Initialize once before assignment; subsequent missing state must fail closed.
+    external: true
+    name: golink_data

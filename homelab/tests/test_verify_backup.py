@@ -22,8 +22,27 @@ class RestoreVerificationTests(unittest.TestCase):
         self.archive()
         self.manifest()
 
+    def test_golink_recovery_requires_data_and_enrollment_configuration(self):
+        self.host['services'] = ['golink']
+        self.images()
+        self.archive()
+        payload = self.root / 'golink-data.tar.gz'
+        payload.write_bytes(b'fixture cold database and identity archive')
+        self.manifest()
+        self.assertEqual(verify.verify(self.root)['services'], ['golink'])
+        payload.unlink()
+        self.manifest()
+        with self.assertRaisesRegex(ValueError, 'Payloads'):
+            verify.verify(self.root)
+        payload.write_bytes(b'fixture archive')
+        self.archive(omit='credentials/golink/environment')
+        self.manifest()
+        with self.assertRaisesRegex(ValueError, 'required service files'):
+            verify.verify(self.root)
+
     def images(self):
         containers = {
+            'golink': ['golink'],
             'cloudflared': ['www-tunnel-cloudflared-1'],
             'home-assistant': ['www-home-assistant-home-assistant-1'],
             'control-center': ['www-control-center-www-1'],
@@ -42,6 +61,7 @@ class RestoreVerificationTests(unittest.TestCase):
         for service in self.host['services']:
             files['compose/' + service + '/compose.yaml'] = b'fixture compose'
         credentials = {
+            'golink': ['environment'],
             'cloudflared': ['TUNNEL_TOKEN'],
             'hindsight': ['environment'],
             'beszel': ['environment', 'config.yml'],

@@ -48,6 +48,7 @@ impl Fixture {
             "bambu-studio-api",
             "bambuddy-tailscale",
             "hindsight",
+            "golink",
             "beszel-beszel-1",
             "www-tunnel-cloudflared-1",
             "www-home-assistant-home-assistant-1",
@@ -353,5 +354,23 @@ fn beszel_health_uses_the_services_vm_and_requires_healthy_hub() {
     assert_eq!(
         serde_json::from_str::<Service>("\"beszel\"").unwrap(),
         Service::Beszel
+    );
+}
+
+#[test]
+fn golink_requires_running_container_and_tailnet_http_readiness() {
+    let fixture = Fixture::new(vec![Service::Golink]);
+    fixture.check().unwrap();
+    assert_eq!(fixture.events(), "inspect golink\n");
+    fixture.change("golink.json", "running", json!(false));
+    assert_eq!(
+        fixture.check(),
+        Err(HealthError::UnhealthyContainer("golink"))
+    );
+    fixture.change("golink.json", "running", json!(true));
+    fixture.flag("golink-http-fails");
+    assert_eq!(
+        fixture.check(),
+        Err(HealthError::UnhealthyContainer("golink"))
     );
 }

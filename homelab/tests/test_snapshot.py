@@ -119,6 +119,23 @@ class SnapshotSafetyTests(unittest.TestCase):
         healthy.assert_called_once_with('services', 'beszel-beszel-1')
         self.assertFalse(list(self.destination.glob('*.restart-required')))
 
+    @patch.object(snapshot, 'container_files')
+    @patch.object(snapshot, 'healthy')
+    @patch.object(snapshot, 'run')
+    @patch.object(snapshot, 'running_state', return_value={'Running': True})
+    def test_golink_copies_database_and_identity_under_one_stopped_writer(self, state, run, healthy, files):
+        from unittest.mock import Mock
+        run.side_effect = lambda args, **kwargs: Mock(stdout='[]' if 'image' in args else 'sha256:fixture')
+        def copy(*args):
+            self.assertTrue((self.destination / 'golink.restart-required').is_file())
+            self.assertEqual(run.call_args.args[0][-4:], ['stop', '--time', '120', 'golink'])
+        files.side_effect = copy
+        snapshot.snapshot(self.destination, ['golink'])
+        files.assert_called_once_with(self.destination / 'golink-data.tar.gz', 'services', 'golink', '/home/nonroot')
+        self.assertEqual(run.call_args.args[0][-2:], ['start', 'golink'])
+        self.assertEqual(healthy.call_count, 2)
+        healthy.assert_called_with('services', 'golink')
+
     def test_hindsight_password_never_enters_command_arguments(self):
         metadata = dict(installation_dir='/postgres', version='16', port=5432,
                         username='hindsight', database='hindsight', password='synthetic-password')

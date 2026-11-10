@@ -12,6 +12,7 @@ from pathlib import Path
 
 WWW_KEYS = ("HA_TOKEN", "ALARM_API_TOKEN", "HOME_LAT", "HOME_LON", "WIFI_GUEST_SSID", "WIFI_GUEST_PASSWORD")
 FILES = {
+    "golink": {"environment": "golink-env"},
     "control-center": {name: "www-" + name for name in WWW_KEYS},
     "hindsight": {"environment": "hindsight-env"},
     "beszel": {"environment": "beszel-env"},
@@ -72,6 +73,7 @@ def compose_environment(service, destination, compose_root):
         {
             "control-center": {"WWW_SECRETS_DIR": str(destination)},
             "hindsight": {"HINDSIGHT_ENV_FILE": str(destination / "environment")},
+            "golink": {"GOLINK_ENV_FILE": str(destination / "environment")},
             "beszel": {
                 "BESZEL_ENV_FILE": str(destination / "environment"),
                 "BESZEL_CONFIG_FILE": str(destination / "config.yml"),

@@ -22,6 +22,7 @@ SOCKETS = {
     "ha": "unix:///var/lib/_containers/.colima-ha/ha/docker.sock",
 }
 NAMES = {
+    "golink": ("services", ["golink"]),
     "control-center": ("services", ["www-control-center-www-1"]),
     "bambuddy": ("services", ["bambuddy", "bambu-studio-api", "bambuddy-tailscale"]),
     "hindsight": ("services", ["hindsight"]),
@@ -70,6 +71,7 @@ def healthy(runtime, name):
         state = running_state(runtime, name)
         health = state.get("Health") or {}
         has_no_healthcheck = name in (
+            "golink",
             "bambuddy-tailscale",
             "www-tunnel-cloudflared-1",
             "penpot-penpot-frontend-1",
@@ -293,6 +295,10 @@ def snapshot(destination, services, weekly_exports=False, control_center_online=
             )
             with stopped("services", "penpot-penpot-valkey-1", destination, timings):
                 container_files(destination / "penpot-valkey.tar.gz", "services", "penpot-penpot-valkey-1", "/data")
+    if "golink" in services:
+        # Stop the sole writer: links database and tsnet identity are one recovery unit.
+        with stopped("services", "golink", destination, timings):
+            container_files(destination / "golink-data.tar.gz", "services", "golink", "/home/nonroot")
     if "beszel" in services:
         # PocketBase databases and the hub SSH identity form one recovery unit.
         with stopped("services", "beszel-beszel-1", destination, timings):
