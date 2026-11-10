@@ -27,12 +27,14 @@ import PanelKit
     @ObservationIgnored private var acknowledgedPartySpeed: PartySpeed = .off
     @ObservationIgnored private var queue: [Operation] = []
     @ObservationIgnored private var mutationTask: Task<Void, Never>?
+    @ObservationIgnored private let clock: SyncClock
     @ObservationIgnored private var pollingTask: Task<Void, Never>?
     @ObservationIgnored private var revision = 0
     @ObservationIgnored private var lifecycle = 0
     @ObservationIgnored private var refreshing = false
 
-    init(api: LightsAPI, initialLamps: LampState = LampState()) {
+    init(api: LightsAPI, initialLamps: LampState = LampState(), clock: SyncClock = .continuous()) {
+        self.clock = clock
         self.api = api
         fallbackLamps = initialLamps
         lamps = initialLamps
@@ -65,11 +67,12 @@ import PanelKit
     func startPolling(every interval: Duration = .seconds(30)) {
         guard interval > .zero else { return }
         pollingTask?.cancel()
+        let clock = self.clock
         pollingTask = Task { [weak self] in
             while !Task.isCancelled {
                 guard self != nil else { return }
                 await self?.refresh()
-                do { try await Task.sleep(for: interval) } catch { return }
+                do { try await clock.sleep(interval) } catch { return }
             }
         }
     }

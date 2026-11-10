@@ -88,11 +88,15 @@ enum WeatherPresentation {
     private(set) var snapshot: LiveWeatherSnapshot?
     private(set) var availability: LiveAvailability = .loading
     @ObservationIgnored private let api: WeatherAPI
+    @ObservationIgnored private let clock: SyncClock
     @ObservationIgnored private var pollingTask: Task<Void, Never>?
     @ObservationIgnored private var refreshing = false
     @ObservationIgnored private var generation = 0
 
-    init(api: WeatherAPI) { self.api = api }
+    init(api: WeatherAPI, clock: SyncClock = .continuous()) {
+        self.api = api
+        self.clock = clock
+    }
     deinit { pollingTask?.cancel() }
 
     func refresh() async {
@@ -121,11 +125,12 @@ enum WeatherPresentation {
     func startPolling(every interval: Duration = LiveWeatherProvider.pollingInterval) {
         guard interval > .zero else { return }
         stop()
+        let clock = self.clock
         pollingTask = Task { [weak self] in
             while !Task.isCancelled {
                 guard self != nil else { return }
                 await self?.refresh()
-                do { try await Task.sleep(for: interval) } catch { return }
+                do { try await clock.sleep(interval) } catch { return }
             }
         }
     }

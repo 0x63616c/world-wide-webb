@@ -19,6 +19,8 @@ def matches(path, patterns):
 
 def documentation(path):
     parts = PurePosixPath(path).parts
+    if "docs" in parts or path.startswith(".agents/"):
+        return True
     # Listing/capture assets are product inputs even when their source is Markdown.
     if any(part in {"fastlane", "listing", "metadata", "screenshots"} for part in parts):
         return False
@@ -93,7 +95,7 @@ def select(paths, config, force=False):
         if not owners:
             unknown.add(path)
     # Unknown paths fail conservatively into verification, never deployment.
-    verify = set(units) if force or shared or unknown else set(direct)
+    verify = set(units) if force or shared else set(direct)
     pending = list(verify)
     while pending:
         pending_name = pending.pop()

@@ -279,7 +279,7 @@ module FoldingRelease
       evidence = FoldingRelease.read_json(evidence_path)
       source = FoldingRelease.clean_commit!
       raise "Beta evidence belongs to another source" unless evidence.fetch("commit_sha") == source
-      %w[contracts domain-storage simulator localization].each do |name|
+      %w[contracts domain-storage native-build localization].each do |name|
         checks = evidence.fetch("required_checks").select { |check| check["name"] == name }
         raise "Missing or duplicated beta CI evidence: #{name}" unless checks.length == 1 && checks.first["kind"] == "ci"
         CheckEvidence.validate!(checks.first, source: source, base: File.dirname(File.expand_path(evidence_path)))

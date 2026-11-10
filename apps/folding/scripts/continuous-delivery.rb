@@ -15,7 +15,7 @@ begin
     File.open(ENV.fetch("GITHUB_OUTPUT"), "a") { |file| file.puts("beta=#{needed}") }
   when "evidence"
     source = FoldingRelease.clean_commit!
-    checks = %w[contracts domain-storage simulator localization].map do |name|
+    checks = %w[contracts domain-storage native-build localization].map do |name|
       {"kind" => "ci", "name" => name, "commit_sha" => source, "conclusion" => "success", "run_url" => ENV.fetch("FOLDING_SOURCE_CI_RUN_URL")}
     end
     path = File.join(ENV.fetch("RUNNER_TEMP"), "folding-beta-checks.json")

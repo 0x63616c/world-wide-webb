@@ -2,7 +2,11 @@ import Foundation
 import PanelKit
 import XCTest
 
-@testable import Panel
+#if SWIFT_PACKAGE
+    @testable import PanelLogic
+#else
+    @testable import Panel
+#endif
 
 @MainActor final class LiveWifiProviderTests: XCTestCase {
     func testFixturesMapToExistingStateAndRoundTripQRCode() throws {

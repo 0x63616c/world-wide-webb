@@ -1,14 +1,8 @@
 name: Sites
-on:
-  push:
-    branches: [main]
-  pull_request:
-  workflow_dispatch:
+'on':
+  workflow_call: {}
 permissions:
   contents: read
-concurrency:
-  group: sites-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   selection:
     runs-on: ubuntu-24.04-arm
@@ -17,15 +11,15 @@ jobs:
       verify: ${{ steps.select.outputs.verify }}
       delivery: ${{ steps.select.outputs.delivery_candidates }}
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-        with:
-          fetch-depth: 0
-          sparse-checkout: |
-            .github/actions/select
-            scripts/ci
-          persist-credentials: true
-      - id: select
-        uses: ./.github/actions/select
+    - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      with:
+        fetch-depth: 0
+        sparse-checkout: |
+          .github/actions/select
+          scripts/ci
+        persist-credentials: true
+    - id: select
+      uses: ./.github/actions/select
   pages:
     name: Public Pages assets
     needs: selection
@@ -33,18 +27,18 @@ jobs:
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-        with:
-          persist-credentials: false
-      - run: python3 scripts/test-publish-site.py
-      - run: scripts/build-site.sh "$RUNNER_TEMP/public-site"
-      - uses: actions/upload-artifact@v4
-        with:
-          name: public-pages-${{ github.sha }}
-          path: ${{ runner.temp }}/public-site
-          include-hidden-files: true
-          retention-days: 14
-          if-no-files-found: error
+    - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      with:
+        persist-credentials: false
+    - run: python3 scripts/test-publish-site.py
+    - run: scripts/build-site.sh "$RUNNER_TEMP/public-site"
+    - uses: actions/upload-artifact@v4
+      with:
+        name: public-pages-${{ github.sha }}
+        path: ${{ runner.temp }}/public-site
+        include-hidden-files: true
+        retention-days: 14
+        if-no-files-found: error
   folding:
     name: Folding public assets
     needs: selection
@@ -52,47 +46,50 @@ jobs:
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-        with:
-          persist-credentials: false
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '26.13.0'
-      - run: node sites/folding/build.mjs
-      - uses: actions/upload-artifact@v4
-        with:
-          name: folding-public-sites-${{ github.sha }}
-          path: |
-            sites/folding/dist
-            sites/folding/dist-staging
-          retention-days: 14
-          if-no-files-found: error
+    - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      with:
+        persist-credentials: false
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 26.13.0
+    - run: node sites/folding/build.mjs
+    - uses: actions/upload-artifact@v4
+      with:
+        name: folding-public-sites-${{ github.sha }}
+        path: |
+          sites/folding/dist
+          sites/folding/dist-staging
+        retention-days: 14
+        if-no-files-found: error
   gate:
     name: Site checks
     if: always() && !cancelled()
-    needs: [selection, pages, folding]
+    needs:
+    - selection
+    - pages
+    - folding
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 5
     steps:
-      - env:
-          RESULTS: ${{ toJSON(needs) }}
-        run: |
-          python3 - <<'PYTHON'
-          import json, os
-          results = json.loads(os.environ['RESULTS'])
-          assert results['selection']['result'] == 'success', 'Selection failed'
-          selected = json.loads(results['selection']['outputs']['verify'])
-          for job, unit in (('pages', 'sites.pages'), ('folding', 'sites.folding')):
-              expected = 'success' if unit in selected else 'skipped'
-              assert results[job]['result'] == expected, f'{job}: expected {expected}'
-          PYTHON
+    - env:
+        RESULTS: ${{ toJSON(needs) }}
+      run: |
+        python3 - <<'PYTHON'
+        import json, os
+        results = json.loads(os.environ['RESULTS'])
+        assert results['selection']['result'] == 'success', 'Selection failed'
+        selected = json.loads(results['selection']['outputs']['verify'])
+        for job, unit in (('pages', 'sites.pages'), ('folding', 'sites.folding')):
+            expected = 'success' if unit in selected else 'skipped'
+            assert results[job]['result'] == expected, f'{job}: expected {expected}'
+        PYTHON
   folding-publication:
     name: Publish Folding websites
-    needs: [selection, gate]
-    if: >-
-      (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main' &&
-      vars.FOLDING_SITE_DELIVERY_ENABLED == 'true' &&
-      (github.event_name == 'workflow_dispatch' || contains(fromJSON(needs.selection.outputs.delivery), 'sites.folding'))
+    needs:
+    - selection
+    - gate
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main' && vars.FOLDING_SITE_DELIVERY_ENABLED
+      == 'true' && (github.event_name == 'workflow_dispatch' || contains(fromJSON(needs.selection.outputs.delivery), 'sites.folding'))
     runs-on: ubuntu-24.04-arm
     environment: production
     timeout-minutes: 10
@@ -103,24 +100,24 @@ jobs:
       CLOUDFLARE_LOAD_DEV_VARS_FROM_DOT_ENV: 'false'
       WRANGLER_SEND_METRICS: 'false'
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-        with:
-          persist-credentials: false
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '26.13.0'
-      - uses: actions/download-artifact@v4
-        with:
-          name: folding-public-sites-${{ github.sha }}
-          path: sites/folding
-      - name: Publish staging and production assets
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.FOLDING_DEPLOY_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
-        run: |
-          set -euo pipefail
-          test -n "$CLOUDFLARE_API_TOKEN"
-          test -n "$CLOUDFLARE_ACCOUNT_ID"
-          wrangler_version=$(node -p "require('./apps/folding/backend/package.json').devDependencies.wrangler")
-          npx --yes "wrangler@$wrangler_version" deploy --config sites/folding/wrangler.jsonc
-          npx --yes "wrangler@$wrangler_version" deploy --config sites/folding/wrangler.jsonc --env production
+    - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      with:
+        persist-credentials: false
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 26.13.0
+    - uses: actions/download-artifact@v4
+      with:
+        name: folding-public-sites-${{ github.sha }}
+        path: sites/folding
+    - name: Publish staging and production assets
+      env:
+        CLOUDFLARE_API_TOKEN: ${{ secrets.FOLDING_DEPLOY_TOKEN }}
+        CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+      run: |
+        set -euo pipefail
+        test -n "$CLOUDFLARE_API_TOKEN"
+        test -n "$CLOUDFLARE_ACCOUNT_ID"
+        wrangler_version=$(node -p "require('./apps/folding/backend/package.json').devDependencies.wrangler")
+        npx --yes "wrangler@$wrangler_version" deploy --config sites/folding/wrangler.jsonc
+        npx --yes "wrangler@$wrangler_version" deploy --config sites/folding/wrangler.jsonc --env production

@@ -26,11 +26,15 @@ import PanelKit
     @ObservationIgnored private let api: ClimateAPI
     @ObservationIgnored private var queue: [HomeCommand] = []
     @ObservationIgnored private var mutationTask: Task<Void, Never>?
+    @ObservationIgnored private let clock: SyncClock
     @ObservationIgnored private var pollingTask: Task<Void, Never>?
     @ObservationIgnored private var revision = 0
     @ObservationIgnored private var refreshing = false
 
-    init(api: ClimateAPI) { self.api = api }
+    init(api: ClimateAPI, clock: SyncClock = .continuous()) {
+        self.api = api
+        self.clock = clock
+    }
     deinit {
         mutationTask?.cancel()
         pollingTask?.cancel()
@@ -54,11 +58,12 @@ import PanelKit
     func startPolling(every interval: Duration = .seconds(30)) {
         guard interval > .zero else { return }
         pollingTask?.cancel()
+        let clock = self.clock
         pollingTask = Task { [weak self] in
             while !Task.isCancelled {
                 guard self != nil else { return }
                 await self?.refresh()
-                do { try await Task.sleep(for: interval) } catch { return }
+                do { try await clock.sleep(interval) } catch { return }
             }
         }
     }
@@ -199,19 +204,21 @@ import PanelKit
 }
 
 /// Preview fallback remains backed by the existing fixture source, without networking.
-@MainActor @Observable final class MockClimateProvider: ClimateProvider {
-    private let source: MockHomeDataSource
-    var climate: ClimateState? { source.climate }
-    var availability: LiveAvailability { .live }
-    var pending: Set<String> { source.pending.intersection(["climate"]) }
-    init(source: MockHomeDataSource = MockHomeDataSource()) { self.source = source }
-    func refresh() async {}
-    @discardableResult func send(_ command: HomeCommand) -> Bool {
-        switch command {
-        case .mode, .target, .low, .high, .shiftRange:
-            source.send(command)
-            return true
-        default: return false
+#if !SWIFT_PACKAGE
+    @MainActor @Observable final class MockClimateProvider: ClimateProvider {
+        private let source: MockHomeDataSource
+        var climate: ClimateState? { source.climate }
+        var availability: LiveAvailability { .live }
+        var pending: Set<String> { source.pending.intersection(["climate"]) }
+        init(source: MockHomeDataSource = MockHomeDataSource()) { self.source = source }
+        func refresh() async {}
+        @discardableResult func send(_ command: HomeCommand) -> Bool {
+            switch command {
+            case .mode, .target, .low, .high, .shiftRange:
+                source.send(command)
+                return true
+            default: return false
+            }
         }
     }
-}
+#endif

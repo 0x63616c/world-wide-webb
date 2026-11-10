@@ -60,10 +60,10 @@ class CliDeliveryTests(unittest.TestCase):
 
     def test_only_exact_successful_main_ci_and_its_named_build_authorize_publication(self):
         source = "a" * 40
-        run = {"head_sha": source, "path": ".github/workflows/homelab-ci.yml", "event": "push",
+        run = {"head_sha": source, "path": ".github/workflows/ci.yml", "event": "push",
                "head_branch": "main", "head_repository": {"full_name": delivery.publish.REPOSITORY},
                "status": "completed", "conclusion": "success", "run_attempt": 2}
-        job = {"name": "Homelab CLI", "head_sha": source, "status": "completed", "conclusion": "success"}
+        job = {"name": "Homelab / Homelab CLI", "head_sha": source, "status": "completed", "conclusion": "success"}
 
         def invoke(candidate, jobs):
             def command(*args, **_kwargs):

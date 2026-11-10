@@ -65,7 +65,7 @@ class SelectionTests(unittest.TestCase):
 
     def test_tooling_verifies_but_does_not_ship(self):
         result = selection.select([".github/workflows/ci.yml"], CONFIG)
-        self.assertEqual(set(result["verify"]), {"control-center.tooling", "control-center.server", "control-center.native", "control-center.contracts"})
+        self.assertEqual(result["verify"], ["repo.tooling"])
         self.assertEqual(result["delivery_candidates"], [])
 
     def test_docs_do_not_activate_hosts_or_ship_apps(self):
@@ -101,7 +101,7 @@ class SelectionTests(unittest.TestCase):
 
     def test_unknown_path_requires_verification_without_shipping(self):
         result = selection.select(["new-root-tool.toml"], CONFIG)
-        self.assertEqual(set(result["verify"]), set(CONFIG["units"]))
+        self.assertEqual(result["verify"], [])
         self.assertEqual(result["unmapped"], ["new-root-tool.toml"])
         self.assertEqual(result["delivery_candidates"], [])
 

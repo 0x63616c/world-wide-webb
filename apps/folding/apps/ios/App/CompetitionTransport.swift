@@ -30,36 +30,6 @@ struct CompetitionServiceFailure: Decodable, Sendable {
     case minimumBuild = "minimum_ios_build"
   }
 }
-enum CompetitionTransportError: Error {
-  case unavailable, unauthorized, busy, invalidResponse
-  case server(Int)
-  case service(status: Int, code: String, retryable: Bool, retryAfter: TimeInterval?)
-  case unsupportedAttestation
-
-  var statusCode: Int? {
-    switch self {
-    case .server(let status), .service(let status, _, _, _): return status
-    case .unauthorized: return 401
-    default: return nil
-    }
-  }
-}
-
-extension CompetitionTransportError: CompetitionJoinFailure {
-  var joinMessage: String {
-    let base = String(localized: "error.tryAgain", defaultValue: "Something went wrong.")
-    switch self {
-    case .service(_, let code, _, _): return "\(base) (\(code))"
-    case .server(let status): return "\(base) (HTTP \(status))"
-    case .unsupportedAttestation: return "\(base) (App Attest unavailable)"
-    case .unauthorized: return "\(base) (unauthorized)"
-    case .busy: return "\(base) (busy)"
-    case .invalidResponse: return "\(base) (invalid response)"
-    case .unavailable: return "\(base) (service unavailable)"
-    }
-  }
-}
-
 /// Device-only credential storage; never mirrored or exported with personal history.
 struct CompetitionCredentialStore: Sendable {
   let service: String
@@ -862,5 +832,20 @@ actor CompetitionTransportPool {
       origin: origin, deployment: deployment, deviceID: deviceID, bundleID: bundleID)
     clients[key] = client
     return client
+  }
+}
+
+extension CompetitionTransportError: CompetitionJoinFailure {
+  var joinMessage: String {
+    let base = String(localized: "error.tryAgain", defaultValue: "Something went wrong.")
+    switch self {
+    case .service(_, let code, _, _): return "\(base) (\(code))"
+    case .server(let status): return "\(base) (HTTP \(status))"
+    case .unsupportedAttestation: return "\(base) (App Attest unavailable)"
+    case .unauthorized: return "\(base) (unauthorized)"
+    case .busy: return "\(base) (busy)"
+    case .invalidResponse: return "\(base) (invalid response)"
+    case .unavailable: return "\(base) (service unavailable)"
+    }
   }
 }

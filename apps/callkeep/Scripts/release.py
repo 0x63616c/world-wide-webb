@@ -66,7 +66,7 @@ def trusted_source():
     run = api(prefix)
     if (
         run.get("head_sha") != source
-        or run.get("path") != ".github/workflows/callkeep-ci.yml"
+        or run.get("path") != ".github/workflows/ci.yml"
         or run.get("event") != "push"
         or run.get("head_branch") != "main"
         or run.get("head_repository", {}).get("full_name") != REPOSITORY
@@ -76,7 +76,7 @@ def trusted_source():
     ):
         raise ValueError("Callkeep source CI is not a successful trusted main attempt")
     pages = json.loads(prepare.run("gh", "api", "--paginate", "--slurp", prefix + "/jobs?per_page=100"))
-    jobs = [job for page in pages for job in page["jobs"] if job["name"] == "Callkeep native"]
+    jobs = [job for page in pages for job in page["jobs"] if job["name"] == "Callkeep / Callkeep native"]
     if (
         len(jobs) != 1
         or jobs[0].get("head_sha") != source

@@ -58,23 +58,13 @@ class CheckSelectionTests(unittest.TestCase):
         self.assertEqual(result["delivery_candidates"], [])
         self.assertTrue(result["check_reasons"]["homelab.darwin"])
 
-    def test_optional_previews_do_not_follow_unrelated_verification_fanout(self):
-        shared = select(["scripts/ci/select_units.py"], CONFIG)
-        self.assertTrue(shared["verify"])
-        self.assertEqual(shared["previews"], [])
-        self.assertEqual(select(["apps/folding/apps/ios/App/Screen.swift"], CONFIG)["previews"], ["folding.native"])
-        self.assertTrue(select(["scripts/capture-screenshots.sh"], CONFIG)["standard_preview"])
-        self.assertIn("folding.native", select([], CONFIG, force=True)["previews"])
-
-    def test_shared_unknown_and_force_preserve_full_verification(self):
-        for paths, force in [
-            (["scripts/ci/select_units.py"], False),
-            ([".github/actions/new/action.yml"], False),
-            ([], True),
-        ]:
-            result = select(paths, CONFIG, force=force)
-            self.assertEqual(set(result["checks"]), set(CONFIG["checks"]))
-            self.assertEqual(result["delivery_candidates"], [])
+    def test_shared_tooling_stays_cheap_and_force_is_explicit(self):
+        result = select(["scripts/ci/select_units.py"], CONFIG)
+        self.assertEqual(result["verify"], ["repo.tooling"])
+        self.assertEqual(result["checks"], [])
+        forced = select([], CONFIG, force=True)
+        self.assertEqual(set(forced["checks"]), set(CONFIG["checks"]))
+        self.assertEqual(forced["delivery_candidates"], [])
 
     def test_mixed_changes_union_checks_and_do_not_hide_safety_inputs(self):
         result = self.checks(

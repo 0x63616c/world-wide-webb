@@ -41,7 +41,7 @@ class EvidenceTests(unittest.TestCase):
             "head_sha": "a" * 40,
             "head_branch": "main",
             "head_repository": {"full_name": d.REPOSITORY},
-            "path": ".github/workflows/homelab-ci.yml",
+            "path": ".github/workflows/ci.yml",
             "event": "push",
             "status": "completed",
             "conclusion": "success",
@@ -49,11 +49,11 @@ class EvidenceTests(unittest.TestCase):
         self.jobs = [
             {"name": name, "status": "completed", "conclusion": "success"}
             for name in (
-                "Homelab selection",
-                "Homelab operations",
-                "Homelab Linux controller",
-                "Homelab Darwin configuration",
-                "Homelab checks",
+                "Homelab / Homelab selection",
+                "Homelab / Homelab operations",
+                "Homelab / Homelab Linux controller",
+                "Homelab / Homelab Darwin configuration",
+                "Homelab / Homelab checks",
             )
         ]
 
@@ -97,7 +97,7 @@ class EvidenceTests(unittest.TestCase):
         checks = ["homelab.operations", "homelab.darwin"]
         jobs = copy.deepcopy(self.jobs)
         jobs[2]["conclusion"] = "skipped"
-        jobs.append({"name": "Homelab CLI", "status": "completed", "conclusion": "skipped"})
+        jobs.append({"name": "Homelab / Homelab CLI", "status": "completed", "conclusion": "skipped"})
         d.validate_ci(self.intent, self.run, jobs, checks=checks)
         for index, result in [(1, "skipped"), (2, "failure"), (3, "failure"), (5, "success")]:
             changed = copy.deepcopy(jobs)

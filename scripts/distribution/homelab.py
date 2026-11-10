@@ -26,7 +26,7 @@ def checked_source():
     run = json.loads(prepare.run("gh", "api", prefix))
     if not (
         run.get("head_sha") == source
-        and run.get("path") == ".github/workflows/homelab-ci.yml"
+        and run.get("path") == ".github/workflows/ci.yml"
         and run.get("event") == "push"
         and run.get("head_branch") == "main"
         and run.get("head_repository", {}).get("full_name") == publish.REPOSITORY
@@ -36,7 +36,7 @@ def checked_source():
     ):
         raise ValueError("CLI delivery requires successful exact-source main CI")
     pages = json.loads(prepare.run("gh", "api", "--paginate", "--slurp", prefix + "/jobs?per_page=100"))
-    jobs = [job for page in pages for job in page["jobs"] if job["name"] == "Homelab CLI"]
+    jobs = [job for page in pages for job in page["jobs"] if job["name"] == "Homelab / Homelab CLI"]
     if len(jobs) != 1 or any(jobs[0].get(key) != value for key, value in {
         "head_sha": source, "status": "completed", "conclusion": "success"
     }.items()):

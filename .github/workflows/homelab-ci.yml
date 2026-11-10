@@ -1,61 +1,32 @@
 name: Homelab CI
-on:
-  push:
-    branches: [main]
-  pull_request:
-  workflow_dispatch:
-    inputs:
-      benchmark:
-        description: Same-path before/after replay (no delivery)
-        type: choice
-        default: none
-        options: [none, backup-test, service]
-      baseline:
-        description: Full baseline commit SHA for a benchmark
-        type: string
+'on':
+  workflow_call: {}
 permissions:
   contents: read
-concurrency:
-  group: homelab-ci-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   selection:
     name: Homelab selection
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 5
     outputs:
-      verify: ${{ steps.benchmark.outputs.verify || steps.select.outputs.verify }}
-      checks: ${{ steps.benchmark.outputs.checks || steps.select.outputs.checks }}
+      verify: ${{ steps.select.outputs.verify }}
+      checks: ${{ steps.select.outputs.checks }}
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-        with:
-          fetch-depth: 0
-          sparse-checkout: |
-            .github/actions/select
-            scripts/ci
-          persist-credentials: true
-      - id: benchmark
-        if: inputs.benchmark != '' && inputs.benchmark != 'none'
-        env:
-          SOURCE: ${{ github.sha }}
-        run: |
-          python3 - <<'PYTHON'
-          import json, os
-          from pathlib import Path
-          result = {'verify': [], 'checks': [], 'delivery_candidates': [], 'event': 'benchmark', 'head': os.environ['SOURCE']}
-          Path(os.environ['RUNNER_TEMP'], 'ci-selection.json').write_text(json.dumps(result))
-          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
-              output.write('verify=[]\nchecks=[]\n')
-          PYTHON
-      - id: select
-        if: inputs.benchmark == '' || inputs.benchmark == 'none'
-        uses: ./.github/actions/select
-      - uses: actions/upload-artifact@v4
-        with:
-          name: homelab-selection
-          path: ${{ runner.temp }}/ci-selection.json
-          retention-days: 14
-          if-no-files-found: error
+    - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      with:
+        fetch-depth: 0
+        sparse-checkout: |
+          .github/actions/select
+          scripts/ci
+        persist-credentials: true
+    - id: select
+      uses: ./.github/actions/select
+    - uses: actions/upload-artifact@v4
+      with:
+        name: homelab-selection
+        path: ${{ runner.temp }}/ci-selection.json
+        retention-days: 14
+        if-no-files-found: error
   operations:
     name: Homelab operations
     needs: selection
@@ -63,16 +34,16 @@ jobs:
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-        with:
-          persist-credentials: false
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
-        with:
-          python-version: '3.15.2'
-      - run: python3 -m pip install PyYAML==6.0.3
-      - run: python3 -m unittest discover -s homelab/tests
-      - run: python3 -m unittest discover -s scripts/homelab
-      - run: bash -n homelab/bootstrap.sh
+    - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      with:
+        persist-credentials: false
+    - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+      with:
+        python-version: 3.15.2
+    - run: python3 -m pip install PyYAML==6.0.3
+    - run: python3 -m unittest discover -s homelab/tests
+    - run: python3 -m unittest discover -s scripts/homelab
+    - run: bash -n homelab/bootstrap.sh
   linux:
     name: Homelab Linux controller
     needs: selection
@@ -83,95 +54,102 @@ jobs:
       run:
         working-directory: homelab/runner
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-        with:
-          persist-credentials: false
-      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
-        with:
-          toolchain: 1.99.0
-          components: rustfmt, clippy
-      - uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            homelab/runner/target
-          key: homelab-runner-${{ runner.os }}-${{ runner.arch }}-1.99.0-${{ hashFiles('homelab/runner/Cargo.lock') }}-${{ github.sha }}
-          restore-keys: homelab-runner-${{ runner.os }}-${{ runner.arch }}-1.99.0-${{ hashFiles('homelab/runner/Cargo.lock') }}-
-      - run: cargo fmt --check
-      - run: cargo test --locked
-      - run: cargo clippy --locked --all-targets -- -D warnings
+    - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      with:
+        persist-credentials: false
+    - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
+      with:
+        toolchain: 1.99.0
+        components: rustfmt, clippy
+    - uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          homelab/runner/target
+        key: homelab-runner-${{ runner.os }}-${{ runner.arch }}-1.99.0-${{ hashFiles('homelab/runner/Cargo.lock') }}-${{ github.sha
+          }}
+        restore-keys: homelab-runner-${{ runner.os }}-${{ runner.arch }}-1.99.0-${{ hashFiles('homelab/runner/Cargo.lock')
+          }}-
+    - run: cargo fmt --check
+    - run: cargo test --locked
+    - run: cargo clippy --locked --all-targets -- -D warnings
   darwin:
     name: Homelab Darwin configuration
     needs: selection
-    if: contains(fromJSON(needs.selection.outputs.checks), 'homelab.darwin') || contains(fromJSON(needs.selection.outputs.checks), 'homelab.host')
+    if: contains(fromJSON(needs.selection.outputs.checks), 'homelab.darwin') || contains(fromJSON(needs.selection.outputs.checks),
+      'homelab.host')
     runs-on: macos-26
     timeout-minutes: 90
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-      - uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a
-        if: contains(fromJSON(needs.selection.outputs.checks), 'homelab.darwin')
-      - uses: actions/cache/restore@v4
-        if: contains(fromJSON(needs.selection.outputs.checks), 'homelab.darwin')
-        id: nix-cache
-        timeout-minutes: 2
-        continue-on-error: true
-        with:
-          path: ${{ runner.temp }}/homelab-nix-cache
-          key: homelab-nix-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.lock', 'scripts/ci/nix-cache.pub') }}-${{ github.sha }}
-          restore-keys: homelab-nix-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.lock', 'scripts/ci/nix-cache.pub') }}-
-      - name: Restore signed Nix outputs within two minutes
-        if: contains(fromJSON(needs.selection.outputs.checks), 'homelab.darwin')
-        run: python3 scripts/ci/nix_cache.py restore "$RUNNER_TEMP/homelab-nix-cache"
-      - name: Build and test both configurations without activation
-        if: contains(fromJSON(needs.selection.outputs.checks), 'homelab.darwin')
-        env:
-          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
-          HEAD: ${{ github.sha }}
-        run: python3 scripts/homelab/check_nix.py --base "$BASE" --head "$HEAD" --roots-output "$RUNNER_TEMP/nix-built-roots.json"
-      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
-        if: contains(fromJSON(needs.selection.outputs.checks), 'homelab.host')
-        with:
-          toolchain: 1.99.0
-          components: rustfmt, clippy
-      - uses: actions/cache@v4
-        if: contains(fromJSON(needs.selection.outputs.checks), 'homelab.host')
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            homelab/host/target
-          key: homelab-host-${{ runner.os }}-${{ runner.arch }}-1.99.0-${{ hashFiles('homelab/host/Cargo.lock') }}-${{ github.sha }}
-          restore-keys: homelab-host-${{ runner.os }}-${{ runner.arch }}-1.99.0-${{ hashFiles('homelab/host/Cargo.lock') }}-
-      - name: Check affected host operations
-        if: contains(fromJSON(needs.selection.outputs.checks), 'homelab.host')
-        run: |
-          cargo fmt --manifest-path homelab/host/Cargo.toml --check
-          cargo clippy --manifest-path homelab/host/Cargo.toml --locked --all-targets -- -D warnings
-          cargo test --manifest-path homelab/host/Cargo.toml --locked
-      - name: Export selected signed outputs within two minutes
-        id: nix-export
-        if: contains(fromJSON(needs.selection.outputs.checks), 'homelab.darwin') && ((github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch')
-        env:
-          NIX_CI_CACHE_SIGNING_KEY: ${{ secrets.HOMELAB_CI_CACHE_SIGNING_KEY }}
-        run: python3 scripts/ci/nix_cache.py export "$RUNNER_TEMP/homelab-nix-cache" --roots "$RUNNER_TEMP/nix-built-roots.json"
-      - uses: actions/cache/save@v4
-        if: steps.nix-export.outputs.ready == 'true' && steps.nix-cache.outputs.cache-hit != 'true'
-        timeout-minutes: 2
-        continue-on-error: true
-        with:
-          path: ${{ runner.temp }}/homelab-nix-cache
-          key: ${{ steps.nix-cache.outputs.cache-primary-key }}
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: homelab-nix-timings
-          path: ${{ runner.temp }}/nix-cache-*.json
-          retention-days: 14
-          if-no-files-found: ignore
+    - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      with:
+        fetch-depth: 0
+        persist-credentials: false
+    - uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a
+      if: contains(fromJSON(needs.selection.outputs.checks), 'homelab.darwin')
+    - uses: actions/cache/restore@v4
+      if: contains(fromJSON(needs.selection.outputs.checks), 'homelab.darwin')
+      id: nix-cache
+      timeout-minutes: 2
+      continue-on-error: true
+      with:
+        path: ${{ runner.temp }}/homelab-nix-cache
+        key: homelab-nix-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.lock', 'scripts/ci/nix-cache.pub') }}-${{
+          github.sha }}
+        restore-keys: homelab-nix-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.lock', 'scripts/ci/nix-cache.pub')
+          }}-
+    - name: Restore signed Nix outputs within two minutes
+      if: contains(fromJSON(needs.selection.outputs.checks), 'homelab.darwin')
+      run: python3 scripts/ci/nix_cache.py restore "$RUNNER_TEMP/homelab-nix-cache"
+    - name: Build and test both configurations without activation
+      if: contains(fromJSON(needs.selection.outputs.checks), 'homelab.darwin')
+      env:
+        BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        HEAD: ${{ github.sha }}
+      run: python3 scripts/homelab/check_nix.py --base "$BASE" --head "$HEAD" --roots-output "$RUNNER_TEMP/nix-built-roots.json"
+    - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
+      if: contains(fromJSON(needs.selection.outputs.checks), 'homelab.host')
+      with:
+        toolchain: 1.99.0
+        components: rustfmt, clippy
+    - uses: actions/cache@v4
+      if: contains(fromJSON(needs.selection.outputs.checks), 'homelab.host')
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          homelab/host/target
+        key: homelab-host-${{ runner.os }}-${{ runner.arch }}-1.99.0-${{ hashFiles('homelab/host/Cargo.lock') }}-${{ github.sha
+          }}
+        restore-keys: homelab-host-${{ runner.os }}-${{ runner.arch }}-1.99.0-${{ hashFiles('homelab/host/Cargo.lock') }}-
+    - name: Check affected host operations
+      if: contains(fromJSON(needs.selection.outputs.checks), 'homelab.host')
+      run: |
+        cargo fmt --manifest-path homelab/host/Cargo.toml --check
+        cargo clippy --manifest-path homelab/host/Cargo.toml --locked --all-targets -- -D warnings
+        cargo test --manifest-path homelab/host/Cargo.toml --locked
+    - name: Export selected signed outputs within two minutes
+      id: nix-export
+      if: contains(fromJSON(needs.selection.outputs.checks), 'homelab.darwin') && ((github.event_name == 'push' && github.ref
+        == 'refs/heads/main') || github.event_name == 'workflow_dispatch')
+      env:
+        NIX_CI_CACHE_SIGNING_KEY: ${{ secrets.HOMELAB_CI_CACHE_SIGNING_KEY }}
+      run: python3 scripts/ci/nix_cache.py export "$RUNNER_TEMP/homelab-nix-cache" --roots "$RUNNER_TEMP/nix-built-roots.json"
+    - uses: actions/cache/save@v4
+      if: steps.nix-export.outputs.ready == 'true' && steps.nix-cache.outputs.cache-hit != 'true'
+      timeout-minutes: 2
+      continue-on-error: true
+      with:
+        path: ${{ runner.temp }}/homelab-nix-cache
+        key: ${{ steps.nix-cache.outputs.cache-primary-key }}
+    - uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: homelab-nix-timings
+        path: ${{ runner.temp }}/nix-cache-*.json
+        retention-days: 14
+        if-no-files-found: ignore
   cli:
     name: Homelab CLI
     needs: selection
@@ -182,109 +160,79 @@ jobs:
       run:
         working-directory: homelab/cli
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-        with:
-          persist-credentials: false
-      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
-        with:
-          toolchain: 1.99.0
-          components: rustfmt, clippy
-      - uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            homelab/cli/target
-          key: homelab-cli-${{ runner.os }}-${{ runner.arch }}-1.99.0-${{ hashFiles('homelab/cli/Cargo.lock') }}-${{ github.sha }}
-          restore-keys: |
-            homelab-cli-${{ runner.os }}-${{ runner.arch }}-1.99.0-${{ hashFiles('homelab/cli/Cargo.lock') }}-
-            homelab-cli-${{ runner.os }}-${{ runner.arch }}-1.99.0-
-      - run: brew install age sops shellcheck
-      - run: |
-          cargo fmt --check
-          cargo clippy --locked --all-targets -- -D warnings
-          shellcheck src/probe.sh src/remote/*.sh src/first-access/*.sh
-          cargo test --locked
-          cargo test --locked --manifest-path ../process/Cargo.toml
-      - name: Verify the packaged schema and build portable binaries
-        run: |
-          cargo run --locked --bin homelab -- config schema > "$RUNNER_TEMP/homelab-schema.json"
-          diff -u schema/homelab-v3.schema.json "$RUNNER_TEMP/homelab-schema.json"
-          cargo build --locked --release --bins
-          for binary in homelab homelab-host; do
-            file "target/release/$binary" | grep -Eq 'Mach-O 64-bit executable arm64'
-            otool -L "target/release/$binary" | awk 'NR > 1 && $1 !~ /^\/(usr\/lib\/|System\/Library\/)/ { bad=1 } END { exit bad }'
-            otool -l "target/release/$binary" | awk '$1 == "cmd" && $2 == "LC_RPATH" { bad=1 } END { exit bad }'
-          done
-          mkdir -p build/artifact/bin build/artifact/share/homelab
-          cp target/release/homelab target/release/homelab-host build/artifact/bin/
-          ln -s homelab build/artifact/bin/hl
-          cp -R schema examples docs build/artifact/share/homelab/
-          cp README.md LICENSE build/artifact/share/homelab/
-          tar -czf build/homelab-prebuilt.tar.gz -C build/artifact bin share
-          shasum -a 256 build/homelab-prebuilt.tar.gz > build/SHA256SUMS
-      - uses: actions/upload-artifact@v4
-        with:
-          name: homelab-cli-${{ github.sha }}
-          path: |
-            homelab/cli/build/homelab-prebuilt.tar.gz
-            homelab/cli/build/SHA256SUMS
-          retention-days: 14
-          if-no-files-found: error
-  benchmark:
-    name: CI benchmark (${{ matrix.version }})
-    if: github.event_name == 'workflow_dispatch' && inputs.benchmark != 'none'
-    runs-on: macos-26
-    timeout-minutes: 90
-    strategy:
-      fail-fast: false
-      matrix:
-        version: [before, after]
-    steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
-        with:
-          python-version: '3.15.2'
-      - run: python3 -m pip install PyYAML==6.0.3
-      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
-        with:
-          toolchain: 1.99.0
-          components: rustfmt, clippy
-      - uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a
-      - name: Replay exact-source check selection and real handlers twice
-        env:
-          SOURCE: ${{ matrix.version == 'before' && inputs.baseline || github.sha }}
-          SCENARIO: ${{ inputs.benchmark }}
-        run: python3 scripts/ci/benchmark.py "$SOURCE" "$SCENARIO" "$RUNNER_TEMP/benchmark.json"
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: ci-benchmark-${{ matrix.version }}-${{ inputs.benchmark }}
-          path: ${{ runner.temp }}/benchmark.json
-          retention-days: 30
-          if-no-files-found: error
+    - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      with:
+        persist-credentials: false
+    - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
+      with:
+        toolchain: 1.99.0
+        components: rustfmt, clippy
+    - uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          homelab/cli/target
+        key: homelab-cli-${{ runner.os }}-${{ runner.arch }}-1.99.0-${{ hashFiles('homelab/cli/Cargo.lock') }}-${{ github.sha
+          }}
+        restore-keys: |
+          homelab-cli-${{ runner.os }}-${{ runner.arch }}-1.99.0-${{ hashFiles('homelab/cli/Cargo.lock') }}-
+          homelab-cli-${{ runner.os }}-${{ runner.arch }}-1.99.0-
+    - run: brew install age sops shellcheck
+    - run: |
+        cargo fmt --check
+        cargo clippy --locked --all-targets -- -D warnings
+        shellcheck src/probe.sh src/remote/*.sh src/first-access/*.sh
+        cargo test --locked
+        cargo test --locked --manifest-path ../process/Cargo.toml
+    - name: Verify the packaged schema and build portable binaries
+      run: |
+        cargo run --locked --bin homelab -- config schema > "$RUNNER_TEMP/homelab-schema.json"
+        diff -u schema/homelab-v3.schema.json "$RUNNER_TEMP/homelab-schema.json"
+        cargo build --locked --release --bins
+        for binary in homelab homelab-host; do
+          file "target/release/$binary" | grep -Eq 'Mach-O 64-bit executable arm64'
+          otool -L "target/release/$binary" | awk 'NR > 1 && $1 !~ /^\/(usr\/lib\/|System\/Library\/)/ { bad=1 } END { exit bad }'
+          otool -l "target/release/$binary" | awk '$1 == "cmd" && $2 == "LC_RPATH" { bad=1 } END { exit bad }'
+        done
+        mkdir -p build/artifact/bin build/artifact/share/homelab
+        cp target/release/homelab target/release/homelab-host build/artifact/bin/
+        ln -s homelab build/artifact/bin/hl
+        cp -R schema examples docs build/artifact/share/homelab/
+        cp README.md LICENSE build/artifact/share/homelab/
+        tar -czf build/homelab-prebuilt.tar.gz -C build/artifact bin share
+        shasum -a 256 build/homelab-prebuilt.tar.gz > build/SHA256SUMS
+    - uses: actions/upload-artifact@v4
+      with:
+        name: homelab-cli-${{ github.sha }}
+        path: |
+          homelab/cli/build/homelab-prebuilt.tar.gz
+          homelab/cli/build/SHA256SUMS
+        retention-days: 14
+        if-no-files-found: error
   gate:
     name: Homelab checks
     if: always() && !cancelled()
-    needs: [selection, operations, linux, darwin, cli, benchmark]
+    needs:
+    - selection
+    - operations
+    - linux
+    - darwin
+    - cli
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 5
     steps:
-      - env:
-          RESULTS: ${{ toJSON(needs) }}
-        run: |
-          python3 - <<'PYTHON'
-          import json, os
-          results = json.loads(os.environ['RESULTS'])
-          assert results['selection']['result'] == 'success', 'Selection failed'
-          selected = json.loads(results['selection']['outputs']['checks'])
-          for job in ('operations', 'linux', 'darwin', 'cli'):
-              unit = {'operations': 'homelab.operations', 'linux': 'homelab.linux', 'darwin': 'homelab.darwin', 'cli': 'homelab.cli'}[job]
-              wanted = unit in selected or (job == 'darwin' and 'homelab.host' in selected)
-              expected = 'success' if wanted else 'skipped'
-              assert results[job]['result'] == expected, f'{job}: expected {expected}'
-          assert results['benchmark']['result'] in ('success', 'skipped'), 'Benchmark failed'
-          PYTHON
+    - env:
+        RESULTS: ${{ toJSON(needs) }}
+      run: |
+        python3 - <<'PYTHON'
+        import json, os
+        results = json.loads(os.environ['RESULTS'])
+        assert results['selection']['result'] == 'success', 'Selection failed'
+        selected = json.loads(results['selection']['outputs']['checks'])
+        for job in ('operations', 'linux', 'darwin', 'cli'):
+            unit = {'operations': 'homelab.operations', 'linux': 'homelab.linux', 'darwin': 'homelab.darwin', 'cli': 'homelab.cli'}[job]
+            wanted = unit in selected or (job == 'darwin' and 'homelab.host' in selected)
+            expected = 'success' if wanted else 'skipped'
+            assert results[job]['result'] == expected, f'{job}: expected {expected}'
+        PYTHON

@@ -51,6 +51,7 @@ import PanelKit
     @ObservationIgnored private var confirmedRooms: [SoundRoom] = []
     @ObservationIgnored private var queue: [Operation] = []
     @ObservationIgnored private var mutationTask: Task<Void, Never>?
+    @ObservationIgnored private let clock: SyncClock
     @ObservationIgnored private var pollingTask: Task<Void, Never>?
     @ObservationIgnored private var revision = 0
     @ObservationIgnored private var lifecycle = 0
@@ -62,7 +63,11 @@ import PanelKit
         let expires: Date
     }
 
-    init(api: SonosAPI, lockDefaults: UserDefaults? = nil, now: @escaping () -> Date = Date.init) {
+    init(
+        api: SonosAPI, lockDefaults: UserDefaults? = nil, now: @escaping () -> Date = Date.init,
+        clock: SyncClock = .continuous()
+    ) {
+        self.clock = clock
         self.now = now
         self.api = api
         self.lockDefaults = lockDefaults
@@ -99,11 +104,12 @@ import PanelKit
     func startPolling(every interval: Duration = .seconds(10)) {
         guard interval > .zero else { return }
         pollingTask?.cancel()
+        let clock = self.clock
         pollingTask = Task { [weak self] in
             while !Task.isCancelled {
                 guard self != nil else { return }
                 await self?.refresh()
-                do { try await Task.sleep(for: interval) } catch { return }
+                do { try await clock.sleep(interval) } catch { return }
             }
         }
     }
@@ -407,26 +413,28 @@ import PanelKit
     }
 }
 
-/// Preview/default adapter delegates to the existing fixture implementation. It
-/// never constructs PanelKit or falls back to live networking.
-@MainActor @Observable final class MockSonosProvider: SonosProvider {
-    private let source: MockHomeDataSource
-    var rooms: [SoundRoom] { source.rooms }
-    var availability: LiveAvailability { .live }
-    var pending: Set<String> { source.pending }
-    var globalLock: Bool { source.globalLock }
-    var groupLock: Bool { source.groupLock }
-    let supportsPlaybackPosition = true
+#if !SWIFT_PACKAGE
+    /// Preview/default adapter delegates to the existing fixture implementation. It
+    /// never constructs PanelKit or falls back to live networking.
+    @MainActor @Observable final class MockSonosProvider: SonosProvider {
+        private let source: MockHomeDataSource
+        var rooms: [SoundRoom] { source.rooms }
+        var availability: LiveAvailability { .live }
+        var pending: Set<String> { source.pending }
+        var globalLock: Bool { source.globalLock }
+        var groupLock: Bool { source.groupLock }
+        let supportsPlaybackPosition = true
 
-    init(source: MockHomeDataSource = MockHomeDataSource()) { self.source = source }
-    func refresh() async {}
-    @discardableResult func send(_ command: HomeCommand) -> Bool {
-        switch command {
-        case .transport, .seek, .rawVolume, .roomVolumes, .volume, .mute, .globalLock, .groupLock,
-            .calibrate, .clearCalibration, .joinAll, .join, .leave:
-            source.send(command)
-            return true
-        default: return false
+        init(source: MockHomeDataSource = MockHomeDataSource()) { self.source = source }
+        func refresh() async {}
+        @discardableResult func send(_ command: HomeCommand) -> Bool {
+            switch command {
+            case .transport, .seek, .rawVolume, .roomVolumes, .volume, .mute, .globalLock, .groupLock,
+                .calibrate, .clearCalibration, .joinAll, .join, .leave:
+                source.send(command)
+                return true
+            default: return false
+            }
         }
     }
-}
+#endif

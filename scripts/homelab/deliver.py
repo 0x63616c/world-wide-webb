@@ -49,7 +49,7 @@ def source_manifest(source):
 
 def load_selection(run_id):
     with tempfile.TemporaryDirectory(prefix="homelab-source-evidence-") as directory:
-        gh("run", "download", str(run_id), "--repo", REPOSITORY, "--name", "homelab-selection", "--dir", directory)
+        gh("run", "download", str(run_id), "--repo", REPOSITORY, "--name", "repository-selection", "--dir", directory)
         return json.loads((Path(directory) / "ci-selection.json").read_text())
 
 
@@ -61,7 +61,7 @@ def validate_ci(intent, run, jobs, allow_manual=False, checks=None):
         or run.get("head_sha") != intent["source"]
         or run.get("head_branch") != "main"
         or run.get("head_repository", {}).get("full_name") != REPOSITORY
-        or run.get("path", "").split("@", 1)[0] != ".github/workflows/homelab-ci.yml"
+        or run.get("path", "").split("@", 1)[0] != ".github/workflows/ci.yml"
         or run.get("event") not in (("push", "workflow_dispatch") if allow_manual else ("push",))
         or run.get("status") != "completed"
         or run.get("conclusion") != "success"
@@ -69,11 +69,11 @@ def validate_ci(intent, run, jobs, allow_manual=False, checks=None):
         raise ValueError("CI source, attempt or trust context differs")
     if checks is not None and (not isinstance(checks, list) or "homelab.darwin" not in checks):
         raise ValueError("Host delivery requires its selected Darwin verification")
-    expected = dict.fromkeys(("Homelab selection", "Homelab Darwin configuration", "Homelab checks"), "success")
+    expected = dict.fromkeys(("Homelab / Homelab selection", "Homelab / Homelab Darwin configuration", "Homelab / Homelab checks"), "success")
     for name, check in (
-        ("Homelab operations", "homelab.operations"),
-        ("Homelab Linux controller", "homelab.linux"),
-        ("Homelab CLI", "homelab.cli"),
+        ("Homelab / Homelab operations", "homelab.operations"),
+        ("Homelab / Homelab Linux controller", "homelab.linux"),
+        ("Homelab / Homelab CLI", "homelab.cli"),
     ):
         if checks is not None:
             expected[name] = "success" if check in checks else "skipped"

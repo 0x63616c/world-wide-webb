@@ -18,7 +18,9 @@ Old issue/PR references in product records are historical, not an active reposit
 
 ## Operations
 
-- For iOS screenshots, render the actual view directly with an XCTest snapshot (for example SwiftUI ImageRenderer) before considering UI automation. Do not open, boot or navigate the Simulator app just to capture a static screen. Use a simulator runtime only when required to execute iOS code/tests, and simulator UI interaction only for behavior that cannot be verified by direct rendering or tests.
+- Follow the root testing/pipeline policy. Keep domain, storage and presentation assertions in
+  host-testable product code. Store screenshots are release assets: reuse accurate assets and update
+  them only for an asset task, without adding capture or renderer tests to routine verification.
 
 - Use OpenTofu for supported infrastructure and Fastlane for Apple release automation. Use the ChatGPT browser only for necessary account/bootstrap steps; do not use Safari.
 - Reuse the primary agent's persistent shell for 1Password and secret-dependent commands, following global instructions. Keep secrets out of Git, logs and agent messages.

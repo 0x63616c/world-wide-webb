@@ -202,7 +202,7 @@ class ReleaseTests(unittest.TestCase):
         original_run = release.prepare.run
         base = {
             "head_sha": self.second,
-            "path": ".github/workflows/callkeep-ci.yml",
+            "path": ".github/workflows/ci.yml",
             "event": "push",
             "head_branch": "main",
             "head_repository": {"full_name": release.REPOSITORY},
@@ -213,7 +213,7 @@ class ReleaseTests(unittest.TestCase):
         jobs = [
             {
                 "jobs": [
-                    {"name": "Callkeep native", "head_sha": self.second, "status": "completed", "conclusion": "success"}
+                    {"name": "Callkeep / Callkeep native", "head_sha": self.second, "status": "completed", "conclusion": "success"}
                 ]
             }
         ]
