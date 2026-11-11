@@ -8,6 +8,13 @@ Tendr’s replacement Cloudflare hosting is tracked separately in #1007.
 ## Working
 
 Use `wtp add -b codex/<task> origin/main` before edits; use absolute worktree paths.
+When resuming, check that the worktree path exists. Hourly cleanup removes clean merged
+worktrees and their branches; clean, fully pushed worktrees may be removed after 24 hours
+of observed inactivity while keeping their branches. From the main checkout, recreate a
+missing worktree with `wtp add codex/<task>`; fetch origin first if the branch is remote-only.
+If the branch was merged and deleted, create a new follow-up branch from fresh `origin/main`.
+Keep durable release evidence outside disposable worktrees; use `git worktree lock --reason
+'retain' <path>` for worktrees that must stay.
 Keep the main checkout, other worktrees and branches intact. Use Conventional Commits.
 Review your own completed changes; delegated reviews, including Astra, require an explicit user request.
 Pass required checks before merging. Never bypass a required check.
