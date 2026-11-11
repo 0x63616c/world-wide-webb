@@ -37,6 +37,12 @@ final class DuoHostControlTests: XCTestCase {
         try stage("finding_window")
         try Data(hub.debugDescription.utf8).write(to: directory.appendingPathComponent("host-hierarchy.txt"), options: .atomic)
         let window = hub.windows.firstMatch
+        if !window.waitForExistence(timeout: 3) {
+            // A direct launch can restore no windows. Create one through the
+            // supported menu while retaining the process owned by this capture.
+            hub.menuBars.menuBarItems["File"].click()
+            hub.menuItems["New Window"].click()
+        }
         XCTAssertTrue(window.waitForExistence(timeout: 30))
         // The window exposes its device name as title, not label. Sidebar display
         // names can be truncated; select by the owned simulator's stable identifier.
