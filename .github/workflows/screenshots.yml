@@ -9,6 +9,11 @@ on:
         description: 'App folder under apps/ (for example tendr)'
         type: string
         default: tendr
+      device:
+        description: 'Capture only the assets that need refreshing'
+        type: choice
+        options: [all, phone, duo]
+        default: all
       release_version:
         description: 'Version shown in screenshots'
         type: string
@@ -20,6 +25,9 @@ on:
       app:
         type: string
         required: true
+      device:
+        type: string
+        default: all
       release_version:
         type: string
       release_build:
@@ -46,12 +54,15 @@ jobs:
           xcrun simctl list runtimes
           xcrun simctl list runtimes available | grep -F 'com.apple.CoreSimulator.SimRuntime.iOS-27-2'
       - name: Capture iPhone 18 Pro Max screens (light and dark)
+        if: inputs.device != 'duo'
         timeout-minutes: 25
         run: scripts/ci/apple-desktop.sh scripts/capture-screenshots.sh "$APP" "build/screenshots/$APP/raw" light dark
       - name: Render App Store frames
+        if: inputs.device != 'duo'
         timeout-minutes: 10
         run: scripts/frame-screenshots.sh "$APP"
       - name: Check App Store dimensions
+        if: inputs.device != 'duo'
         run: |
           expected=$(ruby -rjson -e 'puts JSON.parse(File.read(ARGV[0]))["shots"].size' "apps/$APP/screenshots.json")
           python3 - "apps/$APP/fastlane/screenshots/en-US" "$expected" <<'PY'
@@ -72,7 +83,14 @@ jobs:
             echo
             for png in "apps/$APP/fastlane/screenshots/en-US"/*.png; do echo "- \`$(basename "$png")\`"; done
           } >> "$GITHUB_STEP_SUMMARY"
+      - name: Generate capture project
+        run: |
+          if [[ -f "apps/$APP/project.yml" ]]; then
+            brew list xcodegen >/dev/null 2>&1 || brew install xcodegen
+            (cd "apps/$APP" && xcodegen generate --quiet)
+          fi
       - name: Capture configured Duo screens in one app session
+        if: inputs.device != 'phone'
         timeout-minutes: 30
         run: |
           python3 -m pip install -r scripts/requirements-screenshots.txt
@@ -85,6 +103,7 @@ jobs:
           path: apps/${{ inputs.app }}/fastlane/screenshots/en-US/*.png
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
+        if: inputs.device != 'duo'
         with:
           name: screenshots-overview-${{ inputs.app }}
           path: build/screenshots/${{ inputs.app }}/overview.png
