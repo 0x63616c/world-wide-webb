@@ -342,7 +342,7 @@ enum HomeCommand {
 }
 /// Shared presentation status; reasons are authored by providers, never raw server text.
 enum HomeModule: String, CaseIterable {
-    case lights, climate, fan, wifi, sonos, weather, photos, walk, alarms, calendar, tesla
+    case lights, climate, fan, wifi, sonos, weather, photos, alarms, calendar, tesla
 }
 enum HomeModuleStatus: Equatable {
     case loading, live

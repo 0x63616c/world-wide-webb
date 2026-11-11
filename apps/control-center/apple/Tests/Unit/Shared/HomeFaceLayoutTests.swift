@@ -72,7 +72,7 @@ final class HomeFaceLayoutTests: XCTestCase {
     func testEveryModuleAndAccessoryIsReachableOnBothDeviceLayouts() {
         let required: Set<HomeTile> = [
             .climate, .lamps, .weather, .calendar, .sound, .tesla, .fan,
-            .photos, .sonosRooms, .dogwalk, .clock, .ceiling, .cabinet, .wifi, .all,
+            .photos, .sonosRooms, .clock, .ceiling, .cabinet, .wifi, .all,
         ]
         let size = CGSize(width: 1376, height: 1032)
         let panel = [false, true].flatMap { HomeFaceLayout.panel(in: size, controls: $0).items.map(\.tile) }

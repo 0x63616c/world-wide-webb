@@ -48,10 +48,10 @@ enum HomeGrid {
         .init(.lamps, "A", 0, 2), .init(.climate, "A", 2, 2), .init(.calendar, "B", 4, 2),
         .init(.fan, "C", 0, 3),
     ]
-    /// Page 2: ordinary grid cards, packed to 24/24 cells like page 1.
+    /// Page 2: additional cards packed from the top-left.
     static let more: [GridPlacement] = [
         .init(.nowPlaying, "B", 0, 0), .init(.photos, "A", 4, 0),
-        .init(.sonosRooms, "A", 0, 2), .init(.dogwalk, "A", 2, 2), .init(.wifi, "A", 0, 3),
+        .init(.sonosRooms, "A", 0, 2), .init(.wifi, "A", 2, 2),
     ]
     static func placements(page: Int) -> [GridPlacement] { page == 0 ? home : more }
 }
@@ -60,7 +60,7 @@ enum GridCard: String, CaseIterable {
     case climate, lamps, weather, car, calendar
     case nowPlaying = "nowplaying"
     case fan, lights, clock
-    case photos, sonosRooms, wifi, dogwalk
+    case photos, sonosRooms, wifi
     var title: String {
         switch self {
         case .climate: "Climate"
@@ -70,7 +70,6 @@ enum GridCard: String, CaseIterable {
         case .photos: "Photos"
         case .sonosRooms: "Sonos rooms"
         case .wifi: "Wi-Fi"
-        case .dogwalk: "Dog Walker"
         case .calendar: "Up next"
         case .nowPlaying: "Now Playing"
         case .fan: "Fan"
@@ -83,7 +82,6 @@ enum GridCard: String, CaseIterable {
         case .photos: [.init("A", 2, 2, "Full-bleed rotating photo"), .init("B", 2, 1, "Wide rotating photo")]
         case .sonosRooms: [.init("A", 2, 1, "Playing rooms + room count"), .init("B", 2, 2, "Room playback + volumes")]
         case .wifi: [.init("A", 2, 1, "Guest network + join"), .init("B", 2, 2, "Guest network + join QR")]
-        case .dogwalk: [.init("A", 2, 2, "Walk status + weekly total"), .init("B", 2, 1, "Walk status + start/end")]
         case .climate:
             [
                 .init("A", 2, 2, "Hero: inside temp, stepper below"),
@@ -247,7 +245,6 @@ extension GridCard {
         case .clock: nil
         case .photos: .photos
         case .wifi: .wifi
-        case .dogwalk: .walk
         }
     }
 }
@@ -311,7 +308,6 @@ struct GridCardView: View {
         case .photos: GridPhotos(store: store)
         case .sonosRooms: GridSonosRooms(v: v, store: store)
         case .wifi: GridWifi(v: v, store: store)
-        case .dogwalk: GridDogWalk(v: v, store: store, open: open)
         }
     }
 }
@@ -1298,7 +1294,6 @@ struct GridHomeFace: View {
         case .photos: .photos
         case .sonosRooms: .sonosRooms
         case .wifi: .wifi
-        case .dogwalk: .dogwalk
         case .lights: p.accessory == .cabinet ? .cabinet : p.accessory == .all ? .all : .ceiling
         }
     }

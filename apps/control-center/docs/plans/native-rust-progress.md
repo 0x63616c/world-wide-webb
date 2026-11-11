@@ -108,3 +108,7 @@ Calum explicitly accepted the recorded production CPU/memory/storage observation
 limits instead of an isolated matched old-versus-new benchmark. The original matched-workload requirement
 is superseded by that acceptance. The observations above remain uncontrolled production samples; no
 matched benchmark or whole-host resource improvement is claimed. No required migration acceptance remains.
+
+## Dog Walker removal
+
+The Dog Walker launcher, client integration and server API are removed. Existing SQLite walk records and migration history remain preserved.

@@ -12,7 +12,6 @@ extension PanelModule {
         case .photos: "Photos"
         case .calendar: "Calendar"
         case .alarms: "Clock & Alarms"
-        case .walk: "Dog Walker"
         case .tesla: "Tesla"
         }
     }
@@ -57,9 +56,6 @@ struct HybridNativeModule: View {
         case .calendar: ModuleTile(tile: .calendar, store: store, open: open)
         case .alarms: HybridClockFace(store: store, open: open)
         case .tesla: TeslaTile(provider: store.teslaProvider)
-        case .walk:
-            DogWalkTile(store: HybridWalkDataSource(store: store), open: open)
-                .disabled(store.walkProvider.isMutating)
         }
     }
 
@@ -84,9 +80,6 @@ struct HybridNativeModule: View {
             )
             .disabled(store.alarmsProvider.pending)
         case .tesla: TeslaModule(provider: store.teslaProvider)
-        case .walk:
-            DogWalkPage(store: HybridWalkDataSource(store: store))
-                .disabled(store.walkProvider.isMutating)
         }
     }
 

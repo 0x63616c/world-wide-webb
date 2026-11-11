@@ -3,7 +3,7 @@ import SwiftUI
 
 extension HomeTile {
     static var panelProviders: Set<PanelModule> {
-        [.climate, .fan, .wifi, .alarms, .weather, .sonos, .tesla, .calendar, .walk, .lights, .photos]
+        [.climate, .fan, .wifi, .alarms, .weather, .sonos, .tesla, .calendar, .lights, .photos]
     }
     var panelModule: PanelModule {
         switch self {
@@ -16,7 +16,6 @@ extension HomeTile {
         case .tesla: .tesla
         case .calendar: .calendar
         case .photos: .photos
-        case .dogwalk: .walk
         case .bedroom, .livingRoom, .ceiling, .cabinet, .all, .lamps, .lights: .lights
         }
     }
@@ -138,10 +137,6 @@ struct PanelHome: View {
                 AccessoryFace(
                     key: .fan, store: store, open: open,
                     fanIsOn: store.fanProvider.fanOn))
-        case .dogwalk:
-            return AnyView(
-                DogWalkTile(store: HybridWalkDataSource(store: store), open: open)
-                    .disabled(store.walkProvider.isMutating))
         case .photos:
             return AnyView(
                 Button(action: open) {
@@ -177,7 +172,7 @@ struct PanelHome: View {
 }
 
 /// Keep production adapters (alarm persistence, photo access, authenticated
-/// artwork, server-time walks) at the host boundary, outside the design views.
+/// artwork) at the host boundary, outside the design views.
 struct PanelHomeDestination: View {
     let module: PanelModule
     let store: LiveHomeDataSource
@@ -324,7 +319,6 @@ private struct PanelAccessoryCard: View {
                 Spacer()
                 title("Photos", subtitle: "Unlock to view your library")
             }.padding(28)
-        case .dogwalk: walk
         default: EmptyView()
         }
     }
@@ -489,35 +483,6 @@ private struct PanelAccessoryCard: View {
                 title("Now Playing", subtitle: "Nothing playing")
             }
         }.padding(28)
-    }
-    private var walk: some View {
-        TimelineView(.periodic(from: store.now, by: 1)) { _ in
-            let data = HybridWalkDataSource(store: store)
-            VStack(alignment: .leading, spacing: 0) {
-                PanelCardGlyph(symbol: "pawprint.fill", color: .green)
-                Spacer()
-                if let active = data.walks.activeWalk {
-                    Text(walkElapsed(active.duration(at: data.now)))
-                        .font(.system(size: 64, weight: .regular, design: .rounded)).monospacedDigit()
-                    title("Walking Zero", subtitle: "Started on \(active.startedBy.rawValue)")
-                } else {
-                    title("Dog Walker", subtitle: data.walks.lastWalkLabel(at: data.now))
-                }
-                HStack {
-                    Text("\(data.walks.summary(at: data.now).weeklyMinutes) min this week")
-                        .font(.system(size: 17)).foregroundStyle(.white.opacity(0.65))
-                    Spacer()
-                    Button {
-                        data.toggleWalk()
-                    } label: {
-                        Image(systemName: data.activeWalk == nil ? "play.fill" : "stop.fill")
-                            .font(.system(size: 22)).foregroundStyle(.green)
-                            .frame(width: 56, height: 56).background(.green.opacity(0.12), in: .circle)
-                    }.buttonStyle(.plain).disabled(store.walkProvider.isMutating)
-                        .accessibilityLabel(data.activeWalk == nil ? "Start walking Zero" : "Stop walking Zero")
-                }.padding(.top, 24)
-            }.padding(28)
-        }
     }
 }
 

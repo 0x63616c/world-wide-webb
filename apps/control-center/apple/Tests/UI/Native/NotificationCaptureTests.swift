@@ -33,7 +33,7 @@ final class NotificationCaptureTests: XCTestCase {
             XCTAssertTrue(app.buttons["notification-banner-updates"].waitForExistence(timeout: 20))
             if state == "expanded" {
                 XCTAssertTrue(app.buttons["notification-stack-collapse"].exists)
-                XCTAssertTrue(app.buttons["notification-banner-walk"].exists)
+                XCTAssertTrue(app.buttons["notification-banner-calendar"].exists)
             }
             XCTAssertEqual(app.frame.width, 1366, accuracy: 1)
             XCTAssertEqual(app.frame.height, 1024, accuracy: 1)

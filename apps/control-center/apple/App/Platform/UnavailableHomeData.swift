@@ -33,7 +33,7 @@ extension WeatherState {
 /// shared protocol with empty, inert providers, never MockHomeDataSource.
 @MainActor @Observable
 final class UnavailableHomeProviders:
-    TeslaProvider, CalendarProvider, PhotosProvider, WalkProvider
+    TeslaProvider, CalendarProvider, PhotosProvider
 {
     let data = TeslaData(
         name: "Unavailable", nick: "Unavailable", place: "", charging: false,
@@ -42,9 +42,5 @@ final class UnavailableHomeProviders:
     let events: [AgendaEvent] = []
     let photos: [PhotoItem] = []
     let videoURL: URL? = nil
-    let activeWalk: DogWalk? = nil
-    let history: [DogWalk] = []
     func next(at date: Date) -> AgendaEvent? { nil }
-    func start(at date: Date) {}
-    func stop(at date: Date) {}
 }

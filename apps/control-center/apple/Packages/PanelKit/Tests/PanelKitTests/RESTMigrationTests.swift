@@ -10,20 +10,6 @@ import Testing
                 baseURL: URL(string: "https://example.invalid")!),
             transport: transport)
     }
-    @Test func credentialFreeRESTEncodesFlatQueryParameters() async throws {
-        let stub = RESTStub(#"{"walks":[]}"#)
-        _ = try await WalksAPI(client: client(stub)).history(
-            limit: 20,
-            before: Date(timeIntervalSince1970: 1_800_000_000))
-        let request = try #require(await stub.requests.first)
-        #expect(request.url?.path == "/api/v1/walks/history")
-        #expect(request.url?.query?.contains("input=") == false)
-        #expect(request.httpBody == nil)
-        let query = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)!.queryItems!
-        #expect(query.first { $0.name == "limit" }?.value == "20")
-        #expect(request.value(forHTTPHeaderField: "Authorization") == nil)
-        #expect(request.value(forHTTPHeaderField: "CF-Access-Client-Secret") == nil)
-    }
     @Test func pinVerificationUsesOnlyPOSTAndNeverDownloadsPIN() async throws {
         let stub = RESTStub(#"{"verified":false}"#)
         #expect(try await !PanelPINAPI(client: client(stub)).verify("123456"))
@@ -67,7 +53,7 @@ import Testing
     @Test func unauthorizedAndFailedMutationsAreNotRetried() async throws {
         let stub = RESTStub(#"{"error":"Unauthorized"}"#, status: 401)
         do {
-            _ = try await client(stub).post("walks/start", input: [String: String](), as: WalksState.self)
+            _ = try await PanelPINAPI(client: client(stub)).verify("123456")
             Issue.record("Expected rejection")
         } catch let error as PanelAPIError {
             #expect(error == .server(code: "UNAUTHORIZED", message: "Unauthorized", httpStatus: 401))

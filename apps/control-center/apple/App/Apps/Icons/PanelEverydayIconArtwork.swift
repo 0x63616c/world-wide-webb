@@ -1,28 +1,5 @@
 import SwiftUI
 
-struct WalksIconArtwork: View {
-    let side: CGFloat
-    let parallax: CGSize
-    var body: some View {
-        ZStack {
-            PanelEverydayShape.pawPad.fill(Color(hex: "#B1F2CE"))
-                .offset(y: side * 0.035)
-                .modifier(IconLayer(parallax: parallax, side: side, depth: 0.012))
-            ZStack {
-                Ellipse().fill(.white).frame(width: side * 0.145, height: side * 0.20)
-                    .rotationEffect(.degrees(-25)).position(x: side * 0.265, y: side * 0.42)
-                Ellipse().fill(.white).frame(width: side * 0.15, height: side * 0.21)
-                    .rotationEffect(.degrees(-8)).position(x: side * 0.415, y: side * 0.29)
-                Ellipse().fill(.white).frame(width: side * 0.15, height: side * 0.21)
-                    .rotationEffect(.degrees(8)).position(x: side * 0.585, y: side * 0.29)
-                Ellipse().fill(.white).frame(width: side * 0.145, height: side * 0.20)
-                    .rotationEffect(.degrees(25)).position(x: side * 0.735, y: side * 0.42)
-                PanelEverydayShape.pawPad.fill(.white)
-            }.modifier(IconLayer(parallax: parallax, side: side, depth: 0.028))
-        }.frame(width: side, height: side)
-    }
-}
-
 struct CarIconArtwork: View {
     let side: CGFloat
     let parallax: CGSize
@@ -148,24 +125,10 @@ struct BoothIconArtwork: View {
 }
 
 private enum PanelEverydayShape: Shape {
-    case pawPad, carBody, carWindow, compassNorth, compassSouth
+    case carBody, carWindow, compassNorth, compassSouth
     func path(in rect: CGRect) -> Path {
         var path = Path()
         switch self {
-        case .pawPad:
-            path.move(to: CGPoint(x: 500, y: 453))
-            path.addCurve(
-                to: CGPoint(x: 652, y: 587), control1: CGPoint(x: 575, y: 453), control2: CGPoint(x: 587, y: 523))
-            path.addCurve(
-                to: CGPoint(x: 659, y: 760), control1: CGPoint(x: 745, y: 676), control2: CGPoint(x: 740, y: 760))
-            path.addCurve(
-                to: CGPoint(x: 500, y: 725), control1: CGPoint(x: 594, y: 760), control2: CGPoint(x: 561, y: 725))
-            path.addCurve(
-                to: CGPoint(x: 341, y: 760), control1: CGPoint(x: 439, y: 725), control2: CGPoint(x: 406, y: 760))
-            path.addCurve(
-                to: CGPoint(x: 348, y: 587), control1: CGPoint(x: 260, y: 760), control2: CGPoint(x: 255, y: 676))
-            path.addCurve(
-                to: CGPoint(x: 500, y: 453), control1: CGPoint(x: 413, y: 523), control2: CGPoint(x: 425, y: 453))
         case .carBody:
             path.move(to: CGPoint(x: 175, y: 628))
             path.addQuadCurve(to: CGPoint(x: 178, y: 492), control: CGPoint(x: 142, y: 593))

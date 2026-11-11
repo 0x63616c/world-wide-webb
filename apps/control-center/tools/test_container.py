@@ -62,10 +62,6 @@ def main(image, revision):
                         time.sleep(0.1)
 
             ready()
-            assert json.loads(request("/api/v1/walks/state"))["active"] is None
-            walk = json.loads(
-                request("/api/v1/walks/start", b'{"source":"ipad"}', {"Content-Type": "application/json"})
-            )["active"]
             photo = (root / "apple/Resources/PanelAssets.xcassets/CloudPhoto.imageset/photo.jpg").read_bytes()
             receipt = json.loads(
                 request(
@@ -83,7 +79,6 @@ def main(image, revision):
             port = docker("port", container, "4201/tcp").split(":")[-1]
             origin = f"http://127.0.0.1:{port}"
             ready()
-            assert json.loads(request("/api/v1/walks/state"))["active"]["id"] == walk["id"]
             assert request(path) == photo
             docker("exec", "-e", "EXPECTED_REVISION=" + revision, container, "www-server", "healthcheck")
             print("PASS: image revision, credential-free private API, SQLite restart and Photo Booth bytes")

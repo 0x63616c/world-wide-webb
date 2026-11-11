@@ -25,14 +25,12 @@ import UIKit
     let photoBoothAPI: PhotosAPI
     let photoBoothCamera: PhotoBoothCameraModel
     let calendarProvider: LiveCalendarProvider
-    let walkProvider: LiveWalkProvider
     let diagnosticsClient: PanelAPIClient
     let panelPIN: PanelPINAPI
     let diagnosticsBackendURL: String
     private var commandName = "command"
     private var commandPayload: Data?
     private let unavailable = UnavailableHomeProviders()
-    let walkActivity = WalkLiveActivityManager()
     var alarms: [Alarm] { alarmsProvider.alarms }
     let occurrence: AlarmOccurrence? = nil
     func upcomingAlarm(at date: Date) -> UpcomingAlarm? { alarmsProvider.upcoming(at: date) }
@@ -46,14 +44,12 @@ import UIKit
     var tesla: any TeslaProvider { teslaProvider }
     var calendar: any CalendarProvider { calendarProvider }
     var photos: any PhotosProvider { photosProvider }
-    var walks: any WalkProvider { walkProvider }
-    @ObservationIgnored private var walkRunID: UUID?
 
     init(
         configuration: PanelKit.PanelConfiguration?, transport: (any PanelTransport)? = nil,
         calendarAPI: CalendarAPI = CalendarAPI(), sonosLockDefaults: UserDefaults? = nil,
         now: @escaping () -> Date = Date.init,
-        calendar: @escaping () -> Calendar = { .autoupdatingCurrent }, walkClock: SyncClock? = nil,
+        calendar: @escaping () -> Calendar = { .autoupdatingCurrent },
         boothCapture: (@MainActor () async throws -> Data)? = nil, boothPreview: UIImage? = nil
     ) {
         diagnosticsClient = PanelAPIClient(configuration: configuration)
@@ -80,9 +76,6 @@ import UIKit
             transport ?? URLSession(configuration: session, delegate: PhotoSessionDelegate(), delegateQueue: nil)
         let client = PanelAPIClient(configuration: configuration, transport: transport)
         panelPIN = PanelPINAPI(client: client)
-        let walkDevice: WalkDevice =
-            UIDevice.current.userInterfaceIdiom == .phone ? .iPhone : .iPad
-        walkProvider = LiveWalkProvider(api: WalksAPI(client: client), device: walkDevice, now: now, clock: walkClock)
         teslaProvider = LiveTeslaProvider(api: TeslaAPI(client: client))
         let namespace = SHA256.hash(data: Data((configuration?.baseURL.absoluteString ?? "unconfigured").utf8))
             .map { String(format: "%02x", $0) }.joined()
@@ -124,7 +117,6 @@ import UIKit
                 return .unavailable("No photos available")
             }
             return HomeModuleStatus(photosProvider.availability)
-        case .walk: return HomeModuleStatus(walkProvider.availability)
         case .alarms: return HomeModuleStatus(alarmsProvider.availability)
         case .calendar: return HomeModuleStatus(calendarProvider.availability)
         }
@@ -142,7 +134,6 @@ import UIKit
         case .weather: weatherProvider.availability == .live && weatherProvider.snapshot != nil
         case .sonos: sonosProvider.availability == .live && !rooms.isEmpty
         case .calendar: calendarProvider.availability == .live
-        case .walk: walkProvider.availability == .live
         }
     }
 
@@ -303,7 +294,6 @@ import UIKit
         case .weather: await weatherProvider.refresh()
         case .sonos: await sonosProvider.refresh()
         case .calendar: await calendarProvider.refresh()
-        case .walk: await walkProvider.refresh()
         }
     }
 
@@ -319,26 +309,6 @@ import UIKit
     }
 
     private func poll(_ module: PanelModule) async {
-        if module == .walk {
-            guard !Task.isCancelled else { return }
-            // Dog Walk already owns its four-second cadence, backoff and stale-read
-            // guards. Keep its coordinator alive only for this foreground task.
-            let runID = UUID()
-            walkRunID = runID
-            walkProvider.setSceneActive(false)
-            walkProvider.setSceneActive(true)
-            defer {
-                // A cancelled old scene task must not stop a newer foreground run.
-                if walkRunID == runID {
-                    walkRunID = nil
-                    walkProvider.setSceneActive(false)
-                }
-            }
-            while !Task.isCancelled {
-                do { try await Task.sleep(for: .seconds(3600)) } catch { return }
-            }
-            return
-        }
         while !Task.isCancelled {
             await refresh(module)
             do {
@@ -351,8 +321,6 @@ import UIKit
     }
 
     func stop() {
-        walkRunID = nil
-        walkProvider.setSceneActive(false)
         teslaProvider.stop()
         photosProvider.lock()
         alarmsProvider.stop()

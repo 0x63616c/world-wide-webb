@@ -35,7 +35,6 @@ struct ModulePage: View {
                         case .weather: WeatherPage(weather: store.weather)
                         case .calendar: AgendaPage(provider: store.calendar, now: store.now)
                         case .sonosRooms: SonosRoomsPage(store: store)
-                        case .dogwalk: DogWalkPage(store: store)
                         default: EmptyView()
                         }
                     }.frame(maxWidth: .infinity, maxHeight: .infinity)

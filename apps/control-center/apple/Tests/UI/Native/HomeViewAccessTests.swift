@@ -52,10 +52,9 @@ extension HomeViewLaunchTests {
     }
     @MainActor func testEveryAppHasBackAndClockReturnsToFace() {
         let app = launchAccess()
-        XCTAssertTrue(app.buttons["Dog Walker"].exists)
         XCTAssertFalse(app.buttons["app-cameras"].exists)
         for id in [
-            "lights", "climate", "music", "weather", "calendar", "walks", "car", "wifi", "timer", "booth", "settings",
+            "lights", "climate", "music", "weather", "calendar", "car", "wifi", "timer", "booth", "settings",
         ] {
             app.buttons["app-\(id)"].tap()
             XCTAssertTrue(app.buttons["app-back"].waitForExistence(timeout: 15), id)

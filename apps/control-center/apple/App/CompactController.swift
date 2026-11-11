@@ -67,7 +67,7 @@ struct CompactController: View {
                     }
                 }.padding(24)
             }
-        case .calendar, .sonosRooms, .photos, .dogwalk: ModulePage(tile: tile, store: store, close: close)
+        case .calendar, .sonosRooms, .photos: ModulePage(tile: tile, store: store, close: close)
         case .clock, .alarm: ClockController(store: store)
         }
     }

@@ -6,7 +6,7 @@ final class HybridModuleTests: XCTestCase {
         continueAfterFailure = false
         XCUIDevice.shared.orientation = .landscapeLeft
         // Functional fixture tours keep decorative effects still so XCTest can reach idle.
-        let modules = ["lights", "climate", "fan", "wifi", "sonos", "walk"]
+        let modules = ["lights", "climate", "fan", "wifi", "sonos"]
         let app = XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine")
         for module in modules {
             app.launchArguments = ["-hybridFixtures", "-hybridStill"]
@@ -16,10 +16,6 @@ final class HybridModuleTests: XCTestCase {
             XCTAssertGreaterThan(app.frame.width, app.frame.height)
             let detail = app.descendants(matching: .any)["native-\(module)-detail"].firstMatch
             XCTAssertTrue(detail.waitForExistence(timeout: 10), module)
-            if module == "walk" {
-                XCTAssertTrue(app.staticTexts["Zero’s walks"].exists)
-                XCTAssertTrue(app.staticTexts["Walk history"].exists)
-            }
             capture("\(module)-detail")
             if module == "wifi" {
                 // Wi-Fi details use the existing full-screen QR presentation.

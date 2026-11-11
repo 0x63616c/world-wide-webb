@@ -2,7 +2,7 @@
 
 World Wide Webb is a native SwiftUI home-control app, backed by one Rust service and SQLite.
 The iPad design is the shared starting point for iPhone/Duo. The clock and slide-up
-launcher lead into Calendar, Weather, Lights, Climate, Walks, Tesla, Wi-Fi, Sonos, Timer, Photo Booth and Settings.
+launcher lead into Calendar, Weather, Lights, Climate, Tesla, Wi-Fi, Sonos, Timer, Photo Booth and Settings.
 Calendar, camera capture, notifications and system alarms use Apple frameworks where appropriate.
 
 ## Code map

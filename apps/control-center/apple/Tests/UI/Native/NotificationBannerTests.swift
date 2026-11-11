@@ -44,7 +44,7 @@ final class NotificationBannerTests: XCTestCase {
         swipeRight(alarm)
         XCTAssertTrue(alarm.waitForNonExistence(timeout: 5))
         XCTAssertTrue(top.exists)
-        XCTAssertTrue(app.buttons["notification-banner-walk"].exists)
+        XCTAssertTrue(app.buttons["notification-banner-calendar"].exists)
         capture("notification-expanded-after-dismiss", app)
         app.buttons["notification-stack-collapse"].tap()
         XCTAssertTrue(app.buttons["notification-stack-expand"].exists)

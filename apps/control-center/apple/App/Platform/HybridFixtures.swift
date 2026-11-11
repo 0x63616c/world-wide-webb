@@ -94,13 +94,12 @@
         private var controlState: [String: Any]?
         private var climateState: [String: Any]?
         private let climateOff: Bool
-        private let walkActive: Bool
         private var overrides: [String: String] = [:]
         private var boothCapture: Data?
         private(set) var requests: [URLRequest] = []
 
         init(
-            root: URL, unavailable: Bool = false, alarmScenario: String = "scheduled", walkActive: Bool = false,
+            root: URL, unavailable: Bool = false, alarmScenario: String = "scheduled",
             sonosPlayback: Bool = false, climateOff: Bool = false, controlWrites: Bool = false,
             fanOffSupported: Bool = false
         ) {
@@ -108,7 +107,6 @@
             self.controlWrites = controlWrites
             self.sonosPlayback = sonosPlayback
             self.climateOff = climateOff
-            self.walkActive = walkActive
             self.alarmScenario = alarmScenario
             self.root = root
             self.unavailable = unavailable
@@ -237,8 +235,6 @@
                 case "weather.now": file = "weather/now.json"
                 case "weather.hourly": file = "weather/hourly.json"
                 case "sound.soundSystem": file = sonosPlayback ? "sonos/playback.json" : "sonos/rooms.json"
-                case "walks.state": file = walkActive ? "walks/state-active.json" : "walks/state-idle.json"
-                case "walks.history": file = "walks/hybrid-history.json"
                 default: throw URLError(.unsupportedURL)
                 }
             }
@@ -260,7 +256,7 @@
                 "controls": "controls.list", "climate": "climate.get", "alarms": "alarms.list",
                 "tesla": "tesla.state", "wifi/guest": "wifi.guestQr", "weather/now": "weather.now",
                 "weather/hourly": "weather.hourly", "weather/daily": "weather.daily", "sound": "sound.soundSystem",
-                "walks/state": "walks.state", "walks/history": "walks.history", "booth": "boothPhotos.list",
+                "booth": "boothPhotos.list",
                 "notifications": "notifications.list", "releases/latest": "releases.latest",
             ]
             guard let route = path.range(of: "/api/v1/") else { throw URLError(.unsupportedURL) }
@@ -299,11 +295,6 @@
             }
             if resource.hasPrefix("booth/") {
                 return resource.hasSuffix("/filter") ? "boothPhotos.clearFilter" : "boothPhotos.remove"
-            }
-            if resource.hasPrefix("walks/") {
-                if resource == "walks/start" { return "walks.start" }
-                if resource == "walks/stop" { return "walks.stop" }
-                return method == "DELETE" ? "walks.delete" : "walks.update"
             }
             return "unsupported"
         }

@@ -5,9 +5,8 @@ enum MixedHomeLayout {
     static func cells(_ tile: HomeTile, controls: Bool = false) -> (x: Int, y: Int, w: Int, h: Int) {
         if controls {
             return switch tile {
-            case .dogwalk: (0, 1, 2, 1)
-            case .photos: (2, 0, 2, 1)
-            case .sonosRooms: (4, 0, 1, 2)
+            case .photos: (0, 0, 2, 1)
+            case .sonosRooms: (2, 0, 1, 2)
             case .clock: (0, 2, 1, 1)
             case .ceiling: (1, 2, 1, 1)
             case .cabinet: (2, 2, 1, 1)
@@ -65,8 +64,6 @@ struct MixedHomeTile: View {
                 climate
             } else if tile == .lamps {
                 lamps
-            } else if tile == .dogwalk {
-                DogWalkTile(store: store, open: open)
             } else if tile == .sound {
                 music
             } else if tile == .tesla {

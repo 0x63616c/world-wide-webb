@@ -20,8 +20,8 @@
             let center = NotificationCenter()
             if mode == "stacked" || mode == "expanded" {
                 center.post(
-                    sourceModule: "walk", title: "Time for a walk", body: "The afternoon dog walk is ready to start.",
-                    deepLink: "module/walk")
+                    sourceModule: "calendar", title: "Calendar reminder", body: "An event is coming up.",
+                    deepLink: "module/calendar")
                 center.post(
                     sourceModule: "alarms", title: "Alarm scheduled",
                     body: "Your next alarm is set for tomorrow at 7:00 AM.",
@@ -33,8 +33,8 @@
                 deepLink: PanelNotifications.updateDeepLink)
             if mode == "history" {
                 center.post(
-                    sourceModule: "walk", title: "Time for a walk",
-                    body: "The afternoon dog walk is ready to start.", deepLink: "module/walk")
+                    sourceModule: "calendar", title: "Calendar reminder",
+                    body: "An event is coming up.", deepLink: "module/calendar")
                 center.historyPresented = true
             }
             _center = State(initialValue: center)

@@ -40,7 +40,7 @@ extension XCUIApplication {
         }
         let ids = [
             "lights": "lights", "climate": "climate", "fan": "climate", "wifi": "wifi", "sonos": "music",
-            "weather": "weather", "photos": "photos", "walk": "walks", "calendar": "calendar", "media": "music",
+            "weather": "weather", "photos": "photos", "calendar": "calendar", "media": "music",
             "tesla": "car", "cameras": "cameras",
         ]
         guard let id = ids[module] else {
