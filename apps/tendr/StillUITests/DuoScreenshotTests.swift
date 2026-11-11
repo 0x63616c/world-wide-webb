@@ -96,6 +96,7 @@ final class DuoScreenshotTests: XCTestCase {
             if !launched {
                 try orient(.portrait)
                 app.launch()
+                XCTAssertTrue(app.buttons["logDose"].waitForExistence(timeout: 15))
                 launched = true
             } else {
                 app.activate()
@@ -311,12 +312,13 @@ final class DuoScreenshotTests: XCTestCase {
         if let button = identified.allElementsBoundByIndex.first(where: { $0.isHittable }) {
             button.tap()
         } else {
-            let tab = app.tabBars.buttons[section]
+            // Duo exposes its native vertical rail as plain buttons, outside TabBar.
+            let tab = app.buttons[section]
             XCTAssertTrue(tab.waitForExistence(timeout: 5), "Section must be reachable in either layout")
             tab.tap()
         }
         waitUntil("Selecting \(section) must update the active tab") {
-            identified.allElementsBoundByIndex.contains { $0.isSelected } || app.tabBars.buttons[section].isSelected
+            identified.allElementsBoundByIndex.contains { $0.isSelected } || app.buttons[section].isSelected
         }
     }
 
