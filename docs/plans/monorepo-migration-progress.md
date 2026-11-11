@@ -1544,5 +1544,10 @@ The six accurate phone frames from build 7 were reused. Required CI 42952542507 
 The native run exposed a test selector that assumed a horizontal TabBar; the capture now
 selects the existing vertical-rail buttons directly, with no production app changes.
 PR #1023 contains the capture changes and supersedes #1022. The complete 16-image gallery
-is ready for owner review. App Store submission and merging remain pending; preserve the
-current build-7 release source until promotion is complete.
+was approved by the owner. The owner subsequently chose the standard CI/tag path with a
+fresh build rather than a special promotion of build 7. The same PR now bumps Tendr to
+1.1.2; merge → successful main CI → processed TestFlight beta → immutable `tendr/v1.1.2`
+tag → Store delivery. The existing editable 1.1.1 draft may advance to the explicitly
+configured newer version only after the normal review-state checks; active reviews remain
+protected. Store delivery retains screenshots and an independent Apple status readback.
+No local Apple submission or alternate release entrypoint is used.

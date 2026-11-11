@@ -173,11 +173,22 @@ jobs:
         retention-days: 90
         if-no-files-found: error
         overwrite: true
+    - name: Read Apple submission status
+      if: success() && inputs.channel == 'store'
+      env:
+        ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+        ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
+      run: bundle exec ruby scripts/review-status.rb tendr | tee build/review-status.txt
     - name: Retain submission result
       if: always() && inputs.channel == 'store'
       uses: actions/upload-artifact@v4
       with:
         name: ios-store-tendr-${{ github.run_id }}
-        path: build/release-state.json
+        path: |
+          build/release-state.json
+          build/review-status.txt
+          apps/tendr/fastlane/screenshots/en-US/*.png
+          build/duo-screenshots/tendr/raw/diagnostics
         if-no-files-found: ignore
     name: publish

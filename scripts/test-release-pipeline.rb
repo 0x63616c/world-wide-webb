@@ -34,6 +34,33 @@ class ReleasePipelineTest < Minitest::Test
     end
   end
 
+  def test_tagged_release_advances_an_older_editable_draft
+    Dir.mktmpdir do |dir|
+      ENV["GITHUB_SHA"] = "tested-source"
+      ENV["GITHUB_ENV"] = File.join(dir, "environment")
+      rows = [row("PREPARE_FOR_SUBMISSION", "1.1.1")]
+      writes = []
+      api = Object.new
+      api.define_singleton_method(:get) do |path|
+        data = path.include?("appStoreVersions?") ? rows : []
+        OpenStruct.new(body: { "data" => data })
+      end
+      api.define_singleton_method(:patch) { |path, body| writes << [path, body] }
+      api.define_singleton_method(:post) { |*| raise "Must reuse the editable draft" }
+      Spaceship::ConnectAPI.client = OpenStruct.new(tunes_request_client: api)
+      lane = ReleaseCheck.new
+      lane.define_singleton_method(:r_app) { |_| { "slug" => "tendr", "version" => "1.1.2" } }
+      lane.define_singleton_method(:app_store_app) { |_| OpenStruct.new(id: "app") }
+      ReleaseSource.stub(:current!, nil) { lane.plan_release(app: "tendr") }
+      assert_equal [["v1/appStoreVersions/v", { data: { type: "appStoreVersions", id: "v", attributes: { versionString: "1.1.2" } } }]], writes
+      assert_includes File.read(ENV["GITHUB_ENV"]), "RELEASE_VERSION=1.1.2"
+    ensure
+      Spaceship::ConnectAPI.client = nil
+      ENV.delete("GITHUB_SHA")
+      ENV.delete("GITHUB_ENV")
+    end
+  end
+
   def test_finish_lane_never_submits_without_verified_uploaded_images
     Dir.mktmpdir do |dir|
       config = { "slug" => "tendr", "name" => "Tendr", "dir" => dir, "screenshots_path" => dir, "app_store_automatic" => true }
