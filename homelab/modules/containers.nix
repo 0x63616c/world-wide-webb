@@ -88,8 +88,8 @@ in {
       serviceConfig = {
         UserName = "_containers"; GroupName = "_containers";
         RunAtLoad = true; KeepAlive = true; ThrottleInterval = 30;
-        StandardOutPath = "/var/log/homelab-colima.log";
-        StandardErrorPath = "/var/log/homelab-colima.log";
+        StandardOutPath = "/var/lib/_containers/colima-startup.log";
+        StandardErrorPath = "/var/lib/_containers/colima-startup.log";
       };
     };
     launchd.daemons.homelab-compose = {

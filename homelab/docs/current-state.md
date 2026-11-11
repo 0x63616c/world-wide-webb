@@ -32,7 +32,7 @@ Docker and guest SSH under the shared operation lock. An unreachable guest is
 stopped without replacing disks, allowing launchd to retry its declared start.
 A responsive guest is left running; active operations, interrupted transactions
 and maintenance holds defer recovery. Startup/recovery diagnostics are retained
-in `/var/log/homelab-colima.log`. Focused tests cover the observed failure and
+in `/var/lib/_containers/colima-startup.log`. Focused tests cover the observed failure and
 these recovery protections. All 169 homelab tests (one existing skip) and 31
 handler tests pass. An isolated real-process fixture on the Mini's installed Nix
 Python/coreutils also passed the stale-Running recovery and verified the stop
