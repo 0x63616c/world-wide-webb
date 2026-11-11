@@ -179,7 +179,9 @@ jobs:
         ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
         ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
         ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
-      run: bundle exec ruby scripts/review-status.rb tendr | tee build/review-status.txt
+      run: |
+        set -o pipefail
+        bundle exec ruby scripts/review-status.rb tendr | tee build/review-status.txt
     - name: Retain submission result
       if: always() && inputs.channel == 'store'
       uses: actions/upload-artifact@v4
