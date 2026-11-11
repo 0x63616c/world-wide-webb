@@ -106,8 +106,9 @@ After relevant changes pass `callkeep-ci.yml` on main, `callkeep-release.yml` re
 Read-only Match installs the Developer ID identity and iCloud profile from the private
 `certificates` repository’s `callkeep` branch. Running **Callkeep delivery** manually on
 `main` builds, signs and notarizes a disposable copy without publishing a release.
-It retains the ZIP, symbols and acceptance receipt in the immutable public release, downloads the ZIP again and
-checks its checksum, signature and source identity before updating only Callkeep's tap cask.
+For automatic releases, the workflow retains the ZIP, symbols and acceptance receipt in the
+immutable public release. It downloads the ZIP again and checks its checksum, signature and
+source identity before updating Callkeep's tap cask.
 Operational receipts stay in a version-scoped draft ledger, so completion does not mutate a
 published immutable release. Retries reuse sealed artifacts; interrupted unsealed builds receive a new counter.
 The tap uses a standard ZIP URL and SHA-256, without custom Git download strategies or
