@@ -356,42 +356,64 @@ module FoldingTipProducts
     fail_cleanly(error, stage || "configuration", api)
   end
 
-  def self.configure_app_availability
+  # Apple stores the live selection; this file owns the desired policy.
+  def self.app_availability_policy
+    policy = JSON.parse(File.read(File.join(FoldingRelease::ROOT, "fastlane/app-availability.json")))
+    excluded = policy["excluded_territories"]
+    valid = policy.keys.sort == %w[available_in_new_territories excluded_territories schema_version] &&
+      policy["schema_version"] == 1 && [true, false].include?(policy["available_in_new_territories"]) &&
+      excluded.is_a?(Array) && excluded.all? { |id| id.is_a?(String) && id.match?(/\A[A-Z]{3}\z/) } && excluded.uniq == excluded
+    raise DiagnosticError, "Invalid app availability policy" unless valid
+    policy
+  end
+
+  def self.configure_app_availability(api: API.new)
     config = source
-    api = API.new
+    policy = app_availability_policy
+    app_id = config.fetch("app_store_id")
+    future = policy.fetch("available_in_new_territories")
     progress("app availability/readback")
-    app = api.request("GET", "/v1/apps/#{config.fetch('app_store_id')}").fetch("data")
+    app = api.request("GET", "/v1/apps/#{app_id}").fetch("data")
     raise DiagnosticError, "Wrong App Store app" unless app.fetch("attributes")["bundleId"] == config.fetch("bundle_id")
-    existing = api.request("GET", "/v1/apps/#{config.fetch('app_store_id')}/appAvailabilityV2", missing: true)
-    created = false
-    if existing && existing["data"]
-      row = existing.fetch("data")
-      progress("app availability exists; preserving all selections")
-    else
-      progress("app availability/list territories")
-      territories = api.all("/v1/territories?limit=200").map { |territory| territory.fetch("id") }.uniq.sort
-      raise DiagnosticError, "Apple returned no territories" if territories.empty?
-      raise DiagnosticError, "Unexpected territory identifier" unless territories.all? { |territory| territory.match?(/\A[A-Z]{3}\z/) }
-      identifiers = territories.map { |territory| {"type" => "territoryAvailabilities", "id" => "${folding-#{territory}}"} }
-      body = resource("appAvailabilities", attributes: {"availableInNewTerritories" => true}, relationships: {
-        "app" => link("apps", config.fetch("app_store_id")), "territoryAvailabilities" => {"data" => identifiers}})
-      body["included"] = territories.map do |territory|
+    territories = api.all("/v1/territories?limit=200").map { |territory| territory.fetch("id") }.uniq.sort
+    raise DiagnosticError, "Apple returned invalid territories" if territories.empty? || !territories.all? { |id| id.match?(/\A[A-Z]{3}\z/) }
+    excluded = policy.fetch("excluded_territories")
+    raise DiagnosticError, "Unknown excluded territories: #{(excluded - territories).join(', ')}" unless (excluded - territories).empty?
+    desired = territories - excluded
+    raise DiagnosticError, "App availability policy selects no territories" if desired.empty?
+    existing = api.request("GET", "/v1/apps/#{app_id}/appAvailabilityV2", missing: true)
+    row = existing && existing["data"]
+    created = row.nil?
+    path = ->(value) { "/v2/appAvailabilities/#{value.fetch('id')}/territoryAvailabilities?include=territory&limit=200" }
+    selected = row ? api.all(path.call(row)) : []
+    by_territory = selected.to_h { |item| [related_id(item, "territory"), item] }
+    # Reconcile existing resources in place, preserving release and pre-order dates.
+    selected.each do |item|
+      wanted = desired.include?(related_id(item, "territory"))
+      next if item.fetch("attributes").fetch("available") == wanted
+      api.request("PATCH", "/v1/territoryAvailabilities/#{item.fetch('id')}", body:
+        resource("territoryAvailabilities", id: item.fetch("id"), attributes: {"available" => wanted}))
+    end
+    missing = desired - by_territory.keys
+    if created || !missing.empty? || row.fetch("attributes")["availableInNewTerritories"] != future
+      identifiers = desired.map do |territory|
+        {"type" => "territoryAvailabilities", "id" => by_territory[territory]&.fetch("id") || "${folding-#{territory}}"}
+      end
+      body = resource("appAvailabilities", attributes: {"availableInNewTerritories" => future}, relationships: {
+        "app" => link("apps", app_id), "territoryAvailabilities" => {"data" => identifiers}})
+      body["included"] = missing.map do |territory|
         {"type" => "territoryAvailabilities", "id" => "${folding-#{territory}}", "attributes" => {"available" => true},
           "relationships" => {"territory" => link("territories", territory)}}
       end
-      progress("app availability/create global selection")
       api.request("POST", "/v2/appAvailabilities", body: body)
-      row = api.request("GET", "/v1/apps/#{config.fetch('app_store_id')}/appAvailabilityV2").fetch("data")
-      created = true
     end
-    selected = api.all("/v2/appAvailabilities/#{row.fetch('id')}/territoryAvailabilities?include=territory&limit=200")
+    row = api.request("GET", "/v1/apps/#{app_id}/appAvailabilityV2").fetch("data")
+    selected = api.all(path.call(row))
     actual = selected.select { |item| item.fetch("attributes")["available"] == true }.map { |item| related_id(item, "territory") }.sort
-    if created
-      raise DiagnosticError, "App availability readback incomplete" unless actual == territories && row.fetch("attributes")["availableInNewTerritories"] == true
-    end
-    report = {"schema_version" => 1, "app_store_id" => config.fetch("app_store_id"), "availability_id" => row.fetch("id"),
-      "created" => created, "existing_selection_preserved" => !created,
-      "available_in_new_territories" => row.fetch("attributes").fetch("availableInNewTerritories"),
+    raise DiagnosticError, "App availability readback incomplete; rerun to reconcile" unless actual == desired && row.fetch("attributes")["availableInNewTerritories"] == future
+    report = {"schema_version" => 1, "app_store_id" => app_id, "availability_id" => row.fetch("id"),
+      "created" => created, "policy_sha256" => FoldingRelease.sha(File.join(FoldingRelease::ROOT, "fastlane/app-availability.json")),
+      "available_in_new_territories" => future, "excluded_territories" => excluded,
       "selected_territories" => actual, "legal_answers_modified" => false, "verified_at" => Time.now.utc.iso8601}
     FoldingRelease.atomic_json(File.join(FoldingRelease::ROOT, "build/tips/app-availability.json"), report)
     progress("app availability verified: #{actual.length} selected territories")

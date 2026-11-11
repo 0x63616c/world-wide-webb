@@ -229,7 +229,7 @@ platform :ios do
   end
 
 
-  desc "Initialize missing production app availability globally; preserve existing selections"
+  desc "Reconcile production App Store territories with the committed availability policy"
   lane :configure_app_availability do
     UI.message(JSON.pretty_generate(FoldingTipProducts.configure_app_availability))
   end

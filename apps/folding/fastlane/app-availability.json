@@ -1,0 +1,5 @@
+{
+  "schema_version": 1,
+  "available_in_new_territories": true,
+  "excluded_territories": ["AFG", "MAR"]
+}

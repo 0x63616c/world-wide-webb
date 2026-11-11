@@ -59,9 +59,20 @@ Implemented against Apple's downloaded **App Store Connect OpenAPI 4.6** on Nove
 
 The helper's source/lane loading and metadata validation were checked without credentials. Live Apple writes, returned-price matching, upload-host compatibility, product readiness, StoreKit sandbox purchases and final localization review are still pending.
 
-## App availability bootstrap and interruption diagnostics
+## App Store country policy
 
-If Apple reports no app availability resource, the separate lane below initializes the production app in every territory actually returned by Apple's territory API and enables future territories. It does not change legal/tax/banking/rating answers or publish an app version. If any availability resource already exists, all selections are preserved—even an empty selection. It reads back the resource and territory flags and writes `build/tips/app-availability.json`.
+`fastlane/app-availability.json` owns the desired country selection: all Apple territories
+except `excluded_territories` (three-letter ISO codes). Afghanistan (`AFG`) and Morocco
+(`MAR`) are excluded because Apple blocks the app's contests classification there.
+`available_in_new_territories` controls Apple's automatic inclusion of future storefronts.
+
+Edit this file through a PR, then run the command below from the merged source to apply
+it without building or submitting an app. Automatic App Store releases also reconcile
+this policy before preparing the listing. Manual changes in App Store Connect are
+overwritten on the next reconciliation. Release and pre-order dates are preserved;
+legal, tax, banking and rating answers are unchanged. Readback verifies the selected set
+and future-territory setting, recording the policy hash in `build/tips/app-availability.json`.
+Tip availability continues to mirror the app's selected territories.
 
 ```sh
 bundle exec fastlane ios configure_app_availability
