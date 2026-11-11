@@ -35,6 +35,18 @@ import XCTest
         }
     }
 
+    func testMileageHistory() {
+        let app = XCUIApplication()
+        app.launchArguments = [
+            "-hybridFixtures", "-hybridStill", "-hybridTeslaScenario", "parked", "-panel.idleDimming", "NO",
+        ]
+        app.launch()
+        app.alignPanelOrientation()
+        app.openHomeModule("tesla")
+        XCTAssertTrue(app.descendants(matching: .any)["tesla-mileage-chart"].firstMatch.waitForExistence(timeout: 10))
+        capture("tesla-mileage", app)
+    }
+
     private func capture(_ name: String, _ app: XCUIApplication) {
         let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
         attachment.name = name

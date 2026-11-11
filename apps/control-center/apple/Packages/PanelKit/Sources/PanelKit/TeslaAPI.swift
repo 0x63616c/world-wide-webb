@@ -77,11 +77,28 @@ public enum TeslaState: Decodable, Sendable, Equatable {
     }
 }
 
+public struct TeslaMileagePoint: Decodable, Sendable, Equatable, Identifiable {
+    public let timestamp: Double
+    public let miles: Double
+    public var id: Double { timestamp }
+    public var date: Date { Date(timeIntervalSince1970: timestamp / 1000) }
+    public init(timestamp: Double, miles: Double) {
+        self.timestamp = timestamp
+        self.miles = miles
+    }
+}
+public struct TeslaMileageHistory: Decodable, Sendable {
+    public let points: [TeslaMileagePoint]
+}
+
 public struct TeslaAPI: Sendable {
     private let client: PanelAPIClient
     public init(client: PanelAPIClient) { self.client = client }
     public func state() async throws -> TeslaState {
         try await client.get("tesla", as: TeslaState.self)
+    }
+    public func history() async throws -> TeslaMileageHistory {
+        try await client.get("tesla/history", as: TeslaMileageHistory.self)
     }
     /// PIN travels in a POST body only, never a query string or persistent setting.
     public func command(_ action: TeslaAction, pin: String) async throws {
