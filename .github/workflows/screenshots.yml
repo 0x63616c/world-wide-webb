@@ -93,6 +93,8 @@ jobs:
         if: inputs.device != 'phone'
         timeout-minutes: 30
         run: |
+          python3 -m venv "$RUNNER_TEMP/screenshot-python"
+          source "$RUNNER_TEMP/screenshot-python/bin/activate"
           python3 -m pip install -r scripts/requirements-screenshots.txt
           scripts/ci/apple-desktop.sh scripts/capture-duo-screenshots.sh "$APP"
           python3 scripts/stage-duo-screenshots.py "apps/$APP/screenshots.json" \
