@@ -124,6 +124,61 @@ elif name == "xcodebuild":
             self.assertIn("CURRENT_PROJECT_VERSION=1", arguments)
             self.assertIn("fixture project.xcodeproj", arguments)
 
+    def test_phone_capture_recovers_shutdown_between_appearances(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            scripts, binaries = root / "scripts", root / "bin"
+            scripts.mkdir()
+            binaries.mkdir()
+            for name in ("capture-screenshots.sh", "boot-simulator.sh", "screenshot-build-settings.py"):
+                shutil.copy2(ROOT / "scripts" / name, scripts / name)
+            tool = binaries / "tool"
+            tool.write_text('''#!/usr/bin/env python3
+import json, os, pathlib, struct, sys
+name, args = pathlib.Path(sys.argv[0]).name, sys.argv[1:]
+state = pathlib.Path(os.environ["SIMULATOR_STATE"])
+with open(os.environ["COMMAND_RECORD"], "a") as log:
+    log.write(json.dumps([name, *args]) + "\\n")
+if name == "ruby":
+    print({"project_path":"fixture.xcodeproj", "scheme":"Fixture", "screenshot_test":"FixtureTests", "name":"Fixture"}[args[-1]])
+elif name == "xcrun":
+    command = args[1]
+    if command == "create":
+        state.write_text("Shutdown")
+        print("owned-simulator")
+    elif command == "boot":
+        state.write_text("Booted")
+    elif command in ("ui", "status_bar", "bootstatus"):
+        if state.read_text() != "Booted":
+            sys.exit("Unable to lookup in current state: Shutdown")
+elif name == "xcodebuild" and args[0] == "test-without-building":
+    assert state.read_text() == "Booted"
+    output = pathlib.Path(os.environ["TEST_RUNNER_SCREENSHOT_DIR"])
+    (output / "home.png").write_bytes(b"\\x89PNG\\r\\n\\x1a\\n" + b"\\x00" * 8 + struct.pack(">II", 1320, 2868))
+    state.write_text("Shutdown")  # Reproduce the state observed after the hosted test session.
+''')
+            tool.chmod(0o755)
+            for name in ("ruby", "xcrun", "xcodebuild"):
+                (binaries / name).symlink_to(tool)
+            environment = {key: value for key, value in os.environ.items()
+                           if key not in ("RELEASE_MANIFEST", "RELEASE_VERSION", "RELEASE_BUILD")}
+            environment.update(PATH=f"{binaries}:{environment['PATH']}",
+                               SIMULATOR_STATE=str(root / "state"), COMMAND_RECORD=str(root / "commands"))
+            result = subprocess.run(["bash", str(scripts / "capture-screenshots.sh"), "tendr"],
+                                    env=environment, capture_output=True, text=True, timeout=15)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            for appearance in ("light", "dark"):
+                self.assertTrue((root / "build/screenshots/tendr/raw" / appearance / "home.png").is_file())
+            commands = [json.loads(line) for line in (root / "commands").read_text().splitlines()]
+            self.assertEqual(sum(command[:3] == ["xcrun", "simctl", "create"] for command in commands), 1)
+            builds = [command for command in commands if command[:2] == ["xcodebuild", "build-for-testing"]]
+            self.assertEqual(len(builds), 1)
+            sessions = [command for command in commands if command[:2] == ["xcodebuild", "test-without-building"]]
+            self.assertEqual(len(sessions), 2)
+            for session in sessions:
+                index = session.index("-parallel-testing-enabled")
+                self.assertEqual(session[index + 1], "NO")
+
     def run_ruby(self, script, env, args=()):
         # No real Apple credentials are used, including when this runs on a release Mac.
         base = {key: value for key, value in os.environ.items() if key != "GITHUB_OUTPUT"}
