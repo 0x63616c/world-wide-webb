@@ -410,6 +410,62 @@ pub async fn get(State(s): State<AppState>) -> Result<Json<Value>> {
     }
     Ok(Json(json!({"status":"unavailable","data":null})))
 }
+/// Long-term hourly recorder statistics remain owned by Home Assistant.
+pub async fn history(State(s): State<AppState>) -> Result<Json<Value>> {
+    use futures_util::{SinkExt, StreamExt};
+    use tokio_tungstenite::tungstenite::Message;
+    let ha = s.config.ha.as_ref().ok_or_else(unavailable)?;
+    let all = ha.states().await.map_err(|_| unavailable())?;
+    let entities = resolve(&all, s.config.tesla_entities.as_ref())?;
+    let odometer = entities.get("odometer").ok_or_else(unavailable)?;
+    let divisor = match attr(odometer, "unit_of_measurement") {
+        Some("mi") => 1.0,
+        Some("km") => 1.609344,
+        _ => return Err(unavailable()),
+    };
+    let id = &odometer.entity_id;
+    let mut socket = ha.websocket().await.map_err(|_| unavailable())?;
+    let request = json!({"id":1,"type":"recorder/statistics_during_period", "start_time":"1970-01-01T00:00:00Z", "statistic_ids":[id], "period":"hour"});
+    let read = async {
+        socket
+            .send(Message::Text(request.to_string().into()))
+            .await
+            .map_err(|_| unavailable())?;
+        while let Some(message) = socket.next().await {
+            let message = message.map_err(|_| unavailable())?;
+            if !message.is_text() {
+                continue;
+            }
+            let value: Value = serde_json::from_str(message.to_text().map_err(|_| unavailable())?)
+                .map_err(|_| unavailable())?;
+            if value["id"] != 1 {
+                continue;
+            }
+            if value["success"] != true {
+                return Err(unavailable());
+            }
+            let result = value["result"].as_object().ok_or_else(unavailable)?;
+            let Some(items) = result.get(id) else {
+                return Ok(Json(json!({"points":[]})));
+            };
+            let items = items.as_array().ok_or_else(unavailable)?;
+            let points: Vec<Value> = items
+                .iter()
+                .filter_map(|item| {
+                    let time = item["start"].as_i64()?;
+                    let miles = item["state"].as_f64()? / divisor;
+                    (miles.is_finite() && (0.0..=10_000_000.0).contains(&miles))
+                        .then(|| json!({"timestamp":time, "miles":miles}))
+                })
+                .collect();
+            return Ok(Json(json!({"points":points})));
+        }
+        Err(unavailable())
+    };
+    tokio::time::timeout(std::time::Duration::from_secs(20), read)
+        .await
+        .map_err(|_| unavailable())?
+}
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Action {

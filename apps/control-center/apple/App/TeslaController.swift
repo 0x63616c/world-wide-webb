@@ -1,3 +1,5 @@
+import Charts
+import PanelKit
 import SwiftUI
 
 /// A read-only vehicle summary; exceptions add information only when needed.
@@ -12,24 +14,22 @@ struct TeslaController: View {
     var body: some View {
         GeometryReader { geometry in
             ScrollView {
-                VStack(spacing: 28) {
-                    header
-                    Image("EveeModelY")
-                        .resizable().scaledToFit()
-                        .frame(maxWidth: 560)
-                        .accessibilityLabel("Evee, a Space Gray Model Y")
-                    TeslaEnergy(data: data, reported: reported)
-                    Label("\(data.climate)°F", systemImage: data.preconditioning ? "fan.fill" : "thermometer.medium")
-                        .font(.title3).foregroundStyle(.secondary)
-                        .accessibilityLabel("Cabin temperature, \(data.climate) degrees Fahrenheit")
-                        .accessibilityValue(data.preconditioning ? "Climate on" : "Climate off")
-                    if let update = data.softwareUpdate, update.status == "available" || update.status == "installing" {
-                        TeslaUpdateNotice(update: update, reported: reported)
-                            .transition(.opacity)
+                Group {
+                    if geometry.size.width >= 900 {
+                        HStack(alignment: .center, spacing: 48) {
+                            vehicle
+                            TeslaMileageView(provider: provider)
+                        }
+                        .frame(maxWidth: 1200)
+                    } else {
+                        VStack(spacing: 36) {
+                            vehicle
+                            TeslaMileageView(provider: provider)
+                        }
+                        .frame(maxWidth: 660)
                     }
                 }
                 .padding(32)
-                .frame(maxWidth: 660)
                 .frame(minHeight: geometry.size.height, alignment: .center)
                 .frame(maxWidth: .infinity)
             }
@@ -37,6 +37,26 @@ struct TeslaController: View {
         .animation(reduceMotion ? nil : .smooth(duration: 0.3), value: data.chargingState)
         .animation(reduceMotion ? nil : .smooth(duration: 0.3), value: data.softwareUpdate?.status)
         .accessibilityIdentifier("tesla-dashboard")
+    }
+
+    private var vehicle: some View {
+        VStack(spacing: 28) {
+            header
+            Image("EveeModelY")
+                .resizable().scaledToFit()
+                .frame(maxWidth: 560)
+                .accessibilityLabel("Evee, a Space Gray Model Y")
+            TeslaEnergy(data: data, reported: reported)
+            Label("\(data.climate)°F", systemImage: data.preconditioning ? "fan.fill" : "thermometer.medium")
+                .font(.title3).foregroundStyle(.secondary)
+                .accessibilityLabel("Cabin temperature, \(data.climate) degrees Fahrenheit")
+                .accessibilityValue(data.preconditioning ? "Climate on" : "Climate off")
+            if let update = data.softwareUpdate, update.status == "available" || update.status == "installing" {
+                TeslaUpdateNotice(update: update, reported: reported)
+                    .transition(.opacity)
+            }
+        }
+        .frame(maxWidth: .infinity)
     }
 
     private var header: some View {
@@ -65,5 +85,63 @@ struct TeslaController: View {
                     .accessibilityIdentifier("tesla-status")
             }
         }
+    }
+}
+
+private struct TeslaMileageView: View {
+    let provider: any TeslaProvider
+    @State private var points: [TeslaMileagePoint] = []
+    @State private var loading = true
+    @State private var failed = false
+    @State private var selected: Date?
+
+    private var selectedPoint: TeslaMileagePoint? {
+        guard let selected else { return nil }
+        return points.min { abs($0.date.timeIntervalSince(selected)) < abs($1.date.timeIntervalSince(selected)) }
+    }
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Mileage").font(.title2.weight(.semibold))
+            if loading {
+                ProgressView().frame(maxWidth: .infinity, minHeight: 230)
+            } else if failed {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Mileage history unavailable").foregroundStyle(.secondary)
+                    Button("Try again") { Task { await load() } }
+                }.frame(maxWidth: .infinity, minHeight: 230, alignment: .leading)
+            } else if points.isEmpty {
+                Text("No mileage history yet").foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, minHeight: 230, alignment: .leading)
+            } else {
+                if let point = selectedPoint ?? points.last {
+                    Text("\(Int(point.miles.rounded()).formatted()) mi")
+                        .font(.title.weight(.medium)).monospacedDigit()
+                    Text(point.date, format: .dateTime.month(.abbreviated).day().year())
+                        .font(.callout).foregroundStyle(.secondary)
+                }
+                Chart(points) { point in
+                    LineMark(x: .value("Date", point.date), y: .value("Odometer (miles)", point.miles))
+                        .foregroundStyle(.primary)
+                }
+                .chartYScale(domain: .automatic(includesZero: false))
+                .chartXSelection(value: $selected)
+                .frame(height: 230)
+                .accessibilityLabel("Odometer history in miles")
+                .accessibilityIdentifier("tesla-mileage-chart")
+                Text("Hourly readings").font(.caption).foregroundStyle(.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .task { await load() }
+    }
+    private func load() async {
+        loading = true
+        do {
+            points = try await provider.mileageHistory().sorted { $0.timestamp < $1.timestamp }
+            failed = false
+        } catch {
+            failed = true
+        }
+        loading = false
     }
 }

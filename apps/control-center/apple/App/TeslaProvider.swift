@@ -60,11 +60,16 @@ enum TeslaAvailability: String, CaseIterable { case online, asleep, offline }
 @MainActor protocol TeslaProvider: AnyObject, Observable {
     var data: TeslaData { get }
     var availability: TeslaAvailability { get }
+    func mileageHistory() async throws -> [TeslaMileagePoint]
 }
 
 @MainActor @Observable final class MockTeslaProvider: TeslaProvider {
     private(set) var data: TeslaData
     let availability: TeslaAvailability
+    func mileageHistory() async throws -> [TeslaMileagePoint] {
+        let now = Date().timeIntervalSince1970 * 1000
+        return (0..<12).map { TeslaMileagePoint(timestamp: now - Double(11 - $0) * 86400 * 1000, miles: 12_200 + Double($0) * 25) }
+    }
     init(data: TeslaData = TeslaData(), availability: TeslaAvailability = .online) {
         var data = data
         // Capture flag for the unlocked review render.

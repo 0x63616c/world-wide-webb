@@ -54,6 +54,10 @@ import PanelKit
             lastUpdatedAt: TeslaData.date(snapshot.lastUpdatedAt))
     }
 
+    func mileageHistory() async throws -> [TeslaMileagePoint] {
+        try await api.history().points
+    }
+
     func refresh() async {
         guard !busy else { return }
         busy = true

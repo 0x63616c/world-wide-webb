@@ -90,6 +90,7 @@ pub fn router(state: AppState) -> Router {
             axum::routing::patch(alarms::update).delete(alarms::remove),
         )
         .route("/api/v1/tesla", get(tesla::get))
+        .route("/api/v1/tesla/history", get(tesla::history))
         .route("/api/v1/tesla/commands", post(tesla::command))
         .route("/api/v1/sound", get(sound::get).post(sound::command))
         .route(

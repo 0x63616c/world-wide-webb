@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import PanelKit
 
 // HomeDataSource's legacy scalar fields are nonoptional. These neutral values
 // are never rendered as readings: the router requires a live module first.
@@ -39,6 +40,7 @@ final class UnavailableHomeProviders:
         name: "Unavailable", nick: "Unavailable", place: "", charging: false,
         chargingState: "", rate: 0, pct: 0, range: 0, odo: "", climate: 0)
     let availability: TeslaAvailability = .offline
+    func mileageHistory() async throws -> [TeslaMileagePoint] { throw URLError(.notConnectedToInternet) }
     let events: [AgendaEvent] = []
     let photos: [PhotoItem] = []
     let videoURL: URL? = nil

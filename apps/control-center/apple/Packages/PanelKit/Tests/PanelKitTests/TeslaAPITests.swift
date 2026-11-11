@@ -40,6 +40,15 @@ private actor TeslaAPITransport: PanelTransport {
         #expect(request.httpMethod == "GET" && request.url?.path == "/api/v1/tesla")
         #expect(request.value(forHTTPHeaderField: "CF-Access-Client-Secret") == nil)
     }
+    @Test func mileageHistoryDecodesHourlyPoints() async throws {
+        let transport = TeslaAPITransport(try fixture("history"))
+        let history = try await api(transport).history()
+        #expect(history.points.count == 4)
+        #expect(history.points[0].miles == 10000)
+        #expect(history.points[0].date.timeIntervalSince1970 == 1782864000)
+        let request = try #require(await transport.requests.first)
+        #expect(request.url?.path == "/api/v1/tesla/history")
+    }
     @Test func absentAndUnavailableNeverDecodeAsData() async throws {
         #expect(try await api(TeslaAPITransport(fixture("unconfigured"))).state() == .unconfigured)
         #expect(try await api(TeslaAPITransport(fixture("unavailable"))).state() == .unavailable)

@@ -1217,3 +1217,71 @@ async fn late_alarm_claim_preserves_native_scheduled_occurrence() {
         0
     );
 }
+
+#[tokio::test]
+async fn tesla_history_reads_discovered_odometer_statistics_and_converts_km() {
+    use futures_util::{SinkExt, StreamExt};
+    use std::sync::Arc;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use tokio_tungstenite::tungstenite::Message;
+    use www_server::{config::Config, integrations::homeassistant::HomeAssistant};
+    let (dir, _, db) = fixture().await;
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    let task = tokio::spawn(async move {
+        let (mut tcp, _) = listener.accept().await.unwrap();
+        let mut request = vec![0; 8192];
+        let count = tcp.read(&mut request).await.unwrap();
+        assert!(String::from_utf8_lossy(&request[..count]).starts_with("GET /api/states"));
+        let body = json!([
+            {"entity_id":"sensor.evee_battery_level","state":"72","attributes":{"unit_of_measurement":"%"}},
+            {"entity_id":"sensor.evee_battery_range","state":"200","attributes":{"unit_of_measurement":"km"}},
+            {"entity_id":"sensor.evee_charging","state":"off","attributes":{}},
+            {"entity_id":"sensor.evee_charger_power","state":"0","attributes":{"unit_of_measurement":"kW"}},
+            {"entity_id":"sensor.evee_odometer","state":"16093.44","attributes":{"unit_of_measurement":"km"}},
+            {"entity_id":"sensor.evee_inside_temperature","state":"20","attributes":{"unit_of_measurement":"°C"}},
+            {"entity_id":"lock.evee_lock","state":"locked","attributes":{}},
+            {"entity_id":"climate.evee_climate","state":"off","attributes":{}},
+            {"entity_id":"switch.evee_charge","state":"off","attributes":{}}
+        ]).to_string();
+        tcp.write_all(format!("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",body.len()).as_bytes()).await.unwrap();
+        drop(tcp);
+        let (tcp, _) = listener.accept().await.unwrap();
+        let mut ws = tokio_tungstenite::accept_async(tcp).await.unwrap();
+        ws.send(Message::Text(
+            json!({"type":"auth_required"}).to_string().into(),
+        ))
+        .await
+        .unwrap();
+        let auth = ws.next().await.unwrap().unwrap();
+        assert_eq!(
+            serde_json::from_str::<Value>(auth.to_text().unwrap()).unwrap()["type"],
+            "auth"
+        );
+        ws.send(Message::Text(json!({"type":"auth_ok"}).to_string().into()))
+            .await
+            .unwrap();
+        let request = ws.next().await.unwrap().unwrap();
+        let request: Value = serde_json::from_str(request.to_text().unwrap()).unwrap();
+        assert_eq!(request["statistic_ids"], json!(["sensor.evee_odometer"]));
+        assert_eq!(request["period"], "hour");
+        ws.send(Message::Text(json!({"type":"result","id":1,"success":true,"result":{"sensor.evee_odometer":[{"start":1784952000000_i64,"state":16093.44},{"start":1784955600000_i64,"state":null}]}}).to_string().into())).await.unwrap();
+    });
+    let mut state = AppState::new(db, dir.path().join("media"));
+    state.config = Arc::new(Config {
+        ha: Some(HomeAssistant::new(&format!("http://{addr}"), "fixture".into()).unwrap()),
+        ..Default::default()
+    });
+    let (status, body) = call(
+        &http::router(state),
+        "GET",
+        "/api/v1/tesla/history",
+        Value::Null,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["points"].as_array().unwrap().len(), 1);
+    assert_eq!(body["points"][0]["timestamp"], 1784952000000_i64);
+    assert!((body["points"][0]["miles"].as_f64().unwrap() - 10000.0).abs() < 0.001);
+    task.await.unwrap();
+}
