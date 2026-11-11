@@ -259,7 +259,8 @@
             let method = request.httpMethod ?? "GET"
             let reads = [
                 "controls": "controls.list", "climate": "climate.get", "alarms": "alarms.list",
-                "tesla": "tesla.state", "tesla/history": "tesla.history", "wifi/guest": "wifi.guestQr", "weather/now": "weather.now",
+                "tesla": "tesla.state", "tesla/history": "tesla.history",
+                "wifi/guest": "wifi.guestQr", "weather/now": "weather.now",
                 "weather/hourly": "weather.hourly", "weather/daily": "weather.daily", "sound": "sound.soundSystem",
                 "walks/state": "walks.state", "walks/history": "walks.history", "booth": "boothPhotos.list",
                 "notifications": "notifications.list", "releases/latest": "releases.latest",

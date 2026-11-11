@@ -68,7 +68,9 @@ enum TeslaAvailability: String, CaseIterable { case online, asleep, offline }
     let availability: TeslaAvailability
     func mileageHistory() async throws -> [TeslaMileagePoint] {
         let now = Date().timeIntervalSince1970 * 1000
-        return (0..<12).map { TeslaMileagePoint(timestamp: now - Double(11 - $0) * 86400 * 1000, miles: 12_200 + Double($0) * 25) }
+        return (0..<12).map {
+            TeslaMileagePoint(timestamp: now - Double(11 - $0) * 86400 * 1000, miles: 12_200 + Double($0) * 25)
+        }
     }
     init(data: TeslaData = TeslaData(), availability: TeslaAvailability = .online) {
         var data = data

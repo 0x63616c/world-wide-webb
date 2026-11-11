@@ -116,7 +116,7 @@ private struct TeslaMileageView: View {
                 if let point = selectedPoint ?? points.last {
                     Text("\(Int(point.miles.rounded()).formatted()) mi")
                         .font(.title.weight(.medium)).monospacedDigit()
-                    Text(point.date, format: .dateTime.month(.abbreviated).day().year())
+                    Text(point.date, format: .dateTime.month(.abbreviated).day().year().hour().minute())
                         .font(.callout).foregroundStyle(.secondary)
                 }
                 Chart(points) { point in

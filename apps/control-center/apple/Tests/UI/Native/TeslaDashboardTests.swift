@@ -37,7 +37,9 @@ import XCTest
 
     func testMileageHistory() {
         let app = XCUIApplication()
-        app.launchArguments = ["-hybridFixtures", "-hybridStill", "-hybridTeslaScenario", "parked", "-panel.idleDimming", "NO"]
+        app.launchArguments = [
+            "-hybridFixtures", "-hybridStill", "-hybridTeslaScenario", "parked", "-panel.idleDimming", "NO",
+        ]
         app.launch()
         app.alignPanelOrientation()
         app.openHomeModule("tesla")
