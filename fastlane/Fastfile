@@ -229,21 +229,10 @@ platform :ios do
     xcargs = "MARKETING_VERSION=#{version} CURRENT_PROJECT_VERSION=#{build_number}"
     export_options = {}
     profile_uuid = ENV["R_PROFILE_UUID"]
-    if ENV["GITHUB_ACTIONS"] == "true"
-      # Xcode-managed profiles cannot be used with manual archive signing.
-      # sigh selects an installed certificate and owns this separate profile.
-      profile_uuid = get_provisioning_profile(
-        api_key: api_key,
-        app_identifier: app["bundle_id"],
-        provisioning_name: app["profile_name"],
-        ignore_profiles_with_different_name: true,
-        output_path: ENV.fetch("RUNNER_TEMP"),
-        filename: "#{app['slug']}.mobileprovision"
-      )
-      UI.user_error!("CI provisioning did not return a profile UUID") if profile_uuid.to_s.empty?
+    if ENV["GITHUB_ACTIONS"] == "true" && profile_uuid.to_s.empty?
+      UI.user_error!("CI requires an installed read-only Match profile")
     end
     unless profile_uuid.to_s.empty?
-      # CI uses the sigh profile; local Xcode signing stays automatic.
       xcargs += " CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY='Apple Distribution' PROVISIONING_PROFILE_SPECIFIER=#{Shellwords.escape(profile_uuid)}"
       export_options = {
         signingStyle: "manual",

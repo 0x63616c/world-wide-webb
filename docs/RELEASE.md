@@ -46,7 +46,7 @@ failed source CI and builds that Apple has not processed fail visibly. Preserve 
 review; a tag retry can reconcile an already submitted build. The status watcher is read-only
 and never submits newer untagged main changes.
 
-Tendr uses the root locked Ruby bundle, signing setup and listing/screenshot handlers. Folding
+Tendr uses the root locked Ruby bundle and listing/screenshot handlers. Its TestFlight job reads the existing Apple Distribution identity and App Store profile from private `certificates` branch `tendr` with read-only Match. Folding
 keeps its product bundle, readonly Match signing from private `certificates` branch `folding`,
 backend/build-policy receipts and private immutable
 archives. Root lanes reject Folding, Callkeep and Control Center. Existing physical-device
