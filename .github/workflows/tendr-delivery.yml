@@ -63,12 +63,10 @@ jobs:
         ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
         ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
         ASC_BETA_FEEDBACK_EMAIL: ${{ secrets.ASC_BETA_FEEDBACK_EMAIL }}
-        BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
-        P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
       run: |
         export GITHUB_SHA="$SOURCE_SHA"
         missing=0
-        for name in ASC_KEY_ID ASC_ISSUER_ID ASC_KEY_CONTENT ASC_BETA_FEEDBACK_EMAIL BUILD_CERTIFICATE_BASE64 P12_PASSWORD; do
+        for name in ASC_KEY_ID ASC_ISSUER_ID ASC_KEY_CONTENT ASC_BETA_FEEDBACK_EMAIL; do
           if [[ -z "${!name}" ]]; then
             echo "::error::Missing repository secret $name; see docs/RELEASE.md"
             missing=1
@@ -109,28 +107,11 @@ jobs:
       run: |-
         export GITHUB_SHA="$SOURCE_SHA"
         bundle exec fastlane ios plan_release app:"$APP"
-    - name: Install release signing assets
+    - name: Authorize private signing storage
       if: inputs.channel == 'beta'
-      env:
-        BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
-        P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
-      run: |
-        export GITHUB_SHA="$SOURCE_SHA"
-        umask 077
-        certificate="$RUNNER_TEMP/$APP-signing.p12"
-        keychain="$RUNNER_TEMP/$APP-signing.keychain-db"
-        keychain_password=$(openssl rand -hex 32)
-        echo "::add-mask::$keychain_password"
-        printf '%s' "$BUILD_CERTIFICATE_BASE64" | base64 --decode > "$certificate"
-        security create-keychain -p "$keychain_password" "$keychain"
-        security set-keychain-settings -lut 21600 "$keychain"
-        security unlock-keychain -p "$keychain_password" "$keychain"
-        security import "$certificate" -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k "$keychain"
-        security set-key-partition-list -S apple-tool:,apple:,codesign: -k "$keychain_password" "$keychain"
-        # Preserve the hosted runner's login keychain alongside the temporary signing keychain.
-        security list-keychains -d user | xargs > "$RUNNER_TEMP/$APP-keychains-before"
-        # shellcheck disable=SC2046
-        security list-keychains -d user -s "$keychain" $(cat "$RUNNER_TEMP/$APP-keychains-before")
+      uses: ./.github/actions/match-access
+      with:
+        age-key: ${{ secrets.AGE_PRIVATE_KEY }}
     - name: Generate app project
       run: |
         export GITHUB_SHA="$SOURCE_SHA"
@@ -145,10 +126,11 @@ jobs:
         ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
         ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
         ASC_BETA_FEEDBACK_EMAIL: ${{ secrets.ASC_BETA_FEEDBACK_EMAIL }}
+        MATCH_PASSWORD: ${{ secrets.TENDR_MATCH_PASSWORD }}
       run: |
         export GITHUB_SHA="$SOURCE_SHA"
         mkdir -p build
-        bundle exec fastlane ios beta app:tendr skip_tests:true "changelog:Build from main ($SOURCE_SHA)"
+        scripts/ci/with-match-signing.sh tendr bundle exec fastlane ios beta app:tendr skip_tests:true "changelog:Build from main ($SOURCE_SHA)"
     - name: Check latest app source before capture
       if: inputs.channel == 'store' && env.RELEASE_SKIP != 'true'
       run: |-
@@ -178,28 +160,6 @@ jobs:
       run: |-
         export GITHUB_SHA="$SOURCE_SHA"
         bundle exec fastlane ios finish_release app:"$APP"
-    - name: Remove release signing assets
-      if: always() && inputs.channel == 'beta'
-      run: |
-        export GITHUB_SHA="$SOURCE_SHA"
-        keychain="$RUNNER_TEMP/$APP-signing.keychain-db"
-        if [[ -f "$RUNNER_TEMP/$APP-keychains-before" ]]; then
-          # shellcheck disable=SC2046
-          security list-keychains -d user -s $(cat "$RUNNER_TEMP/$APP-keychains-before")
-          rm -f "$RUNNER_TEMP/$APP-keychains-before"
-        fi
-        if [[ -f "$keychain" ]]; then
-          security delete-keychain "$keychain"
-        fi
-        shopt -s nullglob
-        for profile in "$RUNNER_TEMP/$APP.mobileprovision" "$RUNNER_TEMP/$APP-"*.mobileprovision; do
-          [[ -f "$profile" ]] || continue
-          security cms -D -i "$profile" > "$RUNNER_TEMP/$APP-profile.plist"
-          profile_uuid=$(/usr/libexec/PlistBuddy -c 'Print UUID' "$RUNNER_TEMP/$APP-profile.plist")
-          [[ "$profile_uuid" =~ ^[A-Fa-f0-9-]{36}$ ]]
-          rm -f "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles/$profile_uuid.mobileprovision" "$profile"
-        done
-        rm -f "$RUNNER_TEMP/$APP-signing.p12" "$RUNNER_TEMP/$APP-profile.plist"
     - name: Bind the processed beta receipt to source CI
       if: inputs.channel == 'beta'
       env:

@@ -14,8 +14,6 @@ version: 1.1.1
 testflight: true
 testflight_group: Owner Preview
 beta_description: Tendr is a private, local-first companion for tracking doses, medication levels, vials, weight, schedules, and progress.
-# CI signs with this App Store profile, created by sigh for the shared Apple Distribution certificate.
-profile_name: Tendr CI App Store
 # swift test runs here when present (fast core tests).
 swift_package: true
 screenshot_test: StillUITests/ScreenshotTests

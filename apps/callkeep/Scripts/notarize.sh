@@ -3,46 +3,19 @@ set -euo pipefail
 set +x
 app=$1
 archive=$2
-for required in MACOS_CERTIFICATE_P12_BASE64 MACOS_CERTIFICATE_PASSWORD MACOS_PROVISIONING_PROFILE_BASE64 APPLE_API_KEY_P8_BASE64 APPLE_API_KEY_ID APPLE_API_ISSUER_ID; do
-  if [[ -z ${!required:-} ]]; then echo "Missing signing secret: $required" >&2; exit 1; fi
+for required in MATCH_KEYCHAIN_PATH MATCH_PROFILE_PATH APPLE_API_KEY_P8_BASE64 APPLE_API_KEY_ID APPLE_API_ISSUER_ID; do
+  if [[ -z ${!required:-} ]]; then echo "Missing signing input: $required" >&2; exit 1; fi
 done
 umask 077
 signing_directory=$(mktemp -d -t callkeep-signing)
-trap 'security delete-keychain "$signing_directory/signing.keychain-db" >/dev/null 2>&1 || true; rm -rf "$signing_directory"' EXIT
-keychain="$signing_directory/signing.keychain-db"
-keychain_password=$(openssl rand -hex 24)
-# codesign also consults the user keychain search list when resolving trust.
-security list-keychains -d user > "$signing_directory/search-list"
-restore_keychains() {
-  python3 - "$signing_directory/search-list" <<'PYTHON'
-import shlex,subprocess,sys
-keys=shlex.split(open(sys.argv[1]).read())
-subprocess.run(['security','list-keychains','-d','user','-s',*keys],check=True)
-PYTHON
-}
-trap 'restore_keychains; security delete-keychain "$keychain" >/dev/null 2>&1 || true; rm -rf "$signing_directory"' EXIT
-printf '%s' "$MACOS_CERTIFICATE_P12_BASE64" | base64 --decode > "$signing_directory/certificate.p12"
+trap 'rm -rf "$signing_directory"' EXIT
 printf '%s' "$APPLE_API_KEY_P8_BASE64" | base64 --decode > "$signing_directory/key.p8"
-security create-keychain -p "$keychain_password" "$keychain"
-security set-keychain-settings -lut 21600 "$keychain"
-security unlock-keychain -p "$keychain_password" "$keychain"
-echo "Importing signing certificate"
-security import "$signing_directory/certificate.p12" -k "$keychain" -P "$MACOS_CERTIFICATE_PASSWORD" -T /usr/bin/codesign >/dev/null
-python3 - "$keychain" "$signing_directory/search-list" <<'PYTHON'
-import shlex,subprocess,sys
-keys=shlex.split(open(sys.argv[2]).read())
-subprocess.run(['security','list-keychains','-d','user','-s',sys.argv[1],*keys],check=True)
-PYTHON
-echo "Configuring private-key access"
-security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$keychain_password" "$keychain" >/dev/null
-security find-identity -v -p codesigning "$keychain"
-printf '%s' "$MACOS_PROVISIONING_PROFILE_BASE64" | base64 --decode > "$signing_directory/profile.provisionprofile"
-security cms -D -i "$signing_directory/profile.provisionprofile" > "$signing_directory/profile.plist"
+security cms -D -i "$MATCH_PROFILE_PATH" > "$signing_directory/profile.plist"
 python3 Scripts/validate-provisioning.py "$signing_directory/profile.plist" Resources/Callkeep-iCloud.entitlements
-cp "$signing_directory/profile.provisionprofile" "$app/Contents/embedded.provisionprofile"
+cp "$MATCH_PROFILE_PATH" "$app/Contents/embedded.provisionprofile"
 echo "Signing framework and app"
 identity='Developer ID Application: Calum Webb (X9E4HG27NK)'
-python3 Scripts/sign-app.py "$app" "$identity" "$keychain"
+python3 Scripts/sign-app.py "$app" "$identity" "$MATCH_KEYCHAIN_PATH"
 ditto -c -k --sequesterRsrc --keepParent "$app" "$archive"
 xcrun notarytool submit "$archive" --key "$signing_directory/key.p8" --key-id "$APPLE_API_KEY_ID" --issuer "$APPLE_API_ISSUER_ID" --wait --timeout 10m --output-format json > "$signing_directory/result.json"
 python3 - "$signing_directory/result.json" "$archive.notary.json" <<'PY'

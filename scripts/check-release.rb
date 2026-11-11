@@ -31,7 +31,7 @@ end
 
 class ReleaseCheck
   attr_reader :calls
-  attr_accessor :fail_tests, :fail_provisioning
+  attr_accessor :fail_tests
 
   def initialize
     @calls = []
@@ -69,11 +69,6 @@ class ReleaseCheck
     @calls << [:build, args]
   end
 
-  def get_provisioning_profile(**args)
-    @calls << [:profile, args]
-    raise "provisioning failure" if fail_provisioning
-    "12345678-1234-1234-1234-123456789ABC"
-  end
 
   def update_code_signing_settings(**args)
     @calls << [:signing, args]
@@ -102,23 +97,19 @@ raise "distribution" unless upload[:groups] == ["Owner Preview"] && upload[:skip
 
 check.calls.clear
 ENV["GITHUB_ACTIONS"] = "true"
-check.fail_provisioning = true
 begin
   check.beta({ app: "tendr" })
-  raise "ignored provisioning failure"
+  raise "ignored missing Match profile"
 rescue RuntimeError => error
-  raise unless error.message == "provisioning failure"
+  raise unless error.message == "CI requires an installed read-only Match profile"
 end
 raise "uploaded without signing" if check.calls.assoc(:upload)
 
 check.calls.clear
-check.fail_provisioning = false
-ENV["R_PROFILE_UUID"] = "unusable-xcode-managed-profile"
-check.beta({ app: "tendr" })
-profile = check.calls.assoc(:profile).last
-raise "wrong profile selection" unless profile[:provisioning_name] == "Tendr CI App Store" && profile[:ignore_profiles_with_different_name] && profile[:api_key][:key_id] == "test-key"
-raise "release order" unless check.calls.map(&:first) == [:sh, :latest, :profile, :build, :upload]
 profile_uuid = "12345678-1234-1234-1234-123456789ABC"
+ENV["R_PROFILE_UUID"] = profile_uuid
+check.beta({ app: "tendr" })
+raise "release order" unless check.calls.map(&:first) == [:sh, :latest, :build, :upload]
 build = check.calls.assoc(:build).last
 raise "CI archive signing" unless build[:xcargs].include?("CODE_SIGN_STYLE=Manual") && build[:xcargs].include?("PROVISIONING_PROFILE_SPECIFIER=#{profile_uuid}")
 raise "CI export signing" unless build[:export_options][:provisioningProfiles] == { "com.calumwebb.still" => profile_uuid } && build[:export_xcargs].empty?
@@ -227,7 +218,6 @@ check.fail_tests = false
 ENV["GITHUB_ACTIONS"] = "true"
 ENV.delete("R_PROFILE_UUID")
 
-raise "profile unexpectedly regenerated" if profile[:force]
 
 Dir[File.expand_path("../apps/tendr/fastlane/metadata", __dir__)].sort.each do |metadata|
   limits = { "name" => 30, "subtitle" => 30, "keywords" => 100, "promotional_text" => 170, "description" => 4000, "release_notes" => 4000 }
