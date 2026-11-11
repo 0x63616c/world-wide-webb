@@ -89,12 +89,14 @@ final class DuoScreenshotTests: XCTestCase {
         let data = Data(plan.utf8)
         let shots = try JSONDecoder().decode([CaptureShot].self, from: data)
         let app = XCUIApplication()
+        app.launchArguments = ["--demo", "--screenshots", "-accentColor", "Graphite"]
+        var launched = false
         for pose in canFold ? ["inner", "outer"] : ["default"] {
             if canFold { try request("pose", name: pose) }
-            if app.state == .notRunning {
+            if !launched {
                 try orient(.portrait)
-                app.launchArguments = ["--demo", "--screenshots", "-accentColor", "Graphite"]
                 app.launch()
+                launched = true
             } else {
                 app.activate()
             }
