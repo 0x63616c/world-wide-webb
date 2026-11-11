@@ -657,3 +657,10 @@ The period-switch regression failed before the fix and passes after it; the nati
 PresentationTests suite and changed-source Swift formatting checks pass locally.
 This is a local implementation; no new TestFlight delivery or device acceptance
 is claimed.
+
+November 11 authentication recovery: build 23 diagnostics showed repeated rejected
+session refreshes followed by rate limiting. This change stops retries after a definite
+refresh rejection, preserves pending uploads, recovers interrupted token rotation, and
+extends active sessions. Local tests cover delayed refresh recovery, token reuse,
+interrupted client persistence, the sign-in fallback, and the upload queue. Device
+verification and the reason for the original refresh rejection remain open.

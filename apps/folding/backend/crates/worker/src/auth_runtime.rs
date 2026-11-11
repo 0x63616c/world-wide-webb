@@ -429,6 +429,15 @@ struct TokenPair {
     expires_at_ms: i64,
     request_id: Id,
 }
+// Categorical operational evidence only: never log tokens, hashes, bodies, or account IDs.
+fn log_refresh_outcome(request_id: &Id, outcome: &str) {
+    let event =
+        serde_json::json!({"event":"session_refresh", "request_id":request_id, "outcome":outcome});
+    if let Ok(value) = js_sys::JSON::parse(&event.to_string()) {
+        web_sys::console::log_1(&value);
+    }
+}
+
 async fn refresh(
     db: &D1Database,
     config: &Configuration,
@@ -447,7 +456,7 @@ async fn refresh(
     .map_err(|_| Failure::unavailable())?;
     for _ in 0..3 {
         let timestamp = now();
-        let row=statement(db,"SELECT s.session_id,s.absolute_expires_at_ms,s.idle_expires_at_ms,s.revoked,t.rotated_operation_id,t.rotated_at_ms,r.operation_id AS receipt_operation_id,r.expires_at_ms AS receipt_expires_at_ms,r.ciphertext,r.key_version FROM refresh_tokens t JOIN sessions s ON s.session_id=t.session_id LEFT JOIN refresh_receipts r ON r.session_id=s.session_id AND r.operation_id=?1 AND r.original_token_hash=t.token_hash WHERE t.token_hash=?2 AND s.deployment=?3",&[text(input.operation_id.as_str()),blob(&old_hash),text(&config.deployment)])?.first::<RefreshRow>(None).await.map_err(|_|Failure::unavailable())?.ok_or_else(Failure::unauthorized)?;
+        let row=statement(db,"SELECT s.session_id,s.absolute_expires_at_ms,s.idle_expires_at_ms,s.revoked,t.rotated_operation_id,t.rotated_at_ms,r.operation_id AS receipt_operation_id,r.expires_at_ms AS receipt_expires_at_ms,r.ciphertext,r.key_version FROM refresh_tokens t JOIN sessions s ON s.session_id=t.session_id LEFT JOIN refresh_receipts r ON r.session_id=s.session_id AND r.operation_id=?1 AND r.original_token_hash=t.token_hash WHERE t.token_hash=?2 AND s.deployment=?3",&[text(input.operation_id.as_str()),blob(&old_hash),text(&config.deployment)])?.first::<RefreshRow>(None).await.map_err(|_|Failure::unavailable())?.ok_or_else(|| { log_refresh_outcome(request_id, "unknown_token"); Failure::unauthorized() })?;
         let state = RefreshState {
             revoked: row.revoked != 0,
             deployment: &config.deployment,
@@ -470,8 +479,21 @@ async fn refresh(
             input.operation_id.as_str(),
             timestamp,
         ) {
-            RefreshDecision::AuthenticationRequired => return Err(Failure::unauthorized()),
+            RefreshDecision::AuthenticationRequired => {
+                let reason = if state.revoked {
+                    "revoked"
+                } else if state.absolute_expires_at_ms <= timestamp
+                    || state.idle_expires_at_ms <= timestamp
+                {
+                    "expired"
+                } else {
+                    "recovery_unavailable"
+                };
+                log_refresh_outcome(request_id, reason);
+                return Err(Failure::unauthorized());
+            }
             RefreshDecision::RevokeFamily => {
+                log_refresh_outcome(request_id, "token_reuse");
                 db.batch(vec![
                     statement(db, session::REVOKE_FAMILY_SQL, &[text(&row.session_id)])?,
                     statement(
@@ -522,6 +544,7 @@ async fn refresh(
                 ])
                 .await
                 .map_err(|_| Failure::unauthorized())?;
+                log_refresh_outcome(request_id, "recovered");
                 return response(&pair);
             }
             RefreshDecision::Rotate => {
@@ -550,11 +573,13 @@ async fn refresh(
                     statement(db,"UPDATE refresh_tokens SET rotated_operation_id=?1,rotated_at_ms=?2 WHERE token_hash=?3",&[text(input.operation_id.as_str()),number(timestamp),blob(&old_hash)])?,
                     statement(db,"INSERT INTO access_tokens VALUES (?1,?2,?3)",&[blob(&Sha256::digest(access)),text(&row.session_id),number(expires)])?,
                     statement(db,"INSERT INTO refresh_tokens VALUES (?1,?2,?3,NULL,NULL)",&[blob(&Sha256::digest(refresh)),text(&row.session_id),number(timestamp)])?,
+                    statement(db,"DELETE FROM refresh_receipts WHERE session_id=?1",&[text(&row.session_id)])?,
                     statement(db,"INSERT INTO refresh_receipts VALUES ((SELECT participant_id FROM sessions WHERE session_id=?1),?1,?2,?3,?4,?5,?6)",&[text(&row.session_id),text(input.operation_id.as_str()),blob(&old_hash),blob(&ciphertext),text(config.keys.version()),number(timestamp+session::RETRY_LIFETIME_MS)])?,
-                    statement(db,"UPDATE sessions SET idle_expires_at_ms=?1 WHERE session_id=?2",&[number((timestamp+session::IDLE_LIFETIME_MS).min(row.absolute_expires_at_ms)),text(&row.session_id)])?,
+                    statement(db,"UPDATE sessions SET absolute_expires_at_ms=?1,idle_expires_at_ms=?2 WHERE session_id=?3",&[number(timestamp+session::MAX_LIFETIME_MS),number(timestamp+session::IDLE_LIFETIME_MS),text(&row.session_id)])?,
                     statement(db,"DELETE FROM mutation_guards WHERE guard_id=?1",&[text(&guard)])?,
                 ]).await;
                 if result.is_ok() {
+                    log_refresh_outcome(request_id, "rotated");
                     return response(&pair);
                 }
             }
@@ -569,7 +594,7 @@ INSERT INTO mutation_guards VALUES (?1,CASE WHEN EXISTS (
  JOIN refresh_tokens current ON current.session_id=s.session_id
  WHERE s.session_id=?2 AND s.deployment=?3 AND s.revoked=0 AND s.idle_expires_at_ms>?4
  AND s.absolute_expires_at_ms>?4 AND t.token_hash=?5 AND t.rotated_operation_id=?6
- AND r.operation_id=?6 AND r.expires_at_ms>?4 AND t.rotated_at_ms+60000>?4
+ AND r.operation_id=?6 AND r.expires_at_ms>?4
  AND current.token_hash=?7 AND current.rotated_operation_id IS NULL
 ) THEN 1 ELSE 0 END)
 "#;

@@ -193,9 +193,17 @@ actor CompetitionTransport {
     let data = try? credentials.read("session")
     let expiry = data.flatMap { try? JSONDecoder().decode(Expiry.self, from: $0) }
     let enrolled = (try? credentials.read("attest-enrolled")) != nil
+    let cooldown = (try? credentials.read("server-cooldown"))
+      .flatMap { try? JSONDecoder().decode(ServerCooldown.self, from: $0) }
+    let cooldownSeconds = max(0, (cooldown?.untilMS ?? 0) - nowMS()) / 1000
     return
       [
         "session_present": String(data != nil),
+        "session_authentication_required": String(
+          (try? credentials.read("authentication-required")) != nil),
+        "refresh_operation_pending": String((try? credentials.read("refresh-operation")) != nil),
+        "server_cooldown_seconds": String(cooldownSeconds),
+        "server_cooldown_status": cooldownSeconds > 0 ? String(cooldown?.status ?? 0) : "none",
         "session_expired": String(expiry.map { $0.expiresAtMS <= nowMS() } ?? true),
         "attest_key_enrolled": String(enrolled),
         "attest_key_present": String((try? credentials.read("attest-key")) != nil),
@@ -256,7 +264,8 @@ actor CompetitionTransport {
     invalidateReads()
     avatarContextRevision = UUID()
     for account in [
-      "session", "refresh-operation", "attest-enrolled", "attest-key", "attest-pending",
+      "session", "refresh-operation", "authentication-required", "attest-enrolled", "attest-key",
+      "attest-pending",
       "avatar-upload", "avatar-removals",
     ] {
       try credentials.remove(account)
@@ -326,6 +335,9 @@ actor CompetitionTransport {
 
   private func accessToken(forceRefresh: Bool = false) async throws -> String {
     let revision = sessionRevision
+    guard try credentials.read("authentication-required") == nil else {
+      throw CompetitionTransportError.unauthorized
+    }
     guard let data = try credentials.read("session") else {
       throw CompetitionTransportError.unauthorized
     }
@@ -360,6 +372,10 @@ actor CompetitionTransport {
         durationMS: Int((ProcessInfo.processInfo.systemUptime - started) * 1000))
       return token
     } catch {
+      if case CompetitionTransportError.unauthorized = error, revision == sessionRevision {
+        try credentials.write(Data(), account: "authentication-required")
+        recordDiagnostic(.sessionAuthenticationRequired)
+      }
       recordDiagnostic(.sessionRefreshFailed, error: error)
       throw error
     }
@@ -376,9 +392,13 @@ actor CompetitionTransport {
       let refresh_token: String
     }
     let request: Refresh
-    if let pending = try credentials.read("refresh-operation") {
-      request = try JSONDecoder().decode(Refresh.self, from: pending)
+    let pending = try credentials.read("refresh-operation").map {
+      try JSONDecoder().decode(Refresh.self, from: $0)
+    }
+    if let pending, pending.refresh_token == stored.refresh_token {
+      request = pending
     } else {
+      if pending != nil { recordDiagnostic(.sessionRefreshRecovered) }
       request = Refresh(
         operation_id: UUID().uuidString.lowercased(), refresh_token: stored.refresh_token)
       try credentials.write(Self.encode(request), account: "refresh-operation")

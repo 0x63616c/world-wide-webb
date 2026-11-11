@@ -681,6 +681,7 @@ import struct FoldingData.TrackingDiagnosticSnapshot
       guard identity == accountChangeRevision, !accountChanging else { return }
       setCompetitionAccountExists(true, participantID: me.profile.participant_id)
       presentation.competitionProfile = profile
+      presentation.competitionAuthenticationRequired = false
       competitionRestored = true
       joinedParticipantID =
         me.profile.membership == "joined" && me.profile.restriction == "none"
@@ -703,6 +704,7 @@ import struct FoldingData.TrackingDiagnosticSnapshot
       guard identity == accountChangeRevision, !accountChanging else { return }
       joinedParticipantID = nil
       presentation.publicTrackingPhone = nil
+      presentation.competitionAuthenticationRequired = presentation.competitionAccountExists
       competitionRestored = true
       await configurePush()
       guard identity == accountChangeRevision, !accountChanging else { return }
@@ -717,12 +719,18 @@ import struct FoldingData.TrackingDiagnosticSnapshot
     let identity = accountChangeRevision
     let api = try await competitionClient()
     let store = try await runtime.store()
-    let signedIn = try await appleSignIn.signIn(transport: api.transport, deviceID: store.deviceID)
+    let signedIn = try await appleSignIn.signIn(
+      transport: api.transport, deviceID: store.deviceID,
+      existingParticipantID: presentation.competitionAuthenticationRequired
+        ? (presentation.competitionProfile?.id
+          ?? preferencesStore.string(forKey: "folding.competitionParticipantID")) : nil,
+      existingAccountOnly: presentation.competitionAuthenticationRequired)
     let profile = signedIn.profile
     let displayedProfile = await profilePresentation(profile)
     guard identity == accountChangeRevision, !accountChanging else { throw CancellationError() }
     setCompetitionAccountExists(true, participantID: profile.participant_id)
     presentation.competitionProfile = displayedProfile
+    presentation.competitionAuthenticationRequired = false
     competitionRestored = true
     joinedParticipantID =
       profile.membership == "joined" && profile.restriction == "none" ? profile.participant_id : nil

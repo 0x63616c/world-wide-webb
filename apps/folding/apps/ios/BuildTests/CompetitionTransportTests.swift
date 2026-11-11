@@ -377,3 +377,110 @@ private final class DelayedIdentityProtocol: URLProtocol, @unchecked Sendable {
     }
   }
 }
+
+private final class RefreshRecoveryProtocol: URLProtocol, @unchecked Sendable {
+  static let lock = NSLock()
+  nonisolated(unsafe) static var bodies: [[String: String]] = []
+  nonisolated(unsafe) static var reject = true
+  override class func canInit(with request: URLRequest) -> Bool { true }
+  override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+  override func startLoading() {
+    let isRefresh = request.url!.path == "/v1/auth/refresh"
+    var data = request.httpBody ?? Data()
+    if let stream = request.httpBodyStream {
+      stream.open()
+      defer { stream.close() }
+      var buffer = [UInt8](repeating: 0, count: 4096)
+      while stream.hasBytesAvailable {
+        let count = stream.read(&buffer, maxLength: buffer.count)
+        if count <= 0 { break }
+        data.append(contentsOf: buffer.prefix(count))
+      }
+    }
+    let rejected = Self.lock.withLock {
+      if isRefresh, let body = try? JSONDecoder().decode([String: String].self, from: data) {
+        Self.bodies.append(body)
+      }
+      return Self.reject
+    }
+    let status = isRefresh && rejected ? 401 : 200
+    let body =
+      status == 401
+      ? "{\"code\":\"authentication_required\"}"
+      : isRefresh
+        ? "{\"access_token\":\"new-access\",\"refresh_token\":\"new-refresh\",\"expires_at_ms\":9000000000000}"
+        : "{\"value\":1}"
+    client?.urlProtocol(
+      self,
+      didReceive: HTTPURLResponse(
+        url: request.url!, statusCode: status,
+        httpVersion: nil, headerFields: ["Content-Type": "application/json"])!,
+      cacheStoragePolicy: .notAllowed)
+    client?.urlProtocol(self, didLoad: Data(body.utf8))
+    client?.urlProtocolDidFinishLoading(self)
+  }
+  override func stopLoading() {}
+}
+
+extension CompetitionTransportTests {
+  func testRejectedRefreshIsSuppressedAcrossRequestsAndRestart() async throws {
+    RefreshRecoveryProtocol.lock.withLock {
+      RefreshRecoveryProtocol.bodies = []
+      RefreshRecoveryProtocol.reject = true
+    }
+    let config = URLSessionConfiguration.ephemeral
+    config.protocolClasses = [RefreshRecoveryProtocol.self]
+    let session = URLSession(configuration: config)
+    defer { session.invalidateAndCancel() }
+    let bundle = "app.getfolding.tests.\(UUID())"
+    func make() throws -> CompetitionTransport {
+      try CompetitionTransport(
+        origin: URL(string: "https://api.getfolding.app")!, deployment: "production",
+        deviceID: UUID(), bundleID: bundle, session: session)
+    }
+    let first = try make()
+    try await first.saveSession(
+      CompetitionSession(access_token: "old", refresh_token: "old", expires_at_ms: 1))
+    struct Value: Decodable, Sendable { let value: Int }
+    for transport in [first, try make()] {
+      for _ in 0..<3 {
+        do {
+          let _: Value = try await transport.send("GET", path: "/v1/me")
+          XCTFail("Expected unauthorized")
+        } catch CompetitionTransportError.unauthorized {}
+      }
+    }
+    XCTAssertEqual(
+      RefreshRecoveryProtocol.lock.withLock { RefreshRecoveryProtocol.bodies.count }, 1)
+    try await first.clearSession()
+  }
+
+  func testInterruptedRefreshUsesSavedNewTokenInsteadOfStaleOperation() async throws {
+    RefreshRecoveryProtocol.lock.withLock {
+      RefreshRecoveryProtocol.bodies = []
+      RefreshRecoveryProtocol.reject = false
+    }
+    let config = URLSessionConfiguration.ephemeral
+    config.protocolClasses = [RefreshRecoveryProtocol.self]
+    let session = URLSession(configuration: config)
+    defer { session.invalidateAndCancel() }
+    let bundle = "app.getfolding.tests.\(UUID())"
+    let credentials = CompetitionCredentialStore(service: "\(bundle).competition.production")
+    let transport = try CompetitionTransport(
+      origin: URL(string: "https://api.getfolding.app")!, deployment: "production",
+      deviceID: UUID(), bundleID: bundle, session: session)
+    try await transport.saveSession(
+      CompetitionSession(access_token: "new", refresh_token: "current", expires_at_ms: 1))
+    try credentials.write(
+      JSONSerialization.data(withJSONObject: [
+        "operation_id": UUID().uuidString, "refresh_token": "stale",
+      ]), account: "refresh-operation")
+    struct Value: Decodable, Sendable { let value: Int }
+    let _: Value = try await transport.send("GET", path: "/v1/me")
+    XCTAssertEqual(
+      RefreshRecoveryProtocol.lock.withLock {
+        RefreshRecoveryProtocol.bodies.first?["refresh_token"]
+      }, "current")
+    try await transport.clearSession()
+  }
+}

@@ -1332,9 +1332,13 @@ struct LeaderboardScreen: View {
         case .notJoined:
           VStack(spacing: 24) {
             Image(systemName: "trophy").font(.largeTitle).foregroundStyle(.secondary)
-            Text(String(localized: "leaderboard.joinTitle", defaultValue: "Join Folding")).font(
+            Text(
+              model.competitionAuthenticationRequired
+                ? String(localized: "leaderboard.signInAgain", defaultValue: "Sign in again")
+                : String(localized: "leaderboard.joinTitle", defaultValue: "Join Folding")
+            ).font(
               .title.bold())
-            if model.competitionProfile != nil {
+            if model.competitionProfile != nil && !model.competitionAuthenticationRequired {
               Button(String(localized: "profile.continueSetup", defaultValue: "Continue setup")) {
                 model.beginJoin(suggestedNickname: model.joinNickname)
               }

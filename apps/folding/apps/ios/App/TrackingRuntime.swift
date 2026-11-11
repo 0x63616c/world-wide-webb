@@ -399,7 +399,7 @@ actor TrackingRuntime {
       }
       await FoldingDiagnostics.attach(to: transport, store: current)
       try await current.resumeLocalCompetitionUpload(
-        nowMS: Self.nowMS, retryNow: suppliedTransport != nil)
+        nowMS: Self.nowMS)
       uploadAttempt = .running
       uploadAttempt = await competitionUploader.upload(from: current, transport: transport)
     } catch {

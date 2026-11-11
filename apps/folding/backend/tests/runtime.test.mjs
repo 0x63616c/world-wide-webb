@@ -206,6 +206,10 @@ test("actual Worker issues bounded challenges and rotates encrypted sessions wit
   assert.deepEqual(JSON.parse(Buffer.concat([decipher.update(envelope.subarray(12,-16)),decipher.final()])),pairs[0]);
   assert.ok(!Buffer.from(receipt.ciphertext).includes(Buffer.from(pairs[0].refresh_token)));
   assert.equal(await db.prepare("SELECT count(*) n FROM refresh_tokens WHERE session_id='auth-session'").first("n"),2);
+  const refreshedSession=await db.prepare("SELECT absolute_expires_at_ms,idle_expires_at_ms FROM sessions WHERE session_id='auth-session'").first();
+  assert.ok(refreshedSession.absolute_expires_at_ms > timestamp+80*86400000);
+  assert.ok(refreshedSession.idle_expires_at_ms > timestamp+29*86400000);
+  await db.prepare("UPDATE refresh_tokens SET rotated_at_ms=? WHERE session_id='auth-session' AND rotated_operation_id=?").bind(timestamp-120000,operation).run();
   const retry=await post("refresh",request);assert.equal(retry.status,200);assert.deepEqual(await retry.json(),pairs[0]);
   const advance=await post("refresh",{operation_id:"00000000-0000-0000-0000-000000000904",refresh_token:pairs[0].refresh_token});
   assert.equal(advance.status,200);
