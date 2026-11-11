@@ -1529,3 +1529,25 @@ URLs and that build 5 is VALID and unexpired. Public 1.1.0's privacy URL still p
 retired host; its replacement awaits Store promotion/Apple approval. No physical installation
 is claimed. Remaining step: complete the normal tagged Store promotion with passing screenshot
 evidence; the shared release guide owns that process.
+
+### Tendr build 7 screenshot preview
+
+The owner rejected the Catalyst-rendered gallery and requested native fidelity with only
+the required assets. The replacement capture keeps one Tendr session across the two Duo
+displays, uses the configured five screen/appearance pairs, and separates interaction tests
+from asset capture. The manual Screenshots workflow captures on the hosted runner to avoid
+interrupting the owner’s desktop. Local capture protocol checks (34) and release/export
+checks (6) pass. Native preview [42952537362](https://github.com/0x63616c/world-wide-webb/actions/runs/42952537362)
+passed: one app launch, one capture case (208.833 seconds), ten staged opaque native Duo
+images. The full hosted capture step took about 24 minutes, with cold setup/builds dominating.
+The six accurate phone frames from build 7 were reused. Required CI 42952542507 passed.
+The native run exposed a test selector that assumed a horizontal TabBar; the capture now
+selects the existing vertical-rail buttons directly, with no production app changes.
+PR #1023 contains the capture changes and supersedes #1022. The complete 16-image gallery
+was approved by the owner. The owner subsequently chose the standard CI/tag path with a
+fresh build rather than a special promotion of build 7. The same PR now bumps Tendr to
+1.1.2; merge → successful main CI → processed TestFlight beta → immutable `tendr/v1.1.2`
+tag → Store delivery. The existing editable 1.1.1 draft may advance to the explicitly
+configured newer version only after the normal review-state checks; active reviews remain
+protected. Store delivery retains screenshots and an independent Apple status readback.
+No local Apple submission or alternate release entrypoint is used.

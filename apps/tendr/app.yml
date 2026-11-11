@@ -10,16 +10,14 @@ scheme: Still
 bundle_id: com.calumwebb.still
 # App Store Connect app ID (the number in the app's App Store Connect URL).
 apple_id: "6809098849"
-version: 1.1.1
+version: 1.1.2
 testflight: true
 testflight_group: Owner Preview
 beta_description: Tendr is a private, local-first companion for tracking doses, medication levels, vials, weight, schedules, and progress.
 # swift test runs here when present (fast core tests).
 swift_package: true
 screenshot_test: StillUITests/ScreenshotTests
-duo_screenshot_test: StillUITests/DuoScreenshotTests
-# Repeat capture across appearances; run the complete interaction suite once.
-duo_capture_test: StillUITests/DuoScreenshotTests/testMainScreens
+duo_screenshot_test: StillUITests/DuoScreenshotTests/testMainScreens
 site: tendr
 age_rating:
   medicalOrTreatmentInformation: INFREQUENT_OR_MILD

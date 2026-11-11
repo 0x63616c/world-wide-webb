@@ -286,6 +286,13 @@ platform :ios do
       rows = ReleasePipeline.all(asc, "v1/apps/#{record.id}/appStoreVersions?filter[platform]=IOS&limit=50")
       planner = PendingRelease.new(asc, record.id, ENV.fetch("GITHUB_SHA"), ancestor: ReleaseSource.method(:ancestor?))
       target, id = planner.plan(rows, config.fetch("version"))
+      draft = rows.find { |row| row["id"] == id }
+      if draft && ReleasePipeline::EDITABLE.include?(ReleasePipeline.state(draft)) &&
+          Gem::Version.new(config.fetch("version")) > Gem::Version.new(target)
+        target = config.fetch("version")
+        asc.patch("v1/appStoreVersions/#{id}", { data: { type: "appStoreVersions", id: id,
+          attributes: { versionString: target } } })
+      end
       UI.user_error!("Tagged version must match the processed beta version; bump app.yml before building a new version") unless target == config.fetch("version")
       unless id
         asc.post("v1/appStoreVersions", { data: { type: "appStoreVersions",

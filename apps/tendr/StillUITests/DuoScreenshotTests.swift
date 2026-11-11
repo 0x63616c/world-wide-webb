@@ -11,10 +11,15 @@ final class DuoScreenshotTests: XCTestCase {
     private var canFold: Bool { ProcessInfo.processInfo.environment["DUO_CAN_FOLD"] == "1" }
     private var canHostOrient: Bool { ProcessInfo.processInfo.environment["DUO_HOST_ORIENTATION"] == "1" }
     private var foldCheckpoint = 0
+    private var captureOnly = false
 
     override func tearDown() async throws {
         // XCTest can abort a test at a failed assertion without running its
         // Swift defer blocks. Restore an absolute physical pose in test teardown.
+        if captureOnly {
+            try await super.tearDown()
+            return
+        }
         let restoration = Result {
             if canHostOrient { try request("orientation", name: "portrait") }
         }
@@ -73,52 +78,79 @@ final class DuoScreenshotTests: XCTestCase {
         }
     }
 
+    /// Release assets only: one app launch, one visit per display, configured shots only.
     @MainActor func testMainScreens() throws {
         continueAfterFailure = false
-        // Both displays, native orientation menus and all capture checkpoints.
         executionTimeAllowance = 600
+        captureOnly = true
+        guard let plan = ProcessInfo.processInfo.environment["DUO_CAPTURE_SHOTS"] else {
+            throw XCTSkip("Capture assets with scripts/capture-duo-screenshots.sh tendr")
+        }
+        let data = Data(plan.utf8)
+        let shots = try JSONDecoder().decode([CaptureShot].self, from: data)
+        let app = XCUIApplication()
+        app.launchArguments = ["--demo", "--screenshots", "-accentColor", "Graphite"]
+        var launched = false
         for pose in canFold ? ["inner", "outer"] : ["default"] {
             if canFold { try request("pose", name: pose) }
-            try orient(.portrait)
-            let app = launchFixture()
-            if canFold { assertNavigation(for: pose, in: app) }
-            try snap("home")
-
-            select("Treatment", in: app)
-            XCTAssertTrue(app.buttons["editSchedule"].waitForExistence(timeout: 5))
-            try snap("treatment")
-            select("Progress", in: app)
-            XCTAssertTrue(app.descendants(matching: .any)["currentWeightCard"].waitForExistence(timeout: 5))
-            try snap("progress")
-            select("Journal", in: app)
-            XCTAssertTrue(app.buttons["Doses"].waitForExistence(timeout: 5))
-            app.buttons["Doses"].tap()
-            XCTAssertTrue(app.staticTexts["7.5 mg · Weekly medication"].firstMatch.waitForExistence(timeout: 5))
-            try snap("journal")
-            select("Settings", in: app)
-            XCTAssertTrue(app.staticTexts["pageHeader-Settings"].waitForExistence(timeout: 5))
-            try snap("settings")
-
-            select("Home", in: app)
-            app.buttons["logDose"].tap()
-            let amount = app.textFields["doseAmount"]
-            XCTAssertTrue(amount.waitForExistence(timeout: 5))
-            amount.tap()
-            amount.typeText("7.5")
-            try snap("log-dose")
-            try orient(.landscapeLeft, in: app)
-            // Inner displays and centered sheets need not adopt the requested
-            // device orientation. Verify the draft/actions in the resulting layout.
-            XCTAssertEqual(amount.value as? String, "7.5", "Rotation must preserve an unsaved dose")
-            XCTAssertTrue(app.buttons["saveDose"].isHittable, "Save stays above the keyboard")
-            try snap("landscape-log-dose")
-            app.buttons["Cancel"].tap()
-            XCTAssertTrue(app.buttons["logDose"].waitForExistence(timeout: 5))
-            try snap("landscape-home")
-            select("Progress", in: app)
-            try snap("landscape-progress")
-            app.terminate()
+            if !launched {
+                try orient(.portrait)
+                app.launch()
+                XCTAssertTrue(app.buttons["logDose"].waitForExistence(timeout: 15))
+                launched = true
+            } else {
+                app.activate()
+            }
+            if canFold {
+                let targetArea: CGFloat = pose == "inner" ? 669 * 951 : 466 * 678
+                waitUntil("Capture must use the full native \(pose) window", timeout: 45) {
+                    let size = app.windows.firstMatch.frame.size
+                    return abs(size.width * size.height - targetArea) < targetArea * 0.01
+                }
+            }
+            var appearance: String?
+            for shot in shots {
+                if appearance != shot.appearance {
+                    try request("appearance", name: shot.appearance)
+                    appearance = shot.appearance
+                }
+                switch shot.screen {
+                case "home", "log-dose":
+                    select("Home", in: app)
+                    XCTAssertTrue(app.buttons["logDose"].waitForExistence(timeout: 5))
+                    if shot.screen == "log-dose" {
+                        app.buttons["logDose"].tap()
+                        let amount = app.textFields["doseAmount"]
+                        XCTAssertTrue(amount.waitForExistence(timeout: 5))
+                        amount.tap()
+                        amount.typeText("7.5")
+                    }
+                case "progress":
+                    select("Progress", in: app)
+                    XCTAssertTrue(app.descendants(matching: .any)["currentWeightCard"].waitForExistence(timeout: 5))
+                case "journal":
+                    select("Journal", in: app)
+                    XCTAssertTrue(app.buttons["Doses"].waitForExistence(timeout: 5))
+                    app.buttons["Doses"].tap()
+                    XCTAssertTrue(app.staticTexts["7.5 mg · Weekly medication"].firstMatch.waitForExistence(timeout: 5))
+                case "settings":
+                    select("Settings", in: app)
+                    XCTAssertTrue(app.staticTexts["pageHeader-Settings"].waitForExistence(timeout: 5))
+                default:
+                    XCTFail("Unsupported capture screen: \(shot.screen)")
+                    return
+                }
+                try snap(shot.screen)
+                if shot.screen == "log-dose" {
+                    app.buttons["Cancel"].tap()
+                }
+            }
         }
+    }
+
+    private struct CaptureShot: Decodable {
+        let screen: String
+        let appearance: String
     }
 
     @MainActor func testEditorActionsSurviveCompactHeight() throws {
@@ -280,12 +312,13 @@ final class DuoScreenshotTests: XCTestCase {
         if let button = identified.allElementsBoundByIndex.first(where: { $0.isHittable }) {
             button.tap()
         } else {
-            let tab = app.tabBars.buttons[section]
+            // Duo exposes its native vertical rail as plain buttons, outside TabBar.
+            let tab = app.buttons[section]
             XCTAssertTrue(tab.waitForExistence(timeout: 5), "Section must be reachable in either layout")
             tab.tap()
         }
         waitUntil("Selecting \(section) must update the active tab") {
-            identified.allElementsBoundByIndex.contains { $0.isSelected } || app.tabBars.buttons[section].isSelected
+            identified.allElementsBoundByIndex.contains { $0.isSelected } || app.buttons[section].isSelected
         }
     }
 
