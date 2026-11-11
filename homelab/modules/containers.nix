@@ -71,13 +71,16 @@ in {
     environment.systemPackages = with pkgs; [ colima docker docker-compose reconcile ];
     environment.etc."homelab/services".source = ../services;
     launchd.daemons.homelab-colima = {
-      path = with pkgs; [ colima docker docker-compose openssh coreutils ];
-      environment = { HOME = "/var/lib/_containers"; };
+      path = with pkgs; [ colima docker docker-compose openssh coreutils python3 ];
+      environment = {
+        HOME = "/var/lib/_containers";
+        DOCKER_HOST = "unix:///var/lib/_containers/.colima/services/docker.sock";
+      };
       script = ''
         set -eu
         # Colima probes macOS with native tools before exposing VZ/Rosetta flags.
         export PATH="$PATH:/usr/bin:/bin:/usr/sbin:/sbin"
-        exec colima start --profile services --foreground --vm-type vz \
+        exec python3 ${../scripts}/colima-start.py --vm-type vz \
           --vz-rosetta --cpu 4 --memory ${toString cfg.memoryGiB} \
           --mount /var/lib/_containers:w \
           --disk ${toString cfg.diskGiB}
@@ -85,6 +88,8 @@ in {
       serviceConfig = {
         UserName = "_containers"; GroupName = "_containers";
         RunAtLoad = true; KeepAlive = true; ThrottleInterval = 30;
+        StandardOutPath = "/var/log/homelab-colima.log";
+        StandardErrorPath = "/var/log/homelab-colima.log";
       };
     };
     launchd.daemons.homelab-compose = {
