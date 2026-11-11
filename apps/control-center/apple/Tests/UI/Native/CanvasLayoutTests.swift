@@ -41,7 +41,7 @@ import XCTest
         XCTAssertTrue(calendar.waitForExistence(timeout: 10))
         capture("launcher", app)
         for id in [
-            "calendar", "lights", "climate", "weather", "music", "timer", "wifi", "walks", "car", "settings", "booth",
+            "calendar", "lights", "climate", "weather", "music", "timer", "wifi", "car", "settings", "booth",
         ] {
             let button = app.buttons["app-\(id)"]
             if !button.isHittable { app.swipeUp() }
@@ -82,9 +82,9 @@ import XCTest
         let windowBeforeOpen = app.windows.firstMatch.frame
         let calendar = app.buttons["app-calendar"]
         if windowBeforeOpen.width > windowBeforeOpen.height {
-            let walks = app.buttons["app-walks"]
-            XCTAssertEqual(calendar.frame.minY, walks.frame.minY, accuracy: 2, "Wide launcher should use five columns")
-            XCTAssertFalse(profile.frame.intersects(walks.frame), "Profile must stay outside the last launcher tile")
+            let last = app.buttons["app-car"]
+            XCTAssertEqual(calendar.frame.minY, last.frame.minY, accuracy: 2, "Wide launcher should use five columns")
+            XCTAssertFalse(profile.frame.intersects(last.frame), "Profile must stay outside the last launcher tile")
         }
         app.buttons["app-climate"].tap()
         let surface = app.descendants(matching: .any)["climate-temperature-surface"].firstMatch

@@ -8,7 +8,7 @@ extension HomeViewLaunchTests {
         app.launch()
         defer { app.terminate() }
         app.openAppGrid()
-        let ids = ["calendar", "weather", "lights", "climate", "walks"]
+        let ids = ["calendar", "weather", "lights", "climate", "car"]
         let first = app.buttons["app-calendar"].frame
         for (index, id) in ids.enumerated() {
             let frame = app.buttons["app-\(id)"].frame

@@ -90,7 +90,6 @@ struct PanelRoot: View {
                     root: root,
                     unavailable: ProcessInfo.processInfo.arguments.contains("-hybridUnavailable"),
                     alarmScenario: ringing ? "ringing" : "scheduled",
-                    walkActive: ProcessInfo.processInfo.arguments.contains("-hybridWalkActive"),
                     sonosPlayback: ProcessInfo.processInfo.arguments.contains("-hybridSonosPlayback"),
                     climateOff: ProcessInfo.processInfo.arguments.contains("-hybridClimateOff"),
                     controlWrites: ProcessInfo.processInfo.arguments.contains("-hybridControlWrites"),

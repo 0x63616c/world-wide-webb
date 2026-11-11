@@ -162,7 +162,7 @@ import XCTest
         Thread.sleep(forTimeInterval: 1)
         print("MOTION_CAPTURE_DONE layered-icons")
         // The recording stays short; every remaining redesigned app is also opened.
-        for id in ["calendar", "climate", "walks", "car", "wifi", "timer", "settings"] {
+        for id in ["calendar", "climate", "car", "wifi", "timer", "settings"] {
             let button = app.buttons["app-\(id)"]
             XCTAssertTrue(button.isHittable, id)
             button.tap()

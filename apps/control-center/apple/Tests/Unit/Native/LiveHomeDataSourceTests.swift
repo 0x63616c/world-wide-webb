@@ -76,9 +76,6 @@ import XCTest
         let store = source(try fixtureTransport())
         await refreshAll(store)
         for module in PanelModule.allCases { XCTAssertTrue(store.hasLiveData(for: module), module.rawValue) }
-        XCTAssertTrue(store.walks === store.walkProvider)
-        XCTAssertNil(store.walks.activeWalk)
-        XCTAssertFalse(store.walks.history.isEmpty)
         XCTAssertEqual(store.lamps.onCount(), 8)
         XCTAssertEqual(store.lamps.brightness, 65)
         XCTAssertEqual(store.lamps.kelvin, 2700)
@@ -249,13 +246,10 @@ import XCTest
         store.send(.volume("unknown", 40))
         store.send(.saveAlarm(Alarm()))
         store.send(.seek("unknown", 30))
-        // Walk views receive the guarded server-time adapter from HybridNativeModule.
-        HybridWalkDataSource(store: store).toggleWalk()
         await Task.yield()
         let requests = await transport.requests
         XCTAssertTrue(requests.isEmpty)
         XCTAssertTrue(store.alarms.isEmpty)
-        XCTAssertNil(store.walks.activeWalk)
     }
 
     func testCommandsReachTheCorrectProviderAndUseStableSonosIDs() async throws {

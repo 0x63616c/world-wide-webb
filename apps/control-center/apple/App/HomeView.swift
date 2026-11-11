@@ -4,9 +4,9 @@ import SwiftUI
 enum HomeTile: String, CaseIterable, Identifiable {
     case climate, clock, wifi, bedroom, livingRoom, ceiling, cabinet, fan, all
     // Existing controllers stay available by launch argument for later faces.
-    case lamps, lights, weather, hourly, sound, alarm, tesla, calendar, sonosRooms, photos, dogwalk
+    case lamps, lights, weather, hourly, sound, alarm, tesla, calendar, sonosRooms, photos
     static let homeFace: [HomeTile] = [.climate, .lamps, .weather, .tesla, .calendar, .sound, .fan]
-    static let controlsFace: [HomeTile] = [.dogwalk, .photos, .sonosRooms, .clock, .ceiling, .cabinet, .wifi, .all]
+    static let controlsFace: [HomeTile] = [.photos, .sonosRooms, .clock, .ceiling, .cabinet, .wifi, .all]
     var id: String { rawValue }
     var title: String {
         switch self {
@@ -27,7 +27,6 @@ enum HomeTile: String, CaseIterable, Identifiable {
         case .calendar: "Up Next"
         case .sonosRooms: "Sonos Rooms"
         case .photos: "Photos"
-        case .dogwalk: "Dog Walker"
         }
     }
     var accessory: Accessory? {
@@ -68,7 +67,7 @@ enum HomeTile: String, CaseIterable, Identifiable {
         case .wifi: Palette.teal
         case .weather, .hourly: Color.blue.mix(with: .black, by: 0.45)
         case .sound: Color.purple.mix(with: .black, by: 0.65)
-        case .alarm, .tesla, .calendar, .sonosRooms, .photos, .dogwalk: .black
+        case .alarm, .tesla, .calendar, .sonosRooms, .photos: .black
         }
     }
 }
@@ -92,7 +91,7 @@ struct HomeView: View {
         let step: Int
         var offset: CGFloat
     }
-    private var keepsAwake: Bool { timer.keepsScreenAwake || store.walks.activeWalk != nil }
+    private var keepsAwake: Bool { timer.keepsScreenAwake }
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.motionPhase) private var inheritedMotionPhase
     @Namespace private var zoom
@@ -258,10 +257,6 @@ struct HomeView: View {
                 }
             }
         }
-        .onOpenURL { url in if url.host == "dogwalk", let app = catalog.app(id: "walks") { open(app) } }
-        .onChange(of: store.walks.activeWalk, initial: true) { _, walk in
-            store.walkActivity.synchronize(walk: walk, now: store.now)
-        }
         .onChange(of: timer.openRequested, initial: true) { _, requested in
             guard requested, let app = catalog.app(id: "timer") else { return }
             timer.openRequested = false
@@ -383,7 +378,6 @@ struct HomeView: View {
         case .music: SonosRoomsPage(store: store)
         case .weather: WeatherPage(weather: store.weather)
         case .calendar: AgendaPage(provider: store.calendar, now: store.now)
-        case .walks: DogWalkPage(store: store)
         case .wifi: WifiController(wifi: store.wifi)
         case .car: TeslaController(provider: store.tesla)
         }
@@ -398,7 +392,6 @@ extension PanelAppFeature {
         case .music: .sound
         case .weather: .weather
         case .calendar: .calendar
-        case .walks: .dogwalk
         case .car: .tesla
         case .wifi: .wifi
         }

@@ -2,7 +2,7 @@ use crate::{
     AppState,
     features::{
         alarms, booth, climate, diagnostics, lights, notifications, releases, settings, sound,
-        tesla, walks, weather,
+        tesla, weather,
     },
 };
 use axum::{
@@ -107,14 +107,6 @@ pub fn router(state: AppState) -> Router {
         .route("/api/v1/weather/hourly", get(weather::hourly))
         .route("/api/v1/weather/daily", get(weather::daily))
         .route("/api/v1/wifi/guest", get(wifi))
-        .route("/api/v1/walks/state", get(walks::state))
-        .route("/api/v1/walks/history", get(walks::history))
-        .route("/api/v1/walks/start", post(walks::start))
-        .route("/api/v1/walks/stop", post(walks::stop))
-        .route(
-            "/api/v1/walks/{id}",
-            axum::routing::patch(walks::update).delete(walks::delete),
-        )
         .route(
             "/api/v1/settings",
             get(settings::get).patch(settings::update),

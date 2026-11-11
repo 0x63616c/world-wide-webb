@@ -1,7 +1,7 @@
 import SwiftUI
 
 enum PanelIconArtwork: String, CaseIterable {
-    case calendar, weather, lights, climate, walks, photos, car, wifi, music, clock, timer, booth, settings
+    case calendar, weather, lights, climate, photos, car, wifi, music, clock, timer, booth, settings
 
     /// The approved palette extended across the complete app family. Light comes from above.
     var background: LinearGradient {
@@ -11,7 +11,6 @@ enum PanelIconArtwork: String, CaseIterable {
             case .weather: [Color(hex: "#05D5ED"), Color(hex: "#0085FF")]
             case .lights: [Color(hex: "#FFD500"), Color(hex: "#FF6500")]
             case .climate: [Color(hex: "#56D9FA"), Color(hex: "#007FCF")]
-            case .walks: [Color(hex: "#60DD9C"), Color(hex: "#0CAA69")]
             case .music: [Color(hex: "#252527"), .black]
             case .photos: [Color(hex: "#BE85FC"), Color(hex: "#7A12F8")]
             case .car: [Color(hex: "#6CBFFC"), Color(hex: "#2367D2")]
@@ -40,7 +39,6 @@ struct PanelIconArtworkView: View {
             case .weather: WeatherIconArtwork(side: side, parallax: parallax)
             case .lights: LightsIconArtwork(side: side, parallax: parallax)
             case .climate: ClimateIconArtwork(side: side, parallax: parallax)
-            case .walks: WalksIconArtwork(side: side, parallax: parallax)
             case .music: SonosIconArtwork(side: side, parallax: parallax)
             case .photos: PhotosIconArtwork(side: side, parallax: parallax)
             case .car: CarIconArtwork(side: side, parallax: parallax)

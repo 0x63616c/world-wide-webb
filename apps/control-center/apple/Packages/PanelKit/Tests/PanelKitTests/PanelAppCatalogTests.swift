@@ -5,8 +5,8 @@ import Testing
 @Suite struct PanelAppCatalogTests {
     @Test func requestedLauncherOrderAndSettingsLast() {
         let apps = PanelAppCatalog.standard.apps
-        #expect(Array(apps.prefix(5).map(\.id)) == ["calendar", "weather", "lights", "climate", "walks"])
-        #expect(Array(apps.dropFirst(5).prefix(3).map(\.id)) == ["car", "wifi", "music"])
+        #expect(Array(apps.prefix(5).map(\.id)) == ["calendar", "weather", "lights", "climate", "car"])
+        #expect(Array(apps.dropFirst(5).prefix(3).map(\.id)) == ["wifi", "music", "timer"])
         #expect(apps.last?.id == "settings")
         #expect(PanelAppCatalog.standard.app(id: "cameras") == nil)
         #expect(PanelAppCatalog.standard.app(id: "clock") == nil)

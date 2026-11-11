@@ -72,7 +72,7 @@ import XCTest
                 configuration: PanelConfiguration(),
                 nativeAlarms: NativeAlarmsRuntime(scheduler: FixtureAlarmScheduler())),
             navigation: PanelNavigation())
-        for tile in [HomeTile.fan, .sound, .clock, .dogwalk, .photos] {
+        for tile in [HomeTile.fan, .sound, .clock, .photos] {
             XCTAssertNotNil(host.gridTile(tile, span: HomeGrid.span(2, 2), open: {}), tile.id)
         }
         XCTAssertNotNil(host.gridTile(.climate, span: HomeGrid.span(2, 2), open: {}))

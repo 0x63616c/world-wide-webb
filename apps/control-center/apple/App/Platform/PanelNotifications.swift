@@ -90,7 +90,6 @@ import UIKit
         case "ac": return .climate
         case "sound": return .sonos
         case "booth": return .photos
-        case "walks": return .walk
         case "events" where segments.count > 2 && segments[2] == "alarms": return .alarms
         default: return PanelModule(rawValue: id)
         }
@@ -98,7 +97,7 @@ import UIKit
 
     static func sources(for appID: String?) -> Set<String> {
         guard let appID else { return [] }
-        let ids = PanelModule.allCases.map(\.rawValue) + ["ctrl", "ac", "sound", "booth", "walks", "events", "timer"]
+        let ids = PanelModule.allCases.map(\.rawValue) + ["ctrl", "ac", "sound", "booth", "events", "timer"]
         return Set(ids.filter { source($0).app?.id == appID || $0 == appID })
     }
 
@@ -108,7 +107,6 @@ import UIKit
         let appID: String
         switch module {
         case .sonos: appID = "music"
-        case .walk: appID = "walks"
         case .tesla: appID = "car"
         case .photos: appID = "booth"
         case .fan: appID = "climate"
@@ -126,7 +124,6 @@ import UIKit
         case .sonos: symbol = "speaker.wave.2.fill"
         case .weather: symbol = "cloud.sun.fill"
         case .photos: symbol = "photo.fill"
-        case .walk: symbol = "figure.walk"
         case .alarms: symbol = "alarm.fill"
         case .calendar: symbol = "calendar"
         case .tesla: symbol = "car.fill"

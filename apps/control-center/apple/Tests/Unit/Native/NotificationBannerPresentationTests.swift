@@ -69,9 +69,9 @@ import XCTest
         let old = center.post(
             sourceModule: "alarms", title: "Older critical", body: "", deepLink: "module/alarms", priority: .critical)
         now += 1
-        let middle = center.post(sourceModule: "walk", title: "Middle", body: "", deepLink: "module/walk")
+        let middle = center.post(sourceModule: "calendar", title: "Middle", body: "", deepLink: "module/calendar")
         now += 1
-        let new = center.post(sourceModule: "walk", title: "Newest", body: "", deepLink: "module/walk")
+        let new = center.post(sourceModule: "calendar", title: "Newest", body: "", deepLink: "module/calendar")
         XCTAssertEqual(NotificationBannerStack.ordered(center.bannerGroups).map(\.id), [new, middle, old])
         XCTAssertEqual(NotificationBannerStack.peekCount(0), 0)
         XCTAssertEqual(NotificationBannerStack.peekCount(2), 1)

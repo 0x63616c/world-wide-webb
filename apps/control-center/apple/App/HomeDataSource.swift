@@ -11,8 +11,6 @@ import UIKit
     var tesla: any TeslaProvider { get }
     var calendar: any CalendarProvider { get }
     var photos: any PhotosProvider { get }
-    var walks: any WalkProvider { get }
-    var walkActivity: WalkLiveActivityManager { get }
     var alarms: [Alarm] { get }
     var occurrence: AlarmOccurrence? { get }
     var rooms: [SoundRoom] { get }
@@ -24,10 +22,6 @@ import UIKit
     func upcomingAlarm(at date: Date) -> UpcomingAlarm?
 }
 extension HomeDataSource {
-    func toggleWalk() {
-        if walks.activeWalk == nil { walks.start(at: now) } else { walks.stop(at: now) }
-        walkActivity.synchronize(walk: walks.activeWalk, now: now)
-    }
     func upcomingAlarm(at date: Date) -> UpcomingAlarm? {
         let scheduled = alarms.compactMap { alarm in
             alarm.next(after: date).map {
@@ -58,8 +52,6 @@ extension HomeDataSource {
     let tesla: any TeslaProvider = MockTeslaProvider()
     let calendar: any CalendarProvider = MockCalendarProvider()
     let photos: any PhotosProvider = MockPhotosProvider()
-    let walks: any WalkProvider
-    let walkActivity = WalkLiveActivityManager()
     private(set) var alarms = [
         Alarm(id: 1, label: "Morning", time: "07:00", repeatDays: [1, 2, 3, 4, 5]),
         Alarm(id: 2, label: "Weekend", time: "09:00", repeatDays: [0, 6], enabled: false),
@@ -88,14 +80,6 @@ extension HomeDataSource {
     ) {
         self.latency = latency
         self.fixedNow = fixedNow
-        let device: WalkDevice = UIDevice.current.userInterfaceIdiom == .phone ? .iPhone : .iPad
-        let walks = MockWalkProvider(
-            now: fixedNow ?? ISO8601DateFormatter().date(from: "2026-10-29T22:41:00Z")!, device: device)
-        self.walks = walks
-        if ProcessInfo.processInfo.arguments.contains("-walkStartedRemotely") {
-            walks.simulateRemoteStart(at: now.addingTimeInterval(-724))
-        }
-        if ProcessInfo.processInfo.arguments.contains("-walkRunning") { walks.start(at: now.addingTimeInterval(-754)) }
         if ringing { occurrence = AlarmOccurrence(alarm: alarms[0], due: fixedNow ?? fixtureDate) }
         if wifiFixture == "open" { wifi = .open }
         if wifiFixture == "unconfigured" { wifi = .unconfigured }

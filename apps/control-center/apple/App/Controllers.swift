@@ -30,7 +30,7 @@ struct ControllerHost: View {
                     case .lamps, .bedroom, .livingRoom: LampsController(store: store)
                     case .climate: ClimateController(store: store)
                     case .wifi: WifiController(wifi: store.wifi)
-                    case .calendar, .sonosRooms, .photos, .dogwalk: ModulePage(tile: tile, store: store, close: close)
+                    case .calendar, .sonosRooms, .photos: ModulePage(tile: tile, store: store, close: close)
                     case .clock: ClockController(store: store)
                     case .weather: WeatherController(weather: store.weather)
                     case .hourly: HourlyController(weather: store.weather)

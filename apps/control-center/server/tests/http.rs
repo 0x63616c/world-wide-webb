@@ -44,7 +44,7 @@ async fn tailnet_api_requires_no_app_credentials_and_health_is_real() {
         .clone()
         .oneshot(
             Request::builder()
-                .uri("/api/v1/walks/state")
+                .uri("/api/v1/settings")
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -62,62 +62,26 @@ async fn tailnet_api_requires_no_app_credentials_and_health_is_real() {
     );
 }
 #[tokio::test]
-async fn walk_retries_tombstones_and_notifications_are_atomic() {
-    let (_dir, app, db) = fixture().await;
-    let key = "00000000-0000-4000-8000-000000000001";
-    let (_, first) = call(
-        &app,
-        "POST",
-        "/api/v1/walks/start",
-        json!({"id":key,"startedAt":"2026-11-07T10:00:00-08:00","source":"iphone"}),
-    )
-    .await;
-    assert_eq!(first["active"]["startedAt"], "2026-11-07T18:00:00.000000Z");
-    let (_, second) = call(&app, "POST", "/api/v1/walks/start", json!({"id":key})).await;
-    assert_eq!(first["active"], second["active"]);
-    call(
-        &app,
-        "POST",
-        "/api/v1/walks/stop",
-        json!({"id":key,"endedAt":"2026-11-07T17:00:00Z"}),
-    )
-    .await;
-    call(&app, "POST", "/api/v1/walks/stop", json!({"id":key})).await;
-    let count: i64 = sqlx::query_scalar("SELECT count(*) FROM notifications")
-        .fetch_one(&db)
-        .await
-        .unwrap();
-    assert_eq!(count, 1);
-    let (_, history) = call(&app, "GET", "/api/v1/walks/history", Value::Null).await;
-    assert_eq!(
-        history["walks"][0]["endedAt"],
-        history["walks"][0]["startedAt"]
-    );
-    call(&app, "DELETE", &format!("/api/v1/walks/{key}"), Value::Null).await;
-    let (_, retry) = call(&app, "POST", "/api/v1/walks/start", json!({"id":key})).await;
-    assert!(retry["active"].is_null());
-}
-#[tokio::test]
-async fn simultaneous_starts_never_create_two_active_walks() {
-    let (_dir, app, db) = fixture().await;
-    let (a, b) = tokio::join!(
-        call(&app, "POST", "/api/v1/walks/start", json!({})),
-        call(&app, "POST", "/api/v1/walks/start", json!({}))
-    );
-    assert_eq!(a.0, StatusCode::OK);
-    assert_eq!(b.0, StatusCode::OK);
-    let count: i64 = sqlx::query_scalar(
-        "SELECT count(*) FROM walk WHERE ended_at IS NULL AND deleted_at IS NULL",
-    )
-    .fetch_one(&db)
-    .await
-    .unwrap();
-    assert_eq!(count, 1);
+async fn retired_walk_routes_are_unavailable() {
+    let (_dir, app, _db) = fixture().await;
+    for (method, path) in [
+        ("GET", "/api/v1/walks/state"),
+        ("GET", "/api/v1/walks/history"),
+        ("POST", "/api/v1/walks/start"),
+        ("POST", "/api/v1/walks/stop"),
+        ("DELETE", "/api/v1/walks/historic"),
+        ("PATCH", "/api/v1/walks/historic"),
+    ] {
+        assert_eq!(
+            call(&app, method, path, Value::Null).await.0,
+            StatusCode::NOT_FOUND
+        );
+    }
 }
 #[tokio::test]
 async fn notification_cursor_observes_deduplication_and_dismissal() {
     let (_dir, app, _db) = fixture().await;
-    let input = json!({"source_module":"walks","title":"Walk","body":"Finished","deep_link":"module/walks","dedupe_key":"same"});
+    let input = json!({"source_module":"calendar","title":"Event","body":"Soon","deep_link":"module/calendar","dedupe_key":"same"});
     let (_, first) = call(&app, "POST", "/api/v1/notifications", input.clone()).await;
     let (_, second) = call(&app, "POST", "/api/v1/notifications", input).await;
     assert_eq!(first["id"], second["id"]);
