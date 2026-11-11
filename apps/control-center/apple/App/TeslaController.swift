@@ -126,6 +126,7 @@ private struct TeslaMileageView: View {
                 }
                 .chartXAxis { AxisMarks { _ in AxisValueLabel() } }
                 .chartYAxis { AxisMarks { _ in AxisValueLabel() } }
+                .chartYAxisLabel("Mileage", position: .trailing)
                 .chartXScale(domain: dateDomain)
                 .chartYScale(domain: mileageDomain)
                 .frame(height: 230)
