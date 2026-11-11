@@ -1,5 +1,23 @@
-{ lib, ... }: {
+{ config, lib, ... }: {
   networking.hostName = "homelab-macbook";
+  users.knownUsers = [ "coding" ];
+  users.users.coding = {
+    uid = 502;
+    gid = 20; # staff, without administrator membership
+    description = "Coding";
+    home = "/Users/coding";
+    createHome = true;
+    isHidden = false;
+    shell = "/bin/zsh";
+  };
+  homelab.sshUsers.coding = config.homelab.authorizedKeys;
+  # Remote Login's PAM access list is separate from OpenSSH's AllowUsers.
+  # An absent access group means all users are already permitted by macOS.
+  system.activationScripts.users.text = lib.mkAfter ''
+    if /usr/bin/dscl . -read /Groups/com.apple.access_ssh >/dev/null 2>&1; then
+      /usr/sbin/dseditgroup -o edit -a coding -t user com.apple.access_ssh
+    fi
+  '';
   # tailscaled's confined DNS writer rejects a symlink out of /etc/resolver.
   environment.etc."resolver/ts.net".enable = lib.mkForce false;
   # Idle sleep settings alone did not keep the closed-lid node awake on AC.

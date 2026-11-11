@@ -85,6 +85,13 @@ flowchart TB
 | `homelab-macbook` | M2 Pro, 12 cores, 32 GB, about 500 GB | `admin` | Disposable CI guests; application migration later |
 | `homelab-mac-mini` | M2, 8 GB | `calum` | Keep production running until verified cutover |
 
+The MacBook also declares a non-admin `coding` account (UID 502, staff group),
+with `/Users/coding` and a zsh shell. After deployment, connect with
+`ssh coding@homelab-macbook.local` using the same approved SSH key as `admin`.
+SSH remains key-only. Agent tools and provider logins are configured separately.
+Activation refuses an existing UID collision or administrator membership.
+The account joins macOS's Remote Login access group when that restriction exists.
+
 ## What a merge does
 
 After a Mac completes enrollment, Comin checks `deploy/homelab` every 30 seconds and applies
