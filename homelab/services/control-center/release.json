@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
   "sourceRepository": "0x63616c/world-wide-webb",
-  "sourceRevision": "0771dc2bb29325aac2d3c36bc299cad07bb4ffe1",
-  "image": "ghcr.io/0x63616c/www-control-center-mini@sha256:4994a301b76dc6003ba56b316328e8c63aa605998dc7e79407c0376bfa5753e8",
+  "sourceRevision": "9903943cf20eff02ac4138bf77a140bc2db2151c",
+  "image": "ghcr.io/0x63616c/www-control-center-mini@sha256:b012db6e56f2266dbfcd8cd4bca19ab9d518a3817b8050a8bd2f5e140c4f7354",
   "databaseEngine": "sqlite"
 }
