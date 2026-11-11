@@ -70,6 +70,11 @@ struct TeslaController: View {
                     .accessibilityLabel(reported ? "Last reported lock state" : "Door lock")
                     .accessibilityValue(data.locked ? "Locked" : "Unlocked")
                     .accessibilityIdentifier("tesla-lock-status")
+                Spacer(minLength: 16)
+                Text("\(data.odo) mi")
+                    .font(.callout).monospacedDigit().foregroundStyle(.secondary)
+                    .accessibilityLabel("Odometer")
+                    .accessibilityIdentifier("tesla-odometer")
             }
             if reported {
                 Label("Last reported", systemImage: "clock.arrow.circlepath")
@@ -89,24 +94,9 @@ private struct TeslaMileageView: View {
     @State private var points: [TeslaMileagePoint] = []
     @State private var loading = true
     @State private var failed = false
-    @State private var selected: Date?
 
-    private var selectedPoint: TeslaMileagePoint? {
-        guard let selected else { return nil }
-        return points.min { abs($0.date.timeIntervalSince(selected)) < abs($1.date.timeIntervalSince(selected)) }
-    }
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            if !provider.data.odo.isEmpty {
-                Text("\(selectedPoint.map { Int($0.miles.rounded()).formatted() } ?? provider.data.odo) mi")
-                    .font(.title.weight(.medium)).monospacedDigit()
-                    .accessibilityLabel("Odometer")
-                    .accessibilityIdentifier("tesla-odometer")
-            }
-            if let point = selectedPoint {
-                Text(point.date, format: .dateTime.month(.abbreviated).day().year().hour().minute())
-                    .font(.callout).foregroundStyle(.secondary)
-            }
             if loading {
                 ProgressView().frame(maxWidth: .infinity, minHeight: 230)
             } else if failed {
@@ -125,7 +115,6 @@ private struct TeslaMileageView: View {
                 .chartXAxis { AxisMarks { _ in AxisValueLabel() } }
                 .chartYAxis { AxisMarks { _ in AxisValueLabel() } }
                 .chartYScale(domain: .automatic(includesZero: false))
-                .chartXSelection(value: $selected)
                 .frame(height: 230)
                 .accessibilityLabel("Odometer history in miles")
                 .accessibilityIdentifier("tesla-mileage-chart")
