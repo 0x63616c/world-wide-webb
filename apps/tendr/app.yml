@@ -17,9 +17,7 @@ beta_description: Tendr is a private, local-first companion for tracking doses, 
 # swift test runs here when present (fast core tests).
 swift_package: true
 screenshot_test: StillUITests/ScreenshotTests
-duo_screenshot_test: StillUITests/DuoScreenshotTests
-# Repeat capture across appearances; run the complete interaction suite once.
-duo_capture_test: StillUITests/DuoScreenshotTests/testMainScreens
+duo_screenshot_test: StillUITests/DuoScreenshotTests/testMainScreens
 site: tendr
 age_rating:
   medicalOrTreatmentInformation: INFREQUENT_OR_MILD

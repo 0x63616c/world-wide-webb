@@ -1529,3 +1529,13 @@ URLs and that build 5 is VALID and unexpired. Public 1.1.0's privacy URL still p
 retired host; its replacement awaits Store promotion/Apple approval. No physical installation
 is claimed. Remaining step: complete the normal tagged Store promotion with passing screenshot
 evidence; the shared release guide owns that process.
+
+### Tendr build 7 screenshot preview
+
+The owner rejected the Catalyst-rendered gallery and requested native fidelity with only
+the required assets. The replacement capture keeps one Tendr session across the two Duo
+displays, uses the configured five screen/appearance pairs, and separates interaction tests
+from asset capture. The manual Screenshots workflow captures on the hosted runner to avoid
+interrupting the owner’s desktop. Local capture protocol checks (34) and release/export
+checks (6) pass. Native preview and visual approval remain required before submitting
+Tendr 1.1.1 build 7. No App Store submission is authorized before that image review.

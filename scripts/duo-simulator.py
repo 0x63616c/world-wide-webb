@@ -233,6 +233,12 @@ def serve(udid, directory, output, appearance):
                     host_pose_known = True
                 host_command(directory, {"orientation": orientation})
                 time.sleep(2)
+            elif request["action"] == "appearance":
+                target = request["name"]
+                if target not in ("light", "dark"):
+                    raise ValueError("Invalid screenshot appearance")
+                simctl("ui", udid, "appearance", target, check=True)
+                appearance = target
             elif request["action"] == "capture":
                 screen = request["name"]
                 if not re.fullmatch(r"[a-z0-9-]+", screen):

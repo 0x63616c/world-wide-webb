@@ -165,7 +165,7 @@ name = pathlib.Path(sys.argv[0]).name
 args = sys.argv[1:]
 mode = os.environ["MOCK_DUO_MODE"]
 if name == "ruby":
-    print({"project_path":"apps/tendr/Still.xcodeproj", "scheme":"Still", "duo_screenshot_test":"StillUITests/DuoScreenshotTests", "duo_capture_test":"StillUITests/DuoScreenshotTests/testMainScreens", "name":"Tendr"}[args[-1]])
+    print({"project_path":"apps/tendr/Still.xcodeproj", "scheme":"Still", "duo_screenshot_test":"StillUITests/DuoScreenshotTests/testMainScreens", "name":"Tendr"}[args[-1]])
 elif name == "xcrun":
     args = args[1:]
     with open(os.environ["MOCK_SIMCTL_LOG"], "a") as log:
@@ -239,8 +239,9 @@ elif name == "xcodebuild" and args[0] == "test-without-building":
     poses = ["inner", "outer"] if os.environ["TEST_RUNNER_DUO_CAN_FOLD"] == "1" else ["default"]
     for pose in poses:
         if pose != "default": request("pose", pose)
-        for screen in ["home","treatment","progress","journal","settings","log-dose","landscape-home","landscape-progress","landscape-log-dose"]:
-            request("capture", screen)
+        for shot in json.loads(os.environ["TEST_RUNNER_DUO_CAPTURE_SHOTS"]):
+            request("appearance", shot["appearance"])
+            request("capture", shot["screen"])
 '''
 
 
@@ -394,6 +395,8 @@ class DuoCapabilitiesTests(unittest.TestCase):
             scripts.mkdir()
             for name in ["capture-duo-screenshots.sh", "duo-simulator.py", "boot-simulator.sh", "screenshot-build-settings.py"]:
                 shutil.copy2(ROOT / "scripts" / name, scripts / name)
+            (root / "apps/tendr").mkdir(parents=True)
+            shutil.copy2(ROOT / "apps/tendr/screenshots.json", root / "apps/tendr/screenshots.json")
             commands = root / "bin"
             commands.mkdir()
             tool = commands / "mock-tool"
@@ -472,16 +475,16 @@ class DuoCapabilitiesTests(unittest.TestCase):
                 self.assertIn(f"MARKETING_VERSION={release[0]}", arguments)
                 self.assertIn(f"CURRENT_PROJECT_VERSION={release[1]}", arguments)
             test_arguments = [json.loads(line) for line in (root / "test-arguments.jsonl").read_text().splitlines()]
-            self.assertIn("-only-testing:StillUITests/DuoScreenshotTests", test_arguments[-2])
+            self.assertEqual(len(test_arguments), 2 if mode == "native-timeout-once" else 1)
             self.assertIn("-only-testing:StillUITests/DuoScreenshotTests/testMainScreens", test_arguments[-1])
             plan = json.loads((output / "plan.json").read_text())
             expected_mode = "unmapped" if mode == "integrated" else mode if mode in ("fold", "displays") else "default"
             self.assertEqual(plan["mode"], expected_mode)
             poses = list(plan["displays"]) if expected_mode == "unmapped" else ["inner", "outer"] if expected_mode in ("fold", "displays") else ["default"]
-            self.assertEqual(len(list(output.glob("*.png"))), len(poses) * 2 * 9 + 1)
+            self.assertEqual(len(list(output.glob("*.png"))), len(poses) * 5 + 1)
             for pose in poses:
-                for appearance in ["light", "dark"]:
-                    self.assertTrue((output / f"{pose}-{appearance}-home.png").is_file())
+                for shot in json.loads((ROOT / "apps/tendr/screenshots.json").read_text())["duo_shots"]:
+                    self.assertTrue((output / f"{pose}-{shot['appearance']}-{shot['screen']}.png").is_file())
             self.assertEqual((root / "created-device").read_text(), override or "mock.duo")
             if expected_mode == "default":
                 self.assertIn("default only", (output / "capture-notes.txt").read_text())

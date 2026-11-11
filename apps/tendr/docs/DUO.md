@@ -27,31 +27,42 @@ Build distribution artifacts with Xcode 27.1+ for Duo's complete screen and vert
 
 ## Capture
 
-From the repository root:
+Use the manual **Screenshots** workflow for App Store previews. It runs on the hosted
+`xcode-27` runner, produces six framed phone images and ten native Duo images, and uploads
+artifacts for visual review without contacting Apple. Supply the processed release version
+and build when previewing an existing TestFlight build. Device Hub stays on the runner,
+so it does not take focus on a developer’s computer.
+
+The Duo capture uses one disposable simulator, one build, one controller and one XCTest/app
+session. `screenshots.json` owns the required screen/appearance pairs. The capture visits
+each physical display once and groups shots by appearance, keeping Tendr running throughout.
+It does not run accessibility, lifecycle, rotation or draft-retention scenarios, or capture
+unused Treatment/landscape images. Those interaction tests remain separately runnable.
+
+For an isolated local desktop, from the repository root:
 
 ```sh
-DEVELOPER_DIR=/Applications/Xcode_27.1.app/Contents/Developer \
-  scripts/capture-duo-screenshots.sh tendr build/duo-screenshots/tendr/raw light dark
-python3 scripts/test-duo-screenshots.py
+DEVELOPER_DIR=/Applications/Xcode_27.2.app/Contents/Developer DUO_HOST_CONTROL=1 \
+  scripts/capture-duo-screenshots.sh tendr
+python3 scripts/stage-duo-screenshots.py apps/tendr/screenshots.json \
+  build/duo-screenshots/tendr/raw apps/tendr/fastlane/screenshots/en-US
 ```
 
-The script defaults to `build/duo-screenshots/tendr/raw`, both appearances, the hosted iOS 27.1 Duo runtime, and an installed device type whose name contains `iPhone Duo`. `R_SIM_DEVICE_TYPE` and `R_SIM_RUNTIME` override those choices. Missing Duo device types fail clearly. Other apps must configure a compatible `duo_screenshot_test` in `app.yml` before using this script.
+Local native host control brings Device Hub forward; use the hosted workflow while using
+your computer. The controller refuses to replace an existing Device Hub session and cleans
+up only its own process. It creates a window through File > New Window if startup has none.
+The simulator defaults to the pinned iOS 27.2 Duo runtime. `R_SIM_DEVICE_TYPE` and
+`R_SIM_RUNTIME` select an explicitly installed alternative.
 
-Landscape filenames describe a requested device orientation; inner displays and centered sheets may keep portrait geometry. The separate compact-height editor test requires a single-screen phone or a host that can select the outer display.
-
-The helper probes the installed `simctl` help and display enumeration. Advertised fold/display state commands are tried on the disposable simulator. If both states succeed, the UI tests visit inner and outer and check a live fold without relaunching. If only explicit inner/outer display IDs are exposed, a host/test handshake captures both with `simctl io screenshot --display`. When integrated screen IDs are exposed without inner/outer names, the helper captures every reported integrated screen as `default-screen-<id>` and explicitly skips live-fold checks. With no usable IDs it falls back to the default screen. Without host control, no display role is inferred from pixel dimensions.
-
-Raw files are named `inner-light-home.png`, `outer-dark-progress.png`, etc. Fallback files are named `default-light-home.png` or `default-screen-<id>-light-home.png`, etc.; they are never relabelled inner/outer. Each run clears previous captures with those names and its metadata, preserving unrelated files in the output folder. `capture-notes.txt`, `plan.json` and `simctl-capabilities.txt` record the supported interface and limitations. The capture helper synchronizes with each test screen, so both physical displays are captured before navigation proceeds. PNG presence and headers are checked; there is no 1320×2868 requirement or framing step. Named displays can be inactive in a particular pose: inspect the raw images on the installed runtime before using them externally.
-
-The **Duo screenshots** workflow runs on GitHub-hosted `xcode-27` with Xcode 27.1 and the iOS 27.1 Duo runtime. Manual dispatch accepts `app` (default `tendr`) and `developer_dir` (default `/Applications/Xcode_27.1.app/Contents/Developer`). If that path is unavailable, it tries the hosted underscore spelling before the legacy `/Applications/Xcode-27.1.app`, then the newest usable `/Applications/Xcode*.app` by version. It ignores repository runner/toolchain variables. Duo capture and export failures fail PR checks. CI enables `DUO_HOST_CONTROL=1`: when simctl exposes only unnamed integrated displays, a macOS XCTest controller selects the disposable device in Device Hub and uses its Open/Closed controls. Native pixel modes identify candidate display IDs; the iOS tests verify the resulting inner/outer layouts and live state retention, and release export rejects blank or incorrectly sized images. The host controller runs only with that explicit opt-in; local probing retains its read-only fallback unless requested. The workflow lists device types/runtimes and fails clearly if its selected Xcode has no iPhone Duo device type. It uploads `duo-screenshots-<app>` and does not publish anything. For optional local capture, install a compatible runtime and use `R_SIM_RUNTIME` to override the iOS 27.1 default if needed. The root `scripts/setup-mac-runner.sh` is optional legacy setup, not required by CI.
-
-The CI controller starts Device Hub's internal executable from the selected Xcode and verifies that AppKit reports the same positive process ID before attaching XCTest. This avoids the [reported trampoline launch-identity bug](https://github.com/openai/codex/issues/44717). It refuses to replace an existing Device Hub session and cleans up only the process it owns; no signed-bundle edits or privacy resets are involved.
-
-The controller uses Device Hub's [Device → Orientation menu](https://developer.apple.com/documentation/xcode/interacting-with-your-app-in-device-hub) to select an absolute portrait or landscape pose. Duo runs use this single physical control instead of combining relative turns with XCTest's independent orientation sensor; single-screen fallbacks use `XCUIDevice.orientation`. The handoff keeps the runner's event loop running so native orientation notifications can update its coordinates. The compact-height test captures that checkpoint, requires a genuinely short window, and checks the draft and reachable Save/Cancel actions above the keyboard. XCTest teardown restores portrait even after an assertion aborts a test. Every live fold must enlarge the full-screen fixture window when opening or shrink it when closing, preserving navigation and drafts independently of aspect ratio. Each fold captures the active physical display; XCTest's default recording follows the primary display and goes black when it turns off. Section changes wait for the selected tab before interacting with the next screen.
-
-The two long scenarios (all screens on both displays, and five live folds) allow up to ten minutes each; their individual window and handoff waits stay bounded. The hosted screenshot scenario exceeded XCTest's default five-minute allowance while using native menu controls. Both complete appearance suites plus cold SDK builds have a 100-minute capture limit and a 120-minute workflow limit.
-
-After changing orientation, the bridge reselects the requested Open/Closed display before acknowledging the combined handoff. A failure to restore the display fails the request. Fold checkpoints retain before/after app hierarchies as well as settled physical-display captures so a stale accessibility window can be distinguished from a failed display transition.
+The bridge probes supported simctl controls and display enumeration. On the hosted runtime,
+Device Hub’s Open/Closed controls select the actual native display. The iOS capture waits
+for the full native app-window area before taking that display’s shots. Both appearances
+change in place through simctl. Raw PNG names include physical pose, appearance and screen;
+`plan.json`, `capture-notes.txt` and `simctl-capabilities.txt` retain mapping evidence.
+Unmapped/default-screen fallbacks remain diagnostic output and cannot be staged for release.
+Export validates native dimensions, opacity and nonblank content before replacing staged
+images. A processed release may retry one native-control timeout on a fresh disposable
+simulator; app/test failures stop immediately and retain diagnostics.
 
 ## Native verification still required
 

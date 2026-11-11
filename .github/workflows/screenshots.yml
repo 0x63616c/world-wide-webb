@@ -1,7 +1,7 @@
 name: Screenshots
 
 # Captures an app's App Store screenshots (light and dark) and frames them with RDesign's rframe.
-# CI calls this for each changed app on pull requests; the release workflow calls it before upload.
+# Manual preview only: produces reviewable assets without uploading to Apple.
 on:
   workflow_dispatch:
     inputs:
@@ -9,11 +9,21 @@ on:
         description: 'App folder under apps/ (for example tendr)'
         type: string
         default: tendr
+      release_version:
+        description: 'Version shown in screenshots'
+        type: string
+      release_build:
+        description: 'Build shown in screenshots'
+        type: string
   workflow_call:
     inputs:
       app:
         type: string
         required: true
+      release_version:
+        type: string
+      release_build:
+        type: string
 
 permissions:
   contents: read
@@ -25,6 +35,9 @@ jobs:
     env:
       DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
       APP: ${{ inputs.app }}
+      RELEASE_VERSION: ${{ inputs.release_version }}
+      RELEASE_BUILD: ${{ inputs.release_build }}
+      DUO_HOST_CONTROL: '1'
     steps:
       - uses: actions/checkout@v4
       - name: Check hosted simulator runtime
@@ -59,6 +72,13 @@ jobs:
             echo
             for png in "apps/$APP/fastlane/screenshots/en-US"/*.png; do echo "- \`$(basename "$png")\`"; done
           } >> "$GITHUB_STEP_SUMMARY"
+      - name: Capture configured Duo screens in one app session
+        timeout-minutes: 30
+        run: |
+          python3 -m pip install -r scripts/requirements-screenshots.txt
+          scripts/ci/apple-desktop.sh scripts/capture-duo-screenshots.sh "$APP"
+          python3 scripts/stage-duo-screenshots.py "apps/$APP/screenshots.json" \
+            "build/duo-screenshots/$APP/raw" "apps/$APP/fastlane/screenshots/en-US"
       - uses: actions/upload-artifact@v4
         with:
           name: app-store-screenshots-${{ inputs.app }}
@@ -72,11 +92,15 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: screenshots-raw-${{ inputs.app }}
-          path: build/screenshots/${{ inputs.app }}/raw
+          path: |
+            build/screenshots/${{ inputs.app }}/raw
+            build/duo-screenshots/${{ inputs.app }}/raw
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: screenshot-test-results-${{ inputs.app }}
-          path: build/screenshots/${{ inputs.app }}/*.xcresult
+          path: |
+            build/screenshots/${{ inputs.app }}/*.xcresult
+            build/duo-screenshots/${{ inputs.app }}/raw/diagnostics
           if-no-files-found: ignore

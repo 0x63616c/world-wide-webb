@@ -30,7 +30,6 @@ done
 project=$(ruby scripts/app-config.rb "$app" project_path)
 scheme=$(ruby scripts/app-config.rb "$app" scheme)
 test_id=$(ruby scripts/app-config.rb "$app" duo_screenshot_test)
-capture_test_id=$(ruby scripts/app-config.rb "$app" duo_capture_test 2>/dev/null || printf '%s' "$test_id")
 name=$(ruby scripts/app-config.rb "$app" name)
 out=${2:-build/duo-screenshots/$app/raw}
 shift $(( $# > 1 ? 2 : 1 ))
@@ -90,7 +89,7 @@ cleanup() {
     # too, isolated by run and separate from the uploadable gallery.
     local item
     if mkdir -p "$evidence"; then
-      for item in "$work"/*.log "$work"/*.txt "$work"/*.json "$work"/*.plist "$work"/*.xcresult "$work/light" "$work/dark"; do
+      for item in "$work"/*.log "$work"/*.txt "$work"/*.json "$work"/*.plist "$work"/*.xcresult "$work/light" "$work/dark" "$work/capture"; do
         [[ -f "$item" || -d "$item" ]] || continue
         cp -R "$item" "$evidence/" || echo "Could not retain $item" >&2
       done
@@ -208,40 +207,44 @@ host_orientation=$(python3 -c 'import json,sys; print("1" if json.load(open(sys.
 xcodebuild build-for-testing -project "$project" -scheme "$scheme" \
   -destination "id=$udid" -derivedDataPath "$derived" "${screenshot_xcargs[@]}" -quiet
 
-appearance_test_id=$test_id
-for appearance in "${appearances[@]}"; do
-  xcrun simctl ui "$udid" appearance "$appearance"
-  xcrun simctl status_bar "$udid" override --time "9:41" \
-    --dataNetwork wifi --wifiMode active --wifiBars 3 \
-    --cellularMode active --cellularBars 4 --operatorName "" \
-    --batteryState discharging --batteryLevel 100
-  # Use a fresh handshake and staging directory, so old output cannot pass validation.
-  capture="$work/$appearance"
-  mkdir -p "$capture"
-  rm -f "$work/request.json" "$work/response.json"
-  python3 scripts/duo-simulator.py serve "$udid" "$work" --output "$capture" --appearance "$appearance" &
-  worker=$!
-  TEST_RUNNER_DUO_CONTROL_DIR="$work" TEST_RUNNER_DUO_CAN_FOLD="$fold" TEST_RUNNER_DUO_HOST_ORIENTATION="$host_orientation" \
-    xcodebuild test-without-building -project "$project" -scheme "$scheme" \
-    -destination "id=$udid" -derivedDataPath "$derived" -only-testing:"$appearance_test_id" \
-    -parallel-testing-enabled NO \
-    -test-timeouts-enabled YES -default-test-execution-time-allowance 300 -maximum-test-execution-time-allowance 900 \
-    -resultBundlePath "$work/DuoScreenshotTests-$appearance.xcresult"
-  kill "$worker" 2>/dev/null || true
-  wait "$worker" 2>/dev/null || true
-  worker=
-  # Behavior/state regressions run once; later appearances repeat capture only.
-  appearance_test_id=$capture_test_id
-  python3 - "$capture" "$work/plan.json" "$appearance" "$out" <<'PY'
+# Keep both appearances and both poses in the same XCTest/app session.
+# Group by appearance to avoid repeated appearance switches; staging owns gallery order.
+shots=$(python3 - "apps/$app/screenshots.json" "${appearances[@]}" <<'PYSHOTS'
+import json, sys
+shots = json.load(open(sys.argv[1]))["duo_shots"]
+selected = [shot for appearance in sys.argv[2:] for shot in shots if shot["appearance"] == appearance]
+if not selected:
+    sys.exit("No configured Duo screenshots match the requested appearances")
+print(json.dumps(selected))
+PYSHOTS
+)
+xcrun simctl status_bar "$udid" override --time "9:41" \
+  --dataNetwork wifi --wifiMode active --wifiBars 3 \
+  --cellularMode active --cellularBars 4 --operatorName "" \
+  --batteryState discharging --batteryLevel 100
+capture="$work/capture"
+mkdir -p "$capture"
+python3 scripts/duo-simulator.py serve "$udid" "$work" --output "$capture" --appearance "${appearances[0]}" &
+worker=$!
+TEST_RUNNER_DUO_CONTROL_DIR="$work" TEST_RUNNER_DUO_CAN_FOLD="$fold" TEST_RUNNER_DUO_HOST_ORIENTATION="$host_orientation" \
+TEST_RUNNER_DUO_CAPTURE_SHOTS="$shots" \
+  xcodebuild test-without-building -project "$project" -scheme "$scheme" \
+  -destination "id=$udid" -derivedDataPath "$derived" -only-testing:"$test_id" \
+  -parallel-testing-enabled NO \
+  -test-timeouts-enabled YES -default-test-execution-time-allowance 300 -maximum-test-execution-time-allowance 900 \
+  -resultBundlePath "$work/DuoScreenshotTests.xcresult"
+kill "$worker" 2>/dev/null || true
+wait "$worker" 2>/dev/null || true
+worker=
+python3 - "$capture" "$work/plan.json" "$shots" "$out" <<'PYEXPORT'
 import json, pathlib, shutil, struct, sys
-source, plan_path, appearance, output = sys.argv[1:]
+source, plan_path, shots_json, output = sys.argv[1:]
 plan = json.load(open(plan_path))
 mode = plan["mode"]
 poses = list(plan["displays"]) if mode in ("displays", "unmapped") else ["inner", "outer"] if mode == "fold" else ["default"]
-screens = ["home", "treatment", "progress", "journal", "settings", "log-dose", "landscape-home", "landscape-progress", "landscape-log-dose"]
 for pose in poses:
-    for screen in screens:
-        png = pathlib.Path(source) / f"{pose}-{appearance}-{screen}.png"
+    for shot in json.loads(shots_json):
+        png = pathlib.Path(source) / f"{pose}-{shot['appearance']}-{shot['screen']}.png"
         if not png.is_file():
             sys.exit(f"Missing screenshot: {png}")
         data = png.read_bytes()
@@ -252,8 +255,7 @@ for pose in poses:
             sys.exit(f"Empty PNG: {png}")
         print(f"{png.name}: {width}x{height}")
         shutil.copy2(png, pathlib.Path(output) / png.name)
-PY
-done
+PYEXPORT
 if [[ -n "$host_worker" ]]; then
   touch "$work/host-stop"
   wait "$host_worker"
