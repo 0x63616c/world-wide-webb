@@ -9,7 +9,8 @@ for current ownership; inspect live host state before operations.
 After the owner restarted and logged into the rebuilt Mini, host Tailscale and SSH
 were available at `admin@homelab-mac-mini.tail8c014d.ts.net`, but Bambuddy was offline
 and localhost ports 8000/4202 refused connections. Host uptime was approximately
-32 minutes. The installed system identified revision `ff0e21a`.
+32 minutes. Comin recorded installed WWW source
+`80e3328b53408ee1718ae3e9e054a1b6e607ac12` from `deploy/homelab`.
 
 The services VM hostagent reported VZ running, but its serial log was empty and
 guest SSH never became available. The Colima launchd job had retried 46 times;
@@ -32,7 +33,11 @@ stopped without replacing disks, allowing launchd to retry its declared start.
 A responsive guest is left running; active operations, interrupted transactions
 and maintenance holds defer recovery. Startup/recovery diagnostics are retained
 in `/var/log/homelab-colima.log`. Focused tests cover the observed failure and
-these recovery protections. Live installation and reboot acceptance are pending.
+these recovery protections. All 169 homelab tests (one existing skip) and 31
+handler tests pass. An isolated real-process fixture on the Mini's installed Nix
+Python/coreutils also passed the stale-Running recovery and verified the stop
+subprocess retained the operation lock. Live installation and reboot acceptance
+are pending.
 
 ## Read-only refresh — November 8, 2026
 
