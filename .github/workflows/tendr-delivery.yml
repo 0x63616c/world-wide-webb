@@ -192,5 +192,7 @@ jobs:
           build/review-status.txt
           apps/tendr/fastlane/screenshots/en-US/*.png
           build/duo-screenshots/tendr/raw/diagnostics
+          build/screenshots/tendr/*.xcresult
+          build/screenshots/tendr/raw
         if-no-files-found: ignore
     name: publish

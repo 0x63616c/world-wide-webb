@@ -36,13 +36,13 @@ echo "Using $runtime"
 
 udid=$(xcrun simctl create "$name Screenshots" "$device_type" "$runtime")
 trap 'xcrun simctl shutdown "$udid" >/dev/null 2>&1 || true; xcrun simctl delete "$udid" >/dev/null 2>&1 || true' EXIT
-scripts/boot-simulator.sh "$udid" 300
-
 xcodebuild build-for-testing -project "$project" -scheme "$scheme" \
   -destination "id=$udid" -derivedDataPath "$derived" "${screenshot_xcargs[@]}" -quiet
 
 rm -rf "$out" "build/screenshots/$app"/*.xcresult
 for appearance in "${appearances[@]}"; do
+  # A completed Xcode test session can leave its destination shut down.
+  scripts/boot-simulator.sh "$udid" 300
   xcrun simctl ui "$udid" appearance "$appearance"
   xcrun simctl status_bar "$udid" override --time "9:41" \
     --dataNetwork wifi --wifiMode active --wifiBars 3 \
@@ -51,7 +51,7 @@ for appearance in "${appearances[@]}"; do
   mkdir -p "$out/$appearance"
   TEST_RUNNER_SCREENSHOT_DIR="$PWD/$out/$appearance" xcodebuild test-without-building \
     -project "$project" -scheme "$scheme" -destination "id=$udid" -derivedDataPath "$derived" \
-    -only-testing:"$test_id" \
+    -only-testing:"$test_id" -parallel-testing-enabled NO \
     -test-timeouts-enabled YES -default-test-execution-time-allowance 300 -maximum-test-execution-time-allowance 600 \
     -resultBundlePath "build/screenshots/$app/${SCREENSHOT_TEST_KEY:-screenshot_test}-$appearance.xcresult" -quiet
 done
