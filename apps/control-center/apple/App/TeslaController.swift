@@ -16,7 +16,7 @@ struct TeslaController: View {
             ScrollView {
                 Group {
                     if geometry.size.width >= 900 {
-                        HStack(alignment: .center, spacing: 48) {
+                        HStack(alignment: .center, spacing: 80) {
                             vehicle
                             TeslaMileageView(provider: provider)
                         }
@@ -95,6 +95,18 @@ private struct TeslaMileageView: View {
     @State private var loading = true
     @State private var failed = false
 
+    private var dateDomain: ClosedRange<Date> {
+        let first = points.first?.date ?? .now
+        let last = points.last?.date ?? first
+        let padding = max(3600, last.timeIntervalSince(first) * 0.04)
+        return first.addingTimeInterval(-padding)...last.addingTimeInterval(padding)
+    }
+    private var mileageDomain: ClosedRange<Double> {
+        let minimum = points.map(\.miles).min() ?? 0
+        let maximum = points.map(\.miles).max() ?? minimum
+        let padding = max(1, (maximum - minimum) * 0.08)
+        return max(0, minimum - padding)...(maximum + padding)
+    }
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             if loading {
@@ -114,7 +126,8 @@ private struct TeslaMileageView: View {
                 }
                 .chartXAxis { AxisMarks { _ in AxisValueLabel() } }
                 .chartYAxis { AxisMarks { _ in AxisValueLabel() } }
-                .chartYScale(domain: .automatic(includesZero: false))
+                .chartXScale(domain: dateDomain)
+                .chartYScale(domain: mileageDomain)
                 .frame(height: 230)
                 .accessibilityLabel("Odometer history in miles")
                 .accessibilityIdentifier("tesla-mileage-chart")
