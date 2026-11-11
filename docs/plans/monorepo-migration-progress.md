@@ -1537,5 +1537,12 @@ the required assets. The replacement capture keeps one Tendr session across the 
 displays, uses the configured five screen/appearance pairs, and separates interaction tests
 from asset capture. The manual Screenshots workflow captures on the hosted runner to avoid
 interrupting the owner’s desktop. Local capture protocol checks (34) and release/export
-checks (6) pass. Native preview and visual approval remain required before submitting
-Tendr 1.1.1 build 7. No App Store submission is authorized before that image review.
+checks (6) pass. Native preview [42952537362](https://github.com/0x63616c/world-wide-webb/actions/runs/42952537362)
+passed: one app launch, one capture case (208.833 seconds), ten staged opaque native Duo
+images. The full hosted capture step took about 24 minutes, with cold setup/builds dominating.
+The six accurate phone frames from build 7 were reused. Required CI 42952542507 passed.
+The native run exposed a test selector that assumed a horizontal TabBar; the capture now
+selects the existing vertical-rail buttons directly, with no production app changes.
+PR #1023 contains the capture changes and supersedes #1022. The complete 16-image gallery
+is ready for owner review. App Store submission and merging remain pending; preserve the
+current build-7 release source until promotion is complete.
