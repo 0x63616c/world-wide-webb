@@ -4,6 +4,16 @@ Repository consolidation is complete. Active issues belong to `0x63616c/world-wi
 references below to old `folding` issue/PR numbers are historical. That source repository
 was snapshotted into private `github-archive` and deleted by owner request.
 
+## App Store country policy — November 11, 2026
+
+Version 1.0.0 is publicly listed in the US and UK. Apple reported 173 available
+territories and contests restrictions in Afghanistan and Morocco. Country selection
+is now owned by `fastlane/app-availability.json`, with those two territories excluded
+and future storefronts enabled. The existing Fastlane availability command reconciles
+and reads back the policy; automatic App Store releases apply it before listing work.
+Release invariants passed locally: 57 tests, 741 assertions. Live reconciliation is
+pending merge and required CI checks.
+
 ## Production-only cleanup — November 10, 2026
 
 The owner requested deletion of the staging app, data and infrastructure. All three

@@ -159,6 +159,7 @@ module FoldingRelease
       # Stop before capture or review mutations when release prerequisites fail.
       FoldingRelease.live_prerequisites!(record)
       ensure_app_configuration(record)
+      FoldingTipProducts.configure_app_availability
       mark_source(record)
       Operations.assets(context, record)
       preflight(record)

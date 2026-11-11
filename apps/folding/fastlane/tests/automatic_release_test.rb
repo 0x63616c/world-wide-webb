@@ -74,15 +74,17 @@ class AutomaticReleaseTest < Minitest::Test
       sequence << :withdraw
       raise ReleasePipeline::Deferred, "Review started; preserve it"
     end
-    Release.stub(:ensure_app_configuration, nil) do
-      ReleaseSource.stub(:current!, nil) do
-        FoldingRelease.stub(:live_prerequisites!, nil) do
-          Release.stub(:mark_source, ->(_) { sequence << :mark }) do
-            FoldingRelease::Operations.stub(:assets, ->(*) { sequence << :assets }) do
-              Release.stub(:preflight, ->(_) { sequence << :verified }) do
-                Release.stub(:planner, pending) do
-                  FoldingRelease::Operations.stub(:storefront, ->(*) { flunk "Review must remain untouched" }) do
-                    assert_raises(ReleasePipeline::Deferred) { Release.finish(nil, record) }
+    FoldingTipProducts.stub(:configure_app_availability, -> { sequence << :availability }) do
+      Release.stub(:ensure_app_configuration, nil) do
+        ReleaseSource.stub(:current!, nil) do
+          FoldingRelease.stub(:live_prerequisites!, nil) do
+            Release.stub(:mark_source, ->(_) { sequence << :mark }) do
+              FoldingRelease::Operations.stub(:assets, ->(*) { sequence << :assets }) do
+                Release.stub(:preflight, ->(_) { sequence << :verified }) do
+                  Release.stub(:planner, pending) do
+                    FoldingRelease::Operations.stub(:storefront, ->(*) { flunk "Review must remain untouched" }) do
+                      assert_raises(ReleasePipeline::Deferred) { Release.finish(nil, record) }
+                    end
                   end
                 end
               end
@@ -91,7 +93,7 @@ class AutomaticReleaseTest < Minitest::Test
         end
       end
     end
-    assert_equal [:mark, :assets, :verified, :withdraw], sequence
+    assert_equal [:availability, :mark, :assets, :verified, :withdraw], sequence
   end
 end
 
