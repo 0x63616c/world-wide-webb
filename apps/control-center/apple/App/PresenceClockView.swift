@@ -9,7 +9,7 @@ enum PanelClockFace: String, CaseIterable {
 
 /// The clock face, after Apple HomeView's green numeral clock (Apple Newsroom,
 /// 13 Oct 2026): a full-bleed green field, four huge black cardinal numerals
-/// pushed to the screen edges, white hands and a small date. No complications.
+/// pushed to the screen edges, white hands and small date, time and weather details.
 struct PresenceClockFace: View {
     let store: any HomeDataSource
     var face: PanelClockFace = .green
@@ -33,7 +33,9 @@ struct PresenceClockFace: View {
             switch face {
             case .green:
                 night ? Color.black : GreenClockDial.green
-                GreenClockDial(date: now, night: night)
+                GreenClockDial(
+                    date: now, night: night,
+                    weather: store.status(for: .weather) == .live ? store.weather : nil)
             case .tide:
                 TideClockDial(date: now, night: night)
             }
@@ -66,6 +68,7 @@ struct GreenClockDial: View {
     let date: Date
     var numeralsOnly = false
     var night = false
+    var weather: WeatherState?
     private var ink: Color { night ? Color(red: 0.94, green: 0.21, blue: 0.23) : .black }
     private var handColor: Color { night ? Color(white: 0.9) : .white }
 
@@ -123,7 +126,14 @@ struct GreenClockDial: View {
                         .font(.system(size: max(17, face.height * 0.042), weight: .semibold))
                         .monospacedDigit().foregroundStyle(ink)
                         .frame(width: face.width - 2 * layout.inset, alignment: .trailing)
-                        .position(x: face.midX, y: face.minY + face.height * 0.915)
+                        .position(x: face.midX, y: face.minY + face.height * 0.07)
+                    if let weather {
+                        Text("H:\(weather.high) L:\(weather.low)")
+                            .font(.system(size: max(17, face.height * 0.042), weight: .semibold))
+                            .monospacedDigit().foregroundStyle(ink)
+                            .frame(width: face.width - 2 * layout.inset, alignment: .trailing)
+                            .position(x: face.midX, y: face.minY + face.height * 0.915)
+                    }
                     Text(fixtureTime(date, format: "EEE d MMM").uppercased())
                         .font(.system(size: max(17, face.height * 0.042), weight: .semibold))
                         .foregroundStyle(ink).fixedSize()
