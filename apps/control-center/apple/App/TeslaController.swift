@@ -70,10 +70,6 @@ struct TeslaController: View {
                     .accessibilityLabel(reported ? "Last reported lock state" : "Door lock")
                     .accessibilityValue(data.locked ? "Locked" : "Unlocked")
                     .accessibilityIdentifier("tesla-lock-status")
-                Spacer(minLength: 16)
-                Text("\(data.odo) mi").font(.callout).monospacedDigit().foregroundStyle(.secondary)
-                    .accessibilityLabel("Odometer, \(data.odo) miles")
-                    .accessibilityIdentifier("tesla-odometer")
             }
             if reported {
                 Label("Last reported", systemImage: "clock.arrow.circlepath")
@@ -101,7 +97,16 @@ private struct TeslaMileageView: View {
     }
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Mileage").font(.title2.weight(.semibold))
+            if !provider.data.odo.isEmpty {
+                Text("\(selectedPoint.map { Int($0.miles.rounded()).formatted() } ?? provider.data.odo) mi")
+                    .font(.title.weight(.medium)).monospacedDigit()
+                    .accessibilityLabel("Odometer")
+                    .accessibilityIdentifier("tesla-odometer")
+            }
+            if let point = selectedPoint {
+                Text(point.date, format: .dateTime.month(.abbreviated).day().year().hour().minute())
+                    .font(.callout).foregroundStyle(.secondary)
+            }
             if loading {
                 ProgressView().frame(maxWidth: .infinity, minHeight: 230)
             } else if failed {
@@ -113,22 +118,17 @@ private struct TeslaMileageView: View {
                 Text("No mileage history yet").foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, minHeight: 230, alignment: .leading)
             } else {
-                if let point = selectedPoint ?? points.last {
-                    Text("\(Int(point.miles.rounded()).formatted()) mi")
-                        .font(.title.weight(.medium)).monospacedDigit()
-                    Text(point.date, format: .dateTime.month(.abbreviated).day().year().hour().minute())
-                        .font(.callout).foregroundStyle(.secondary)
-                }
                 Chart(points) { point in
                     LineMark(x: .value("Date", point.date), y: .value("Odometer (miles)", point.miles))
                         .foregroundStyle(.primary)
                 }
+                .chartXAxis { AxisMarks { _ in AxisValueLabel() } }
+                .chartYAxis { AxisMarks { _ in AxisValueLabel() } }
                 .chartYScale(domain: .automatic(includesZero: false))
                 .chartXSelection(value: $selected)
                 .frame(height: 230)
                 .accessibilityLabel("Odometer history in miles")
                 .accessibilityIdentifier("tesla-mileage-chart")
-                Text("Hourly readings").font(.caption).foregroundStyle(.secondary)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)

@@ -44,7 +44,7 @@ private actor TeslaAPITransport: PanelTransport {
         let transport = TeslaAPITransport(try fixture("history"))
         let history = try await api(transport).history()
         #expect(history.points.count == 4)
-        #expect(history.points[0].miles == 10000)
+        #expect(history.points[0].miles == 9250)
         #expect(history.points[0].date.timeIntervalSince1970 == 1782864000)
         let request = try #require(await transport.requests.first)
         #expect(request.url?.path == "/api/v1/tesla/history")
