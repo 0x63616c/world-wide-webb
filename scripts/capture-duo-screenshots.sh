@@ -165,10 +165,12 @@ ENTITLEMENTSPY
     echo "Device Hub is already running; refusing to replace another session" >&2
     exit 1
   fi
-  "${DEVELOPER_DIR%/Developer}/Applications/DeviceHub.app/Contents/MacOS/DeviceHub" \
+  developer_dir=${DEVELOPER_DIR:-$(xcode-select -p)}
+  host_application="${developer_dir%/Developer}/Applications/DeviceHub.app"
+  "$host_application/Contents/MacOS/DeviceHub" \
     > "$work/host-application.log" 2>&1 &
   host_application_worker=$!
-  TEST_RUNNER_DUO_HOST_APPLICATION_PATH="${DEVELOPER_DIR%/Developer}/Applications/DeviceHub.app" \
+  TEST_RUNNER_DUO_HOST_APPLICATION_PATH="$host_application" \
   TEST_RUNNER_DUO_HOST_APPLICATION_PID="$host_application_worker" \
   TEST_RUNNER_DUO_HOST_CONTROL_DIR="$work" TEST_RUNNER_DUO_HOST_DEVICE_NAME="$simulator_name" \
   TEST_RUNNER_DUO_HOST_DEVICE_ID="$udid" \
