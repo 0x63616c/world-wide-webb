@@ -96,3 +96,53 @@ fn production_start_never_reinitializes_an_empty_existing_database() {
     assert!(!output.status.success());
     assert_eq!(std::fs::metadata(path).unwrap().len(), 0);
 }
+
+#[tokio::test]
+async fn migration_removes_walk_records_and_keeps_other_data() {
+    let dir = tempfile::tempdir().unwrap();
+    let migrations = dir.path().join("old-migrations");
+    std::fs::create_dir(&migrations).unwrap();
+    for file in ["0001_core.sql", "0002_retained_features.sql"] {
+        std::fs::copy(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("migrations")
+                .join(file),
+            migrations.join(file),
+        )
+        .unwrap();
+    }
+    let path = dir.path().join("test.sqlite");
+    let pool = sqlx::SqlitePool::connect(&format!("sqlite://{}?mode=rwc", path.display()))
+        .await
+        .unwrap();
+    sqlx::migrate::Migrator::new(migrations.as_path())
+        .await
+        .unwrap()
+        .run(&pool)
+        .await
+        .unwrap();
+    sqlx::query("INSERT INTO walk(id, started_at, source, created_at, updated_at) VALUES ('historic', '2026-01-01', 'ipad', '2026-01-01', '2026-01-01')").execute(&pool).await.unwrap();
+    sqlx::query(
+        "INSERT INTO settings(id, value, updated_at_utc) VALUES ('fixture', '{}', '2026-01-01')",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    pool.close().await;
+    storage::validate(&path).await.unwrap();
+    let upgraded = storage::open(&path).await.unwrap();
+    let walk_tables: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = 'walk'",
+    )
+    .fetch_one(&upgraded)
+    .await
+    .unwrap();
+    let settings: i64 = sqlx::query_scalar("SELECT count(*) FROM settings WHERE id = 'fixture'")
+        .fetch_one(&upgraded)
+        .await
+        .unwrap();
+    assert_eq!(walk_tables, 0);
+    assert_eq!(settings, 1);
+    upgraded.close().await;
+    storage::validate(&path).await.unwrap();
+}

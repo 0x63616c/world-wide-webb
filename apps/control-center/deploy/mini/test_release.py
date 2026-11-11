@@ -22,7 +22,7 @@ class ReleaseTests(unittest.TestCase):
         (self.root / "sqlite").mkdir()
         self.db = self.root / "sqlite/control-center.sqlite"
         with sqlite3.connect(self.db) as db:
-            for table in ["settings", "booth_photo", "walk", "_sqlx_migrations"]:
+            for table in ["settings", "booth_photo", "_sqlx_migrations"]:
                 db.execute(f'CREATE TABLE "{table}"(id INTEGER)')
         db.close()
         for name in ["sqlite_preflight.py", "sqlite_snapshot.py", "tailscale_serve.py"]:

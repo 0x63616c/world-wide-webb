@@ -22,7 +22,7 @@ pub async fn validate(path: &Path) -> Result<(), sqlx::Error> {
                 "SQLite integrity check failed".into(),
             ));
         }
-        for table in ["settings", "booth_photo", "walk", "_sqlx_migrations"] {
+        for table in ["settings", "booth_photo", "_sqlx_migrations"] {
             let count: (i64,) =
                 sqlx::query_as("SELECT count(*) FROM sqlite_master WHERE type='table' AND name=?")
                     .bind(table)

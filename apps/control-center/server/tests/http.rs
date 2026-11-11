@@ -62,10 +62,8 @@ async fn tailnet_api_requires_no_app_credentials_and_health_is_real() {
     );
 }
 #[tokio::test]
-async fn retired_walk_routes_do_not_expose_preserved_records() {
-    let (_dir, app, db) = fixture().await;
-    sqlx::query("INSERT INTO walk(id, started_at, source, created_at, updated_at) VALUES ('historic', '2026-01-01', 'ipad', '2026-01-01', '2026-01-01')")
-        .execute(&db).await.unwrap();
+async fn retired_walk_routes_are_unavailable() {
+    let (_dir, app, _db) = fixture().await;
     for (method, path) in [
         ("GET", "/api/v1/walks/state"),
         ("GET", "/api/v1/walks/history"),
@@ -79,11 +77,6 @@ async fn retired_walk_routes_do_not_expose_preserved_records() {
             StatusCode::NOT_FOUND
         );
     }
-    let count: i64 = sqlx::query_scalar("SELECT count(*) FROM walk WHERE id = 'historic'")
-        .fetch_one(&db)
-        .await
-        .unwrap();
-    assert_eq!(count, 1);
 }
 #[tokio::test]
 async fn notification_cursor_observes_deduplication_and_dismissal() {

@@ -111,4 +111,4 @@ matched benchmark or whole-host resource improvement is claimed. No required mig
 
 ## Dog Walker removal
 
-The Dog Walker launcher, client integration and server API are removed. Existing SQLite walk records and migration history remain preserved.
+The Dog Walker launcher, client integration and server API are removed. A forward migration removes the walk table and its records; prior migrations remain unchanged.
