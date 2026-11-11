@@ -20,6 +20,8 @@ public struct TrackingDiagnosticEntry: Codable, Equatable, Sendable {
     case sessionRefreshJoined = "session_refresh_joined"
     case sessionRefreshCompleted = "session_refresh_completed"
     case sessionRefreshFailed = "session_refresh_failed"
+    case sessionAuthenticationRequired = "session_authentication_required"
+    case sessionRefreshRecovered = "session_refresh_recovered"
     case signingBusy = "signing_busy"
     case attestationKeyGenerationStarted = "attestation_key_generation_started"
     case attestationKeyGenerated = "attestation_key_generated"
@@ -62,6 +64,7 @@ public struct TrackingDiagnosticEntry: Codable, Equatable, Sendable {
   }
   public enum Route: String, Codable, Sendable {
     case account, auth, attestation, events, history, reset, leaderboard, profile, avatars
+    case authRefresh = "auth_refresh"
     case attestationChallenge = "attestation_challenge"
     case attestationEnrollment = "attestation_enrollment"
     case milestones, results, notifications, health, other

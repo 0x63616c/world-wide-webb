@@ -389,6 +389,7 @@ enum ExportChoice { case json, csv }
   var historyLoading = false
   var historyFailed = false
   var competitionRemoval: CompetitionRemovalState?
+  var competitionAuthenticationRequired = false
   var competitionProfile: CompetitionProfile?
   var ownerMilestones: OwnerMilestones?
   var milestonesContext = UUID()
@@ -625,12 +626,18 @@ enum ExportChoice { case json, csv }
           nextCursor: page.nextCursor, snapshotVersion: page.snapshotVersion,
           periodID: page.periodID)
       }
+      competitionAuthenticationRequired = false
       competition = .loaded(value)
       leaderboardLoadedPeriod = period
       leaderboardLoadingMore = false
     } catch {
       guard request == competitionRequest, period == competitionPeriod else { return }
       leaderboardLoadingMore = false
+      if case CompetitionTransportError.unauthorized = error {
+        competitionAuthenticationRequired = true
+        competition = .notJoined
+        return
+      }
       if nextPage, case LeaderboardPageError.snapshotChanged = error {
         competition = .loading(previous)
         leaderboardLoadedPeriod = nil

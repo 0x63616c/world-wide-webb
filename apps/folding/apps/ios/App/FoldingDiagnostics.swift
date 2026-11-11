@@ -64,6 +64,7 @@ enum FoldingDiagnostics {
     switch path {
     case "/v1/attestation/challenges": return .attestationChallenge
     case "/v1/attestation/keys": return .attestationEnrollment
+    case "/v1/auth/refresh": return .authRefresh
     case "/v1/me": return .account
     case "/v1/health", "/v1/capabilities", "/v1/client-policy": return .health
     case "/v1/event-batches": return .events

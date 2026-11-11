@@ -260,6 +260,16 @@ import XCTest
     XCTAssertEqual(model.competition.previous?.periodTitle, "New month")
   }
 
+  func testLeaderboardRequiresSignInAfterRejectedSession() async {
+    let model = FoldingPresentation()
+    model.competition = .loaded(leaderboard("Before"))
+    var actions = actions()
+    actions.loadLeaderboard = { _ in throw CompetitionTransportError.unauthorized }
+    await model.requestLeaderboard(using: actions)
+    XCTAssertTrue(model.competitionAuthenticationRequired)
+    if case .notJoined = model.competition {} else { XCTFail("Expected sign-in recovery") }
+  }
+
   func testLeaderboardRefreshDoesNotRestoreOldResultsAfterFailure() async throws {
     let model = FoldingPresentation()
     model.competition = .loaded(leaderboard("Old week"))

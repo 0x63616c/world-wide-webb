@@ -1,12 +1,12 @@
 //! Session policy and atomic fences. Secret generation/encryption are runtime responsibilities.
-//! Rotated-token hashes stay until the family expires, even after its 60-second receipt is purged.
+//! Rotated-token hashes stay until the family expires, even after its recovery receipt is purged.
 use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 use sha2::{Digest, Sha256};
 
 pub const ACCESS_LIFETIME_MS: i64 = 15 * 60 * 1000;
 pub const IDLE_LIFETIME_MS: i64 = 30 * 24 * 60 * 60 * 1000;
 pub const MAX_LIFETIME_MS: i64 = 90 * 24 * 60 * 60 * 1000;
-pub const RETRY_LIFETIME_MS: i64 = 60 * 1000;
+pub const RETRY_LIFETIME_MS: i64 = IDLE_LIFETIME_MS;
 pub const SCHEMA: &str = include_str!("../../../migrations/0002_sessions.sql");
 
 /// Hash only cryptographically random, canonical 32-byte bearer material. Never log input.
@@ -61,6 +61,9 @@ pub fn decide_refresh(
         {
             RefreshDecision::ReturnEncryptedReceipt
         }
+        (Some(previous), Some(_)) if previous == operation_id => {
+            RefreshDecision::AuthenticationRequired
+        }
         _ => RefreshDecision::RevokeFamily,
     }
 }
@@ -91,6 +94,23 @@ pub const REVOKE_FAMILY_SQL: &str = "UPDATE sessions SET revoked=1 WHERE session
 mod tests {
     use super::*;
     #[test]
+    fn lost_refresh_response_can_be_recovered_after_offline_period() {
+        let state = RefreshState {
+            revoked: false,
+            deployment: "production",
+            absolute_expires_at_ms: 4_000_000_000,
+            idle_expires_at_ms: 4_000_000_000,
+            rotated_operation_id: Some("op"),
+            rotated_at_ms: Some(100),
+            receipt_operation_id: Some("op"),
+            receipt_expires_at_ms: Some(4_000_000_000),
+        };
+        assert_eq!(
+            decide_refresh(&state, "production", "op", 120_100),
+            RefreshDecision::ReturnEncryptedReceipt
+        );
+    }
+    #[test]
     fn refresh_recovery_is_short_scoped_and_reuse_revokes() {
         let mut state = RefreshState {
             revoked: false,
@@ -109,14 +129,14 @@ mod tests {
         state.rotated_operation_id = Some("op");
         state.rotated_at_ms = Some(100);
         state.receipt_operation_id = Some("op");
-        state.receipt_expires_at_ms = Some(60100);
+        state.receipt_expires_at_ms = Some(1000000);
         assert_eq!(
             decide_refresh(&state, "production", "op", 60099),
             RefreshDecision::ReturnEncryptedReceipt
         );
         assert_eq!(
-            decide_refresh(&state, "production", "op", 60100),
-            RefreshDecision::RevokeFamily
+            decide_refresh(&state, "production", "op", 1000000),
+            RefreshDecision::AuthenticationRequired
         );
         assert_eq!(
             decide_refresh(&state, "production", "other", 101),
