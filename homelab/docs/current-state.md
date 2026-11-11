@@ -4,6 +4,41 @@ Source consolidation is complete: both Macs and CLI delivery use WWW. Old-reposi
 below are historical observations. See the [migration record](../../docs/plans/monorepo-migration-progress.md)
 for current ownership; inspect live host state before operations.
 
+## Restart incident — November 11, 2026
+
+After the owner restarted and logged into the rebuilt Mini, host Tailscale and SSH
+were available at `admin@homelab-mac-mini.tail8c014d.ts.net`, but Bambuddy was offline
+and localhost ports 8000/4202 refused connections. Host uptime was approximately
+32 minutes. Comin recorded installed WWW source
+`80e3328b53408ee1718ae3e9e054a1b6e607ac12` from `deploy/homelab`.
+
+The services VM hostagent reported VZ running, but its serial log was empty and
+guest SSH never became available. The Colima launchd job had retried 46 times;
+`colima list` still reported Running. Home Assistant's independent VM and container
+had started successfully. This establishes a stalled services-guest boot; the
+underlying VZ/EFI cause remains unconfirmed.
+
+Recovery unloaded only `org.nixos.homelab-colima`, ran `colima stop services --force`
+as `_containers`, then reloaded the existing launchd plist. The guest booted and
+existing containers restarted automatically. No VM disks, volumes, identities,
+maintenance holds or launchd definitions were replaced. Bambuddy, Control Center,
+Penpot and HA returned HTTP 200; the private Control Center HTTPS health route also
+returned 200 and Bambuddy's Tailscale node returned online.
+
+The assigned-service health command also passed after recovery. Repeated
+`colima start` calls did not recover the guest marked Running while unable to boot.
+The startup supervisor now waits up to three minutes for Docker, then rechecks
+Docker and guest SSH under the shared operation lock. An unreachable guest is
+stopped without replacing disks, allowing launchd to retry its declared start.
+A responsive guest is left running; active operations, interrupted transactions
+and maintenance holds defer recovery. Startup/recovery diagnostics are retained
+in `/var/log/homelab-colima.log`. Focused tests cover the observed failure and
+these recovery protections. All 169 homelab tests (one existing skip) and 31
+handler tests pass. An isolated real-process fixture on the Mini's installed Nix
+Python/coreutils also passed the stale-Running recovery and verified the stop
+subprocess retained the operation lock. Live installation and reboot acceptance
+are pending.
+
 ## Read-only refresh — November 8, 2026
 
 Live SSH inspection used the existing trusted names `calum@homelab` and
