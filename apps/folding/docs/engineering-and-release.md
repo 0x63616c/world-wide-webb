@@ -57,7 +57,7 @@ No infrastructure has been provisioned and no monthly budget is agreed.
 
 Repository-owned assets/configuration:
 
-- Localized names, subtitles, descriptions, keywords, release notes, and screenshot captions.
+- Localized names, subtitles, descriptions, keywords, release notes, and actual simulator-screen screenshots.
 - Review instructions and relevant support/privacy URLs and disclosures.
 - Screenshot UI tests, deterministic demo fixtures, and reproducible presentation templates if marketing frames are used.
 - Fastlane lanes, GitHub workflows, signing setup instructions, and release versioning rules.

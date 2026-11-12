@@ -41,115 +41,95 @@ module FoldingRelease
       FoldingRelease.atomic_json(File.join(record.directory, "assets/metadata-manifest.json"), manifest)
     end
 
-    def self.capture(context, record, review_only: false, preview: false)
+    def self.capture(context, record, review_only: false)
       record.verify_identity!
       FoldingRelease.clean_commit!
-      raise "Preview captures require a separate preview record" if preview && record.data["purpose"] != "preview"
       output = File.join(record.directory, "assets")
-      if review_only && File.exist?(File.join(output, "tip-review-manifest.json"))
-        return validate_tip_review!(record)
-      end
+      return validate_tip_review!(record) if review_only && File.exist?(File.join(output, "tip-review-manifest.json"))
       raise "Screenshot manifest already exists; reuse verified assets" if File.exist?(File.join(output, "screenshot-manifest.json"))
       FileUtils.mkdir_p(output)
-      name = "Folding Capture #{SecureRandom.hex(6)}"
-      device = FoldingRelease.run("xcrun", "simctl", "create", name, PLAN.fetch("device_type"), PLAN.fetch("runtime"))
       entries = []
-      controller = nil
-      begin
-        puts JSON.generate({"event" => "storefront_capture", "stage" => "booting_device", "device_name" => name})
-        FoldingRelease.run("xcrun", "simctl", "boot", device)
-        FoldingRelease.run("xcrun", "simctl", "bootstatus", device, "-b")
-        puts JSON.generate({"event" => "storefront_capture", "stage" => "device_booted", "device_name" => name})
-        FoldingRelease.run("xcrun", "simctl", "ui", device, "appearance", PLAN.fetch("appearance"))
-        FoldingRelease.run("xcrun", "simctl", "status_bar", device, "override", "--time", "9:41", "--batteryState", "charged", "--batteryLevel", "100")
-        controller = DuoHost.new(directory: File.join(output, "native-control"), device_name: name, device_id: device).start if ENV["DUO_HOST_CONTROL"] == "1"
-        PLAN.fetch("devices").reverse_each do |display|
-          next if (review_only || preview) && display.fetch("id") != "duo-outer"
-          request_native_pose(output, device, name, display, controller: controller)
+      displays = PLAN.fetch("devices").select { |display| !review_only || display.fetch("id") == "duo-outer" }
+      runtimes = JSON.parse(FoldingRelease.run("xcrun", "simctl", "list", "runtimes", "-j")).fetch("runtimes")
+      displays.group_by { |display| display.fetch("device_type", PLAN.fetch("device_type")) }.each do |type, group|
+        runtime = group.first.fetch("runtime", PLAN.fetch("runtime"))
+        runtime_build = group.first.fetch("runtime_build", PLAN.fetch("runtime_build"))
+        installed = runtimes.find { |item| item["identifier"] == runtime && item["isAvailable"] }
+        raise "Required screenshot runtime unavailable: #{runtime} (#{runtime_build})" unless installed && installed["buildversion"] == runtime_build
+        name = "Folding Capture #{SecureRandom.hex(6)}"
+        device = FoldingRelease.run("xcrun", "simctl", "create", name, type, runtime)
+        controller = nil
+        begin
+          puts JSON.generate({"event" => "storefront_capture", "stage" => "booting_device", "device_name" => name, "device_type" => type})
+          FoldingRelease.run("xcrun", "simctl", "boot", device)
+          FoldingRelease.run("xcrun", "simctl", "bootstatus", device, "-b")
+          FoldingRelease.run("xcrun", "simctl", "status_bar", device, "override", "--time", "9:41", "--dataNetwork", "wifi", "--wifiMode", "active", "--wifiBars", "3", "--cellularMode", "active", "--cellularBars", "4", "--operatorName", "", "--batteryState", "discharging", "--batteryLevel", "100")
+          native_directory = File.join(output, "native-control")
+          if group.any? { |display| display.fetch("id").start_with?("duo-") }
+            controller = DuoHost.new(directory: native_directory, device_name: name, device_id: device).start
+          end
           LOCALES.each do |locale|
-            next if (review_only || preview) && locale.fetch("storefront_locale") != "en-US"
-            export = File.join(output, "raw", display.fetch("id"), locale.fetch("storefront_locale"))
-            result = File.join(output, "results", "#{display.fetch('id')}-#{locale.fetch('storefront_locale')}.xcresult")
-            tests = review_only ? [] : ["#{PLAN.fetch('test_target')}/StorefrontRenderTests/#{display.fetch('id') == 'duo-outer' ? 'testRenderOuter' : 'testRenderInner'}"]
-            if !preview && locale.fetch("storefront_locale") == "en-US" && display.fetch("id") == "duo-outer"
-              tests << "#{PLAN.fetch('test_target')}/StorefrontRenderTests/testRenderTipReview"
+            next if review_only && locale.fetch("storefront_locale") != "en-US"
+            scenes = review_only ? [] : PLAN.fetch("scenarios")
+            reviews = PLAN.fetch("review_scenarios").select { |scene| group.any? { |display| display["id"] == scene["device_id"] } && scene["storefront_locale"] == locale["storefront_locale"] }
+            scenes = scenes + reviews.map { |scene| {"id" => scene.fetch("id"), "appearance" => "light", "device_id" => scene.fetch("device_id")} }
+            export = File.join(output, "raw", group.first.fetch("id"), locale.fetch("storefront_locale"))
+            result = File.join(output, "results", "#{group.first.fetch('id')}-#{locale.fetch('storefront_locale')}.xcresult")
+            environment = {
+              "TEST_RUNNER_FOLDING_CAPTURE_DISPLAYS" => JSON.generate(group.reverse),
+              "TEST_RUNNER_FOLDING_CAPTURE_SCENES" => JSON.generate(scenes),
+              "TEST_RUNNER_FOLDING_CAPTURE_LOCALE" => locale.fetch("app_locale"),
+              "TEST_RUNNER_FOLDING_CAPTURE_REGION" => locale.fetch("test_region"),
+              "TEST_RUNNER_DUO_HOST_CONTROL_DIR" => controller ? native_directory : nil
+            }
+            previous = environment.keys.to_h { |key| [key, ENV[key]] }
+            begin
+              environment.each { |key, value| ENV[key] = value }
+              puts JSON.generate({"event" => "storefront_capture", "stage" => "capturing_screens", "displays" => group.map { |display| display.fetch("id") }, "locale" => locale.fetch("storefront_locale")})
+              context.run_tests(
+                project: File.join(ROOT, "apps/ios/Folding.xcodeproj"), scheme: PLAN.fetch("scheme"),
+                configuration: PLAN.fetch("configuration"), destination: "platform=iOS Simulator,id=#{device}",
+                only_testing: ["#{PLAN.fetch('test_target')}/StorefrontCaptureTests/testCaptureScreens"],
+                derived_data_path: File.join(ROOT, "build/screenshot-release"),
+                result_bundle: true, result_bundle_path: result,
+                output_directory: File.join(output, "logs", group.first.fetch("id"), locale.fetch("storefront_locale")),
+                xcargs: "-testLanguage #{locale.fetch('app_locale')} -testRegion #{locale.fetch('test_region')}",
+                parallel_testing: false, concurrent_workers: 1, skip_slack: true, xcodebuild_formatter: ""
+              )
+            ensure
+              previous.each { |key, value| ENV[key] = value }
             end
-            # Execute actual UIKit views in XCTest, without launching/navigating simulator UI.
-            context.run_tests(
-              project: File.join(ROOT, "apps/ios/Folding.xcodeproj"), scheme: PLAN.fetch("scheme"),
-              configuration: PLAN.fetch("configuration"), destination: "platform=iOS Simulator,id=#{device}",
-              only_testing: tests, derived_data_path: File.join(ROOT, "build/screenshot-release"),
-              result_bundle: true, result_bundle_path: result,
-              output_directory: File.join(output, "logs", display.fetch("id"), locale.fetch("storefront_locale")),
-              xcargs: "-testLanguage #{locale.fetch('app_locale')} -testRegion #{locale.fetch('test_region')}",
-              parallel_testing: false, concurrent_workers: 1, skip_slack: true, xcodebuild_formatter: ""
-            )
             FoldingRelease.run("xcrun", "xcresulttool", "export", "attachments", "--path", result, "--output-path", export)
             attachments = FoldingRelease.read_json(File.join(export, "manifest.json")).flat_map { |test| test.fetch("attachments") }
-            find_capture = lambda do |display, scene|
-              prefix = "storefront-#{locale.fetch('app_locale')}-#{display.fetch('id')}-#{scene.fetch('id')}_"
-              matches = attachments.select { |item| item.fetch("suggestedHumanReadableName").start_with?(prefix) && item.fetch("exportedFileName").end_with?(".png") }
-              raise "Missing/duplicate direct capture: #{prefix}" unless matches.length == 1
-              path = File.join(export, matches.first.fetch("exportedFileName"))
-              raise "Wrong direct capture dimensions" unless png_size(path) == display.values_at("pixel_width", "pixel_height")
-              path
-            end
-            (review_only ? [] : PLAN.fetch("scenarios")).each do |scene|
-              entries << compose(record, find_capture.call(display, scene), display, locale, scene)
-            end
-            (preview ? [] : PLAN.fetch("review_scenarios")).select { |scene| scene["device_id"] == display["id"] && scene["storefront_locale"] == locale["storefront_locale"] }.each do |scene|
-              package_tip_review(record, find_capture.call(display, scene), display, locale, scene)
+            group.each do |display|
+              find_capture = lambda do |scene|
+                prefix = "storefront-#{locale.fetch('app_locale')}-#{display.fetch('id')}-#{scene.fetch('id')}_"
+                matches = attachments.select { |item| item.fetch("suggestedHumanReadableName").start_with?(prefix) && item.fetch("exportedFileName").end_with?(".png") }
+                raise "Missing/duplicate native screen capture: #{prefix}" unless matches.one?
+                path = File.join(export, matches.first.fetch("exportedFileName"))
+                raise "Wrong native screen dimensions: #{prefix}" unless png_size(path) == display.values_at("pixel_width", "pixel_height")
+                path
+              end
+              (review_only ? [] : PLAN.fetch("scenarios")).each do |scene|
+                entries << stage_capture(record, find_capture.call(scene), display, locale, scene)
+              end
+              reviews.select { |scene| scene["device_id"] == display["id"] }.each do |scene|
+                package_tip_review(record, find_capture.call(scene), display, locale, scene)
+              end
             end
           end
+        ensure
+          controller&.close
+          system("xcrun", "simctl", "shutdown", device, out: File::NULL, err: File::NULL)
+          system("xcrun", "simctl", "delete", device, out: File::NULL, err: File::NULL)
         end
-        (review_only || preview ? [] : PLAN.fetch("additional_upload_slots")).each do |slot|
-          LOCALES.each do |locale|
-            source = entries.find { |entry| entry["device_id"] == slot.fetch("source_device_id") && entry["scenario_id"] == slot.fetch("scenario_id") && entry["storefront_locale"] == locale.fetch("storefront_locale") }
-            scenario = PLAN.fetch("scenarios").find { |item| item["id"] == slot.fetch("scenario_id") }
-            display = slot.merge("model" => "Duo capture in App Store medium canvas")
-            entries << compose(record, File.join(output, source.fetch("raw_path")), display, locale, scenario)
-          end
-        end
-        if review_only
-          return validate_tip_review!(record)
-        end
-        manifest = {"schema_version" => 1, "commit_sha" => record.data.fetch("commit_sha"),
-          "configuration_hash" => record.data.fetch("configuration_hash"), "entries" => entries}
-        if preview
-          raise "Incomplete PR preview" unless entries.length == PLAN.fetch("scenarios").length && entries.all? { |entry| entry["device_id"] == "duo-outer" && entry["storefront_locale"] == "en-US" }
-          FoldingRelease.atomic_json(File.join(output, "preview-manifest.json"), manifest.merge("purpose" => "preview"))
-          FoldingRelease.clean_commit!
-          return manifest
-        end
-        FoldingRelease.atomic_json(File.join(output, "screenshot-manifest.json"), manifest)
-        FoldingRelease.clean_commit!
-        validate!(record)
-      ensure
-        controller&.close
-        # Only the simulator created by this invocation is ever shut down/deleted.
-        system("xcrun", "simctl", "shutdown", device, out: File::NULL, err: File::NULL)
-        system("xcrun", "simctl", "delete", device, out: File::NULL, err: File::NULL)
       end
-    end
-
-    # Native chrome uses the real Duo pose, not the framebuffer's power state.
-    # A host controller acknowledges this request after selecting Open/Closed in Device Hub;
-    # XCTest independently requires the exact resulting native window geometry.
-    def self.request_native_pose(output, device, name, display, controller: nil)
-      return controller.pose(display.fetch("id") == "duo-inner" ? "inner" : "outer") if controller
-      directory = File.join(output, "native-control")
-      identifier = SecureRandom.hex(12)
-      FoldingRelease.atomic_json(File.join(directory, "request.json"), {
-        "id" => identifier, "device_id" => device, "device_name" => name,
-        "display" => display.fetch("id"), "control" => display.fetch("id") == "duo-inner" ? "Open" : "Closed"})
-      puts "Native Duo pose required: #{display.fetch('id')} on #{name}; request #{directory}/request.json"
-      deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + 300
-      loop do
-        response = File.join(directory, "acknowledgment.json")
-        return if File.file?(response) && FoldingRelease.read_json(response)["id"] == identifier
-        raise "Native Duo pose was not acknowledged; task simulator will be cleaned up" if Process.clock_gettime(Process::CLOCK_MONOTONIC) >= deadline
-        sleep 0.25
-      end
+      return validate_tip_review!(record) if review_only
+      manifest = {"schema_version" => 2, "commit_sha" => record.data.fetch("commit_sha"),
+        "configuration_hash" => record.data.fetch("configuration_hash"), "entries" => entries}
+      FoldingRelease.atomic_json(File.join(output, "screenshot-manifest.json"), manifest)
+      FoldingRelease.clean_commit!
+      validate!(record)
     end
 
     def self.package_tip_review(record, raw, display, locale, scenario)
@@ -159,10 +139,11 @@ module FoldingRelease
       destination = File.join(output, relative)
       FileUtils.mkdir_p(File.dirname(destination))
       raise "Tip review image already exists; reconcile the unfinished capture" if File.exist?(destination)
-      FileUtils.cp(raw, destination) # Exact native screenshot bytes, without captions or fake purchase dialogs.
+      stage_png(raw, destination)
       map = CONFIG.fetch("tip_product_ids").to_h { |product| [product, relative] }
       FoldingRelease.atomic_json(File.join(output, "tip-review-screenshots.json"), map)
-      manifest = {"schema_version" => 1, "purpose" => "in_app_purchase_review",
+      manifest = {"schema_version" => 2, "purpose" => "in_app_purchase_review",
+        "capture_method" => PLAN.fetch("capture_method"),
         "commit_sha" => record.data.fetch("commit_sha"), "configuration_hash" => record.data.fetch("configuration_hash"),
         "fixture_version" => PLAN.fetch("fixture_version"), "fixed_clock" => PLAN.fetch("fixed_clock"),
         "device_id" => display.fetch("id"), "device_model" => display.fetch("model"),
@@ -170,7 +151,7 @@ module FoldingRelease
         "app_locale" => locale.fetch("app_locale"), "storefront_locale" => locale.fetch("storefront_locale"),
         "appearance" => PLAN.fetch("appearance"), "scenario_id" => scenario.fetch("id"),
         "pixel_width" => display.fetch("pixel_width"), "pixel_height" => display.fetch("pixel_height"),
-        "raw_path" => relative, "raw_sha256" => FoldingRelease.sha(raw),
+        "raw_path" => relative, "raw_sha256" => FoldingRelease.sha(destination),
         "map_sha256" => FoldingRelease.sha(File.join(output, "tip-review-screenshots.json")),
         "product_source_sha256" => FoldingRelease.sha(File.join(ROOT, "fastlane/tip-products.json")),
         "product_ids" => CONFIG.fetch("tip_product_ids"), "visual_review" => "pending"}
@@ -180,7 +161,7 @@ module FoldingRelease
     def self.validate_tip_review!(record)
       output = File.join(record.directory, "assets")
       manifest = FoldingRelease.read_json(File.join(output, "tip-review-manifest.json"))
-      raise "Tip review capture identity mismatch" unless manifest["schema_version"] == 1 && manifest["purpose"] == "in_app_purchase_review" && manifest["commit_sha"] == record.data["commit_sha"] && manifest["configuration_hash"] == record.data["configuration_hash"] && manifest["fixture_version"] == PLAN["fixture_version"] && manifest["fixed_clock"] == PLAN["fixed_clock"]
+      raise "Tip review capture identity mismatch" unless manifest["schema_version"] == 2 && manifest["capture_method"] == "simulator_screen_xctest" && manifest["purpose"] == "in_app_purchase_review" && manifest["commit_sha"] == record.data["commit_sha"] && manifest["configuration_hash"] == record.data["configuration_hash"] && manifest["fixture_version"] == PLAN["fixture_version"] && manifest["fixed_clock"] == PLAN["fixed_clock"]
       scene = PLAN.fetch("review_scenarios").find { |candidate| candidate["id"] == manifest["scenario_id"] }
       raise "Unexpected tip review scenario/locale" unless scene && scene["device_id"] == manifest["device_id"] && scene["storefront_locale"] == manifest["storefront_locale"] && scene["app_locale"] == manifest["app_locale"]
       display = PLAN.fetch("devices").find { |candidate| candidate["id"] == scene["device_id"] }
@@ -197,53 +178,67 @@ module FoldingRelease
       map_path
     end
 
-    def self.compose(record, raw, display, locale, scenario)
+    def self.stage_capture(record, raw, display, locale, scenario)
       output = File.join(record.directory, "assets")
-      composed = File.join(output, "screenshots", locale.fetch("storefront_locale"), "%02d-%s-%s.png" % [scenario.fetch("order") * 2 - (display.fetch("id") == "duo-inner" ? 0 : 1), display.fetch("id"), scenario.fetch("id")])
-      FileUtils.mkdir_p(File.dirname(composed))
-      captions = SOURCE.fetch("locales").fetch(locale.fetch("storefront_locale")).fetch("captions")
-      caption = captions.fetch(scenario.fetch("caption_key"))
-      FoldingRelease.run("swift", File.join(ROOT, "fastlane/scripts/compose-screenshot.swift"), raw, composed,
-        display.fetch("pixel_width").to_s, display.fetch("pixel_height").to_s, caption,
-        SOURCE.fetch("locales").fetch(locale.fetch("storefront_locale")).fetch("eyebrows").fetch(scenario.fetch("caption_key")),
-        scenario.fetch("appearance"), File.join(ROOT, "fastlane/screenshot-frame.json"))
+      destination = File.join(output, "screenshots", locale.fetch("storefront_locale"), "%02d-%s-%s.png" % [scenario.fetch("order") * 2 - (display.fetch("id") == "duo-inner" ? 0 : 1), display.fetch("id"), scenario.fetch("id")])
+      FileUtils.mkdir_p(File.dirname(destination))
+      raise "Native screenshot dimensions changed" unless png_size(raw) == display.values_at("pixel_width", "pixel_height")
+      # Preserve the simulator image; only fully opaque alpha is removed if needed by Apple.
+      stage_png(raw, destination)
       {"commit_sha" => record.data.fetch("commit_sha"), "configuration_hash" => record.data.fetch("configuration_hash"),
         "fixture_version" => PLAN.fetch("fixture_version"), "fixed_clock" => PLAN.fetch("fixed_clock"),
         "app_locale" => locale.fetch("app_locale"), "storefront_locale" => locale.fetch("storefront_locale"),
         "device_id" => display.fetch("id"), "device_model" => display.fetch("model"),
-        "runtime" => PLAN.fetch("runtime"), "runtime_build" => PLAN.fetch("runtime_build"),
+        "runtime" => display.fetch("runtime", PLAN.fetch("runtime")), "runtime_build" => display.fetch("runtime_build", PLAN.fetch("runtime_build")),
         "pixel_width" => display.fetch("pixel_width"), "pixel_height" => display.fetch("pixel_height"),
         "capture_method" => PLAN.fetch("capture_method"), "raw_pixel_size" => png_size(raw), "appearance" => scenario.fetch("appearance"), "scenario_id" => scenario.fetch("id"),
-        "raw_path" => raw.delete_prefix(output + "/"), "composed_path" => composed.delete_prefix(output + "/"),
-        "raw_sha256" => FoldingRelease.sha(raw), "composed_sha256" => FoldingRelease.sha(composed),
-        "caption_key" => scenario.fetch("caption_key"), "caption_version" => PLAN.fetch("caption_version"),
-        "caption_source_sha256" => FoldingRelease.sha(File.join(ROOT, "fastlane/metadata-source.json")),
+        "raw_path" => raw.delete_prefix(output + "/"), "composed_path" => destination.delete_prefix(output + "/"),
+        "raw_sha256" => FoldingRelease.sha(raw), "composed_sha256" => FoldingRelease.sha(destination),
         "plan_sha256" => FoldingRelease.sha(File.join(ROOT, "fastlane/screenshot-plan.json")),
-        "frame_sha256" => FoldingRelease.sha(File.join(ROOT, "fastlane/screenshot-frame.json")),
-        "compositor_sha256" => FoldingRelease.sha(File.join(ROOT, "fastlane/scripts/compose-screenshot.swift")),
+        "png_processor_sha256" => FoldingRelease.sha(File.join(ROOT, "fastlane/scripts/opaque-screen.swift")),
         "upload_display_type" => display.fetch("upload_display_type")}
+    end
+
+    def self.stage_png(source, destination)
+      raise "Screenshot destination already exists" if File.exist?(destination)
+      if File.binread(source, 26).getbyte(25) == 2
+        FileUtils.cp(source, destination)
+      else
+        tool = File.join(ROOT, "build/screenshot-tools", FoldingRelease.sha(File.join(ROOT, "fastlane/scripts/opaque-screen.swift")), "opaque-screen")
+        unless File.exist?(tool)
+          FileUtils.mkdir_p(File.dirname(tool))
+          FoldingRelease.run("swiftc", File.join(ROOT, "fastlane/scripts/opaque-screen.swift"), "-o", tool)
+        end
+        FoldingRelease.run(tool, source, destination)
+      end
     end
 
     def self.validate!(record)
       validate_tip_review!(record)
       output = File.join(record.directory, "assets")
       manifest = FoldingRelease.read_json(File.join(output, "screenshot-manifest.json"))
-      raise "Screenshot identity mismatch" unless manifest["commit_sha"] == record.data["commit_sha"] && manifest["configuration_hash"] == record.data["configuration_hash"]
+      raise "Screenshot identity mismatch" unless manifest["schema_version"] == 2 && manifest["commit_sha"] == record.data["commit_sha"] && manifest["configuration_hash"] == record.data["configuration_hash"]
       expected = LOCALES.flat_map do |locale|
         PLAN.fetch("devices").flat_map { |device| PLAN.fetch("scenarios").map { |scenario| [locale.fetch("storefront_locale"), device.fetch("id"), scenario.fetch("id")] } }
-      end +
-        LOCALES.flat_map { |locale| PLAN.fetch("additional_upload_slots").map { |slot| [locale.fetch("storefront_locale"), slot.fetch("id"), slot.fetch("scenario_id")] } }
+      end
       entries = manifest.fetch("entries")
       actual = entries.map { |entry| entry.values_at("storefront_locale", "device_id", "scenario_id") }
       raise "Incomplete/duplicate screenshot matrix" unless actual.sort == expected.sort
       entries.each do |entry|
+        display = PLAN.fetch("devices").find { |candidate| candidate["id"] == entry["device_id"] }
+        raise "Native device specification changed" unless entry.values_at("pixel_width", "pixel_height", "upload_display_type") == display.values_at("pixel_width", "pixel_height", "upload_display_type")
         %w[raw composed].each do |kind|
           path = File.expand_path(entry.fetch("#{kind}_path"), output)
           raise "Invalid screenshot path" unless path.start_with?(output + "/")
           raise "Screenshot content changed" unless FoldingRelease.sha(path) == entry.fetch("#{kind}_sha256")
         end
-        raise "Screenshot copy or plan changed" unless entry["caption_source_sha256"] == FoldingRelease.sha(File.join(ROOT, "fastlane/metadata-source.json")) && entry["plan_sha256"] == FoldingRelease.sha(File.join(ROOT, "fastlane/screenshot-plan.json"))
-        raise "Screenshot template changed" unless entry["frame_sha256"] == FoldingRelease.sha(File.join(ROOT, "fastlane/screenshot-frame.json")) && entry["compositor_sha256"] == FoldingRelease.sha(File.join(ROOT, "fastlane/scripts/compose-screenshot.swift"))
+        raise "Native capture plan changed" unless entry["capture_method"] == "simulator_screen_xctest" && entry["plan_sha256"] == FoldingRelease.sha(File.join(ROOT, "fastlane/screenshot-plan.json"))
+        raise "PNG processor changed" unless entry["png_processor_sha256"] == FoldingRelease.sha(File.join(ROOT, "fastlane/scripts/opaque-screen.swift"))
+        raise "Native capture was resized" unless entry["raw_pixel_size"] == entry.values_at("pixel_width", "pixel_height")
+        raise "Store screenshot contains an alpha channel" unless File.binread(File.join(output, entry.fetch("composed_path")), 26).getbyte(25) == 2
+        if File.binread(File.join(output, entry.fetch("raw_path")), 26).getbyte(25) == 2
+          raise "Native RGB screenshot was modified" unless entry["raw_sha256"] == entry["composed_sha256"]
+        end
         require "deliver/app_screenshot"
         path = File.join(output, entry.fetch("composed_path"))
         raise "Fastlane screenshot slot mismatch" unless Deliver::AppScreenshot.calculate_display_type(path) == entry.fetch("upload_display_type")
@@ -269,11 +264,10 @@ module FoldingRelease
   # Unprivileged screenshots require neither Apple credentials nor GitHub artifact access.
   class LocalCaptureRecord
     attr_reader :data, :directory
-    def initialize(environment: "production", purpose: "store")
-      raise "Unknown capture purpose" unless %w[store preview].include?(purpose)
+    def initialize(environment: "production")
       source = FoldingRelease.clean_commit!
-      @data = {"commit_sha" => source, "configuration_hash" => FoldingRelease.configuration_hash(environment), "environment" => environment, "purpose" => purpose}
-      @directory = File.join(ROOT, purpose == "preview" ? "build/preview-assets" : "build/store-assets", source, environment)
+      @data = {"commit_sha" => source, "configuration_hash" => FoldingRelease.configuration_hash(environment), "environment" => environment}
+      @directory = File.join(ROOT, "build/store-assets", source, environment)
     end
 
     def verify_identity!

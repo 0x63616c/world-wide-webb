@@ -91,14 +91,6 @@ platform :ios do
     FoldingRelease::Assets.capture(self, record)
   end
 
-  desc "Capture five English outer-display PR previews, separate from App Store evidence"
-  lane :screenshots_preview do
-    apple_destination
-    generate_project
-    record = FoldingRelease::LocalCaptureRecord.new(purpose: "preview")
-    FoldingRelease::Assets.capture(self, record, preview: true)
-  end
-
   desc "Run one named local release check and capture its immutable output hashes"
   lane :local_check do |options|
     UI.message(JSON.pretty_generate(FoldingRelease::CheckEvidence.capture(
