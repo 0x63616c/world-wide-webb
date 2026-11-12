@@ -1,6 +1,11 @@
 """A guest marked Running must not turn a failed boot into successful startup."""
 import importlib.util
+import os
+import signal
 import subprocess
+import sys
+import tempfile
+import time
 import unittest
 from contextlib import contextmanager
 from pathlib import Path
@@ -94,6 +99,57 @@ class ColimaStartupTests(unittest.TestCase):
         child.terminate.assert_called_once_with()
         child.wait.assert_called_once_with(timeout=5)
 
+
+class ColimaSignalTests(unittest.TestCase):
+    def test_service_stop_reaches_colima_and_reaps_it(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            fake = root / 'colima'
+            fake.write_text('#!' + sys.executable + '\n' + '''import os, signal, sys, time
+from pathlib import Path
+root = Path(os.environ['SIGNAL_FIXTURE'])
+def stop(signum, frame):
+    (root / 'stopped').write_text(str(signum))
+    raise SystemExit(0)
+signal.signal(signal.SIGTERM, stop)
+(root / 'ready.tmp').write_text(str(os.getpid()))
+(root / 'ready.tmp').rename(root / 'ready')
+while True:
+    time.sleep(0.05)
+''')
+            fake.chmod(0o700)
+            driver = '''import importlib.util, sys
+spec = importlib.util.spec_from_file_location('startup', sys.argv[1])
+startup = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(startup)
+startup.run = lambda *args, **kwargs: True
+raise SystemExit(startup.supervise([]))
+'''
+            parent = subprocess.Popen([sys.executable, '-c', driver, str(Path(startup.__file__))],
+                env=dict(os.environ, PATH=str(root) + os.pathsep + os.environ['PATH'], SIGNAL_FIXTURE=str(root)),
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            child_pid = None
+            try:
+                deadline = time.monotonic() + 5
+                while not (root / 'ready').exists():
+                    if parent.poll() is not None or time.monotonic() >= deadline:
+                        self.fail('Fake Colima did not start')
+                    time.sleep(0.01)
+                child_pid = int((root / 'ready').read_text())
+                parent.send_signal(signal.SIGTERM)
+                parent.wait(timeout=6)
+                self.assertTrue((root / 'stopped').exists(), 'Service stop must reach foreground Colima')
+                self.assertEqual((root / 'stopped').read_text(), str(int(signal.SIGTERM)))
+                self.assertEqual(parent.returncode, 128 + signal.SIGTERM)
+            finally:
+                if parent.poll() is None:
+                    parent.kill()
+                    parent.wait()
+                if child_pid and not (root / 'stopped').exists():
+                    try:
+                        os.kill(child_pid, signal.SIGTERM)
+                    except ProcessLookupError:
+                        pass
 
 if __name__ == '__main__':
     unittest.main()

@@ -33,7 +33,9 @@ stopped without replacing disks, allowing launchd to retry its declared start.
 A responsive guest is left running; active operations, interrupted transactions
 and maintenance holds defer recovery. Startup/recovery diagnostics are retained
 in `/var/lib/_containers/colima-startup.log`. Focused tests cover the observed failure and
-these recovery protections. All 169 homelab tests (one existing skip) and 31
+these recovery protections. The supervisor also forwards shutdown signals to
+foreground Colima and reaps it, preserving graceful VM stop during a restart.
+A real-process regression covers this lifecycle. All 170 homelab tests (one existing skip) and 31
 handler tests pass. An isolated real-process fixture on the Mini's installed Nix
 Python/coreutils also passed the stale-Running recovery and verified the stop
 subprocess retained the operation lock. Live installation and reboot acceptance
