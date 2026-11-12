@@ -4,40 +4,26 @@ import PhotosUI
 import SwiftUI
 import UniformTypeIdentifiers
 
-private struct PanelProfile: Codable, Identifiable {
-    var id = UUID()
-    let name: String
-    let photo: Data
-}
-
-private struct PanelProfiles: Codable {
-    var users: [PanelProfile] = []
-    var selectedID: UUID?
-
-    var selected: PanelProfile? { users.first { $0.id == selectedID } }
-}
-
 struct PanelProfileSelector: ViewModifier {
     static let avatarSide: CGFloat = 48
 
     let isAvailable: Bool
     let inset: CGFloat
 
-    @AppStorage("panel.profiles") private var storage = Data()
+    @AppStorage("panel.selectedProfileID") private var selectedID = ""
     @AppStorage("panel.profilePhoto") private var legacyPhoto = Data()
     @Environment(\.homeIntegration) private var integration
     @Environment(\.panelContentInsets) private var contentInsets
     @Environment(\.horizontalSizeClass) private var sizeClass
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var showingProfiles = false
-    @State private var addingUser = false
+    @State private var editing: ProfileEditTarget?
+    @State private var profiles: [PanelProfile] = []
+    @State private var loadError: String?
 
-    private var profiles: PanelProfiles {
-        (try? JSONDecoder().decode(PanelProfiles.self, from: storage)) ?? PanelProfiles()
-    }
+    private var selected: PanelProfile? { profiles.first { $0.id == selectedID } }
 
     func body(content: Content) -> some View {
-        let profiles = profiles
         let isOpen = isAvailable && showingProfiles
         content
             .allowsHitTesting(!isOpen)
@@ -62,16 +48,16 @@ struct PanelProfileSelector: ViewModifier {
                         Button {
                             showProfiles(!isOpen)
                         } label: {
-                            ProfileAvatar(photo: profiles.selected?.photo ?? launcherPhoto, side: Self.avatarSide)
+                            ProfileAvatar(photo: selected?.photo ?? launcherPhoto, side: Self.avatarSide)
                                 .foregroundStyle(.white.opacity(0.85))
                                 .contentShape(.circle)
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel(isOpen ? "Close Profiles" : "Profiles")
-                        .accessibilityValue(profiles.selected?.name ?? "")
+                        .accessibilityValue(selected?.name ?? "")
                         .accessibilityIdentifier("home-profile")
                         if isOpen {
-                            profileGrid(profiles)
+                            profileGrid()
                                 .transition(.opacity)
                         }
                     }
@@ -83,8 +69,11 @@ struct PanelProfileSelector: ViewModifier {
                     .accessibilityAction(.escape) { showProfiles(false) }
                 }
             }
-            .sheet(isPresented: $addingUser) {
-                ProfileCreationSheet(pin: integration?.panelPIN, cancel: { addingUser = false }, save: add)
+            .sheet(item: $editing) { target in
+                ProfileEditorSheet(
+                    profile: target.profile, pin: integration?.panelPIN,
+                    save: { pin, name, photo in try await save(target.profile, pin: pin, name: name, photo: photo) },
+                    delete: { pin in try await remove(target.profile, pin: pin) })
                     .preferredColorScheme(.dark)
                     .frame(idealWidth: 420)
                     .presentationSizing(.fitted)
@@ -92,9 +81,10 @@ struct PanelProfileSelector: ViewModifier {
             .onChange(of: isAvailable) { _, available in
                 if !available {
                     showingProfiles = false
-                    addingUser = false
+                    editing = nil
                 }
             }
+            .task { await refresh() }
     }
 
     private func profileInsets(in geometry: GeometryProxy) -> EdgeInsets {
@@ -134,20 +124,21 @@ struct PanelProfileSelector: ViewModifier {
         withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
             showingProfiles = showing
         }
+        if showing { Task { await refresh() } }
     }
 
-    private func profileGrid(_ profiles: PanelProfiles) -> some View {
+    private func profileGrid() -> some View {
         let side: CGFloat = sizeClass == .compact ? 72 : 96
         let columnWidth = side + 16
         let spacing: CGFloat = 22
         let columns = Array(repeating: GridItem(.fixed(columnWidth), spacing: spacing), count: 2)
         let tiles = GlassEffectContainer(spacing: spacing) {
             LazyVGrid(columns: columns, alignment: .leading, spacing: spacing) {
-                ForEach(profiles.users) { user in
-                    profileTile(user, selected: user.id == profiles.selectedID, side: side)
+                ForEach(profiles) { user in
+                    profileTile(user, selected: user.id == selectedID, side: side)
                 }
                 Button {
-                    addingUser = true
+                    editing = ProfileEditTarget(profile: nil)
                 } label: {
                     VStack(spacing: 10) {
                         Image(systemName: "plus")
@@ -167,6 +158,10 @@ struct PanelProfileSelector: ViewModifier {
             Text("Profiles")
                 .font(.title2.weight(.semibold))
                 .accessibilityAddTraits(.isHeader)
+            if let loadError {
+                Text(loadError).font(.footnote).foregroundStyle(.red)
+                Button("Retry") { Task { await refresh() } }.buttonStyle(.glass)
+            }
             ViewThatFits(in: .vertical) {
                 tiles.fixedSize(horizontal: false, vertical: true)
                 ScrollView { tiles }
@@ -177,58 +172,97 @@ struct PanelProfileSelector: ViewModifier {
     }
 
     private func profileTile(_ user: PanelProfile, selected: Bool, side: CGFloat) -> some View {
-        Button {
-            var updated = profiles
-            updated.selectedID = user.id
-            persist(updated)
-            showProfiles(false)
-        } label: {
-            VStack(spacing: 10) {
-                ProfileAvatar(photo: user.photo, side: side)
-                    .overlay { Circle().strokeBorder(.white.opacity(0.16)) }
-                    .overlay(alignment: .topTrailing) {
-                        if selected {
-                            Image(systemName: "checkmark")
-                                .font(.caption.weight(.bold))
-                                .frame(width: 26, height: 26)
-                                .background(.green, in: .circle)
-                                .accessibilityHidden(true)
+        VStack(spacing: 8) {
+            Button {
+                selectedID = user.id
+                showProfiles(false)
+            } label: {
+                VStack(spacing: 10) {
+                    ProfileAvatar(photo: user.photo, side: side)
+                        .overlay { Circle().strokeBorder(.white.opacity(0.16)) }
+                        .overlay(alignment: .topTrailing) {
+                            if selected {
+                                Image(systemName: "checkmark")
+                                    .font(.caption.weight(.bold))
+                                    .frame(width: 26, height: 26)
+                                    .background(.green, in: .circle)
+                                    .accessibilityHidden(true)
+                            }
                         }
-                    }
-                Text(user.name)
-                    .font(.subheadline.weight(.medium))
-                    .lineLimit(1)
+                    Text(user.name)
+                        .font(.subheadline.weight(.medium))
+                        .lineLimit(1)
+                }
+                .contentShape(.rect)
             }
-            .contentShape(.rect)
+            .buttonStyle(.plain)
+            .accessibilityAddTraits(selected ? .isSelected : [])
+            Button("Edit", systemImage: "pencil") { editing = ProfileEditTarget(profile: user) }
+                .labelStyle(.titleAndIcon)
+                .font(.caption)
+                .buttonStyle(.plain)
+                .accessibilityLabel("Edit \(user.name)")
         }
-        .buttonStyle(.plain)
-        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 
-    private func add(_ profile: PanelProfile) {
-        var updated = profiles
-        updated.users.append(profile)
-        updated.selectedID = profile.id
-        persist(updated)
-        addingUser = false
+    private func refresh() async {
+        guard let api = integration?.profilesAPI else { return }
+        do {
+            profiles = try await api.list()
+            loadError = nil
+            if !selectedID.isEmpty && !profiles.contains(where: { $0.id == selectedID }) { selectedID = "" }
+        } catch {
+            loadError = "Couldn’t load profiles."
+        }
     }
 
-    private func persist(_ profiles: PanelProfiles) {
-        if let data = try? JSONEncoder().encode(profiles) { storage = data }
+    private func save(_ existing: PanelProfile?, pin: String, name: String, photo: Data) async throws {
+        guard let api = integration?.profilesAPI else { throw PanelAPIError.notConfigured }
+        let saved: PanelProfile
+        if let existing {
+            saved = try await api.update(existing.id, name: name, photo: photo, pin: pin)
+        } else {
+            saved = try await api.create(name: name, photo: photo, pin: pin)
+        }
+        if let index = profiles.firstIndex(where: { $0.id == saved.id }) {
+            profiles[index] = saved
+        } else {
+            profiles.append(saved)
+        }
+        selectedID = saved.id
+        await refresh()
+        editing = nil
+    }
+
+    private func remove(_ existing: PanelProfile?, pin: String) async throws {
+        guard let existing, let api = integration?.profilesAPI else { throw PanelAPIError.notConfigured }
+        try await api.remove(existing.id, pin: pin)
+        profiles.removeAll { $0.id == existing.id }
+        if selectedID == existing.id { selectedID = "" }
+        await refresh()
+        editing = nil
     }
 }
 
-private struct ProfileCreationSheet: View {
+private struct ProfileEditTarget: Identifiable {
+    let profile: PanelProfile?
+    var id: String { profile?.id ?? "new" }
+}
+
+private struct ProfileEditorSheet: View {
+    let profile: PanelProfile?
     let pin: PanelPINAPI?
-    let cancel: () -> Void
-    let save: (PanelProfile) -> Void
+    let save: (String, String, Data) async throws -> Void
+    let delete: (String) async throws -> Void
+    @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
-    @State private var authorized = false
+    @State private var authorizedPIN: String?
 
     var body: some View {
         Group {
-            if authorized {
-                AddPanelProfile(cancel: cancel, save: save)
+            if let authorizedPIN {
+                EditPanelProfile(
+                    profile: profile, pin: authorizedPIN, cancel: { dismiss() }, save: save, delete: delete)
                     .padding(28)
             } else {
                 VStack(spacing: 0) {
@@ -236,7 +270,7 @@ private struct ProfileCreationSheet: View {
                         challenge.fixedSize(horizontal: false, vertical: true)
                         ScrollView { challenge }
                     }
-                    Button("Cancel", role: .cancel, action: cancel)
+                    Button("Cancel", role: .cancel) { dismiss() }
                         .buttonStyle(.glass)
                         .controlSize(.large)
                         .padding(.bottom, 20)
@@ -244,7 +278,7 @@ private struct ProfileCreationSheet: View {
             }
         }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .background { cancel() }
+            if phase == .background { dismiss() }
         }
     }
 
@@ -254,7 +288,7 @@ private struct ProfileCreationSheet: View {
                 do {
                     guard try await pin.verify(entered) else { return "PIN not accepted. Try again." }
                     guard !Task.isCancelled else { return nil }
-                    authorized = true
+                    authorizedPIN = entered
                     return nil
                 } catch {
                     return "Couldn’t verify the PIN. Try again."
@@ -263,24 +297,43 @@ private struct ProfileCreationSheet: View {
         } else {
             ContentUnavailableView(
                 "PIN verification unavailable", systemImage: "lock",
-                description: Text("Connect to the panel server to add a user."))
+                description: Text("Connect to the panel server to manage profiles."))
         }
     }
 }
 
-private struct AddPanelProfile: View {
+private struct EditPanelProfile: View {
+    let profile: PanelProfile?
+    let pin: String
     let cancel: () -> Void
-    let save: (PanelProfile) -> Void
-    @State private var name = ""
+    let save: (String, String, Data) async throws -> Void
+    let delete: (String) async throws -> Void
+    @State private var name: String
     @State private var selection: PhotosPickerItem?
     @State private var imported: (item: PhotosPickerItem, photo: Data?)?
+    @State private var saving = false
+    @State private var errorMessage: String?
+    @State private var confirmingDelete = false
+
+    init(
+        profile: PanelProfile?, pin: String, cancel: @escaping () -> Void,
+        save: @escaping (String, String, Data) async throws -> Void,
+        delete: @escaping (String) async throws -> Void
+    ) {
+        self.profile = profile
+        self.pin = pin
+        self.cancel = cancel
+        self.save = save
+        self.delete = delete
+        _name = State(initialValue: profile?.name ?? "")
+    }
 
     private var trimmedName: String { name.trimmingCharacters(in: .whitespacesAndNewlines) }
-    private var photo: Data? { imported?.item == selection ? imported?.photo : nil }
+    private var photo: Data? { selection == nil ? profile?.photo : (imported?.item == selection ? imported?.photo : nil) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Add User")
+            Text(profile == nil ? "Add User" : "Edit Profile")
                 .font(.title2.bold())
                 .frame(maxWidth: .infinity)
                 .accessibilityAddTraits(.isHeader)
@@ -317,20 +370,33 @@ private struct AddPanelProfile: View {
                     .accessibilityIdentifier("profile-name")
             }
 
+            if let errorMessage {
+                Text(errorMessage).font(.footnote).foregroundStyle(.red)
+            }
             Divider()
             GlassEffectContainer(spacing: 12) {
                 HStack(spacing: 12) {
                     Button("Cancel", role: .cancel, action: cancel)
                         .buttonStyle(.glass)
+                    if profile != nil {
+                        Button("Delete", role: .destructive) { confirmingDelete = true }
+                            .buttonStyle(.glass)
+                            .disabled(saving)
+                    }
                     Spacer()
-                    Button("Add", role: .confirm) {
+                    Button(profile == nil ? "Add" : "Save", role: .confirm) {
                         guard let photo, !trimmedName.isEmpty else { return }
-                        save(PanelProfile(name: trimmedName, photo: photo))
+                        saving = true
+                        Task {
+                            do { try await save(pin, trimmedName, photo) }
+                            catch { errorMessage = "Couldn’t save the profile. Try again." }
+                            saving = false
+                        }
                     }
                     .buttonStyle(.glassProminent)
                     .tint(.blue)
 
-                    .disabled(trimmedName.isEmpty || photo == nil)
+                    .disabled(trimmedName.isEmpty || photo == nil || saving)
                     .accessibilityIdentifier("profile-save")
                 }
                 .controlSize(.large)
@@ -341,6 +407,18 @@ private struct AddPanelProfile: View {
             let data = try? await selection.loadTransferable(type: Data.self)
             guard !Task.isCancelled else { return }
             imported = (selection, data.flatMap(ProfileAvatar.compressedPhoto))
+        }
+        .confirmationDialog("Delete this profile?", isPresented: $confirmingDelete) {
+            Button("Delete Profile", role: .destructive) {
+                saving = true
+                Task {
+                    do { try await delete(pin) }
+                    catch { errorMessage = "Couldn’t delete the profile. Try again." }
+                    saving = false
+                }
+            }
+        } message: {
+            Text("This removes the profile from every device.")
         }
     }
 }
