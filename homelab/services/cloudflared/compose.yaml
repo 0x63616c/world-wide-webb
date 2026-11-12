@@ -19,9 +19,9 @@ services:
         source: ${TUNNEL_TOKEN_FILE:?Set the readable token file}
         target: /run/secrets/TUNNEL_TOKEN
         read_only: true
-        bind: {create_host_path: false}
+        bind: { create_host_path: false }
     mem_limit: 128m
     stop_grace_period: 30s
     logging:
       driver: json-file
-      options: {max-size: 10m, max-file: '3'}
+      options: { max-size: 10m, max-file: "3" }

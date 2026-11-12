@@ -4,44 +4,48 @@ import UserNotifications
 
 @MainActor @Observable
 final class TranscriptionNotifications {
-    private(set) var authorizationStatus: UNAuthorizationStatus?
-    var denied: Bool { authorizationStatus == .denied }
-    var allowed: Bool { authorizationStatus == .authorized || authorizationStatus == .provisional }
-    func refresh() async {
-        authorizationStatus = await UNUserNotificationCenter.current().notificationSettings().authorizationStatus
+  private(set) var authorizationStatus: UNAuthorizationStatus?
+  var denied: Bool { authorizationStatus == .denied }
+  var allowed: Bool { authorizationStatus == .authorized || authorizationStatus == .provisional }
+  func refresh() async {
+    authorizationStatus = await UNUserNotificationCenter.current().notificationSettings()
+      .authorizationStatus
+  }
+  func openSettings() {
+    NSWorkspace.shared.open(
+      URL(string: "x-apple.systempreferences:com.apple.Notifications-Settings.extension")!)
+  }
+  private var authorization: Task<Bool, Never>?
+  private func ensureAuthorized() async -> Bool {
+    if let authorization { return await authorization.value }
+    let task = Task { @MainActor in
+      let center = UNUserNotificationCenter.current()
+      let settings = await center.notificationSettings()
+      switch settings.authorizationStatus {
+      case .authorized, .provisional: return true
+      case .notDetermined:
+        return (try? await center.requestAuthorization(options: [.alert, .sound])) ?? false
+      default: return false
+      }
     }
-    func openSettings() {
-        NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.Notifications-Settings.extension")!)
+    authorization = task
+    let allowed = await task.value
+    await refresh()
+    authorization = nil
+    return allowed
+  }
+  func requestIfNeeded() { Task { _ = await ensureAuthorized() } }
+  func completed(recordingID: UUID) {
+    Task {
+      guard await ensureAuthorized() else { return }
+      let content = UNMutableNotificationContent()
+      content.title = "Transcript ready"
+      content.body = "Your recording has been transcribed."
+      content.sound = .default
+      content.userInfo = ["recordingID": recordingID.uuidString]
+      try? await UNUserNotificationCenter.current().add(
+        UNNotificationRequest(
+          identifier: "transcript-" + UUID().uuidString, content: content, trigger: nil))
     }
-    private var authorization: Task<Bool, Never>?
-    private func ensureAuthorized() async -> Bool {
-        if let authorization { return await authorization.value }
-        let task = Task { @MainActor in
-            let center = UNUserNotificationCenter.current()
-            let settings = await center.notificationSettings()
-            switch settings.authorizationStatus {
-            case .authorized, .provisional: return true
-            case .notDetermined: return (try? await center.requestAuthorization(options: [.alert, .sound])) ?? false
-            default: return false
-            }
-        }
-        authorization = task
-        let allowed = await task.value
-        await refresh()
-        authorization = nil
-        return allowed
-    }
-    func requestIfNeeded() { Task { _ = await ensureAuthorized() } }
-    func completed(recordingID: UUID) {
-        Task {
-            guard await ensureAuthorized() else { return }
-            let content = UNMutableNotificationContent()
-            content.title = "Transcript ready"
-            content.body = "Your recording has been transcribed."
-            content.sound = .default
-            content.userInfo = ["recordingID": recordingID.uuidString]
-            try? await UNUserNotificationCenter.current().add(UNNotificationRequest(
-                identifier: "transcript-" + UUID().uuidString, content: content, trigger: nil))
-        }
-    }
+  }
 }

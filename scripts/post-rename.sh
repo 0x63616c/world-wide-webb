@@ -6,7 +6,10 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 repo=${1:-apps}
-[[ "$repo" =~ ^[a-zA-Z0-9_-]+$ ]] || { echo "Invalid repository name" >&2; exit 1; }
+[[ "$repo" =~ ^[a-zA-Z0-9_-]+$ ]] || {
+  echo "Invalid repository name" >&2
+  exit 1
+}
 old="https://0x63616c.github.io/tendr/"
 new="https://0x63616c.github.io/$repo/tendr/"
 

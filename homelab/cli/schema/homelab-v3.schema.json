@@ -13,10 +13,7 @@
           "type": "string"
         }
       },
-      "required": [
-        "repository",
-        "branch"
-      ],
+      "required": ["repository", "branch"],
       "type": "object"
     },
     "Host": {
@@ -59,12 +56,7 @@
           "type": "array"
         }
       },
-      "required": [
-        "adminUser",
-        "adminUID",
-        "authorizedKeys",
-        "services"
-      ],
+      "required": ["adminUser", "adminUID", "authorizedKeys", "services"],
       "type": "object"
     },
     "OAuthReference": {
@@ -85,10 +77,7 @@
           "type": "string"
         }
       },
-      "required": [
-        "vault",
-        "item"
-      ],
+      "required": ["vault", "item"],
       "type": "object"
     },
     "OnePasswordConfig": {
@@ -102,9 +91,7 @@
           "type": "string"
         }
       },
-      "required": [
-        "backupVault"
-      ],
+      "required": ["backupVault"],
       "type": "object"
     },
     "TailscaleConfig": {
@@ -126,9 +113,7 @@
           "type": "string"
         }
       },
-      "required": [
-        "tag"
-      ],
+      "required": ["tag"],
       "type": "object"
     }
   },
@@ -138,10 +123,7 @@
   "properties": {
     "$schema": {
       "description": "Inert editor metadata. The CLI never fetches this URL.",
-      "type": [
-        "string",
-        "null"
-      ]
+      "type": ["string", "null"]
     },
     "deployment": {
       "$ref": "#/$defs/Deployment"
@@ -175,12 +157,7 @@
       ]
     }
   },
-  "required": [
-    "schema",
-    "hosts",
-    "deployment",
-    "onePassword"
-  ],
+  "required": ["schema", "hosts", "deployment", "onePassword"],
   "title": "Manifest",
   "type": "object"
 }

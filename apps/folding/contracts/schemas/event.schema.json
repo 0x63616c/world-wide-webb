@@ -34,10 +34,7 @@
           "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
         }
       },
-      "required": [
-        "revision",
-        "reset_id"
-      ]
+      "required": ["revision", "reset_id"]
     },
     "observed_at_ms": {
       "type": "integer",
@@ -50,10 +47,7 @@
       "maxLength": 100
     },
     "transition": {
-      "enum": [
-        "open",
-        "close"
-      ]
+      "enum": ["open", "close"]
     },
     "is_test": {
       "type": "boolean"

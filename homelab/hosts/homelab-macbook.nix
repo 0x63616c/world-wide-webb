@@ -22,7 +22,10 @@
   environment.etc."resolver/ts.net".enable = lib.mkForce false;
   # Idle sleep settings alone did not keep the closed-lid node awake on AC.
   launchd.daemons.homelab-awake.serviceConfig = {
-    ProgramArguments = [ "/usr/bin/caffeinate" "-s" ];
+    ProgramArguments = [
+      "/usr/bin/caffeinate"
+      "-s"
+    ];
     UserName = "root";
     RunAtLoad = true;
     KeepAlive = true;

@@ -16,7 +16,7 @@ mkdir -p "$root" "$(dirname "$plist")"
 last=0
 if [[ -f "$root/generation" ]]; then last=$(cat "$root/generation"); fi
 [[ "$last" =~ ^[0-9]+$ ]] || exit 65
-if (( generation < last )); then
+if ((generation < last)); then
   echo 'Tunnel recovery installation superseded by a newer tested revision.'
   exit 0
 fi
@@ -25,9 +25,9 @@ record_generation() {
   mv "$root/generation.tmp" "$root/generation"
 }
 # Preserve state and cooldown across upgrades; leave an identical job running.
-if cmp -s "$source_dir/tunnel_watchdog.py" "$root/tunnel_watchdog.py" &&
-   cmp -s "$source_dir/$label.plist" "$plist" &&
-   launchctl print "$service" >/dev/null 2>&1; then
+if cmp -s "$source_dir/tunnel_watchdog.py" "$root/tunnel_watchdog.py" \
+  && cmp -s "$source_dir/$label.plist" "$plist" \
+  && launchctl print "$service" > /dev/null 2>&1; then
   record_generation
   echo 'Tunnel recovery already installed and loaded.'
   exit 0
@@ -36,11 +36,11 @@ install -m 644 "$source_dir/tunnel_watchdog.py" "$root/tunnel_watchdog.py.tmp"
 mv "$root/tunnel_watchdog.py.tmp" "$root/tunnel_watchdog.py"
 install -m 644 "$source_dir/$label.plist" "$plist.tmp"
 mv "$plist.tmp" "$plist"
-if launchctl print "$service" >/dev/null 2>&1; then
+if launchctl print "$service" > /dev/null 2>&1; then
   launchctl bootout "$service"
 fi
 launchctl enable "$service"
 launchctl bootstrap "gui/$(id -u)" "$plist"
-launchctl print "$service" >/dev/null
+launchctl print "$service" > /dev/null
 record_generation
 echo 'Tunnel recovery installed and loaded (30-second interval).'

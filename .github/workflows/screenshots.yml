@@ -6,19 +6,19 @@ on:
   workflow_dispatch:
     inputs:
       app:
-        description: 'App folder under apps/ (for example tendr)'
+        description: "App folder under apps/ (for example tendr)"
         type: string
         default: tendr
       device:
-        description: 'Capture only the assets that need refreshing'
+        description: "Capture only the assets that need refreshing"
         type: choice
         options: [all, phone, duo]
         default: all
       release_version:
-        description: 'Version shown in screenshots'
+        description: "Version shown in screenshots"
         type: string
       release_build:
-        description: 'Build shown in screenshots'
+        description: "Build shown in screenshots"
         type: string
   workflow_call:
     inputs:
@@ -45,7 +45,7 @@ jobs:
       APP: ${{ inputs.app }}
       RELEASE_VERSION: ${{ inputs.release_version }}
       RELEASE_BUILD: ${{ inputs.release_build }}
-      DUO_HOST_CONTROL: '1'
+      DUO_HOST_CONTROL: "1"
     steps:
       - uses: actions/checkout@v4
       - name: Check hosted simulator runtime

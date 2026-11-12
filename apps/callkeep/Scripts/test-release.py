@@ -120,7 +120,9 @@ class ReleaseTests(unittest.TestCase):
         newer = release.reserve(self.second)
         newer.update(state="artifact_published", archive_sha256="b" * 64)
         newer["download_verified"] = {
-            "source_sha": self.second, "archive_sha256": "b" * 64, "public_download": True,
+            "source_sha": self.second,
+            "archive_sha256": "b" * 64,
+            "public_download": True,
         }
         release.fence_promotion(newer)
         # Tap push succeeds, but the job dies before complete writes its delivery pointer.
@@ -128,7 +130,9 @@ class ReleaseTests(unittest.TestCase):
         self.assertFalse(release.reserve(self.first)["needed"])
         older = dict(newer, source_sha=self.first, version="1.0.25", archive_sha256="a" * 64)
         older["download_verified"] = {
-            "source_sha": self.first, "archive_sha256": "a" * 64, "public_download": True,
+            "source_sha": self.first,
+            "archive_sha256": "a" * 64,
+            "public_download": True,
         }
         with self.assertRaisesRegex(ValueError, "older"):
             release.fence_promotion(older)
@@ -143,7 +147,9 @@ class ReleaseTests(unittest.TestCase):
         older = release.reserve(self.first)
         older.update(state="artifact_published", archive_sha256="a" * 64)
         older["download_verified"] = {
-            "source_sha": self.first, "archive_sha256": "a" * 64, "public_download": True,
+            "source_sha": self.first,
+            "archive_sha256": "a" * 64,
+            "public_download": True,
         }
         release.fence_promotion(older)
         replacement = release.reserve(self.second)
@@ -170,14 +176,23 @@ class ReleaseTests(unittest.TestCase):
             release.require_download_proof(record)
 
     def test_public_download_rejects_changed_archive_before_extraction(self):
-        record = {"state": "artifact_published", "version": "1.0.26", "source_sha": self.first,
-                  "archive_sha256": "a" * 64,
-                  "candidates": {"archive": {"name": "Callkeep-1.0.26.zip", "sha256": "a" * 64}}}
+        record = {
+            "state": "artifact_published",
+            "version": "1.0.26",
+            "source_sha": self.first,
+            "archive_sha256": "a" * 64,
+            "candidates": {"archive": {"name": "Callkeep-1.0.26.zip", "sha256": "a" * 64}},
+        }
+
         def download(*args):
             self.assertEqual(args[0], "curl")
             self.assertIn("callkeep%2Fv1.0.26", args[-3])
             Path(args[-1]).write_bytes(b"changed bytes")
-        with patch.object(release.prepare, "run", side_effect=download), patch.object(release, "safe_extract") as extract:
+
+        with (
+            patch.object(release.prepare, "run", side_effect=download),
+            patch.object(release, "safe_extract") as extract,
+        ):
             with self.assertRaisesRegex(ValueError, "checksum"):
                 release.verify_download(release.Release("callkeep/v1.0.26"), record)
             extract.assert_not_called()
@@ -213,7 +228,12 @@ class ReleaseTests(unittest.TestCase):
         jobs = [
             {
                 "jobs": [
-                    {"name": "Callkeep / Callkeep native", "head_sha": self.second, "status": "completed", "conclusion": "success"}
+                    {
+                        "name": "Callkeep / Callkeep native",
+                        "head_sha": self.second,
+                        "status": "completed",
+                        "conclusion": "success",
+                    }
                 ]
             }
         ]
@@ -253,14 +273,18 @@ class ImmutableReleaseTests(unittest.TestCase):
         source = "a" * 40
         previous = {"revision": 5, "source_sha": source, "state": "artifact_published"}
         uploads = []
+
         def upload(*args, **_kwargs):
             self.assertEqual(args[:3], ("gh", "release", "upload"))
             uploads.append((args[3], Path(args[4]).name, json.loads(Path(args[4]).read_text())))
             return ""
-        with patch.object(product, "latest", return_value=previous), \
-             patch.object(ledger, "ensure") as ensure, \
-             patch.object(release, "Release", return_value=ledger), \
-             patch.object(release.prepare, "run", side_effect=upload):
+
+        with (
+            patch.object(product, "latest", return_value=previous),
+            patch.object(ledger, "ensure") as ensure,
+            patch.object(release, "Release", return_value=ledger),
+            patch.object(release.prepare, "run", side_effect=upload),
+        ):
             saved = product.save(dict(previous, state="complete"))
         ensure.assert_called_once_with(source)
         self.assertEqual(uploads, [("callkeep-delivery", "callkeep-v1.0.26-manifest-r00000006.json", saved)])
@@ -270,9 +294,11 @@ class ImmutableReleaseTests(unittest.TestCase):
         product = REAL_RELEASE("callkeep/v1.0.26")
         ledger = REAL_RELEASE("callkeep-delivery")
         old, new = {"revision": 5}, {"revision": 6}
-        with patch.object(release, "Release", return_value=ledger), \
-             patch.object(product, "_latest", return_value=old) as fallback, \
-             patch.object(ledger, "_latest", return_value=None) as scoped:
+        with (
+            patch.object(release, "Release", return_value=ledger),
+            patch.object(product, "_latest", return_value=old) as fallback,
+            patch.object(ledger, "_latest", return_value=None) as scoped,
+        ):
             self.assertEqual(product.latest(), old)
             scoped.assert_called_once_with("callkeep-v1.0.26-manifest")
             fallback.assert_called_once_with("manifest")

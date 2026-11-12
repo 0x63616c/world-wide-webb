@@ -8,7 +8,7 @@ services:
       TZ: America/Los_Angeles
       WWW_LISTEN: 0.0.0.0:4201
       WWW_DATABASE_PATH: /app/data/control-center.sqlite
-      WWW_REQUIRE_DATABASE: 'on'
+      WWW_REQUIRE_DATABASE: "on"
       MEDIA_STORAGE_DIR: /app/media
       WWW_SECRETS_DIR: /run/secrets
       HA_URL: ${HA_URL:?Set the Home Assistant origin}
@@ -35,7 +35,7 @@ services:
     mem_limit: 768m
     logging:
       driver: json-file
-      options: {max-size: 10m, max-file: '3'}
+      options: { max-size: 10m, max-file: "3" }
 
 volumes:
   sqlite:

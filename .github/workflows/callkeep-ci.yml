@@ -1,5 +1,5 @@
 name: Callkeep CI
-'on':
+"on":
   workflow_call: {}
 permissions:
   contents: read
@@ -11,21 +11,21 @@ jobs:
     outputs:
       verify: ${{ steps.select.outputs.verify }}
     steps:
-    - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
-      with:
-        fetch-depth: 0
-        sparse-checkout: |
-          .github/actions/select
-          scripts/ci
-        persist-credentials: true
-    - id: select
-      uses: ./.github/actions/select
-    - uses: actions/upload-artifact@v4
-      with:
-        name: callkeep-selection
-        path: ${{ runner.temp }}/ci-selection.json
-        retention-days: 14
-        if-no-files-found: error
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          fetch-depth: 0
+          sparse-checkout: |
+            .github/actions/select
+            scripts/ci
+          persist-credentials: true
+      - id: select
+        uses: ./.github/actions/select
+      - uses: actions/upload-artifact@v4
+        with:
+          name: callkeep-selection
+          path: ${{ runner.temp }}/ci-selection.json
+          retention-days: 14
+          if-no-files-found: error
   tooling:
     name: Callkeep release invariants
     needs: selection
@@ -33,13 +33,13 @@ jobs:
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 10
     steps:
-    - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
-      with:
-        persist-credentials: false
-    - run: |
-        python3 apps/callkeep/Scripts/test-release.py
-        python3 apps/callkeep/Scripts/test-release-notes.py
-        python3 -m unittest discover -s scripts/distribution -p 'test*.py'
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - run: |
+          python3 apps/callkeep/Scripts/test-release.py
+          python3 apps/callkeep/Scripts/test-release-notes.py
+          python3 -m unittest discover -s scripts/distribution -p 'test*.py'
   native:
     name: Callkeep native
     needs: selection
@@ -52,29 +52,29 @@ jobs:
       run:
         working-directory: apps/callkeep
     steps:
-    - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
-      with:
-        persist-credentials: false
-    - run: ../../scripts/ci/apple-desktop.sh Scripts/test.sh
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - run: ../../scripts/ci/apple-desktop.sh Scripts/test.sh
   gate:
     name: Callkeep checks
     needs:
-    - selection
-    - tooling
-    - native
+      - selection
+      - tooling
+      - native
     if: always() && !cancelled()
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 5
     steps:
-    - env:
-        RESULTS: ${{ toJSON(needs) }}
-      run: |
-        python3 - <<'PYTHON'
-        import json, os
-        results = json.loads(os.environ['RESULTS'])
-        assert results['selection']['result'] == 'success', 'Selection failed'
-        selected = json.loads(results['selection']['outputs']['verify'])
-        expected = 'success' if 'callkeep.native' in selected else 'skipped'
-        for name in ['native', 'tooling']:
-            assert results[name]['result'] == expected, 'Callkeep checks did not complete as selected'
-        PYTHON
+      - env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          python3 - <<'PYTHON'
+          import json, os
+          results = json.loads(os.environ['RESULTS'])
+          assert results['selection']['result'] == 'success', 'Selection failed'
+          selected = json.loads(results['selection']['outputs']['verify'])
+          expected = 'success' if 'callkeep.native' in selected else 'skipped'
+          for name in ['native', 'tooling']:
+              assert results[name]['result'] == expected, 'Callkeep checks did not complete as selected'
+          PYTHON

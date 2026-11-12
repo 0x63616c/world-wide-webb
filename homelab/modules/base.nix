@@ -1,9 +1,19 @@
-{ config, lib, pkgs, ... }:
-let cfg = config.homelab;
-in {
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
+let
+  cfg = config.homelab;
+in
+{
   options.homelab = {
     adminUser = lib.mkOption { type = lib.types.str; };
-    adminUID = lib.mkOption { type = lib.types.int; default = 501; };
+    adminUID = lib.mkOption {
+      type = lib.types.int;
+      default = 501;
+    };
   };
   config = {
     nixpkgs.hostPlatform = "aarch64-darwin";
@@ -18,19 +28,36 @@ in {
     nix.enable = false;
     time.timeZone = "America/Los_Angeles";
     # Let SSH sessions recognize Ghostty without installing its GUI application.
-    environment.systemPackages = (with pkgs; [ git jq curl age sops ghostty-bin.terminfo ]) ++ [
-      (import ../packages/client.nix { inherit pkgs; })
-      (import ../packages/host.nix { inherit pkgs; })
-    ];
-    nix-homebrew = { enable = true; user = cfg.adminUser; autoMigrate = false; };
+    environment.systemPackages =
+      (with pkgs; [
+        git
+        jq
+        curl
+        age
+        sops
+        ghostty-bin.terminfo
+      ])
+      ++ [
+        (import ../packages/client.nix { inherit pkgs; })
+        (import ../packages/host.nix { inherit pkgs; })
+      ];
+    nix-homebrew = {
+      enable = true;
+      user = cfg.adminUser;
+      autoMigrate = false;
+    };
     homebrew = {
       enable = true;
-      onActivation = { cleanup = "zap"; autoUpdate = false; upgrade = false; };
+      onActivation = {
+        cleanup = "zap";
+        autoUpdate = false;
+        upgrade = false;
+      };
       brews = [ ];
       casks = [ ];
     };
     system.activationScripts.preActivation.text = lib.mkBefore ''
-      ${lib.optionalString (cfg.authorizedKeys == []) ''
+      ${lib.optionalString (cfg.authorizedKeys == [ ]) ''
         echo 'Activation blocked: configure an administrator SSH public key first.' >&2
         exit 1
       ''}

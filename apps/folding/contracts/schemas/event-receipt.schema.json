@@ -33,12 +33,7 @@
             "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
           },
           "disposition": {
-            "enum": [
-              "accepted",
-              "duplicate",
-              "quarantined",
-              "rejected"
-            ]
+            "enum": ["accepted", "duplicate", "quarantined", "rejected"]
           },
           "reason_code": {
             "anyOf": [
@@ -53,20 +48,13 @@
             ]
           }
         },
-        "required": [
-          "event_id",
-          "disposition",
-          "reason_code"
-        ],
+        "required": ["event_id", "disposition", "reason_code"],
         "allOf": [
           {
             "if": {
               "properties": {
                 "disposition": {
-                  "enum": [
-                    "rejected",
-                    "quarantined"
-                  ]
+                  "enum": ["rejected", "quarantined"]
                 }
               }
             },

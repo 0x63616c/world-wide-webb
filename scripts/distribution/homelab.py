@@ -37,9 +37,10 @@ def checked_source():
         raise ValueError("CLI delivery requires successful exact-source main CI")
     pages = json.loads(prepare.run("gh", "api", "--paginate", "--slurp", prefix + "/jobs?per_page=100"))
     jobs = [job for page in pages for job in page["jobs"] if job["name"] == "Homelab / Homelab CLI"]
-    if len(jobs) != 1 or any(jobs[0].get(key) != value for key, value in {
-        "head_sha": source, "status": "completed", "conclusion": "success"
-    }.items()):
+    if len(jobs) != 1 or any(
+        jobs[0].get(key) != value
+        for key, value in {"head_sha": source, "status": "completed", "conclusion": "success"}.items()
+    ):
         raise ValueError("The exact portable CLI build was not verified")
     return source
 
@@ -121,7 +122,9 @@ def main():
         if record["source_sha"] != source:
             raise ValueError("CLI release belongs to a different source")
         downloaded = args.output / "downloaded.tar.gz"
-        prepare.run("curl", "--fail", "--silent", "--show-error", "--location", record["url"], "--output", str(downloaded))
+        prepare.run(
+            "curl", "--fail", "--silent", "--show-error", "--location", record["url"], "--output", str(downloaded)
+        )
         if hashlib.sha256(downloaded.read_bytes()).hexdigest() != record["sha256"]:
             raise ValueError("Public CLI archive differs from the tested build")
         stage = args.output / "stage"
@@ -133,7 +136,7 @@ def main():
             current = path.read_text()
             versions = re.findall(r'^\s*version "(\d+\.\d+\.\d+)"', current, re.MULTILINE)
             if not versions:
-                versions = re.findall(r'/v(\d+\.\d+\.\d+)/', current)
+                versions = re.findall(r"/v(\d+\.\d+\.\d+)/", current)
             if len(set(versions)) != 1:
                 raise ValueError("Cannot establish the existing tap version")
             old, new = (tuple(map(int, version.split("."))) for version in (versions[0], record["version"]))
@@ -160,8 +163,21 @@ def main():
     info = prepare.run("gh", "api", "--paginate", "--slurp", f"repos/{publish.REPOSITORY}/releases?per_page=100")
     matches = [release for page in json.loads(info) for release in page if release["tag_name"] == tag]
     if not matches:
-        prepare.run("gh", "release", "create", tag, "--repo", publish.REPOSITORY, "--target", source,
-                    "--draft", "--title", f"Homelab CLI {version}", "--notes", "Install: `brew install 0x63616c/tap/homelab`.")
+        prepare.run(
+            "gh",
+            "release",
+            "create",
+            tag,
+            "--repo",
+            publish.REPOSITORY,
+            "--target",
+            source,
+            "--draft",
+            "--title",
+            f"Homelab CLI {version}",
+            "--notes",
+            "Install: `brew install 0x63616c/tap/homelab`.",
+        )
         assets = []
     else:
         assets = matches[0]["assets"]
@@ -172,8 +188,13 @@ def main():
     else:
         prepare.run("gh", "release", "upload", tag, str(archive), "--repo", publish.REPOSITORY)
     prepare.run("gh", "release", "edit", tag, "--repo", publish.REPOSITORY, "--draft=false", "--latest=false")
-    record = {"source_sha": source, "version": version, "tag": tag, "sha256": checksum,
-              "url": f"https://github.com/{publish.REPOSITORY}/releases/download/homelab%2Fv{version}/{archive.name}"}
+    record = {
+        "source_sha": source,
+        "version": version,
+        "tag": tag,
+        "sha256": checksum,
+        "url": f"https://github.com/{publish.REPOSITORY}/releases/download/homelab%2Fv{version}/{archive.name}",
+    }
     (args.output / "release.json").write_text(json.dumps(record, indent=2) + "\n")
     (args.output / "homelab.rb").write_text(formula(version, checksum))
     print(f"Published CLI {version} from the exact tested build.")

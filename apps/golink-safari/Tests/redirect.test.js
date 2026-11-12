@@ -1,13 +1,23 @@
-import {describe, expect, test} from "bun:test";
-import {readFileSync} from "node:fs";
-import {golinkOrigin, redirectRules, resolveSearch, fallbackSearch} from "../Extension/redirect.js";
+import { describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
+import {
+  golinkOrigin,
+  redirectRules,
+  resolveSearch,
+  fallbackSearch,
+} from "../Extension/redirect.js";
 
-const source = query => `https://www.google.com/search?client=safari&q=${encodeURIComponent(query)}&ie=UTF-8&oe=UTF-8`;
+const source = (query) =>
+  `https://www.google.com/search?client=safari&q=${encodeURIComponent(query)}&ie=UTF-8&oe=UTF-8`;
 const rules = redirectRules("safari-web-extension://test/resolve.html");
-const pattern = {test: url => {
-  const matches = rules.filter(rule => new RegExp(rule.condition.regexFilter).test(url)).sort((a, b) => b.priority - a.priority);
-  return matches[0]?.action.type === "redirect";
-}};
+const pattern = {
+  test: (url) => {
+    const matches = rules
+      .filter((rule) => new RegExp(rule.condition.regexFilter).test(url))
+      .sort((a, b) => b.priority - a.priority);
+    return matches[0]?.action.type === "redirect";
+  },
+};
 
 describe("address-bar go links", () => {
   test.each([
@@ -30,32 +40,54 @@ describe("address-bar go links", () => {
     expect(new URL(resolveSearch(original)).origin).toBe(golinkOrigin);
   });
 
-  test.each(["repo", "go", "go/", "go/repo explanation", "please go/repo", "https://go/repo", "GO/repo", "go/repo\tfoo", "go/repo\nfoo"])("leaves ordinary search %s untouched", query => {
+  test.each([
+    "repo",
+    "go",
+    "go/",
+    "go/repo explanation",
+    "please go/repo",
+    "https://go/repo",
+    "GO/repo",
+    "go/repo\tfoo",
+    "go/repo\nfoo",
+  ])("leaves ordinary search %s untouched", (query) => {
     expect(pattern.test(source(query))).toBe(false);
     expect(resolveSearch(source(query))).toBeNull();
   });
 
   test("accepts q in either parameter position and literal slash", () => {
-    for (const url of ["https://google.com/search?q=go/repo", "https://www.google.com/search?x=1&q=go%2Frepo", "https://www.google.com/search?q=go%2frepo&x=1"]) {
+    for (const url of [
+      "https://google.com/search?q=go/repo",
+      "https://www.google.com/search?x=1&q=go%2Frepo",
+      "https://www.google.com/search?q=go%2frepo&x=1",
+    ]) {
       expect(pattern.test(url)).toBe(true);
       expect(resolveSearch(url)).toBe(golinkOrigin + "/repo");
     }
   });
 
   test.each([
-    "https://evil.example/search?q=go%2Frepo", "https://www.google.com.evil.example/search?q=go%2Frepo",
-    "http://www.google.com/search?q=go%2Frepo", "https://www.google.com:8443/search?q=go%2Frepo",
-    "https://www.google.com/other?q=go%2Frepo", "https://www.google.com/search?q=go%2Frepo&q=normal",
-    "https://www.google.com/search?q=go%2Frepo&%71=normal", "https://www.google.com/search?q=go%2Fbad%FF",
-    source("go/repo\\@evil.example"), source("go/repo%zz"), source("go/repo\u00a0phrase"),
+    "https://evil.example/search?q=go%2Frepo",
+    "https://www.google.com.evil.example/search?q=go%2Frepo",
+    "http://www.google.com/search?q=go%2Frepo",
+    "https://www.google.com:8443/search?q=go%2Frepo",
+    "https://www.google.com/other?q=go%2Frepo",
+    "https://www.google.com/search?q=go%2Frepo&q=normal",
+    "https://www.google.com/search?q=go%2Frepo&%71=normal",
+    "https://www.google.com/search?q=go%2Fbad%FF",
+    source("go/repo\\@evil.example"),
+    source("go/repo%zz"),
+    source("go/repo\u00a0phrase"),
     "https://www.google.com/search?q=go%2Frepo&q=go%2Fother",
-  ])("rejects ambiguous input without arbitrary fallback: %s", url => {
+  ])("rejects ambiguous input without arbitrary fallback: %s", (url) => {
     expect(resolveSearch(url)).toBeNull();
     const fallback = fallbackSearch(url);
     if (fallback) {
       expect(new URL(fallback).hostname).toMatch(/^(www\.)?google\.com$/);
       expect(pattern.test(fallback)).toBe(false);
-      expect(new URL(fallback).searchParams.getAll("q")).toEqual(new URL(url).searchParams.getAll("q"));
+      expect(new URL(fallback).searchParams.getAll("q")).toEqual(
+        new URL(url).searchParams.getAll("q"),
+      );
     }
   });
 
@@ -63,11 +95,20 @@ describe("address-bar go links", () => {
     const url = source("go/repo?x=one&y=two#readme");
     const rule = rules[0];
     expect(rule.condition.resourceTypes).toEqual(["main_frame"]);
-    expect(rule.action.redirect.regexSubstitution).toBe("safari-web-extension://test/resolve.html#\\0");
+    expect(rule.action.redirect.regexSubstitution).toBe(
+      "safari-web-extension://test/resolve.html#\\0",
+    );
     expect(new RegExp(rules[1].condition.regexFilter).exec(url)[0]).toBe(url);
-    const manifest = JSON.parse(readFileSync(new URL("../Extension/manifest.json", import.meta.url)));
-    expect(manifest.permissions).toEqual(["declarativeNetRequestWithHostAccess"]);
-    expect(manifest.host_permissions).toEqual(["https://www.google.com/*", "https://google.com/*"]);
+    const manifest = JSON.parse(
+      readFileSync(new URL("../Extension/manifest.json", import.meta.url)),
+    );
+    expect(manifest.permissions).toEqual([
+      "declarativeNetRequestWithHostAccess",
+    ]);
+    expect(manifest.host_permissions).toEqual([
+      "https://www.google.com/*",
+      "https://google.com/*",
+    ]);
     expect(manifest.content_scripts).toBeUndefined();
   });
 });

@@ -15,9 +15,7 @@
       "Device ID",
       "Other Usage Data"
     ],
-    "not_linked_to_identity": [
-      "Other Diagnostic Data"
-    ],
+    "not_linked_to_identity": ["Other Diagnostic Data"],
     "accuracy_declaration": "owner approved publication"
   },
   "age_rating": {
@@ -43,10 +41,7 @@
       "loot boxes"
     ],
     "intentional_content_frequency": "NONE for mature themes, sexuality/nudity and violence",
-    "unavailable_regions_reported_by_questionnaire": [
-      "Afghanistan",
-      "Morocco"
-    ]
+    "unavailable_regions_reported_by_questionnaire": ["Afghanistan", "Morocco"]
   },
   "content_rights": {
     "state": "saved",

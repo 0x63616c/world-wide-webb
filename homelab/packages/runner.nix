@@ -16,9 +16,7 @@ pkgs.rustPlatform.buildRustPackage {
   version = "0.1.0";
   src = pkgs.lib.cleanSourceWith {
     src = ../runner;
-    filter = path: type:
-      pkgs.lib.cleanSourceFilter path type
-      && baseNameOf path != "target";
+    filter = path: type: pkgs.lib.cleanSourceFilter path type && baseNameOf path != "target";
   };
   cargoLock.lockFile = ../runner/Cargo.lock;
   passthru = { inherit runnerVersion runnerArchive linuxRunnerArchive; };

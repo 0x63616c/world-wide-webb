@@ -6,8 +6,8 @@ services:
     restart: unless-stopped
     # Preserve existing exposure during migration; narrowing it is a separate change.
     ports:
-      - '8888:8888'
-      - '9999:9999'
+      - "8888:8888"
+      - "9999:9999"
     env_file:
       - path: ${HINDSIGHT_ENV_FILE:?Provision the existing Hindsight runtime environment securely}
         format: raw
@@ -32,7 +32,13 @@ services:
         volume:
           nocopy: true
     healthcheck:
-      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8888/health', timeout=5)"]
+      test:
+        [
+          CMD,
+          python,
+          -c,
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8888/health', timeout=5)",
+        ]
       interval: 30s
       timeout: 10s
       retries: 10

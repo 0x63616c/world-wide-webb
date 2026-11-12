@@ -25,18 +25,24 @@ fi
 
 app=${1:?usage: capture-duo-screenshots.sh <app> [output-dir] [appearance...]}
 for tool in ruby python3 xcrun xcodebuild; do
-  command -v "$tool" >/dev/null || { echo "Missing $tool; run on macOS with Xcode and Ruby installed." >&2; exit 1; }
+  command -v "$tool" > /dev/null || {
+    echo "Missing $tool; run on macOS with Xcode and Ruby installed." >&2
+    exit 1
+  }
 done
 project=$(ruby scripts/app-config.rb "$app" project_path)
 scheme=$(ruby scripts/app-config.rb "$app" scheme)
 test_id=$(ruby scripts/app-config.rb "$app" duo_screenshot_test)
 name=$(ruby scripts/app-config.rb "$app" name)
 out=${2:-build/duo-screenshots/$app/raw}
-shift $(( $# > 1 ? 2 : 1 ))
+shift $(($# > 1 ? 2 : 1))
 appearances=("$@")
 [[ ${#appearances[@]} -gt 0 ]] || appearances=(light dark)
 for appearance in "${appearances[@]}"; do
-  [[ "$appearance" == light || "$appearance" == dark ]] || { echo "Unsupported appearance: $appearance" >&2; exit 1; }
+  [[ "$appearance" == light || "$appearance" == dark ]] || {
+    echo "Unsupported appearance: $appearance" >&2
+    exit 1
+  }
 done
 screenshot_settings=$(python3 scripts/screenshot-build-settings.py "$app")
 screenshot_xcargs=("CODE_SIGNING_ALLOWED=NO")
@@ -67,13 +73,16 @@ cleanup() {
   local capture_status=$?
   if [[ -n "$host_worker" ]]; then
     touch "$work/host-stop"
-    kill "$host_worker" 2>/dev/null || true
-    wait "$host_worker" 2>/dev/null || true
+    kill "$host_worker" 2> /dev/null || true
+    wait "$host_worker" 2> /dev/null || true
   fi
-  if [[ -n "$worker" ]]; then kill "$worker" 2>/dev/null || true; wait "$worker" 2>/dev/null || true; fi
+  if [[ -n "$worker" ]]; then
+    kill "$worker" 2> /dev/null || true
+    wait "$worker" 2> /dev/null || true
+  fi
   if [[ -n "$host_application_worker" ]]; then
-    kill "$host_application_worker" 2>/dev/null || true
-    wait "$host_application_worker" 2>/dev/null || true
+    kill "$host_application_worker" 2> /dev/null || true
+    wait "$host_application_worker" 2> /dev/null || true
   fi
   local evidence="$out/diagnostics/${work##*/}"
   if [[ -f "$work/host-control.log" ]]; then
@@ -81,10 +90,10 @@ cleanup() {
       cp "$work/host-control.log" "$evidence/" || true
     fi
   fi
-  if (( capture_status > 0 && capture_status < 128 )) && [[ -n "${DUO_CAPTURE_REPORT:-}" && -f "$work/native-control-timeout.json" ]]; then
+  if ((capture_status > 0 && capture_status < 128)) && [[ -n "${DUO_CAPTURE_REPORT:-}" && -f "$work/native-control-timeout.json" ]]; then
     cp "$work/native-control-timeout.json" "$DUO_CAPTURE_REPORT" || true
   fi
-  if (( capture_status != 0 )); then
+  if ((capture_status != 0)); then
     # The release job already retains raw/. Keep failed native evidence there
     # too, isolated by run and separate from the uploadable gallery.
     local item
@@ -97,21 +106,25 @@ cleanup() {
     fi
   fi
   if [[ -n "$udid" ]]; then
-    xcrun simctl shutdown "$udid" >/dev/null 2>&1 || true
-    xcrun simctl delete "$udid" >/dev/null 2>&1 || true
+    xcrun simctl shutdown "$udid" > /dev/null 2>&1 || true
+    xcrun simctl delete "$udid" > /dev/null 2>&1 || true
   fi
   return "$capture_status"
 }
 trap cleanup EXIT
 
 xcrun simctl list devicetypes --json > "$work/devicetypes.json"
-device_type=${R_SIM_DEVICE_TYPE:-$(python3 - "$work/devicetypes.json" <<'PY'
+device_type=${R_SIM_DEVICE_TYPE:-$(
+  python3 - "$work/devicetypes.json" << 'PY'
 import json, sys
 matches = [d for d in json.load(open(sys.argv[1]))["devicetypes"] if "iphone duo" in d["name"].lower()]
 print(matches[0]["identifier"] if matches else "")
 PY
 )}
-[[ -n "$device_type" ]] || { echo "No iPhone Duo simulator device type found. Install Xcode 27.1+ with its iOS runtime, or set R_SIM_DEVICE_TYPE explicitly. See $work/devicetypes.json." >&2; exit 1; }
+[[ -n "$device_type" ]] || {
+  echo "No iPhone Duo simulator device type found. Install Xcode 27.1+ with its iOS runtime, or set R_SIM_DEVICE_TYPE explicitly. See $work/devicetypes.json." >&2
+  exit 1
+}
 # Match the validated Xcode 27.2 runner image; Duo uses its device-specific runtime.
 runtime=${R_SIM_RUNTIME:-com.apple.CoreSimulator.SimRuntime.iOS-27-2-iPhone19-4}
 echo "Using $device_type on $runtime"
@@ -119,7 +132,7 @@ simulator_name="$name Duo Screenshots"
 # Interrupted runs can leave simulators consuming resources on a persistent runner.
 # Match only our name prefix, including devices from older/unavailable runtimes.
 xcrun simctl list devices --json > "$work/devices.json"
-python3 - "$work/devices.json" "$simulator_name" > "$work/stale-simulators.txt" <<'PY'
+python3 - "$work/devices.json" "$simulator_name" > "$work/stale-simulators.txt" << 'PY'
 import json, sys
 with open(sys.argv[1]) as file:
     runtimes = json.load(file)["devices"]
@@ -130,7 +143,7 @@ for devices in runtimes.values():
 PY
 while IFS= read -r stale_udid; do
   echo "Removing stale Duo screenshot simulator: $stale_udid"
-  xcrun simctl shutdown "$stale_udid" >/dev/null 2>&1 || true
+  xcrun simctl shutdown "$stale_udid" > /dev/null 2>&1 || true
   xcrun simctl delete "$stale_udid"
 done < "$work/stale-simulators.txt"
 udid=$(xcrun simctl create "$simulator_name" "$device_type" "$runtime")
@@ -147,8 +160,8 @@ if [[ "${DUO_HOST_CONTROL:-0}" == 1 ]] && [[ "$(python3 -c 'import json,sys; pri
     -scheme DuoCaptureHost -destination 'platform=macOS' -derivedDataPath "$work/HostDerivedData" \
     DUO_HOST_CONTROL_DIRECTORY="$work" -quiet > "$work/host-build.log" 2>&1
   codesign -d --entitlements :- "$work/HostDerivedData/Build/Products/Debug/DuoHostControlTests-Runner.app" \
-    2>/dev/null > "$work/host-entitlements.plist"
-  python3 - "$work" <<'ENTITLEMENTSPY'
+    2> /dev/null > "$work/host-entitlements.plist"
+  python3 - "$work" << 'ENTITLEMENTSPY'
 import pathlib, plistlib, sys
 folder = pathlib.Path(sys.argv[1])
 with (folder / "host-entitlements.plist").open("rb") as file:
@@ -160,7 +173,7 @@ ENTITLEMENTSPY
   echo "Starting the native Device Hub controller"
   # The outer app's DevicesTrampoline can publish PID -1 to AppKit/XCTest.
   # Start the actual executable on this disposable CI host, retaining only our PID.
-  if pgrep -x DeviceHub >/dev/null; then
+  if pgrep -x DeviceHub > /dev/null; then
     echo "Device Hub is already running; refusing to replace another session" >&2
     exit 1
   fi
@@ -170,15 +183,15 @@ ENTITLEMENTSPY
     > "$work/host-application.log" 2>&1 &
   host_application_worker=$!
   TEST_RUNNER_DUO_HOST_APPLICATION_PATH="$host_application" \
-  TEST_RUNNER_DUO_HOST_APPLICATION_PID="$host_application_worker" \
-  TEST_RUNNER_DUO_HOST_CONTROL_DIR="$work" TEST_RUNNER_DUO_HOST_DEVICE_NAME="$simulator_name" \
-  TEST_RUNNER_DUO_HOST_DEVICE_ID="$udid" \
+    TEST_RUNNER_DUO_HOST_APPLICATION_PID="$host_application_worker" \
+    TEST_RUNNER_DUO_HOST_CONTROL_DIR="$work" TEST_RUNNER_DUO_HOST_DEVICE_NAME="$simulator_name" \
+    TEST_RUNNER_DUO_HOST_DEVICE_ID="$udid" \
     xcodebuild test-without-building -project "$work/host-project/DuoCaptureHost.xcodeproj" \
     -scheme DuoCaptureHost -destination 'platform=macOS' -derivedDataPath "$work/HostDerivedData" \
     DUO_HOST_CONTROL_DIRECTORY="$work" -parallel-testing-enabled NO -test-timeouts-enabled NO -resultBundlePath "$work/DuoHostControl.xcresult" \
     > "$work/host-control.log" 2>&1 &
   host_worker=$!
-  python3 - "$work" "$host_worker" <<'HOSTPY'
+  python3 - "$work" "$host_worker" << 'HOSTPY'
 import os, pathlib, subprocess, sys, time
 folder, process = pathlib.Path(sys.argv[1]), int(sys.argv[2])
 for _ in range(120):
@@ -209,7 +222,8 @@ xcodebuild build-for-testing -project "$project" -scheme "$scheme" \
 
 # Keep both appearances and both poses in the same XCTest/app session.
 # Group by appearance to avoid repeated appearance switches; staging owns gallery order.
-shots=$(python3 - "apps/$app/screenshots.json" "${appearances[@]}" <<'PYSHOTS'
+shots=$(
+  python3 - "apps/$app/screenshots.json" "${appearances[@]}" << 'PYSHOTS'
 import json, sys
 shots = json.load(open(sys.argv[1]))["duo_shots"]
 selected = [shot for appearance in sys.argv[2:] for shot in shots if shot["appearance"] == appearance]
@@ -227,16 +241,16 @@ mkdir -p "$capture"
 python3 scripts/duo-simulator.py serve "$udid" "$work" --output "$capture" --appearance "${appearances[0]}" &
 worker=$!
 TEST_RUNNER_DUO_CONTROL_DIR="$work" TEST_RUNNER_DUO_CAN_FOLD="$fold" TEST_RUNNER_DUO_HOST_ORIENTATION="$host_orientation" \
-TEST_RUNNER_DUO_CAPTURE_SHOTS="$shots" \
+  TEST_RUNNER_DUO_CAPTURE_SHOTS="$shots" \
   xcodebuild test-without-building -project "$project" -scheme "$scheme" \
   -destination "id=$udid" -derivedDataPath "$derived" -only-testing:"$test_id" \
   -parallel-testing-enabled NO \
   -test-timeouts-enabled YES -default-test-execution-time-allowance 300 -maximum-test-execution-time-allowance 900 \
   -resultBundlePath "$work/DuoScreenshotTests.xcresult"
-kill "$worker" 2>/dev/null || true
-wait "$worker" 2>/dev/null || true
+kill "$worker" 2> /dev/null || true
+wait "$worker" 2> /dev/null || true
 worker=
-python3 - "$capture" "$work/plan.json" "$shots" "$out" <<'PYEXPORT'
+python3 - "$capture" "$work/plan.json" "$shots" "$out" << 'PYEXPORT'
 import json, pathlib, shutil, struct, sys
 source, plan_path, shots_json, output = sys.argv[1:]
 plan = json.load(open(plan_path))

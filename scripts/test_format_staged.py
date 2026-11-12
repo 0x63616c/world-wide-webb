@@ -30,10 +30,11 @@ class StagedFormattingTests(unittest.TestCase):
     def git(self, *args):
         return subprocess.check_output(["git", *args], cwd=self.root)
 
-    def run_script(self):
+    def run_script(self, *args):
         env = os.environ.copy()
         env["PATH"] = f"{self.tool_dir}:{env['PATH']}"
-        return subprocess.run([sys.executable, SCRIPT], cwd=self.root, env=env, capture_output=True)
+        env["FORMAT_REPO_ROOT"] = str(self.root)
+        return subprocess.run([sys.executable, SCRIPT, *args], cwd=self.root, env=env, capture_output=True)
 
     def test_formatted_file_is_staged_into_same_commit(self):
         source = self.root / "example.swift"
@@ -59,6 +60,24 @@ class StagedFormattingTests(unittest.TestCase):
         source.write_text("bad trailing space \n")
         self.git("add", "note.md")
         self.assertNotEqual(self.run_script().returncode, 0)
+
+    def test_yaml_uses_same_formatter_for_hook_and_full_check(self):
+        prettier = self.root / "node_modules/.bin/prettier"
+        prettier.parent.mkdir(parents=True)
+        prettier.write_text(
+            "#!/bin/sh\n"
+            'if [ "$1" = --check ]; then [ "$(cat "$2")" = formatted ]; '
+            'else printf "formatted\\n" > "$2"; fi\n'
+        )
+        prettier.chmod(0o755)
+        source = self.root / "config.yml"
+        source.write_text("unformatted\n")
+        self.git("add", "config.yml")
+        self.assertNotEqual(self.run_script("--all", "--check").returncode, 0)
+        self.assertEqual(source.read_text(), "unformatted\n")
+        self.assertEqual(self.run_script().returncode, 0)
+        self.assertEqual(self.git("show", ":config.yml"), b"formatted\n")
+        self.assertEqual(self.run_script("--all", "--check").returncode, 0)
 
 
 if __name__ == "__main__":

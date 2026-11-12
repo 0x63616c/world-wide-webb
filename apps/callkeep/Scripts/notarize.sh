@@ -4,7 +4,10 @@ set +x
 app=$1
 archive=$2
 for required in MATCH_KEYCHAIN_PATH MATCH_PROFILE_PATH APPLE_API_KEY_P8_BASE64 APPLE_API_KEY_ID APPLE_API_ISSUER_ID; do
-  if [[ -z ${!required:-} ]]; then echo "Missing signing input: $required" >&2; exit 1; fi
+  if [[ -z ${!required:-} ]]; then
+    echo "Missing signing input: $required" >&2
+    exit 1
+  fi
 done
 umask 077
 signing_directory=$(mktemp -d -t callkeep-signing)
@@ -18,7 +21,7 @@ identity='Developer ID Application: Calum Webb (X9E4HG27NK)'
 python3 Scripts/sign-app.py "$app" "$identity" "$MATCH_KEYCHAIN_PATH"
 ditto -c -k --sequesterRsrc --keepParent "$app" "$archive"
 xcrun notarytool submit "$archive" --key "$signing_directory/key.p8" --key-id "$APPLE_API_KEY_ID" --issuer "$APPLE_API_ISSUER_ID" --wait --timeout 10m --output-format json > "$signing_directory/result.json"
-python3 - "$signing_directory/result.json" "$archive.notary.json" <<'PY'
+python3 - "$signing_directory/result.json" "$archive.notary.json" << 'PY'
 import json,sys
 result=json.load(open(sys.argv[1]))
 print('Notarization:', result.get('status'), 'Submission:', result.get('id'))

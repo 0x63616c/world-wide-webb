@@ -20,49 +20,87 @@ BETA_FEEDBACK_EMAIL = ENV["ASC_BETA_FEEDBACK_EMAIL"]
 # Every lane takes app:<name> (or APP=<name>) and reads apps/<name>/app.yml.
 def r_app(options)
   slug = (options[:app] || ENV["APP"]).to_s
-  apps = Dir[File.join(REPO_ROOT, "apps", "*", "app.yml")].map { |path| File.basename(File.dirname(path)) }.sort
-  UI.user_error!("Pass app:<name>, for example `fastlane ios beta app:tendr`. Apps: #{apps.join(', ')}") if slug.empty?
-  UI.user_error!("Unknown app '#{slug}'. Apps: #{apps.join(', ')}") unless apps.include?(slug)
+  apps =
+    Dir[File.join(REPO_ROOT, "apps", "*", "app.yml")]
+      .map { |path| File.basename(File.dirname(path)) }
+      .sort
+  if slug.empty?
+    UI.user_error!(
+      "Pass app:<name>, for example `fastlane ios beta app:tendr`. Apps: #{apps.join(", ")}"
+    )
+  end
+  unless apps.include?(slug)
+    UI.user_error!("Unknown app '#{slug}'. Apps: #{apps.join(", ")}")
+  end
   dir = File.join(REPO_ROOT, "apps", slug)
   config = YAML.safe_load_file(File.join(dir, "app.yml"))
-  UI.user_error!("#{slug} uses its #{config['delivery_handler']} delivery handler; see apps/#{slug}/README.md") unless config.fetch("delivery_handler", "standard_ios") == "standard_ios"
+  unless config.fetch("delivery_handler", "standard_ios") == "standard_ios"
+    UI.user_error!(
+      "#{slug} uses its #{config["delivery_handler"]} delivery handler; see apps/#{slug}/README.md"
+    )
+  end
   config.merge(
     "slug" => slug,
     "dir" => dir,
     "metadata_path" => File.join(dir, "fastlane", "metadata"),
     "screenshots_path" => File.join(dir, "fastlane", "screenshots"),
-    "iap_review_screenshot" => File.join(dir, "fastlane", "iap", "tip-sheet-review.png")
+    "iap_review_screenshot" =>
+      File.join(dir, "fastlane", "iap", "tip-sheet-review.png")
   )
 end
 
 # Record the result of an explicit release attempt.
 def release_paused(config, error)
-  state = error.is_a?(ReleasePipeline::AlreadySubmitted) ? "submitted" : "deferred"
+  state =
+    error.is_a?(ReleasePipeline::AlreadySubmitted) ? "submitted" : "deferred"
   FileUtils.mkdir_p(File.join(REPO_ROOT, "build"))
-  File.write(File.join(REPO_ROOT, "build", "release-state.json"), JSON.generate({
-    state: state, app: config["slug"], sha: ENV.fetch("GITHUB_SHA"), reason: error.message
-  }))
+  File.write(
+    File.join(REPO_ROOT, "build", "release-state.json"),
+    JSON.generate(
+      {
+        state: state,
+        app: config["slug"],
+        sha: ENV.fetch("GITHUB_SHA"),
+        reason: error.message
+      }
+    )
+  )
   File.open(ENV.fetch("GITHUB_ENV"), "a") { |f| f.puts("RELEASE_SKIP=true") }
-  File.open(ENV.fetch("GITHUB_STEP_SUMMARY"), "a") { |f| f.puts("## Release #{state}\n\n#{error.message}") }
-  raise error if ENV["GITHUB_REF_TYPE"] == "tag" && error.is_a?(ReleasePipeline::Deferred)
+  File.open(ENV.fetch("GITHUB_STEP_SUMMARY"), "a") do |f|
+    f.puts("## Release #{state}\n\n#{error.message}")
+  end
+  if ENV["GITHUB_REF_TYPE"] == "tag" && error.is_a?(ReleasePipeline::Deferred)
+    raise error
+  end
   UI.success(error.message)
 end
 
 # Internal groups set to receive every build reject manual assignment, so skip those.
 def assignable_groups(app)
   name = app["testflight_group"]
-  UI.user_error!("TestFlight API connection is required") unless defined?(Spaceship::ConnectAPI) && Spaceship::ConnectAPI.client
+  unless defined?(Spaceship::ConnectAPI) && Spaceship::ConnectAPI.client
+    UI.user_error!("TestFlight API connection is required")
+  end
   record = Spaceship::ConnectAPI::App.find(app["bundle_id"])
   group = record&.get_beta_groups&.find { |g| g.name == name }
   unless group
     ensure_internal_testers(app)
     group = record&.get_beta_groups&.find { |g| g.name == name }
   end
-  UI.user_error!("Configured TestFlight group '#{name}' is missing") unless group
-  UI.user_error!("Configured TestFlight group '#{name}' must be internal") unless group.is_internal_group
-  TestflightFeedback.ensure_enabled!(client: Spaceship::ConnectAPI.client, group_id: group.id)
+  unless group
+    UI.user_error!("Configured TestFlight group '#{name}' is missing")
+  end
+  unless group.is_internal_group
+    UI.user_error!("Configured TestFlight group '#{name}' must be internal")
+  end
+  TestflightFeedback.ensure_enabled!(
+    client: Spaceship::ConnectAPI.client,
+    group_id: group.id
+  )
   if group&.has_access_to_all_builds
-    UI.message("TestFlight group '#{name}' already gets every build automatically")
+    UI.message(
+      "TestFlight group '#{name}' already gets every build automatically"
+    )
     return nil
   end
   [name]
@@ -76,56 +114,98 @@ def ensure_internal_testers(app)
   restore_verbose = true
   FastlaneCore::Globals.verbose = false
   client = Spaceship::ConnectAPI::Client.new(token: Spaceship::ConnectAPI.token)
-  [client.tunes_request_client, client.users_request_client, client.test_flight_request_client].each do |request_client|
-    request_client.logger = Logger.new(File::NULL)
-  end
+  [
+    client.tunes_request_client,
+    client.users_request_client,
+    client.test_flight_request_client
+  ].each { |request_client| request_client.logger = Logger.new(File::NULL) }
 
   record = Spaceship::ConnectAPI::App.find(app["bundle_id"], client: client)
   unless record
     UI.important("Internal testers: app record missing")
     return
   end
-  group = record.get_beta_groups(client: client).find { |candidate| candidate.name == app["testflight_group"] }
+  group =
+    record
+      .get_beta_groups(client: client)
+      .find { |candidate| candidate.name == app["testflight_group"] }
   unless group
-    group = record.create_beta_group(client: client, group_name: app["testflight_group"], is_internal_group: true, has_access_to_all_builds: true)
+    group =
+      record.create_beta_group(
+        client: client,
+        group_name: app["testflight_group"],
+        is_internal_group: true,
+        has_access_to_all_builds: true
+      )
     UI.message("Created internal group (group id #{group.id})")
   end
   unless group.is_internal_group
-    UI.important("Internal testers: configured group is external (group id #{group.id})")
+    UI.important(
+      "Internal testers: configured group is external (group id #{group.id})"
+    )
     return
   end
   TestflightFeedback.ensure_enabled!(client: client, group_id: group.id)
 
-  roles = ["ACCOUNT_HOLDER"] + ENV.fetch("ASC_INTERNAL_TESTER_ROLES", "").split(",").map { |role| role.strip.upcase }.reject(&:empty?)
+  roles =
+    ["ACCOUNT_HOLDER"] +
+      ENV
+        .fetch("ASC_INTERNAL_TESTER_ROLES", "")
+        .split(",")
+        .map { |role| role.strip.upcase }
+        .reject(&:empty?)
   # Both .all methods follow every response page in Spaceship.
-  users = Spaceship::ConnectAPI::User.all(client: client).select { |user| (Array(user.roles) & roles).any? }
+  users =
+    Spaceship::ConnectAPI::User
+      .all(client: client)
+      .select { |user| (Array(user.roles) & roles).any? }
   UI.message("Internal testers: #{users.length} matching ASC users")
   users.each do |user|
     begin
       email = user.email.to_s.empty? ? user.username : user.email
       raise "Missing user email" if email.to_s.empty?
-      members = Spaceship::ConnectAPI::BetaTester.all(client: client, filter: { email: email, betaGroups: group.id })
+      members =
+        Spaceship::ConnectAPI::BetaTester.all(
+          client: client,
+          filter: {
+            email: email,
+            betaGroups: group.id
+          }
+        )
       if members.any?
-        UI.message("Internal group #{group.id}: already a tester (user id #{user.id})")
+        UI.message(
+          "Internal group #{group.id}: already a tester (user id #{user.id})"
+        )
         next
       end
-      existing = Spaceship::ConnectAPI::BetaTester.find(client: client, email: email)
+      existing =
+        Spaceship::ConnectAPI::BetaTester.find(client: client, email: email)
       if existing
         group.add_beta_testers(client: client, beta_tester_ids: [existing.id])
       else
         client.post_beta_tester_assignment(
           beta_group_ids: [group.id],
-          attributes: { email: email, firstName: user.first_name, lastName: user.last_name }
+          attributes: {
+            email: email,
+            firstName: user.first_name,
+            lastName: user.last_name
+          }
         )
       end
-      UI.message("Internal group #{group.id}: added tester (user id #{user.id})")
+      UI.message(
+        "Internal group #{group.id}: added tester (user id #{user.id})"
+      )
     rescue StandardError
       # API errors can contain personal data; never print their messages.
-      UI.important("Internal testers: could not add tester (user id #{user.id})")
+      UI.important(
+        "Internal testers: could not add tester (user id #{user.id})"
+      )
     end
   end
 rescue StandardError
-  UI.important("Internal testers: synchronization failed; API error details withheld for privacy")
+  UI.important(
+    "Internal testers: synchronization failed; API error details withheld for privacy"
+  )
 ensure
   FastlaneCore::Globals.verbose = verbose if restore_verbose
 end
@@ -133,7 +213,9 @@ end
 private_lane :connect_api_key do
   key_path = ENV["ASC_KEY_PATH"]
   key_content = ENV["ASC_KEY_CONTENT"]
-  UI.user_error!("Set ASC_KEY_PATH or ASC_KEY_CONTENT") if key_path.to_s.empty? && key_content.to_s.empty?
+  if key_path.to_s.empty? && key_content.to_s.empty?
+    UI.user_error!("Set ASC_KEY_PATH or ASC_KEY_CONTENT")
+  end
 
   app_store_connect_api_key(
     key_id: ENV.fetch("ASC_KEY_ID"),
@@ -155,7 +237,12 @@ platform :ios do
       if bundle
         UI.message("Bundle ID #{identifier} already registered")
       else
-        bundle = Spaceship::ConnectAPI::BundleId.create(name: "#{app['name']} #{target}", platform: "IOS", identifier: identifier)
+        bundle =
+          Spaceship::ConnectAPI::BundleId.create(
+            name: "#{app["name"]} #{target}",
+            platform: "IOS",
+            identifier: identifier
+          )
         UI.success("Registered bundle ID #{identifier}")
       end
       types = bundle.get_capabilities.map(&:capability_type)
@@ -167,9 +254,19 @@ platform :ios do
       end
     end
     record = Spaceship::ConnectAPI::App.find(app["bundle_id"])
-    UI.message(record ? "App record exists: #{record.name} (#{record.id})" : "No App Store Connect app record for #{app['bundle_id']} yet")
+    UI.message(
+      (
+        if record
+          "App record exists: #{record.name} (#{record.id})"
+        else
+          "No App Store Connect app record for #{app["bundle_id"]} yet"
+        end
+      )
+    )
     record&.get_beta_groups&.each do |group|
-      UI.message("Beta group '#{group.name}': internal=#{group.is_internal_group} access_to_all_builds=#{group.has_access_to_all_builds}")
+      UI.message(
+        "Beta group '#{group.name}': internal=#{group.is_internal_group} access_to_all_builds=#{group.has_access_to_all_builds}"
+      )
     end
     ensure_internal_testers(app) if app["testflight_group"]
   end
@@ -203,7 +300,11 @@ platform :ios do
   lane :distribute_existing do |options|
     app = r_app(options)
     build_number = options[:build]
-    UI.user_error!("Pass a build number, for example: fastlane ios distribute_existing build:12") if build_number.to_s.empty?
+    if build_number.to_s.empty?
+      UI.user_error!(
+        "Pass a build number, for example: fastlane ios distribute_existing build:12"
+      )
+    end
 
     upload_to_testflight(
       api_key: connect_api_key,
@@ -228,25 +329,30 @@ platform :ios do
     verify(app: app["slug"]) unless options[:skip_tests]
     api_key = connect_api_key
     version = options[:version] || app["version"]
-    build_number = latest_testflight_build_number(
-      api_key: api_key,
-      app_identifier: app["bundle_id"],
-      version: version,
-      initial_build_number: 0
-    ) + 1
+    build_number =
+      latest_testflight_build_number(
+        api_key: api_key,
+        app_identifier: app["bundle_id"],
+        version: version,
+        initial_build_number: 0
+      ) + 1
 
-    xcargs = "MARKETING_VERSION=#{version} CURRENT_PROJECT_VERSION=#{build_number}"
+    xcargs =
+      "MARKETING_VERSION=#{version} CURRENT_PROJECT_VERSION=#{build_number}"
     export_options = {}
     profile_uuid = ENV["R_PROFILE_UUID"]
     if ENV["GITHUB_ACTIONS"] == "true" && profile_uuid.to_s.empty?
       UI.user_error!("CI requires an installed read-only Match profile")
     end
     unless profile_uuid.to_s.empty?
-      xcargs += " CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY='Apple Distribution' PROVISIONING_PROFILE_SPECIFIER=#{Shellwords.escape(profile_uuid)}"
+      xcargs +=
+        " CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY='Apple Distribution' PROVISIONING_PROFILE_SPECIFIER=#{Shellwords.escape(profile_uuid)}"
       export_options = {
         signingStyle: "manual",
         signingCertificate: "Apple Distribution",
-        provisioningProfiles: { app["bundle_id"] => profile_uuid }
+        provisioningProfiles: {
+          app["bundle_id"] => profile_uuid
+        }
       }
     end
 
@@ -256,7 +362,7 @@ platform :ios do
       clean: true,
       export_method: "app-store",
       output_directory: File.join(REPO_ROOT, "build", "fastlane", app["slug"]),
-      output_name: "#{app['name']}-#{version}-#{build_number}.ipa",
+      output_name: "#{app["name"]}-#{version}-#{build_number}.ipa",
       xcargs: xcargs,
       export_options: export_options,
       export_xcargs: export_options.empty? ? "-allowProvisioningUpdates" : ""
@@ -273,14 +379,23 @@ platform :ios do
       skip_waiting_for_build_processing: false,
       beta_app_description: app["beta_description"],
       beta_app_feedback_email: BETA_FEEDBACK_EMAIL,
-      changelog: options[:changelog] || "Small interface refinements and reliability improvements."
+      changelog:
+        options[:changelog] ||
+          "Small interface refinements and reliability improvements."
     )
     ensure_internal_testers(app) if app["testflight_group"]
     if ENV["RELEASE_MANIFEST"]
-      File.write(ENV.fetch("RELEASE_MANIFEST"), JSON.pretty_generate({
-        app: app["slug"], version: version, build: build_number.to_s,
-        sha: ENV.fetch("GITHUB_SHA")
-      }))
+      File.write(
+        ENV.fetch("RELEASE_MANIFEST"),
+        JSON.pretty_generate(
+          {
+            app: app["slug"],
+            version: version,
+            build: build_number.to_s,
+            sha: ENV.fetch("GITHUB_SHA")
+          }
+        )
+      )
     end
   end
 
@@ -292,25 +407,71 @@ platform :ios do
       connect_api_key
       asc = Spaceship::ConnectAPI.client.tunes_request_client
       record = app_store_app(config)
-      rows = ReleasePipeline.all(asc, "v1/apps/#{record.id}/appStoreVersions?filter[platform]=IOS&limit=50")
-      planner = PendingRelease.new(asc, record.id, ENV.fetch("GITHUB_SHA"), ancestor: ReleaseSource.method(:ancestor?))
+      rows =
+        ReleasePipeline.all(
+          asc,
+          "v1/apps/#{record.id}/appStoreVersions?filter[platform]=IOS&limit=50"
+        )
+      planner =
+        PendingRelease.new(
+          asc,
+          record.id,
+          ENV.fetch("GITHUB_SHA"),
+          ancestor: ReleaseSource.method(:ancestor?)
+        )
       target, id = planner.plan(rows, config.fetch("version"))
       draft = rows.find { |row| row["id"] == id }
-      if draft && ReleasePipeline::EDITABLE.include?(ReleasePipeline.state(draft)) &&
-          Gem::Version.new(config.fetch("version")) > Gem::Version.new(target)
+      if draft &&
+           ReleasePipeline::EDITABLE.include?(ReleasePipeline.state(draft)) &&
+           Gem::Version.new(config.fetch("version")) > Gem::Version.new(target)
         target = config.fetch("version")
-        asc.patch("v1/appStoreVersions/#{id}", { data: { type: "appStoreVersions", id: id,
-          attributes: { versionString: target } } })
+        asc.patch(
+          "v1/appStoreVersions/#{id}",
+          {
+            data: {
+              type: "appStoreVersions",
+              id: id,
+              attributes: {
+                versionString: target
+              }
+            }
+          }
+        )
       end
-      UI.user_error!("Tagged version must match the processed beta version; bump app.yml before building a new version") unless target == config.fetch("version")
+      unless target == config.fetch("version")
+        UI.user_error!(
+          "Tagged version must match the processed beta version; bump app.yml before building a new version"
+        )
+      end
       unless id
-        asc.post("v1/appStoreVersions", { data: { type: "appStoreVersions",
-          attributes: { platform: "IOS", versionString: target, releaseType: "AFTER_APPROVAL" },
-          relationships: { app: { data: { type: "apps", id: record.id } } }
-        } })
+        asc.post(
+          "v1/appStoreVersions",
+          {
+            data: {
+              type: "appStoreVersions",
+              attributes: {
+                platform: "IOS",
+                versionString: target,
+                releaseType: "AFTER_APPROVAL"
+              },
+              relationships: {
+                app: {
+                  data: {
+                    type: "apps",
+                    id: record.id
+                  }
+                }
+              }
+            }
+          }
+        )
       end
-      File.open(ENV.fetch("GITHUB_ENV"), "a") { |f| f.puts("RELEASE_VERSION=#{target}") }
-      UI.success("Planned #{target}; replacement evidence will be prepared before any withdrawal")
+      File.open(ENV.fetch("GITHUB_ENV"), "a") do |f|
+        f.puts("RELEASE_VERSION=#{target}")
+      end
+      UI.success(
+        "Planned #{target}; replacement evidence will be prepared before any withdrawal"
+      )
     rescue ReleasePipeline::Deferred, ReleasePipeline::AlreadySubmitted => error
       release_paused(config, error)
     end
@@ -330,7 +491,10 @@ platform :ios do
   lane :finish_release do |options|
     config = r_app(options)
     manifest = JSON.parse(File.read(ENV.fetch("RELEASE_MANIFEST")))
-    UI.user_error!("Release provenance mismatch") unless manifest.values_at("app", "sha") == [config["slug"], ENV.fetch("GITHUB_SHA")]
+    unless manifest.values_at("app", "sha") ==
+             [config["slug"], ENV.fetch("GITHUB_SHA")]
+      UI.user_error!("Release provenance mismatch")
+    end
     target, number = manifest.values_at("version", "build")
     begin
       ReleaseSource.current!(config["slug"], ENV.fetch("GITHUB_SHA"))
@@ -340,21 +504,55 @@ platform :ios do
       # Do not take the waiting release out of Apple's queue until its replacement
       # binary has processed and both display galleries have been captured.
       ReleaseBuild.find!(asc, record.id, target, number)
-      count = JSON.parse(File.read(File.join(config["dir"], "screenshots.json"))).fetch("duo_shots").length * 2
+      count =
+        JSON
+          .parse(File.read(File.join(config["dir"], "screenshots.json")))
+          .fetch("duo_shots")
+          .length * 2
       directory = File.join(config["screenshots_path"], "en-US")
       ReleasePipeline.staged!(directory, count)
-      replacement = PendingRelease.new(asc, record.id, ENV.fetch("GITHUB_SHA"), ancestor: ReleaseSource.method(:ancestor?))
-      required = replacement.replace!(target, before_cancel: -> { ReleaseSource.current!(config["slug"], ENV.fetch("GITHUB_SHA")) })
-      prepare_review(app: config["slug"], version: target, build: number, strict: true)
+      replacement =
+        PendingRelease.new(
+          asc,
+          record.id,
+          ENV.fetch("GITHUB_SHA"),
+          ancestor: ReleaseSource.method(:ancestor?)
+        )
+      required =
+        replacement.replace!(
+          target,
+          before_cancel: -> do
+            ReleaseSource.current!(config["slug"], ENV.fetch("GITHUB_SHA"))
+          end
+        )
+      prepare_review(
+        app: config["slug"],
+        version: target,
+        build: number,
+        strict: true
+      )
       current = editable_app_store_version(record)
-      UI.user_error!("Release version changed during preparation") unless current.version_string == target
+      unless current.version_string == target
+        UI.user_error!("Release version changed during preparation")
+      end
       uploaded = ReleasePipeline.screenshots!(asc, current.id, directory, count)
-      submit_with_iap(app: config["slug"], version: target, build: number, dry_run: false,
-                      required_targets: required, automatic: true)
+      submit_with_iap(
+        app: config["slug"],
+        version: target,
+        build: number,
+        dry_run: false,
+        required_targets: required,
+        automatic: true
+      )
       FileUtils.mkdir_p(File.join(REPO_ROOT, "build"))
-      File.write(File.join(REPO_ROOT, "build", "release-state.json"), JSON.generate(manifest.merge("state" => "submitted")))
+      File.write(
+        File.join(REPO_ROOT, "build", "release-state.json"),
+        JSON.generate(manifest.merge("state" => "submitted"))
+      )
       File.open(ENV.fetch("GITHUB_STEP_SUMMARY"), "a") do |f|
-        f.puts("## Submitted #{config['name']} #{target} (#{number})\n\nSource: #{manifest['sha']}\n\nVerified #{uploaded} uploaded screenshots, including #{count} Duo images. App and ready purchases submitted together. Apple review is pending; public availability is checked separately.")
+        f.puts(
+          "## Submitted #{config["name"]} #{target} (#{number})\n\nSource: #{manifest["sha"]}\n\nVerified #{uploaded} uploaded screenshots, including #{count} Duo images. App and ready purchases submitted together. Apple review is pending; public availability is checked separately."
+        )
       end
     rescue ReleasePipeline::Deferred, ReleasePipeline::AlreadySubmitted => error
       release_paused(config, error)
@@ -365,10 +563,11 @@ platform :ios do
   lane :metadata do |options|
     app = r_app(options)
     # Contact details that should not live in the repository come from the environment.
-    review_contact = {
-      phone_number: ENV["ASC_REVIEW_PHONE"],
-      email_address: ENV["ASC_REVIEW_EMAIL"]
-    }.reject { |_, value| value.to_s.empty? }
+    review_contact =
+      {
+        phone_number: ENV["ASC_REVIEW_PHONE"],
+        email_address: ENV["ASC_REVIEW_EMAIL"]
+      }.reject { |_, value| value.to_s.empty? }
 
     guard_first_review_detail
     deliver(
@@ -397,10 +596,20 @@ platform :ios do
     config = r_app(options)
     version = options[:version] || config["version"]
     app = app_store_app(config)
-    build = ReleaseBuild.find!(Spaceship::ConnectAPI.client.tunes_request_client, app.id, version, number)
+    build =
+      ReleaseBuild.find!(
+        Spaceship::ConnectAPI.client.tunes_request_client,
+        app.id,
+        version,
+        number
+      )
 
     app_store_version = editable_app_store_version(app)
-    UI.user_error!("App Store version #{app_store_version.version_string} does not match #{version}") unless app_store_version.version_string == version
+    unless app_store_version.version_string == version
+      UI.user_error!(
+        "App Store version #{app_store_version.version_string} does not match #{version}"
+      )
+    end
     if app_store_version.build&.id == build.fetch("id")
       UI.success("#{version} (#{number}) is already selected for review")
     else
@@ -414,44 +623,87 @@ platform :ios do
     connect_api_key
     app = app_store_app(r_app(options))
     asc = Spaceship::ConnectAPI.client.tunes_request_client
-    schedule = begin
-      asc.get("v1/apps/#{app.id}/appPriceSchedule").body["data"]
-    rescue StandardError
-      nil
-    end
+    schedule =
+      begin
+        asc.get("v1/apps/#{app.id}/appPriceSchedule").body["data"]
+      rescue StandardError
+        nil
+      end
     if schedule
-      prices = asc.get("v1/appPriceSchedules/#{schedule['id']}/manualPrices", { include: "appPricePoint", limit: 50 }).body
-      amounts = (prices["included"] || []).map { |point| point.dig("attributes", "customerPrice") }.uniq
-      UI.success("Price already set (base price #{amounts.join(', ')}); leaving it unchanged")
+      prices =
+        asc.get(
+          "v1/appPriceSchedules/#{schedule["id"]}/manualPrices",
+          { include: "appPricePoint", limit: 50 }
+        ).body
+      amounts =
+        (prices["included"] || [])
+          .map { |point| point.dig("attributes", "customerPrice") }
+          .uniq
+      UI.success(
+        "Price already set (base price #{amounts.join(", ")}); leaving it unchanged"
+      )
       next
     end
 
     free = nil
-    page = asc.get("v1/apps/#{app.id}/appPricePoints", { filter: { territory: "USA" }, limit: 200 }).body
+    page =
+      asc.get(
+        "v1/apps/#{app.id}/appPricePoints",
+        { filter: { territory: "USA" }, limit: 200 }
+      ).body
     loop do
-      free = page["data"].find { |point| point.dig("attributes", "customerPrice").to_f.zero? }
+      free =
+        page["data"].find do |point|
+          point.dig("attributes", "customerPrice").to_f.zero?
+        end
       next_page = page.dig("links", "next")
       break if free || next_page.nil?
       page = asc.get(next_page).body
     end
     UI.user_error!("App Store Connect returned no free price point") unless free
 
-    asc.post("v1/appPriceSchedules", {
-      data: {
-        type: "appPriceSchedules",
-        relationships: {
-          app: { data: { type: "apps", id: app.id } },
-          baseTerritory: { data: { type: "territories", id: "USA" } },
-          manualPrices: { data: [{ type: "appPrices", id: "${free}" }] }
-        }
-      },
-      included: [{
-        type: "appPrices",
-        id: "${free}",
-        attributes: { startDate: nil },
-        relationships: { appPricePoint: { data: { type: "appPricePoints", id: free["id"] } } }
-      }]
-    })
+    asc.post(
+      "v1/appPriceSchedules",
+      {
+        data: {
+          type: "appPriceSchedules",
+          relationships: {
+            app: {
+              data: {
+                type: "apps",
+                id: app.id
+              }
+            },
+            baseTerritory: {
+              data: {
+                type: "territories",
+                id: "USA"
+              }
+            },
+            manualPrices: {
+              data: [{ type: "appPrices", id: "${free}" }]
+            }
+          }
+        },
+        included: [
+          {
+            type: "appPrices",
+            id: "${free}",
+            attributes: {
+              startDate: nil
+            },
+            relationships: {
+              appPricePoint: {
+                data: {
+                  type: "appPricePoints",
+                  id: free["id"]
+                }
+              }
+            }
+          }
+        ]
+      }
+    )
     UI.success("Set the price to Free")
   end
 
@@ -460,22 +712,56 @@ platform :ios do
     connect_api_key
     app = app_store_app(r_app(options))
     app_store_version = editable_app_store_version(app)
-    localization = app_store_version.get_app_store_version_localizations.find { |item| item.locale == "en-US" }
+    localization =
+      app_store_version.get_app_store_version_localizations.find do |item|
+        item.locale == "en-US"
+      end
     sets = localization ? localization.get_app_screenshot_sets : []
-    review = begin
-      app_store_version.fetch_app_store_review_detail
-    rescue StandardError
-      nil
-    end
+    review =
+      begin
+        app_store_version.fetch_app_store_review_detail
+      rescue StandardError
+        nil
+      end
     info = app.fetch_edit_app_info || app.fetch_latest_app_info
     rows = {
       "App" => "#{app.name} (#{app.id})",
-      "Version" => "#{app_store_version.version_string}, #{app_store_version.app_store_state}",
-      "Build" => app_store_version.build ? "#{app_store_version.build.version} (#{app_store_version.build.processing_state})" : "none selected",
-      "Screenshots" => sets.map { |set| "#{set.screenshot_display_type}: #{set.app_screenshots.to_a.count}" }.join(", ").then { |value| value.empty? ? "none" : value },
-      "Subtitle" => info&.get_app_info_localizations&.find { |item| item.locale == "en-US" }&.subtitle,
+      "Version" =>
+        "#{app_store_version.version_string}, #{app_store_version.app_store_state}",
+      "Build" =>
+        (
+          if app_store_version.build
+            "#{app_store_version.build.version} (#{app_store_version.build.processing_state})"
+          else
+            "none selected"
+          end
+        ),
+      "Screenshots" =>
+        sets
+          .map do |set|
+            "#{set.screenshot_display_type}: #{set.app_screenshots.to_a.count}"
+          end
+          .join(", ")
+          .then { |value| value.empty? ? "none" : value },
+      "Subtitle" =>
+        info
+          &.get_app_info_localizations
+          &.find { |item| item.locale == "en-US" }
+          &.subtitle,
       "Primary category" => info&.primary_category&.id,
-      "Review contact" => review ? [review.contact_first_name, review.contact_last_name, review.contact_email, review.contact_phone.to_s.empty? ? "phone missing" : "phone set"].compact.join(", ") : "none",
+      "Review contact" =>
+        (
+          if review
+            [
+              review.contact_first_name,
+              review.contact_last_name,
+              review.contact_email,
+              review.contact_phone.to_s.empty? ? "phone missing" : "phone set"
+            ].compact.join(", ")
+          else
+            "none"
+          end
+        ),
       "Copyright" => app_store_version.copyright
     }
     rows.each { |label, value| UI.message("#{label}: #{value}") }
@@ -483,7 +769,9 @@ platform :ios do
     if summary
       File.open(summary, "a") do |file|
         file.puts("### App Store Connect\n\n| | |\n| --- | --- |")
-        rows.each { |label, value| file.puts("| #{label} | #{value.to_s.gsub('|', '/')} |") }
+        rows.each do |label, value|
+          file.puts("| #{label} | #{value.to_s.gsub("|", "/")} |")
+        end
       end
     end
   end
@@ -495,23 +783,58 @@ platform :ios do
     app = app_store_app(config)
     info = app.fetch_edit_app_info || app.fetch_latest_app_info
     asc = Spaceship::ConnectAPI.client.tunes_request_client
-    declaration = asc.get("v1/appInfos/#{info.id}/ageRatingDeclaration").body["data"]
+    declaration =
+      asc.get("v1/appInfos/#{info.id}/ageRatingDeclaration").body["data"]
     current = declaration["attributes"] || {}
     UI.message("Current age rating answers: #{current.to_json}")
-    none = %w[alcoholTobaccoOrDrugUseOrReferences contests gamblingSimulated gunsOrOtherWeapons profanityOrCrudeHumor
-              sexualContentGraphicAndNudity sexualContentOrNudity horrorOrFearThemes matureOrSuggestiveThemes
-              violenceCartoonOrFantasy violenceRealisticProlongedGraphicOrSadistic violenceRealistic]
-    no = %w[advertising ageAssurance gambling healthOrWellnessTopics lootBox messagingAndChat parentalControls
-            socialMedia socialMediaAgeRestricted unrestrictedWebAccess userGeneratedContent]
+    none = %w[
+      alcoholTobaccoOrDrugUseOrReferences
+      contests
+      gamblingSimulated
+      gunsOrOtherWeapons
+      profanityOrCrudeHumor
+      sexualContentGraphicAndNudity
+      sexualContentOrNudity
+      horrorOrFearThemes
+      matureOrSuggestiveThemes
+      violenceCartoonOrFantasy
+      violenceRealisticProlongedGraphicOrSadistic
+      violenceRealistic
+    ]
+    no = %w[
+      advertising
+      ageAssurance
+      gambling
+      healthOrWellnessTopics
+      lootBox
+      messagingAndChat
+      parentalControls
+      socialMedia
+      socialMediaAgeRestricted
+      unrestrictedWebAccess
+      userGeneratedContent
+    ]
     wanted = {}
     none.each { |key| wanted[key] = "NONE" if current.key?(key) }
     no.each { |key| wanted[key] = false if current.key?(key) }
     # Per-app answers that differ from "none" (apps/<app>/app.yml age_rating).
     (config["age_rating"] || {}).each { |key, value| wanted[key] = value }
     UI.message("Setting age rating answers: #{wanted.to_json}")
-    updated = asc.patch("v1/ageRatingDeclarations/#{declaration['id']}", {
-      data: { type: "ageRatingDeclarations", id: declaration["id"], attributes: wanted }
-    }).body["data"]["attributes"]
+    updated =
+      asc.patch(
+        "v1/ageRatingDeclarations/#{declaration["id"]}",
+        {
+          data: {
+            type: "ageRatingDeclarations",
+            id: declaration["id"],
+            attributes: wanted
+          }
+        }
+      ).body[
+        "data"
+      ][
+        "attributes"
+      ]
     UI.success("Age rating answers now: #{updated.to_json}")
   end
 
@@ -522,44 +845,97 @@ platform :ios do
     detail = version.fetch_app_store_review_detail
     UI.user_error!("No App Review details yet") unless detail
     if detail.demo_account_required
-      Spaceship::ConnectAPI.client.tunes_request_client.patch("v1/appStoreReviewDetails/#{detail.id}", {
-        data: { type: "appStoreReviewDetails", id: detail.id, attributes: { demoAccountRequired: false } }
-      })
+      Spaceship::ConnectAPI.client.tunes_request_client.patch(
+        "v1/appStoreReviewDetails/#{detail.id}",
+        {
+          data: {
+            type: "appStoreReviewDetails",
+            id: detail.id,
+            attributes: {
+              demoAccountRequired: false
+            }
+          }
+        }
+      )
       UI.success("Turned off demo account required")
     end
     detail = version.fetch_app_store_review_detail
-    UI.message("Review details: #{detail.contact_first_name} #{detail.contact_last_name}, email #{detail.contact_email.to_s.empty? ? 'missing' : 'set'}, phone #{detail.contact_phone.to_s.empty? ? 'missing' : 'set'}, demo account required #{detail.demo_account_required.inspect}, notes #{detail.notes.to_s.length} chars")
+    UI.message(
+      "Review details: #{detail.contact_first_name} #{detail.contact_last_name}, email #{detail.contact_email.to_s.empty? ? "missing" : "set"}, phone #{detail.contact_phone.to_s.empty? ? "missing" : "set"}, demo account required #{detail.demo_account_required.inspect}, notes #{detail.notes.to_s.length} chars"
+    )
   end
 
   desc "Create or update the app's consumable tips (name, price, availability, review screenshot). Never submits"
   lane :tip_iaps do |options|
     connect_api_key
     config = r_app(options)
-    UI.user_error!("#{config['name']} has no tips in apps/#{config['slug']}/app.yml") if config["tips"].to_a.empty?
+    if config["tips"].to_a.empty?
+      UI.user_error!(
+        "#{config["name"]} has no tips in apps/#{config["slug"]}/app.yml"
+      )
+    end
     app = app_store_app(config)
     asc = Spaceship::ConnectAPI.client.tunes_request_client
-    territories = asc_all(asc, "v1/territories", { "limit" => 200 }).map { |territory| territory["id"] }
-    existing = asc_all(asc, "v1/apps/#{app.id}/inAppPurchasesV2", { "limit" => 200 })
-    config["tips"].map { |tip| tip.transform_keys(&:to_sym) }.each do |tip|
-      iap = existing.find { |item| item.dig("attributes", "productId") == tip[:product_id] }
-      if iap
-        UI.message("#{tip[:product_id]} exists (#{iap.dig('attributes', 'state')})")
-      else
-        iap = asc.post("v2/inAppPurchases", { data: {
-          type: "inAppPurchases",
-          attributes: { name: tip[:reference], productId: tip[:product_id], inAppPurchaseType: "CONSUMABLE", reviewNote: config["tip_review_note"], familySharable: false },
-          relationships: { app: { data: { type: "apps", id: app.id } } }
-        } }).body["data"]
-        UI.success("Created #{tip[:product_id]}")
+    territories =
+      asc_all(asc, "v1/territories", { "limit" => 200 }).map do |territory|
+        territory["id"]
       end
-      id = iap["id"]
-      tip_localization(asc, id, tip)
-      tip_price(asc, id, tip)
-      tip_availability(asc, id, territories)
-      tip_review_screenshot(asc, id, config["iap_review_screenshot"])
-      state = asc.get("v2/inAppPurchases/#{id}").body.dig("data", "attributes", "state")
-      UI.success("#{tip[:product_id]}: #{tip[:name]} $#{tip[:price]}, state #{state}")
-    end
+    existing =
+      asc_all(asc, "v1/apps/#{app.id}/inAppPurchasesV2", { "limit" => 200 })
+    config["tips"]
+      .map { |tip| tip.transform_keys(&:to_sym) }
+      .each do |tip|
+        iap =
+          existing.find do |item|
+            item.dig("attributes", "productId") == tip[:product_id]
+          end
+        if iap
+          UI.message(
+            "#{tip[:product_id]} exists (#{iap.dig("attributes", "state")})"
+          )
+        else
+          iap =
+            asc.post(
+              "v2/inAppPurchases",
+              {
+                data: {
+                  type: "inAppPurchases",
+                  attributes: {
+                    name: tip[:reference],
+                    productId: tip[:product_id],
+                    inAppPurchaseType: "CONSUMABLE",
+                    reviewNote: config["tip_review_note"],
+                    familySharable: false
+                  },
+                  relationships: {
+                    app: {
+                      data: {
+                        type: "apps",
+                        id: app.id
+                      }
+                    }
+                  }
+                }
+              }
+            ).body[
+              "data"
+            ]
+          UI.success("Created #{tip[:product_id]}")
+        end
+        id = iap["id"]
+        tip_localization(asc, id, tip)
+        tip_price(asc, id, tip)
+        tip_availability(asc, id, territories)
+        tip_review_screenshot(asc, id, config["iap_review_screenshot"])
+        state =
+          asc
+            .get("v2/inAppPurchases/#{id}")
+            .body
+            .dig("data", "attributes", "state")
+        UI.success(
+          "#{tip[:product_id]}: #{tip[:name]} $#{tip[:price]}, state #{state}"
+        )
+      end
   end
 
   desc "Submit the exact build with all ready IAPs/subscriptions, preserving existing prices and products"
@@ -570,28 +946,65 @@ platform :ios do
     app = app_store_app(config)
     version = editable_app_store_version(app)
     target = options[:version] || config["version"]
-    UI.user_error!("Expected version #{target}, found #{version.version_string}") unless version.version_string == target
-    allowed = %w[PREPARE_FOR_SUBMISSION READY_FOR_REVIEW DEVELOPER_REJECTED REJECTED METADATA_REJECTED INVALID_BINARY]
-    UI.user_error!("Version is #{version.app_store_state}; leaving it untouched") unless allowed.include?(version.app_store_state)
+    unless version.version_string == target
+      UI.user_error!(
+        "Expected version #{target}, found #{version.version_string}"
+      )
+    end
+    allowed = %w[
+      PREPARE_FOR_SUBMISSION
+      READY_FOR_REVIEW
+      DEVELOPER_REJECTED
+      REJECTED
+      METADATA_REJECTED
+      INVALID_BINARY
+    ]
+    unless allowed.include?(version.app_store_state)
+      UI.user_error!(
+        "Version is #{version.app_store_state}; leaving it untouched"
+      )
+    end
     asc = Spaceship::ConnectAPI.client.tunes_request_client
     ReleaseBuild.find!(asc, app.id, target, number)
-    fence = -> { ReleaseSource.current!(config["slug"], ENV.fetch("GITHUB_SHA")) } if options[:automatic]
-    coordinator = ReviewProducts.new(asc, app.id, version.id,
-      required_targets: options[:required_targets] || [], before_submit: fence).inventory!
+    fence = -> do
+      ReleaseSource.current!(config["slug"], ENV.fetch("GITHUB_SHA"))
+    end if options[:automatic]
+    coordinator =
+      ReviewProducts.new(
+        asc,
+        app.id,
+        version.id,
+        required_targets: options[:required_targets] || [],
+        before_submit: fence
+      ).inventory!
     if options[:dry_run].to_s == "true"
-      UI.success("Dry run: validated build #{number} and #{coordinator.targets.length - 1} product/group versions; no changes")
+      UI.success(
+        "Dry run: validated build #{number} and #{coordinator.targets.length - 1} product/group versions; no changes"
+      )
       next
     end
     require "deliver"
     require "deliver/submit_for_review"
     ReleasePolicy.apply!(asc, config, version.id)
-    Deliver::SubmitForReview.prepend(DeliverWithProducts) unless Deliver::SubmitForReview < DeliverWithProducts
+    unless Deliver::SubmitForReview < DeliverWithProducts
+      Deliver::SubmitForReview.prepend(DeliverWithProducts)
+    end
     begin
       Thread.current[:review_products] = coordinator
-      deliver(api_key: api_key, app_identifier: config["bundle_id"], app_version: target,
-              build_number: number.to_s, platform: "ios", skip_binary_upload: true,
-              skip_metadata: true, skip_screenshots: true, submit_for_review: true,
-              run_precheck_before_submit: false, precheck_include_in_app_purchases: false, force: true)
+      deliver(
+        api_key: api_key,
+        app_identifier: config["bundle_id"],
+        app_version: target,
+        build_number: number.to_s,
+        platform: "ios",
+        skip_binary_upload: true,
+        skip_metadata: true,
+        skip_screenshots: true,
+        submit_for_review: true,
+        run_precheck_before_submit: false,
+        precheck_include_in_app_purchases: false,
+        force: true
+      )
     ensure
       Thread.current[:review_products] = nil
     end
@@ -607,15 +1020,37 @@ platform :ios do
     # the version is already in the review queue. Never withdraw a submission here.
     record = app_store_app(config)
     current = editable_app_store_version(record)
-    allowed = %w[PREPARE_FOR_SUBMISSION DEVELOPER_REJECTED REJECTED METADATA_REJECTED INVALID_BINARY]
-    UI.user_error!("App Store version is #{current.app_store_state}; leave the current submission untouched") unless allowed.include?(current.app_store_state)
-    ReleaseBuild.find!(Spaceship::ConnectAPI.client.tunes_request_client, record.id, options[:version] || config["version"], number)
-    metadata(app: app, api_key: api_key, version: options[:version], skip_screenshots: options[:skip_screenshots])
+    allowed = %w[
+      PREPARE_FOR_SUBMISSION
+      DEVELOPER_REJECTED
+      REJECTED
+      METADATA_REJECTED
+      INVALID_BINARY
+    ]
+    unless allowed.include?(current.app_store_state)
+      UI.user_error!(
+        "App Store version is #{current.app_store_state}; leave the current submission untouched"
+      )
+    end
+    ReleaseBuild.find!(
+      Spaceship::ConnectAPI.client.tunes_request_client,
+      record.id,
+      options[:version] || config["version"],
+      number
+    )
+    metadata(
+      app: app,
+      api_key: api_key,
+      version: options[:version],
+      skip_screenshots: options[:skip_screenshots]
+    )
     begin
       ensure_free_pricing(app: app)
     rescue StandardError => error
       raise if options[:strict]
-      UI.important("Could not set Free pricing (#{error.message}). Set it under Pricing and Availability in App Store Connect.")
+      UI.important(
+        "Could not set Free pricing (#{error.message}). Set it under Pricing and Availability in App Store Connect."
+      )
     end
     select_build(app: app, version: options[:version], build: number)
     age_rating(app: app)
@@ -629,13 +1064,19 @@ end
 # let the rest of the listing upload.
 module TendrFirstReviewDetail
   def review_information(version)
-    existing = begin
-      version.fetch_app_store_review_detail
-    rescue StandardError
-      nil
-    end
-    if existing.nil? && options[:app_review_information].to_h.transform_keys(&:to_sym)[:phone_number].to_s.strip.empty?
-      FastlaneCore::UI.important("Skipping App Review details: Apple needs a contact phone first. Set the ASC_REVIEW_PHONE secret or add it in App Store Connect, then rerun.")
+    existing =
+      begin
+        version.fetch_app_store_review_detail
+      rescue StandardError
+        nil
+      end
+    if existing.nil? &&
+         options[:app_review_information].to_h.transform_keys(&:to_sym)[
+           :phone_number
+         ].to_s.strip.empty?
+      FastlaneCore::UI.important(
+        "Skipping App Review details: Apple needs a contact phone first. Set the ASC_REVIEW_PHONE secret or add it in App Store Connect, then rerun."
+      )
       return
     end
     super
@@ -650,18 +1091,27 @@ end
 
 def guard_first_review_detail
   require "deliver"
-  Deliver::UploadMetadata.prepend(TendrFirstReviewDetail) unless Deliver::UploadMetadata < TendrFirstReviewDetail
+  unless Deliver::UploadMetadata < TendrFirstReviewDetail
+    Deliver::UploadMetadata.prepend(TendrFirstReviewDetail)
+  end
 rescue LoadError
   nil
 end
 
 def app_store_app(config)
-  Spaceship::ConnectAPI::App.find(config["bundle_id"]) || UI.user_error!("#{config['bundle_id']} is not in App Store Connect. Create the app record there first (New App needs a web sign-in)")
+  Spaceship::ConnectAPI::App.find(config["bundle_id"]) ||
+    UI.user_error!(
+      "#{config["bundle_id"]} is not in App Store Connect. Create the app record there first (New App needs a web sign-in)"
+    )
 end
 
 def editable_app_store_version(app)
-  app.get_edit_app_store_version(platform: Spaceship::ConnectAPI::Platform::IOS) ||
-    UI.user_error!("No editable App Store version. Create one in App Store Connect or run the metadata lane first")
+  app.get_edit_app_store_version(
+    platform: Spaceship::ConnectAPI::Platform::IOS
+  ) ||
+    UI.user_error!(
+      "No editable App Store version. Create one in App Store Connect or run the metadata lane first"
+    )
 end
 
 # Follows `links.next` so long lists (territories, price points) are complete.
@@ -677,76 +1127,205 @@ end
 
 def tip_localization(asc, id, tip)
   attributes = { name: tip[:name], description: tip[:description] }
-  existing = asc_all(asc, "v2/inAppPurchases/#{id}/inAppPurchaseLocalizations").find { |item| item.dig("attributes", "locale") == "en-US" }
+  existing =
+    asc_all(
+      asc,
+      "v2/inAppPurchases/#{id}/inAppPurchaseLocalizations"
+    ).find { |item| item.dig("attributes", "locale") == "en-US" }
   if existing
-    asc.patch("v1/inAppPurchaseLocalizations/#{existing['id']}", { data: { type: "inAppPurchaseLocalizations", id: existing["id"], attributes: attributes } })
+    asc.patch(
+      "v1/inAppPurchaseLocalizations/#{existing["id"]}",
+      {
+        data: {
+          type: "inAppPurchaseLocalizations",
+          id: existing["id"],
+          attributes: attributes
+        }
+      }
+    )
   else
-    asc.post("v1/inAppPurchaseLocalizations", { data: {
-      type: "inAppPurchaseLocalizations",
-      attributes: attributes.merge(locale: "en-US"),
-      relationships: { inAppPurchaseV2: { data: { type: "inAppPurchases", id: id } } }
-    } })
+    asc.post(
+      "v1/inAppPurchaseLocalizations",
+      {
+        data: {
+          type: "inAppPurchaseLocalizations",
+          attributes: attributes.merge(locale: "en-US"),
+          relationships: {
+            inAppPurchaseV2: {
+              data: {
+                type: "inAppPurchases",
+                id: id
+              }
+            }
+          }
+        }
+      }
+    )
   end
 end
 
 # POST replaces the schedule, so rerunning is safe. Other territories follow the USA price.
 def tip_price(asc, id, tip)
-  points = asc_all(asc, "v2/inAppPurchases/#{id}/pricePoints", { "filter[territory]" => "USA", "limit" => 200 })
-  point = points.find { |item| format("%.2f", item.dig("attributes", "customerPrice").to_f) == tip[:price] }
-  UI.user_error!("No USA price point at $#{tip[:price]} for #{tip[:product_id]}") unless point
-  asc.post("v1/inAppPurchasePriceSchedules", {
-    data: {
-      type: "inAppPurchasePriceSchedules",
-      relationships: {
-        inAppPurchase: { data: { type: "inAppPurchases", id: id } },
-        baseTerritory: { data: { type: "territories", id: "USA" } },
-        manualPrices: { data: [{ type: "inAppPurchasePrices", id: "${price}" }] }
-      }
-    },
-    included: [{
-      type: "inAppPurchasePrices", id: "${price}", attributes: { startDate: nil },
-      relationships: { inAppPurchasePricePoint: { data: { type: "inAppPurchasePricePoints", id: point["id"] } } }
-    }]
-  })
+  points =
+    asc_all(
+      asc,
+      "v2/inAppPurchases/#{id}/pricePoints",
+      { "filter[territory]" => "USA", "limit" => 200 }
+    )
+  point =
+    points.find do |item|
+      format("%.2f", item.dig("attributes", "customerPrice").to_f) ==
+        tip[:price]
+    end
+  unless point
+    UI.user_error!(
+      "No USA price point at $#{tip[:price]} for #{tip[:product_id]}"
+    )
+  end
+  asc.post(
+    "v1/inAppPurchasePriceSchedules",
+    {
+      data: {
+        type: "inAppPurchasePriceSchedules",
+        relationships: {
+          inAppPurchase: {
+            data: {
+              type: "inAppPurchases",
+              id: id
+            }
+          },
+          baseTerritory: {
+            data: {
+              type: "territories",
+              id: "USA"
+            }
+          },
+          manualPrices: {
+            data: [{ type: "inAppPurchasePrices", id: "${price}" }]
+          }
+        }
+      },
+      included: [
+        {
+          type: "inAppPurchasePrices",
+          id: "${price}",
+          attributes: {
+            startDate: nil
+          },
+          relationships: {
+            inAppPurchasePricePoint: {
+              data: {
+                type: "inAppPurchasePricePoints",
+                id: point["id"]
+              }
+            }
+          }
+        }
+      ]
+    }
+  )
 end
 
 def tip_availability(asc, id, territories)
   asc.get("v2/inAppPurchases/#{id}/inAppPurchaseAvailability")
 rescue StandardError
-  asc.post("v1/inAppPurchaseAvailabilities", { data: {
-    type: "inAppPurchaseAvailabilities",
-    attributes: { availableInNewTerritories: true },
-    relationships: {
-      inAppPurchase: { data: { type: "inAppPurchases", id: id } },
-      availableTerritories: { data: territories.map { |territory| { type: "territories", id: territory } } }
+  asc.post(
+    "v1/inAppPurchaseAvailabilities",
+    {
+      data: {
+        type: "inAppPurchaseAvailabilities",
+        attributes: {
+          availableInNewTerritories: true
+        },
+        relationships: {
+          inAppPurchase: {
+            data: {
+              type: "inAppPurchases",
+              id: id
+            }
+          },
+          availableTerritories: {
+            data:
+              territories.map do |territory|
+                { type: "territories", id: territory }
+              end
+          }
+        }
+      }
     }
-  } })
+  )
 end
 
 def tip_review_screenshot(asc, id, path)
-  existing = begin
-    asc.get("v2/inAppPurchases/#{id}/appStoreReviewScreenshot").body["data"]
-  rescue StandardError
-    nil
+  existing =
+    begin
+      asc.get("v2/inAppPurchases/#{id}/appStoreReviewScreenshot").body["data"]
+    rescue StandardError
+      nil
+    end
+  if existing &&
+       existing.dig("attributes", "assetDeliveryState", "state") == "COMPLETE"
+    return
   end
-  return if existing && existing.dig("attributes", "assetDeliveryState", "state") == "COMPLETE"
 
   bytes = File.binread(path)
-  shot = asc.post("v1/inAppPurchaseAppStoreReviewScreenshots", { data: {
-    type: "inAppPurchaseAppStoreReviewScreenshots",
-    attributes: { fileName: File.basename(path), fileSize: bytes.bytesize },
-    relationships: { inAppPurchaseV2: { data: { type: "inAppPurchases", id: id } } }
-  } }).body["data"]
-  shot.dig("attributes", "uploadOperations").each do |operation|
-    uri = URI(operation["url"])
-    request = Net::HTTPGenericRequest.new(operation["method"], true, true, uri.request_uri)
-    operation["requestHeaders"].each { |header| request[header["name"]] = header["value"] }
-    request.body = bytes.byteslice(operation["offset"], operation["length"])
-    response = Net::HTTP.start(uri.host, uri.port, use_ssl: true) { |http| http.request(request) }
-    UI.user_error!("Review screenshot upload failed: HTTP #{response.code}") unless response.is_a?(Net::HTTPSuccess)
-  end
-  asc.patch("v1/inAppPurchaseAppStoreReviewScreenshots/#{shot['id']}", { data: {
-    type: "inAppPurchaseAppStoreReviewScreenshots", id: shot["id"],
-    attributes: { uploaded: true, sourceFileChecksum: Digest::MD5.hexdigest(bytes) }
-  } })
+  shot =
+    asc.post(
+      "v1/inAppPurchaseAppStoreReviewScreenshots",
+      {
+        data: {
+          type: "inAppPurchaseAppStoreReviewScreenshots",
+          attributes: {
+            fileName: File.basename(path),
+            fileSize: bytes.bytesize
+          },
+          relationships: {
+            inAppPurchaseV2: {
+              data: {
+                type: "inAppPurchases",
+                id: id
+              }
+            }
+          }
+        }
+      }
+    ).body[
+      "data"
+    ]
+  shot
+    .dig("attributes", "uploadOperations")
+    .each do |operation|
+      uri = URI(operation["url"])
+      request =
+        Net::HTTPGenericRequest.new(
+          operation["method"],
+          true,
+          true,
+          uri.request_uri
+        )
+      operation["requestHeaders"].each do |header|
+        request[header["name"]] = header["value"]
+      end
+      request.body = bytes.byteslice(operation["offset"], operation["length"])
+      response =
+        Net::HTTP.start(uri.host, uri.port, use_ssl: true) do |http|
+          http.request(request)
+        end
+      unless response.is_a?(Net::HTTPSuccess)
+        UI.user_error!("Review screenshot upload failed: HTTP #{response.code}")
+      end
+    end
+  asc.patch(
+    "v1/inAppPurchaseAppStoreReviewScreenshots/#{shot["id"]}",
+    {
+      data: {
+        type: "inAppPurchaseAppStoreReviewScreenshots",
+        id: shot["id"],
+        attributes: {
+          uploaded: true,
+          sourceFileChecksum: Digest::MD5.hexdigest(bytes)
+        }
+      }
+    }
+  )
 end

@@ -8,11 +8,11 @@
   "env": {
     "staging": {
       "name": "__SLUG__-api-staging",
-      "vars": { "ENVIRONMENT": "staging", "RELEASE_REVISION": "development" }
+      "vars": { "ENVIRONMENT": "staging", "RELEASE_REVISION": "development" },
     },
     "production": {
       "name": "__SLUG__-api-production",
-      "vars": { "ENVIRONMENT": "production", "RELEASE_REVISION": "unreleased" }
-    }
-  }
+      "vars": { "ENVIRONMENT": "production", "RELEASE_REVISION": "unreleased" },
+    },
+  },
 }

@@ -59,7 +59,7 @@ services:
         source: ${BAMBUDDY_SERVE_CONFIG:?Stage the sidecar serve configuration}
         target: /config/serve.json
         read_only: true
-        bind: {create_host_path: false}
+        bind: { create_host_path: false }
     depends_on:
       - bambuddy
     restart: always

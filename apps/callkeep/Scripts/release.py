@@ -222,7 +222,9 @@ def reserve(source):
     if fence:
         comparison = subprocess.run(
             prepare.git_command("merge-base", "--is-ancestor", source, fence["source_sha"]),
-            cwd=ROOT, capture_output=True, check=False,
+            cwd=ROOT,
+            capture_output=True,
+            check=False,
         )
         if comparison.returncode == 0 and source != fence["source_sha"]:
             return {"needed": False, "source_sha": source}
@@ -416,7 +418,16 @@ def promote(release, record):
         + "\nInstall: `brew install --cask 0x63616c/tap/callkeep`.\n"
     )
     prepare.run(
-        "gh", "release", "edit", record["tag"], "--repo", REPOSITORY, "--draft=false", "--latest=false", "--notes-file", str(notes)
+        "gh",
+        "release",
+        "edit",
+        record["tag"],
+        "--repo",
+        REPOSITORY,
+        "--draft=false",
+        "--latest=false",
+        "--notes-file",
+        str(notes),
     )
     return record
 
@@ -429,7 +440,9 @@ def fence_promotion(record):
     if previous:
         comparison = subprocess.run(
             prepare.git_command("merge-base", "--is-ancestor", previous["source_sha"], record["source_sha"]),
-            cwd=ROOT, capture_output=True, check=False,
+            cwd=ROOT,
+            capture_output=True,
+            check=False,
         )
         if comparison.returncode != 0:
             raise ValueError("Refuse older or unrelated Callkeep promotion")
@@ -456,9 +469,16 @@ def verify_download(release, record):
         stage.mkdir()
         safe_extract(downloaded, stage)
         prepare.validate_callkeep_app(stage / "Callkeep.app", record["source_sha"], record["version"])
-    return release.save(dict(record, download_verified={
-        "source_sha": record["source_sha"], "archive_sha256": record["archive_sha256"], "public_download": True,
-    }))
+    return release.save(
+        dict(
+            record,
+            download_verified={
+                "source_sha": record["source_sha"],
+                "archive_sha256": record["archive_sha256"],
+                "public_download": True,
+            },
+        )
+    )
 
 
 def require_download_proof(record):

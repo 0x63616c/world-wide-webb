@@ -16,4 +16,4 @@ sha2 = "=0.11.1"
 lto = true
 codegen-units = 1
 opt-level = "s"
-strip = "debuginfo" # Keep target_features metadata required by wasm-bindgen externref handling.
+strip = "debuginfo"  # Keep target_features metadata required by wasm-bindgen externref handling.

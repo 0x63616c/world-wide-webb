@@ -1,4 +1,5 @@
 """Shared durable state publication for recovery barriers."""
+
 import json
 import os
 from pathlib import Path
@@ -17,11 +18,11 @@ def write_json(path, value, mode=0o600):
     path = Path(path)
     temporary = None
     try:
-        with tempfile.NamedTemporaryFile(mode='w', dir=path.parent, delete=False) as stream:
+        with tempfile.NamedTemporaryFile(mode="w", dir=path.parent, delete=False) as stream:
             temporary = Path(stream.name)
             os.fchmod(stream.fileno(), mode)
             json.dump(value, stream)
-            stream.write('\n')
+            stream.write("\n")
             stream.flush()
             os.fsync(stream.fileno())
         os.replace(temporary, path)
@@ -33,7 +34,7 @@ def write_json(path, value, mode=0o600):
 
 def hold(path, mode=0o600):
     # A hold is an existence barrier; its content carries no credentials.
-    write_json(path, {'hold': True}, mode)
+    write_json(path, {"hold": True}, mode)
 
 
 def remove(path):

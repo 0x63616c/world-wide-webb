@@ -9,8 +9,9 @@ prepared=$(cd "$prepared" && pwd -P)
 staging=$(mktemp -d)
 trap 'rm -rf "$staging"' EXIT
 "$root/scripts/build-site.sh" "$staging"
-diff -qr "$staging" "$prepared" >/dev/null || {
-  echo 'Prepared site differs from verified source' >&2; exit 1;
+diff -qr "$staging" "$prepared" > /dev/null || {
+  echo 'Prepared site differs from verified source' >&2
+  exit 1
 }
 version=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["wrangler"])' "$root/sites/tendr-tools.json")
 export CLOUDFLARE_LOAD_DEV_VARS_FROM_DOT_ENV=false WRANGLER_SEND_METRICS=false

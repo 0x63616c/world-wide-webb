@@ -1,5 +1,5 @@
 name: iOS delivery
-'on':
+"on":
   workflow_call: {}
 permissions:
   contents: read
@@ -20,21 +20,21 @@ jobs:
       receipt_run_id: ${{ steps.source.outputs.receipt_run_id }}
       version: ${{ steps.source.outputs.version }}
     steps:
-    - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
-      with:
-        ref: ${{ github.event.workflow_run.head_sha || github.sha }}
-        fetch-depth: 0
-        persist-credentials: false
-    - uses: ./.github/actions/github-cli
-    - uses: actions/setup-python@v5
-      with:
-        python-version: '3.12'
-    - run: python3 -m pip install -r scripts/requirements.txt
-    - id: source
-      name: Resolve verified source and release channel
-      env:
-        GH_TOKEN: ${{ github.token }}
-      run: python3 scripts/ios_delivery.py
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: ./.github/actions/github-cli
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python3 -m pip install -r scripts/requirements.txt
+      - id: source
+        name: Resolve verified source and release channel
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/ios_delivery.py
   tendr:
     name: Tendr
     needs: verify

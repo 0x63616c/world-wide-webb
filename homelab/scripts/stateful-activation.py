@@ -81,43 +81,47 @@ def run(command, env, log, timeout=1800):
         raise RuntimeError("Generation command failed; inspect private activation diagnostics")
 
 
-HA_LABELS = ('org.nixos.homelab-ha-vmnet', 'org.nixos.homelab-ha-colima')
+HA_LABELS = ("org.nixos.homelab-ha-vmnet", "org.nixos.homelab-ha-colima")
 
 
 def ha_runtime_changed(previous, candidate):
-    if 'home-assistant' not in metadata(previous)['services']:
+    if "home-assistant" not in metadata(previous)["services"]:
         return False
     return any(
-        (previous / 'Library/LaunchDaemons' / (label + '.plist')).read_bytes()
-        != (candidate / 'Library/LaunchDaemons' / (label + '.plist')).read_bytes()
+        (previous / "Library/LaunchDaemons" / (label + ".plist")).read_bytes()
+        != (candidate / "Library/LaunchDaemons" / (label + ".plist")).read_bytes()
         for label in HA_LABELS
     )
 
 
 def launcher_loaded(label):
-    result = subprocess.run(['/bin/launchctl', 'print', 'system/' + label],
-                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10)
+    result = subprocess.run(
+        ["/bin/launchctl", "print", "system/" + label], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10
+    )
     if result.returncode not in (0, 113):
-        raise RuntimeError('Could not inspect HA launcher')
+        raise RuntimeError("Could not inspect HA launcher")
     return result.returncode == 0
 
 
 def unload_ha_launcher(label=HA_LABELS[1]):
     if not launcher_loaded(label):
         return
-    subprocess.run(['/bin/launchctl', 'bootout', 'system/' + label], check=True, timeout=30)
+    subprocess.run(["/bin/launchctl", "bootout", "system/" + label], check=True, timeout=30)
     deadline = time.monotonic() + 60
     while launcher_loaded(label):
         if time.monotonic() >= deadline:
-            raise RuntimeError('HA launcher did not finish unloading')
+            raise RuntimeError("HA launcher did not finish unloading")
         time.sleep(1)
 
 
 def ensure_ha_launchers():
     for label in HA_LABELS:
         if not launcher_loaded(label):
-            subprocess.run(['/bin/launchctl', 'bootstrap', 'system',
-                            '/Library/LaunchDaemons/' + label + '.plist'], check=True, timeout=30)
+            subprocess.run(
+                ["/bin/launchctl", "bootstrap", "system", "/Library/LaunchDaemons/" + label + ".plist"],
+                check=True,
+                timeout=30,
+            )
 
 
 def activate(candidate, previous, fd, token, log):
@@ -126,7 +130,7 @@ def activate(candidate, previous, fd, token, log):
     restart_ha = ha_runtime_changed(previous, candidate)
     if restart_ha:
         unload_ha_launcher()
-        children.run_service('stop-ha', fd, 180, system=candidate, log=log)
+        children.run_service("stop-ha", fd, 180, system=candidate, log=log)
         # Native launchd unload is asynchronous. Finish backend teardown before
         # nix-darwin copies/loads its replacement, avoiding a bootstrap race.
         unload_ha_launcher(HA_LABELS[0])

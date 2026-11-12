@@ -26,9 +26,5 @@
       "maximum": 86400
     }
   },
-  "required": [
-    "code",
-    "request_id",
-    "retryable"
-  ]
+  "required": ["code", "request_id", "retryable"]
 }

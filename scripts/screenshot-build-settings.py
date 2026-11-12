@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Match simulator screenshot metadata to the processed release build."""
+
 import json
 import os
 from pathlib import Path
@@ -12,7 +13,12 @@ def build_settings(app, environment):
     build = environment.get("RELEASE_BUILD")
     if manifest_path := environment.get("RELEASE_MANIFEST"):
         manifest = json.loads(Path(manifest_path).read_text())
-        if not isinstance(manifest, dict) or manifest.get("app") != app or not environment.get("GITHUB_SHA") or manifest.get("sha") != environment["GITHUB_SHA"]:
+        if (
+            not isinstance(manifest, dict)
+            or manifest.get("app") != app
+            or not environment.get("GITHUB_SHA")
+            or manifest.get("sha") != environment["GITHUB_SHA"]
+        ):
             raise ValueError("Screenshot manifest must match the release app and source revision")
         if (version and version != str(manifest.get("version"))) or (build and build != str(manifest.get("build"))):
             raise ValueError("Screenshot version/build override conflicts with the processed release manifest")

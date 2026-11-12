@@ -48,14 +48,20 @@ services:
     stop_grace_period: 120s
     mem_limit: 1g
     healthcheck:
-      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8123/', timeout=5)"]
+      test:
+        [
+          CMD,
+          python,
+          -c,
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8123/', timeout=5)",
+        ]
       interval: 15s
       timeout: 10s
       retries: 20
       start_period: 120s
     logging:
       driver: json-file
-      options: {max-size: 10m, max-file: '3'}
+      options: { max-size: 10m, max-file: "3" }
 
 volumes:
   ha_config:
