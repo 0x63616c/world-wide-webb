@@ -1,6 +1,6 @@
 # Folding
 
-A free, native iPhone Duo folding tracker: personal statistics, guided Shortcuts setup, iCloud sync, widgets, and optional competition.
+A free, native iPhone Duo folding tracker: personal statistics, guided Shortcuts setup, iCloud sync, and optional competition.
 
 **Status:** **1.0.1 (29)** is available in **Folding Internal** on TestFlight.
 App Store **1.0.1 (29)** is **Waiting for Review**, with actual simulator-screen screenshots.

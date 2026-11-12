@@ -29,7 +29,7 @@ module FoldingAppleAccount
     %w[production].to_h do |environment|
       entry = config.fetch(environment)
       app = Spaceship::ConnectAPI::App.find(entry.fetch("bundle_id"), client: client)
-      bundles = ["bundle_id", "widget_bundle_id"].to_h do |kind|
+      bundles = ["bundle_id"].to_h do |kind|
         identifier = entry.fetch(kind)
         bundle = Spaceship::ConnectAPI::BundleId.find(identifier, client: client)
         [kind, bundle && {"id" => bundle.id, "identifier" => bundle.identifier, "seed_id" => bundle.seed_id,
@@ -42,7 +42,7 @@ module FoldingAppleAccount
   def self.register_bundles(client: self.client)
     %w[production].each do |environment|
       entry = config.fetch(environment)
-      {"bundle_id" => entry.fetch("name"), "widget_bundle_id" => "#{entry.fetch('name')} Widgets"}.each do |kind, name|
+      {"bundle_id" => entry.fetch("name")}.each do |kind, name|
         identifier = entry.fetch(kind)
         bundle = Spaceship::ConnectAPI::BundleId.find(identifier, client: client)
         unless bundle
@@ -69,7 +69,7 @@ module FoldingAppleAccount
     }
     %w[production].each do |environment|
       entry = config.fetch(environment)
-      {"bundle_id" => app_services, "widget_bundle_id" => {"APP_GROUPS" => []}}.each do |kind, services|
+      {"bundle_id" => app_services}.each do |kind, services|
         bundle = Spaceship::ConnectAPI::BundleId.find(entry.fetch(kind), client: client)
         raise "Register bundle identifiers first" unless bundle
         existing = bundle.get_capabilities(client: client).map(&:capability_type)
@@ -103,7 +103,7 @@ module FoldingAppleAccount
     password = SecureRandom.hex(32)
     identifiers = %w[production].flat_map do |environment|
       entry = config.fetch(environment)
-      [entry.fetch("bundle_id"), entry.fetch("widget_bundle_id")]
+      [entry.fetch("bundle_id")]
     end
     begin
       context.create_keychain(name: keychain, password: password, default_keychain: false,
@@ -115,7 +115,7 @@ module FoldingAppleAccount
         keychain_name: keychain, keychain_password: password)
       evidence = %w[production].to_h do |environment|
         entry = config.fetch(environment)
-        profiles = %w[bundle_id widget_bundle_id].to_h do |kind|
+        profiles = %w[bundle_id].to_h do |kind|
           bundle = entry.fetch(kind)
           path = ENV.fetch("sigh_#{bundle}_appstore_profile-path")
           profile = FastlaneCore::ProvisioningProfile.parse(path)

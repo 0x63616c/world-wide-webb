@@ -26,10 +26,8 @@ settings:
     CODE_SIGN_STYLE: Manual
     DEVELOPMENT_TEAM: ''
     FOLDING_APP_BUNDLE_ID: app.getfolding.Folding
-    FOLDING_WIDGET_BUNDLE_ID: app.getfolding.Folding.Widgets
     FOLDING_SIMULATOR_ENTITLEMENTS: Config/Simulator.entitlements
     FOLDING_APP_PROFILE_SPECIFIER: ''
-    FOLDING_WIDGET_PROFILE_SPECIFIER: ''
     FOLDING_APP_GROUP_IDENTIFIER: ''
     FOLDING_CLOUD_CONTAINER_IDENTIFIER: ''
     FOLDING_API_ORIGIN: ''
@@ -47,9 +45,6 @@ targets:
     info:
       path: Config/GeneratedFolding-Info.plist
       properties:
-        CFBundleURLTypes:
-          - CFBundleURLName: app.getfolding.navigation
-            CFBundleURLSchemes: [folding]
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
           - UIInterfaceOrientationPortraitUpsideDown
@@ -81,35 +76,8 @@ targets:
         'PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]': $(FOLDING_APP_PROFILE_SPECIFIER)
         'CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*]': $(FOLDING_SIMULATOR_ENTITLEMENTS)
     dependencies:
-      - target: FoldingWidgets
-        embed: true
       - package: FoldingKit
         product: FoldingDomain
-      - package: FoldingKit
-        product: FoldingData
-  FoldingWidgets:
-    type: app-extension
-    platform: iOS
-    sources:
-      - path: Widgets
-      - path: Config/WidgetPrivacy/PrivacyInfo.xcprivacy
-        buildPhase: resources
-      - path: App/Localizable.xcstrings
-    settings:
-      base:
-        TARGETED_DEVICE_FAMILY: '1'
-        PRODUCT_BUNDLE_IDENTIFIER: $(FOLDING_WIDGET_BUNDLE_ID)
-        'CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]': Config/Widgets.entitlements
-        'PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]': $(FOLDING_WIDGET_PROFILE_SPECIFIER)
-        APPLICATION_EXTENSION_API_ONLY: YES
-        SKIP_INSTALL: YES
-        INFOPLIST_KEY_CFBundleDisplayName: Folding
-    info:
-      path: Config/Widgets-Info.plist
-      properties:
-        NSExtension:
-          NSExtensionPointIdentifier: com.apple.widgetkit-extension
-    dependencies:
       - package: FoldingKit
         product: FoldingData
   FoldingScreenshots:

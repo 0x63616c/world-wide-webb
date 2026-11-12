@@ -2,7 +2,7 @@ Erfasse mit Folding die Faltungen deines iPhone Duo. Richte Automationen zum Öf
 
 • Erfasse Faltungen und die aufgeklappte Zeit.
 • Entdecke deinen Verlauf und Nutzungsmuster.
-• Synchronisiere deinen Verlauf über iCloud und nutze Widgets.
+• Synchronisiere deinen Verlauf über iCloud.
 • Nimm mit „Mit Apple anmelden“ an Wochen-, Monats- und Gesamtranglisten teil.
 • Verdiene private Abzeichen für Faltungen und Nutzungstage und entdecke Profile.
 • Exportiere deinen Verlauf als CSV-Paket oder setze ihn in der App zurück.

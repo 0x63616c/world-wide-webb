@@ -2,7 +2,7 @@ import FoldingData
 import FoldingDomain
 import Foundation
 
-// Local test helper only; never linked into the app or widget targets.
+// Local test helper only; never linked into the app targets.
 @main struct JournalProbe {
   static func main() async throws {
     if CommandLine.arguments.count == 3,

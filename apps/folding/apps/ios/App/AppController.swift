@@ -82,7 +82,6 @@ import struct FoldingData.TrackingDiagnosticSnapshot
         self.preferencesStore.set(data, forKey: self.preferencesKey)
         self.presentation.preferences = preferences
         await self.runtime.configureDailyLimit()
-        await self.runtime.publishWidgets()
         try await self.refresh()
         await self.presentation.requestHistory(using: self.actions)
       },
@@ -225,23 +224,6 @@ import struct FoldingData.TrackingDiagnosticSnapshot
         guard revision == self.competitionIdentityRevision else { throw CancellationError() }
         self.presentation.competitionProfile = value
       },
-      loadResults: { period, cursor in
-        let page = try await self.competitionClient().results(kind: period.rawValue, cursor: cursor)
-        return CompetitionResultsPage(
-          items: try page.items.map(self.resultPresentation),
-          nextCursor: page.next_cursor, snapshotVersion: page.snapshot_version)
-      },
-      loadResultShare: { periodID in
-        let api = try await self.competitionClient()
-        let share = try await api.share(periodID: periodID)
-        let avatar =
-          if let id = share.profile.avatar_id { try? await api.transport.avatarImage(id) } else {
-            nil as Data?
-          }
-        return CompetitionShare(
-          result: try self.resultPresentation(share.result),
-          nickname: share.profile.nickname, approvedAvatarURL: nil, approvedAvatarData: avatar)
-      },
       reportParticipant: { id, reason in
         try await self.competitionClient().report(participantID: id, reason: reason.rawValue)
       },
@@ -274,7 +256,6 @@ import struct FoldingData.TrackingDiagnosticSnapshot
         self.presentation.invalidateMilestones()
         try await self.refresh()
         await self.presentation.requestHistory(using: self.actions)
-        await self.runtime.publishWidgets()
         await self.flushEntryDeletions()
         await self.runtime.synchronizePrivateHistory()
       },
@@ -686,7 +667,18 @@ import struct FoldingData.TrackingDiagnosticSnapshot
       joinedParticipantID =
         me.profile.membership == "joined" && me.profile.restriction == "none"
         ? me.profile.participant_id : nil
-      if let remote = me.preferences { try notifications.applyResultPreferences(remote) }
+      if let remote = me.preferences {
+        try notifications.applyResultPreferences(remote)
+        if remote.weekly != "off" || remote.monthly != "off" {
+          do {
+            try await saveRemoteNotificationPreferences(notifications.preferences)
+          } catch {
+            presentation.error = String(
+              localized: "notifications.resultDisableFailed",
+              defaultValue: "Couldn’t turn off result alerts. Try again later.")
+          }
+        }
+      }
       await configurePush()
       await flushEntryDeletions()
       guard identity == accountChangeRevision, !accountChanging else { return }
@@ -741,7 +733,18 @@ import struct FoldingData.TrackingDiagnosticSnapshot
       guard identity == accountChangeRevision, !accountChanging else { throw CancellationError() }
       try await showPublicTrackingPhone(me)
       guard identity == accountChangeRevision, !accountChanging else { throw CancellationError() }
-      if let remote = me.preferences { try notifications.applyResultPreferences(remote) }
+      if let remote = me.preferences {
+        try notifications.applyResultPreferences(remote)
+        if remote.weekly != "off" || remote.monthly != "off" {
+          do {
+            try await saveRemoteNotificationPreferences(notifications.preferences)
+          } catch {
+            presentation.error = String(
+              localized: "notifications.resultDisableFailed",
+              defaultValue: "Couldn’t turn off result alerts. Try again later.")
+          }
+        }
+      }
       if let enrollment = me.enrollment,
         enrollment.device_id == store.deviceID.uuidString.lowercased(),
         let epoch = UUID(uuidString: enrollment.epoch_id)
@@ -758,19 +761,6 @@ import struct FoldingData.TrackingDiagnosticSnapshot
         suggestedNickname: ["Folder", "Member"].contains(suggested) ? "" : suggested)
     }
     await configurePush()
-  }
-
-  private func resultPresentation(_ result: CompetitionWireResult) throws -> CompetitionResult {
-    guard let period = CompetitionPeriod(rawValue: result.kind), period != .all else {
-      throw CompetitionTransportError.invalidResponse
-    }
-    return CompetitionResult(
-      id: result.period_id, period: period,
-      start: Date(timeIntervalSince1970: Double(result.start_ms) / 1000),
-      end: Date(timeIntervalSince1970: Double(result.end_ms) / 1000), version: result.version,
-      finalizedAt: Date(timeIntervalSince1970: Double(result.finalized_at_ms) / 1000),
-      folds: result.folds, rank: result.rank, population: result.population,
-      medal: result.medal.flatMap(CompetitionMedal.init(rawValue:)))
   }
 
   private func loadCompetition(_ period: CompetitionPeriod, cursor: String? = nil) async throws
@@ -842,13 +832,11 @@ import struct FoldingData.TrackingDiagnosticSnapshot
       guard let self else { return }
       Task { await self.presentation.requestMilestones(using: self.actions, force: true) }
     }
-    delegate.openResults = { [weak self] id, period in
+    delegate.openResults = { [weak self] _, _ in
       guard let self, self.joinedParticipantID != nil, self.presentation.competitionRemoval == nil
       else { return false }
-      self.presentation.resultsPeriod = period
-      self.presentation.requestedResultID = id
+      self.presentation.competitionPeriod = .all
       self.presentation.selectedTab = .leaderboard
-      self.presentation.present(.competition(.results))
       return true
     }
   }

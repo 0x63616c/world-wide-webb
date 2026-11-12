@@ -321,7 +321,7 @@ class CodingRegressionsTest < Minitest::Test
     def context.delete_keychain(**); @deleted = true; end
     def context.deleted; @deleted; end
     record = Record.new({"state" => "assets_ready", "build_number" => 42, "apple_team_id" => "test",
-      "archive_configuration" => {"identity" => {"bundle_id" => "app", "widget_bundle_id" => "widget"}}})
+      "archive_configuration" => {"identity" => {"bundle_id" => "app"}}})
     FoldingRelease.stub(:clean_commit!, "source") do
       FoldingRelease.stub(:api_key, {}) do
         FoldingRelease::Operations.stub(:restore_assets, "assets") do

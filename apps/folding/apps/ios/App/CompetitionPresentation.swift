@@ -25,18 +25,6 @@ enum ParticipantReportReason: String, CaseIterable, Identifiable, Sendable {
     }
   }
 }
-struct CompetitionResult: Identifiable, Hashable, Sendable {
-  let id: String
-  let period: CompetitionPeriod
-  let start: Date
-  let end: Date
-  let version: Int
-  let finalizedAt: Date
-  let folds: Int
-  let rank: Int
-  let population: Int
-  let medal: CompetitionMedal?
-}
 enum CompetitionMedal: String, Sendable {
   case gold, silver, bronze
   var title: String {
@@ -47,33 +35,13 @@ enum CompetitionMedal: String, Sendable {
     }
   }
 }
-struct CompetitionResultsPage: Sendable {
-  let items: [CompetitionResult]
-  let nextCursor: String?
-  let snapshotVersion: String
-}
-struct CompetitionShare: Sendable {
-  let result: CompetitionResult
-  let nickname: String
-  let approvedAvatarURL: URL?
-  let approvedAvatarData: Data?
-  init(
-    result: CompetitionResult, nickname: String, approvedAvatarURL: URL?,
-    approvedAvatarData: Data? = nil
-  ) {
-    self.result = result
-    self.nickname = nickname
-    self.approvedAvatarURL = approvedAvatarURL
-    self.approvedAvatarData = approvedAvatarData
-  }
-}
 struct HiddenParticipantsPage: Sendable {
   let participantIDs: [String]
   let nextCursor: String?
   let snapshotVersion: String
 }
 
-enum CompetitionSheet: String { case join, profile, results, liveShare, milestones }
+enum CompetitionSheet: String { case join, profile, milestones }
 enum CompetitionRemovalState { case deleting, deleteFailed, cleanupAttention, statusUnavailable }
 
 extension FoldingPresentation {
@@ -91,13 +59,6 @@ extension FoldingPresentation {
     hiddenCursor = nil
     hiddenVersion = nil
     hiddenFailed = false
-    resultsRequestID = UUID()
-    requestedResultID = nil
-    allTimeResult = nil
-    results = []
-    resultsCursor = nil
-    resultsVersion = nil
-    resultsLoading = false
     competitionProfile = nil
     joinNickname = ""
     hiddenParticipantIDs = []
@@ -139,67 +100,6 @@ extension FoldingPresentation {
     }
   }
 
-  func requestResults(using actions: FoldingActions, nextPage: Bool = false) async {
-    if resultsPeriod == .all {
-      let request = UUID()
-      resultsRequestID = request
-      resultsLoading = true
-      resultsFailed = false
-      defer { if resultsRequestID == request { resultsLoading = false } }
-      do {
-        let page: LeaderboardPresentation
-        if let load = actions.loadLeaderboardPage {
-          page = try await load(.all, nil)
-        } else if let load = actions.loadLeaderboard {
-          page = try await load(.all)
-        } else {
-          resultsFailed = true
-          return
-        }
-        guard resultsRequestID == request, resultsPeriod == .all, !Task.isCancelled else { return }
-        allTimeResult = page
-      } catch {
-        guard resultsRequestID == request, resultsPeriod == .all else { return }
-        resultsFailed = !(error is CancellationError)
-      }
-      return
-    }
-    guard let load = actions.loadResults else { return }
-    if nextPage && (resultsLoading || resultsCursor == nil) { return }
-    let request = UUID()
-    resultsRequestID = request
-    let period = resultsPeriod
-    let cursor = nextPage ? resultsCursor : nil
-    resultsLoading = true
-    resultsFailed = false
-    if !nextPage {
-      results = []
-      resultsCursor = nil
-      resultsVersion = nil
-    }
-    do {
-      let page = try await load(period, cursor)
-      guard request == resultsRequestID, !Task.isCancelled else { return }
-      if nextPage, let currentVersion = resultsVersion, currentVersion != page.snapshotVersion {
-        resultsLoading = false
-        await requestResults(using: actions)
-        return
-      }
-      if nextPage {
-        let known = Set(results.map(\.id))
-        results += page.items.filter { !known.contains($0.id) }
-      } else {
-        results = page.items
-      }
-      resultsCursor = page.nextCursor
-      resultsVersion = page.snapshotVersion
-      resultsLoading = false
-    } catch {
-      guard request == resultsRequestID else { return }
-      resultsLoading = false
-      resultsFailed = !(error is CancellationError)
-    }
-  }
 }
 
 func blockedPlayerName(_ id: String) -> String {
@@ -212,7 +112,6 @@ extension FoldingPresentation {
   func updateBlockedParticipant(_ id: String, blocked: Bool) {
     invalidateLeaderboardRequests()
     invalidateMilestones()
-    resultsRequestID = UUID()
     hiddenRequestID = UUID()
     hiddenLoading = false
     if blocked { hiddenParticipantIDs.insert(id) } else { hiddenParticipantIDs.remove(id) }
@@ -230,7 +129,6 @@ extension FoldingPresentation {
       return board
     }
     if let board = competition.previous { competition = .loaded(project(board)) }
-    if let board = allTimeResult { allTimeResult = project(board) }
     if blocked, case .tiedRank = sheet { sheet = nil }
   }
 }

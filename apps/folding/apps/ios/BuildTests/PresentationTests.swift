@@ -101,21 +101,10 @@ import XCTest
         NotificationPreferences.self, from: JSONEncoder().encode(preferences)), preferences)
   }
 
-  func testSummaryCardsPairInWideViewsAndStackForAccessibility() {
-    let metrics: [SummaryMetric] = [
-      .folds, .timeUnfolded, .trend, .opens, .closes, .cycles, .lifetimeFolds,
-    ]
-    let wide = SummaryCardLayout.rows(metrics, width: 700, accessibilitySize: false)
-    XCTAssertEqual(
-      wide, [[.folds, .timeUnfolded], [.trend, .opens], [.closes, .cycles], [.lifetimeFolds]])
-    XCTAssertEqual(wide.flatMap { $0 }, metrics)
-    XCTAssertEqual(
-      SummaryCardLayout.rows(metrics, width: 390, accessibilitySize: false),
-      [[.folds], [.timeUnfolded], [.trend], [.opens, .closes], [.cycles, .lifetimeFolds]])
-    XCTAssertEqual(
-      SummaryCardLayout.rows(metrics, width: 700, accessibilitySize: true), metrics.map { [$0] })
+  func testAnalyticsWideLayoutRespectsAccessibilitySize() {
     XCTAssertFalse(SummaryCardLayout.usesWideRows(width: 599, accessibilitySize: false))
     XCTAssertTrue(SummaryCardLayout.usesWideRows(width: 600, accessibilitySize: false))
+    XCTAssertFalse(SummaryCardLayout.usesWideRows(width: 900, accessibilitySize: true))
   }
 
   func testElapsedTimeUsesCompactDaysAndOmitsZeroUnits() {
@@ -159,23 +148,6 @@ import XCTest
     let encoded = try XCTUnwrap(
       JSONSerialization.jsonObject(with: JSONEncoder().encode(decoded)) as? [String: Any])
     XCTAssertNil(encoded["accent"])
-  }
-
-  func testWidgetLinkPreservesSetupAndRejectsUntrustedDestinations() {
-    let model = FoldingPresentation()
-    model.present(.setup)
-    model.openWidgetURL(URL(string: "folding://history")!)
-    XCTAssertEqual(model.selectedTab, .history)
-    XCTAssertEqual(model.sheet, .setup)
-    for value in [
-      "https://history", "folding://user@today", "folding://today:443", "folding://today/erase",
-      "folding://today?reset=true",
-    ] {
-      model.openWidgetURL(URL(string: value)!)
-      XCTAssertEqual(model.selectedTab, .history)
-    }
-    model.openWidgetURL(URL(string: "folding://today")!)
-    XCTAssertEqual(model.selectedTab, .today)
   }
 
   func testNotificationLocalesFallbackWithoutBlockingPreferences() {
@@ -287,21 +259,8 @@ import XCTest
     XCTAssertNil(previous)
   }
 
-  func testAllTimeResultsUseLiveAllTimeLeaderboard() async {
-    let model = FoldingPresentation()
-    model.resultsPeriod = .all
-    var actions = actions()
-    var requested: CompetitionPeriod?
-    actions.loadLeaderboard = { period in
-      requested = period
-      return self.leaderboard("All Time")
-    }
-    await model.requestResults(using: actions)
-    XCTAssertEqual(requested, .all)
-    XCTAssertEqual(model.allTimeResult?.periodTitle, "All Time")
-    XCTAssertFalse(model.resultsFailed)
-    model.invalidateCompetitionPresentation()
-    XCTAssertNil(model.allTimeResult)
+  func testLeaderboardDefaultsToAllTime() {
+    XCTAssertEqual(FoldingPresentation().competitionPeriod, .all)
   }
 
   func testOlderLeaderboardSuccessDoesNotReplaceNewPeriod() async throws {
