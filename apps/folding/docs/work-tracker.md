@@ -706,3 +706,11 @@ definition, include the placeholder source, compile the screenshot scheme in nat
 CI without booting a simulator, then verify capture. Diagnostic changes pass actionlint,
 diff checks and all 34 portable capture tests; no product fix or new submission is
 claimed at this checkpoint.
+
+The local generic-simulator `FoldingStorefront` build reproduced both errors before
+the fix and now reports `TEST BUILD SUCCEEDED`. The fixture reuses the production
+error definition and includes the missing view; required native CI also builds
+the screenshot app/tests without booting a device. Its budget increases to 20 minutes
+to accommodate both schemes (the diagnostic screenshot build alone took 469 seconds).
+This changes screenshot composition/build verification, not production app behavior.
+Remote capture, the intermittent startup failure and App Store submission remain open.

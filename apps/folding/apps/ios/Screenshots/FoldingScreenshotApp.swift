@@ -290,6 +290,3 @@ import struct FoldingData.SetupProgress
   }
 
 }
-
-// Validation-only model dependency. The simulator fixture target links no transport or live API client.
-enum CompetitionTransportError: Error { case invalidResponse }
