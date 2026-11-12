@@ -2268,7 +2268,10 @@ exit 0
         let source = std::fs::read_to_string(&fixture)
             .unwrap()
             .replace("printf '501\\n'", "printf '0\\n'");
-        std::fs::write(&fixture, source).unwrap();
+        let replacement = directory.path().join("tart-fixture-replacement");
+        std::fs::write(&replacement, source).unwrap();
+        std::fs::set_permissions(&replacement, std::fs::Permissions::from_mode(0o700)).unwrap();
+        std::fs::rename(replacement, fixture).unwrap();
         assert!(matches!(
             tart.guest_agent_ready(&name).await,
             Err(TartError::GuestIdentity)
