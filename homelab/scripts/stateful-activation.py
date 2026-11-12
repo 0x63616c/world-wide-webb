@@ -102,8 +102,7 @@ def launcher_loaded(label):
     return result.returncode == 0
 
 
-def unload_ha_launcher():
-    label = HA_LABELS[1]
+def unload_ha_launcher(label=HA_LABELS[1]):
     if not launcher_loaded(label):
         return
     subprocess.run(['/bin/launchctl', 'bootout', 'system/' + label], check=True, timeout=30)
@@ -128,6 +127,9 @@ def activate(candidate, previous, fd, token, log):
     if restart_ha:
         unload_ha_launcher()
         children.run_service('stop-ha', fd, 180, system=candidate, log=log)
+        # Native launchd unload is asynchronous. Finish backend teardown before
+        # nix-darwin copies/loads its replacement, avoiding a bootstrap race.
+        unload_ha_launcher(HA_LABELS[0])
     env = {
         "PATH": "/nix/var/nix/profiles/default/bin:/usr/bin:/bin:/usr/sbin:/sbin",
         "HOME": "/var/root",

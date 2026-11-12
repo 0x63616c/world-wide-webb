@@ -162,12 +162,13 @@ class StatefulActivationTests(unittest.TestCase):
         def run(command, *args, **kwargs):
             events.append(command)
         with patch.object(activation, 'run', side_effect=run), \
-                patch.object(activation, 'unload_ha_launcher', side_effect=lambda: events.append(['unload'])), \
+                patch.object(activation, 'unload_ha_launcher', side_effect=lambda *a: events.append(['unload', *a])), \
                 patch.object(activation, 'ensure_ha_launchers', side_effect=lambda: events.append(['reload'])), \
                 patch.object(activation.children, 'run_service', side_effect=lambda *a, **k: events.append(list(a[:1]))):
             activation.activate(self.new, self.old, 7, 'transaction', None)
         self.assertEqual(events[0:2], [['unload'], ['stop-ha']])
-        self.assertIn('nix-env', events[2][0])
+        self.assertEqual(events[2], ['unload', 'org.nixos.homelab-ha-vmnet'])
+        self.assertIn('nix-env', events[3][0])
         self.assertEqual(events[-1], ['reload'])
 
     def test_unchanged_ha_bridge_or_non_ha_host_does_not_restart_guest(self):
