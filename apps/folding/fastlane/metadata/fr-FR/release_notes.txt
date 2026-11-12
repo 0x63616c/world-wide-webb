@@ -1,1 +1,1 @@
-Découvrez Folding, votre compteur de pliages pour Duo.
+Amélioration de la reconnexion et du chargement des classements.

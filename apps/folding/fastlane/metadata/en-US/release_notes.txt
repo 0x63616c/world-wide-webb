@@ -1,1 +1,1 @@
-Meet Folding: your personal Duo fold tracker.
+Improved sign-in recovery and leaderboard loading.

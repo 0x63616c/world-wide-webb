@@ -1,1 +1,1 @@
-Descubre Folding: tu contador personal de pliegues para Duo.
+Mejoras en la recuperación del inicio de sesión y la carga de las clasificaciones.
