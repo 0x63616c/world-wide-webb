@@ -9,7 +9,7 @@ enum PanelClockFace: String, CaseIterable {
 
 /// The clock face, after Apple HomeView's green numeral clock (Apple Newsroom,
 /// 13 Oct 2026): a full-bleed green field, four huge black cardinal numerals
-/// pushed to the screen edges, white hands and small date, time and weather details.
+/// pushed to the screen edges, white hands and date, time and weather complications.
 struct PresenceClockFace: View {
     let store: any HomeDataSource
     var face: PanelClockFace = .green
@@ -32,8 +32,8 @@ struct PresenceClockFace: View {
         return ZStack {
             switch face {
             case .green:
-                night ? Color.black : GreenClockDial.green
-                GreenClockDial(
+                night ? Color.black : CardinalClockDial.green
+                CardinalClockDial(
                     date: now, night: night,
                     weather: store.status(for: .weather) == .live ? store.weather : nil)
             case .tide:
@@ -62,7 +62,7 @@ struct PresenceClockFace: View {
 
 /// Lays the face out in whatever rectangle it is given: landscape fills the
 /// whole screen, portrait uses a near-square band so the numerals stay huge.
-struct GreenClockDial: View {
+struct CardinalClockDial: View {
     /// Sampled from the HomeView reference (Apple Newsroom faces image).
     static let green = Color(red: 63.0 / 255, green: 148.0 / 255, blue: 93.0 / 255)
     let date: Date
@@ -82,7 +82,7 @@ struct GreenClockDial: View {
             let height = size.width >= size.height ? size.height : min(size.height, size.width * 1.1)
             face = CGRect(x: 0, y: (size.height - height) / 2, width: size.width, height: height)
             digitHeight = min(face.height * 0.37, face.width * 0.32)
-            fontSize = digitHeight / GreenClockDial.capHeightRatio
+            fontSize = digitHeight / CardinalClockDial.capHeightRatio
             inset = max(16, face.width * 0.045)
         }
         var center: CGPoint { CGPoint(x: face.midX, y: face.minY + face.height * 0.495) }
@@ -122,28 +122,28 @@ struct GreenClockDial: View {
                 )
                 numeral("6", layout, alignment: .center, glyphTop: face.minY + face.height * 0.975 - layout.digitHeight)
                 if !numeralsOnly {
-                    Text(fixtureTime(date, format: "h:mm"))
-                        .font(.system(size: max(17, face.height * 0.042), weight: .semibold))
-                        .monospacedDigit().foregroundStyle(ink)
-                        .frame(width: face.width - 2 * layout.inset, alignment: .trailing)
-                        .position(x: face.midX, y: face.minY + face.height * 0.07)
+                    complication(
+                        fixtureTime(date, format: "h:mm"), layout: layout, alignment: .trailing,
+                        y: face.minY + face.height * 0.07)
                     if let weather {
-                        Text("H:\(weather.high) L:\(weather.low)")
-                            .font(.system(size: max(17, face.height * 0.042), weight: .semibold))
-                            .monospacedDigit().foregroundStyle(ink)
-                            .frame(width: face.width - 2 * layout.inset, alignment: .trailing)
-                            .position(x: face.midX, y: face.minY + face.height * 0.915)
+                        complication(
+                            "H:\(weather.high) L:\(weather.low)", layout: layout, alignment: .trailing,
+                            y: face.minY + face.height * 0.915)
                     }
-                    Text(fixtureTime(date, format: "EEE d MMM").uppercased())
-                        .font(.system(size: max(17, face.height * 0.042), weight: .semibold))
-                        .foregroundStyle(ink).fixedSize()
-                        .frame(width: face.width - 2 * layout.inset, alignment: .leading)
-                        .position(x: face.midX, y: face.minY + face.height * 0.07)
+                    complication(
+                        fixtureTime(date, format: "EEE d MMM").uppercased(), layout: layout, alignment: .leading,
+                        y: face.minY + face.height * 0.07)
                     hands(layout, hours: hours, minutes: minutes, seconds: seconds)
                 }
             }.frame(width: proxy.size.width, height: proxy.size.height, alignment: .topLeading)
         }.accessibilityElement(children: .ignore)
             .accessibilityLabel(fixtureTime(date, format: "h:mm a, EEEE MMMM d"))
+    }
+
+    private func complication(_ text: String, layout: Layout, alignment: Alignment, y: CGFloat) -> some View {
+        ClockComplication(text: text, faceHeight: layout.face.height, ink: ink)
+            .frame(width: layout.face.width - 2 * layout.inset, alignment: alignment)
+            .position(x: layout.face.midX, y: y)
     }
 
     private func numeral(_ text: String, _ layout: Layout, alignment: Alignment, glyphTop: CGFloat) -> some View {
@@ -194,5 +194,19 @@ struct GreenClockDial: View {
             content.compositingGroup()
                 .shadow(color: .black.opacity(0.40), radius: 5, y: 5)
         }
+    }
+}
+
+struct ClockComplication: View {
+    let text: String
+    let faceHeight: CGFloat
+    let ink: Color
+
+    var body: some View {
+        Text(text)
+            .font(.system(size: max(17, faceHeight * 0.042), weight: .regular))
+            .monospacedDigit()
+            .foregroundStyle(ink)
+            .fixedSize()
     }
 }

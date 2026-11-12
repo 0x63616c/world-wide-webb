@@ -176,7 +176,7 @@ struct HomeView: View {
 
     private func clockDial(_ face: PanelClockFace) -> some View {
         PresenceClockFace(store: store, face: face)
-            .environment(\.motionPhase, selected == nil && showingClock ? inheritedMotionPhase : 0)
+            .environment(\.motionPhase, selected == nil ? inheritedMotionPhase : 0)
             .clipShape(ConcentricRectangle())
             .allowsHitTesting(false)
             .accessibilityHidden(true)
