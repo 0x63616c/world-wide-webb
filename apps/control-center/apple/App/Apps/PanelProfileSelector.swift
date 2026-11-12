@@ -72,10 +72,11 @@ struct PanelProfileSelector: ViewModifier {
                 ProfileEditorSheet(
                     profile: target.profile, pin: integration?.panelPIN,
                     save: { pin, name, photo in try await save(target.profile, pin: pin, name: name, photo: photo) },
-                    delete: { pin in try await remove(target.profile, pin: pin) })
-                    .preferredColorScheme(.dark)
-                    .frame(idealWidth: 420)
-                    .presentationSizing(.fitted)
+                    delete: { pin in try await remove(target.profile, pin: pin) }
+                )
+                .preferredColorScheme(.dark)
+                .frame(idealWidth: 420)
+                .presentationSizing(.fitted)
             }
             .onChange(of: isAvailable) { _, available in
                 if !available {
@@ -261,8 +262,9 @@ private struct ProfileEditorSheet: View {
         Group {
             if let authorizedPIN {
                 EditPanelProfile(
-                    profile: profile, pin: authorizedPIN, cancel: { dismiss() }, save: save, delete: delete)
-                    .padding(28)
+                    profile: profile, pin: authorizedPIN, cancel: { dismiss() }, save: save, delete: delete
+                )
+                .padding(28)
             } else {
                 VStack(spacing: 0) {
                     ViewThatFits(in: .vertical) {
@@ -328,7 +330,9 @@ private struct EditPanelProfile: View {
     }
 
     private var trimmedName: String { name.trimmingCharacters(in: .whitespacesAndNewlines) }
-    private var photo: Data? { selection == nil ? profile?.photo : (imported?.item == selection ? imported?.photo : nil) }
+    private var photo: Data? {
+        selection == nil ? profile?.photo : (imported?.item == selection ? imported?.photo : nil)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -387,8 +391,9 @@ private struct EditPanelProfile: View {
                         guard let photo, !trimmedName.isEmpty else { return }
                         saving = true
                         Task {
-                            do { try await save(pin, trimmedName, photo) }
-                            catch { errorMessage = "Couldn’t save the profile. Try again." }
+                            do { try await save(pin, trimmedName, photo) } catch {
+                                errorMessage = "Couldn’t save the profile. Try again."
+                            }
                             saving = false
                         }
                     }
@@ -411,8 +416,7 @@ private struct EditPanelProfile: View {
             Button("Delete Profile", role: .destructive) {
                 saving = true
                 Task {
-                    do { try await delete(pin) }
-                    catch { errorMessage = "Couldn’t delete the profile. Try again." }
+                    do { try await delete(pin) } catch { errorMessage = "Couldn’t delete the profile. Try again." }
                     saving = false
                 }
             }
