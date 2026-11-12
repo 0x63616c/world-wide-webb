@@ -29,6 +29,7 @@ SKIP_PREFIXES = (
     "apps/folding/cloudkit/schemas/production/v1/bootstrap-receipt.json",
     "apps/callkeep/Scripts/validate-provisioning.py",
     "homelab/runner/images/linux/build-image.py",
+    "homelab/cli/schema/homelab-v3.schema.json",
 )
 PRETTIER_EXTENSIONS = {".css", ".html", ".js", ".json", ".jsonc", ".mjs", ".ts", ".yaml", ".yml"}
 PRETTIER_PLUGINS = {".sh": "prettier-plugin-sh", ".sql": "prettier-plugin-sql", ".toml": "prettier-plugin-toml"}
