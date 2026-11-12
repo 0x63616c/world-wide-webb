@@ -39,6 +39,7 @@ class ReleaseCheck
     instance_eval(File.read(fastfile), fastfile)
     # This harness records actions; loading installed deliver is outside its scope.
     define_singleton_method(:guard_first_review_detail) {}
+    define_singleton_method(:assignable_groups) { |app| [app.fetch("testflight_group")] }
   end
 
   def default_platform(*); end
