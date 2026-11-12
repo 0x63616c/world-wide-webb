@@ -7,10 +7,77 @@ import Testing
     import FoundationNetworking
 #endif
 
-@Test func commandRingCapsAt50AndPreservesCompletionOrder() {
+@Test func commandRingCapsAt500AndPreservesCompletionOrder() {
     let log = PanelCommandLog()
-    for i in 0..<75 { log.record(control: "command.\(i)", status: 200, latencyMs: i) }
-    #expect(log.snapshot().map(\.control) == (25..<75).map { "command.\($0)" })
+    for i in 0..<525 { log.record(control: "command.\(i)", status: 200, latencyMs: i) }
+    #expect(log.snapshot().map(\.control) == (25..<525).map { "command.\($0)" })
+}
+
+@Test func eventLogBoundsHistoryAndNeverStoresArbitraryText() throws {
+    let log = PanelEventLog()
+    log.record(category: "network", action: "GET.lights", outcome: "slow", status: 200, durationMs: 1200)
+    log.record(category: "Authorization: secret", action: "person@example.com", outcome: "bad value")
+    for i in 0..<501 { log.record(category: "navigation", action: "app.\(i).open") }
+    let entries = log.snapshot()
+    #expect(entries.count == 500)
+    #expect(entries.first?.action == "app.1.open")
+    #expect(entries.last?.action == "app.500.open")
+    let batch = PanelEventBatch(deviceId: UUID().uuidString, deviceLabel: "Kitchen", entries: Array(entries.suffix(2)))
+    let body = String(decoding: try JSONEncoder().encode(batch), as: UTF8.self)
+    #expect(body.contains("deviceId"))
+    #expect(!body.contains("Authorization"))
+    #expect(!body.contains("person@example.com"))
+}
+
+@Test func unreadableLocalEventHistoryIsVisibleAsStorageFailure() throws {
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let file = directory.appendingPathComponent("events.json")
+    try Data("invalid JSON".utf8).write(to: file)
+    let log = PanelEventLog(fileURL: file)
+    #expect(!log.storageAvailable)
+    #expect(log.snapshot().isEmpty)
+}
+
+@Test func networkEventsIncludeStatusOutcomeAndDurationWithoutResourceIdentifiers() async throws {
+    let events = PanelEventLog()
+    let client = PanelAPIClient(
+        configuration: PanelConfiguration(baseURL: URL(string: "https://panel.example")!),
+        transport: DiagnosticsTransport(status: 503), commandLog: PanelCommandLog(), eventLog: events)
+    do {
+        _ = try await client.get("lights/private-room-id", as: DiagnosticsResult.self)
+        Issue.record("Expected HTTP failure")
+    } catch {}
+    let event = try #require(events.snapshot().last)
+    #expect(event.action == "GET.lights")
+    #expect(event.status == 503)
+    #expect(event.outcome == "http_error")
+    #expect(event.durationMs != nil)
+}
+
+@Test func automaticEventUploadUsesServerWireShapeWithoutLoggingItself() async throws {
+    let events = PanelEventLog()
+    events.record(category: "navigation", action: "app.settings.open")
+    let transport = DiagnosticsTransport(status: 200)
+    let commands = PanelCommandLog()
+    let client = PanelAPIClient(
+        configuration: PanelConfiguration(baseURL: URL(string: "https://panel.example")!),
+        transport: transport, commandLog: commands, eventLog: events)
+    let batch = PanelEventBatch(deviceId: UUID().uuidString, deviceLabel: "Kitchen", entries: events.snapshot())
+    _ = try await client.post("diagnostics/events", input: batch, as: DiagnosticsResult.self)
+    let request = try #require(await transport.requests.first)
+    let body = try #require(request.httpBody)
+    let json = try #require(JSONSerialization.jsonObject(with: body) as? [String: Any])
+    let sent = try #require((json["events"] as? [[String: Any]])?.first)
+    #expect(json["deviceId"] as? String == batch.deviceId)
+    #expect(json["deviceLabel"] as? String == "Kitchen")
+    #expect(json["build"] as? String == "dev")
+    #expect(json["gitSHA"] as? String == "dev")
+    #expect((sent["time"] as? String)?.hasSuffix("Z") == true)
+    #expect(sent["durationMs"] == nil)
+    #expect(events.snapshot().count == 1)
+    #expect(commands.snapshot().isEmpty)
 }
 
 @Test func commandLogAndUploadedPayloadCannotContainHeadersSecretsOrPersonalText() throws {

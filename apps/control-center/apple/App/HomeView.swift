@@ -184,11 +184,16 @@ struct HomeView: View {
     }
 
     private func home() {
+        if let selected {
+            PanelEventLog.shared.record(category: "navigation", action: "app.\(selected.id).close_requested")
+        }
+        PanelEventLog.shared.record(category: "navigation", action: "launcher.open")
         withAnimation(selected == nil ? .spring(duration: 0.3, bounce: 0) : .smooth(duration: 0.4)) {
             shell.showLauncher()
         }
     }
     private func clock() {
+        PanelEventLog.shared.record(category: "navigation", action: "clock.open")
         withAnimation(.spring(duration: 0.3, bounce: 0)) { shell.showClock() }
     }
     private var appPath: Binding<[String]> {
@@ -291,7 +296,13 @@ struct HomeView: View {
             }
         }
         .environment(\.colorScheme, .dark).foregroundStyle(.white).tint(.white)
-        .onChange(of: selected?.id, initial: true) { _, id in
+        .onChange(of: selected?.id, initial: true) { oldID, id in
+            if let oldID, id == nil {
+                PanelEventLog.shared.record(category: "navigation", action: "app.\(oldID).closed")
+            }
+            if let id {
+                PanelEventLog.shared.record(category: "navigation", action: "app.\(id).shown")
+            }
             notifications?.setVisibleSources(PanelNotifications.sources(for: id))
         }
         .modifier(
@@ -308,6 +319,7 @@ struct HomeView: View {
         #endif
     }
     private func open(_ app: PanelAppDefinition) {
+        PanelEventLog.shared.record(category: "navigation", action: "app.\(app.id).open")
         if app.route == .clock {
             clock()
             return

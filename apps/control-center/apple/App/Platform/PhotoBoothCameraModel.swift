@@ -86,7 +86,12 @@ import SwiftUI
             guard revision == generation else { return }
             self.device = device.value
             status = .ready
-        } catch { if revision == generation { status = .failed } }
+        } catch {
+            if revision == generation {
+                status = .failed
+                PanelEventLog.shared.record(category: "platform", action: "camera.start", outcome: "error")
+            }
+        }
     }
     func shutter() {
         if capturing {
@@ -137,6 +142,7 @@ import SwiftUI
                 // Cancelled countdowns/partial strips never upload unseen photos.
             } catch {
                 self.error = "Couldn’t take the photo. Try again."
+                PanelEventLog.shared.record(category: "platform", action: "camera.capture", outcome: "error")
             }
         }
     }
@@ -184,7 +190,10 @@ import SwiftUI
             try? await Task.sleep(for: .seconds(2))
             if !retainsPreview { preview = nil }
             saved = false
-        } catch { self.error = "Couldn’t save the photo. Try again." }
+        } catch {
+            self.error = "Couldn’t save the photo. Try again."
+            PanelEventLog.shared.record(category: "platform", action: "camera.save", outcome: "error")
+        }
         saving = false
     }
     func dismissSavedPreview() {
