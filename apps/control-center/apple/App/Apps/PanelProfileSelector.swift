@@ -75,7 +75,7 @@ struct PanelProfileSelector: ViewModifier {
                     delete: { pin in try await remove(target.profile, pin: pin) }
                 )
                 .preferredColorScheme(.dark)
-                .frame(idealWidth: 420, idealHeight: 450)
+                .frame(idealWidth: 420, idealHeight: 340)
                 .presentationSizing(.fitted)
             }
             .onChange(of: isAvailable) { _, available in
@@ -172,38 +172,34 @@ struct PanelProfileSelector: ViewModifier {
     }
 
     private func profileTile(_ user: PanelProfile, selected: Bool, side: CGFloat) -> some View {
-        VStack(spacing: 8) {
-            Button {
-                selectedID = user.id
-                showProfiles(false)
-            } label: {
-                VStack(spacing: 10) {
-                    ProfileAvatar(photo: user.photo, side: side)
-                        .overlay { Circle().strokeBorder(.white.opacity(0.16)) }
-                        .overlay(alignment: .topTrailing) {
-                            if selected {
-                                Image(systemName: "checkmark")
-                                    .font(.caption.weight(.bold))
-                                    .frame(width: 26, height: 26)
-                                    .background(.green, in: .circle)
-                                    .accessibilityHidden(true)
-                            }
+        Button {
+            selectedID = user.id
+            showProfiles(false)
+        } label: {
+            VStack(spacing: 10) {
+                ProfileAvatar(photo: user.photo, side: side)
+                    .overlay { Circle().strokeBorder(.white.opacity(0.16)) }
+                    .overlay(alignment: .topTrailing) {
+                        if selected {
+                            Image(systemName: "checkmark")
+                                .font(.caption.weight(.bold))
+                                .frame(width: 26, height: 26)
+                                .background(.green, in: .circle)
+                                .accessibilityHidden(true)
                         }
-                    Text(user.name)
-                        .font(.subheadline.weight(.medium))
-                        .lineLimit(1)
-                }
-                .contentShape(.rect)
+                    }
+                Text(user.name)
+                    .font(.subheadline.weight(.medium))
+                    .lineLimit(1)
             }
-            .buttonStyle(.plain)
-            .accessibilityAddTraits(selected ? .isSelected : [])
-            Button("Edit", systemImage: "pencil") { editing = ProfileEditTarget(profile: user) }
-                .labelStyle(.titleAndIcon)
-                .font(.caption)
-                .buttonStyle(.plain)
-                .frame(minWidth: side, minHeight: 44)
-                .contentShape(.rect)
-                .accessibilityLabel("Edit \(user.name)")
+            .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Select \(user.name)")
+        .accessibilityAddTraits(selected ? .isSelected : [])
+        .accessibilityAction(named: "Edit Profile") { editing = ProfileEditTarget(profile: user) }
+        .contextMenu {
+            Button("Edit Profile", systemImage: "pencil") { editing = ProfileEditTarget(profile: user) }
         }
     }
 
@@ -264,9 +260,9 @@ private struct ProfileEditorSheet: View {
         Group {
             if let authorizedPIN {
                 EditPanelProfile(
-                    profile: profile, pin: authorizedPIN, cancel: { dismiss() }, save: save, delete: delete
+                    profile: profile, pin: authorizedPIN, save: save, delete: delete
                 )
-                .padding(28)
+                .padding(20)
                 .fixedSize(horizontal: false, vertical: true)
             } else {
                 VStack(spacing: 0) {
@@ -309,7 +305,6 @@ private struct ProfileEditorSheet: View {
 private struct EditPanelProfile: View {
     let profile: PanelProfile?
     let pin: String
-    let cancel: () -> Void
     let save: (String, String, Data) async throws -> Void
     let delete: (String) async throws -> Void
     @State private var name: String
@@ -320,13 +315,12 @@ private struct EditPanelProfile: View {
     @State private var confirmingDelete = false
 
     init(
-        profile: PanelProfile?, pin: String, cancel: @escaping () -> Void,
+        profile: PanelProfile?, pin: String,
         save: @escaping (String, String, Data) async throws -> Void,
         delete: @escaping (String) async throws -> Void
     ) {
         self.profile = profile
         self.pin = pin
-        self.cancel = cancel
         self.save = save
         self.delete = delete
         _name = State(initialValue: profile?.name ?? "")
@@ -342,43 +336,43 @@ private struct EditPanelProfile: View {
             Text(profile == nil ? "Add User" : "Edit Profile")
                 .font(.title2.bold())
                 .frame(maxWidth: .infinity)
-                .overlay(alignment: .trailing) {
-                    Button("Close", systemImage: "xmark", action: cancel)
-                        .labelStyle(.iconOnly)
-                        .buttonStyle(.glass)
-                        .accessibilityLabel("Close")
-                }
                 .accessibilityAddTraits(.isHeader)
 
             PhotosPicker(selection: $selection, matching: .images) {
-                VStack(spacing: 8) {
-                    ProfileAvatar(photo: photo ?? Data(), side: 80)
-                        .overlay {
-                            if selection != nil && imported?.item != selection {
-                                ProgressView().accessibilityLabel("Loading photo")
-                            }
+                ProfileAvatar(photo: photo ?? Data(), side: 80)
+                    .overlay(alignment: .bottomTrailing) {
+                        Image(systemName: photo == nil ? "plus" : "camera.fill")
+                            .font(.caption.weight(.semibold))
+                            .frame(width: 26, height: 26)
+                            .background(.blue, in: .circle)
+                            .offset(x: 4, y: 4)
+                    }
+                    .overlay {
+                        if selection != nil && imported?.item != selection {
+                            ProgressView().accessibilityLabel("Loading photo")
                         }
-                    Text(photo == nil ? "Choose Photo" : "Change Photo")
-                        .font(.subheadline.weight(.medium))
-                }
+                    }
+                    .contentShape(.circle)
             }
             .buttonStyle(.plain)
             .frame(maxWidth: .infinity)
+            .accessibilityLabel(photo == nil ? "Add profile photo" : "Change profile photo")
             .accessibilityIdentifier("profile-photo")
             if let imported, imported.item == selection, imported.photo == nil {
-                Text("Couldn’t load this photo. Choose another.")
+                Text("Photo couldn’t load. Try another.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
 
             VStack(alignment: .leading, spacing: 6) {
                 Text("Name").font(.subheadline.weight(.medium))
-                TextField("Name", text: $name, prompt: Text("Enter a name"))
+                TextField("", text: $name)
                     .textContentType(.name)
                     .textFieldStyle(.plain)
                     .padding(.horizontal, 12)
                     .frame(minHeight: 44)
                     .background(.fill.tertiary, in: .rect(cornerRadius: 12))
+                    .accessibilityLabel("Name")
                     .accessibilityIdentifier("profile-name")
             }
 
@@ -392,6 +386,18 @@ private struct EditPanelProfile: View {
                         Button("Delete", role: .destructive) { confirmingDelete = true }
                             .buttonStyle(.glass)
                             .disabled(saving)
+                            .alert("Delete this profile?", isPresented: $confirmingDelete) {
+                                Button("Delete Profile", role: .destructive) {
+                                    saving = true
+                                    Task {
+                                        do { try await delete(pin) } catch {
+                                            errorMessage = "Couldn’t delete the profile. Try again."
+                                        }
+                                        saving = false
+                                    }
+                                }
+                                Button("Cancel", role: .cancel) {}
+                            }
                     }
                     Spacer()
                     Button(profile == nil ? "Add" : "Save", role: .confirm) {
@@ -418,17 +424,6 @@ private struct EditPanelProfile: View {
             let data = try? await selection.loadTransferable(type: Data.self)
             guard !Task.isCancelled else { return }
             imported = (selection, data.flatMap(ProfileAvatar.compressedPhoto))
-        }
-        .confirmationDialog("Delete this profile?", isPresented: $confirmingDelete) {
-            Button("Delete Profile", role: .destructive) {
-                saving = true
-                Task {
-                    do { try await delete(pin) } catch { errorMessage = "Couldn’t delete the profile. Try again." }
-                    saving = false
-                }
-            }
-        } message: {
-            Text("This removes the profile from every device.")
         }
     }
 }
