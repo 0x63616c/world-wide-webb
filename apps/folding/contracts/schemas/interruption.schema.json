@@ -34,10 +34,7 @@
           "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
         }
       },
-      "required": [
-        "revision",
-        "reset_id"
-      ]
+      "required": ["revision", "reset_id"]
     },
     "after_sequence": {
       "type": "integer",
@@ -45,11 +42,7 @@
       "maximum": 9007199254740991
     },
     "reason": {
-      "enum": [
-        "device_restart",
-        "tracking_interruption",
-        "transfer_away"
-      ]
+      "enum": ["device_restart", "tracking_interruption", "transfer_away"]
     },
     "observed_at_ms": {
       "type": "integer",

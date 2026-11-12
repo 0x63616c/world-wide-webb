@@ -3,51 +3,99 @@ default_platform(:ios)
 platform :ios do
   desc "Sign and upload the tested shared iPad, iPhone and Duo app; credentials stay out of the bundle"
   lane :release_native do
-    UI.user_error!("Control Center requires Xcode 27.2 for native Duo support") unless
-      sh("xcodebuild -version", log: false).lines.first.strip == "Xcode 27.2"
+    unless sh("xcodebuild -version", log: false).lines.first.strip ==
+             "Xcode 27.2"
+      UI.user_error!(
+        "Control Center requires Xcode 27.2 for native Duo support"
+      )
+    end
     setup_ci
     root = File.expand_path("..", __dir__)
     identifier = "co.worldwidewebb.theworkflowengine"
     widget = "#{identifier}.NextAlarmWidget"
     identifiers = [identifier, widget]
     version = File.read(File.join(root, "VERSION")).strip
-    UI.user_error!("Invalid app version") unless version.match?(/\A\d+\.\d+(?:\.\d+)?\z/)
+    unless version.match?(/\A\d+\.\d+(?:\.\d+)?\z/)
+      UI.user_error!("Invalid app version")
+    end
     sha = ENV.fetch("PANEL_SOURCE_SHA")
-    UI.user_error!("Invalid tested source SHA") unless sha.match?(/\A[a-f0-9]{40}\z/)
-    api_key = app_store_connect_api_key(
-      key_id: ENV.fetch("ASC_KEY_ID"), issuer_id: ENV.fetch("ASC_ISSUER_ID"),
-      key_content: ENV.fetch("ASC_KEY_CONTENT"), is_key_content_base64: true
-    )
+    unless sha.match?(/\A[a-f0-9]{40}\z/)
+      UI.user_error!("Invalid tested source SHA")
+    end
+    api_key =
+      app_store_connect_api_key(
+        key_id: ENV.fetch("ASC_KEY_ID"),
+        issuer_id: ENV.fetch("ASC_ISSUER_ID"),
+        key_content: ENV.fetch("ASC_KEY_CONTENT"),
+        is_key_content_base64: true
+      )
     # Only iPhone and iPad are distribution destinations, including existing beta groups.
     app = Spaceship::ConnectAPI::App.find(identifier)
     UI.user_error!("App Store Connect application not found") unless app
     app.get_beta_groups.each do |group|
-      Spaceship::ConnectAPI.patch_group(group_id: group.id, attributes: {
-        "iosBuildsAvailableForAppleSiliconMac" => false,
-        "iosBuildsAvailableForAppleVision" => false
-      })
+      Spaceship::ConnectAPI.patch_group(
+        group_id: group.id,
+        attributes: {
+          "iosBuildsAvailableForAppleSiliconMac" => false,
+          "iosBuildsAvailableForAppleVision" => false
+        }
+      )
     end
-    match(type: "appstore", app_identifier: identifiers, api_key: api_key, readonly: true)
+    match(
+      type: "appstore",
+      app_identifier: identifiers,
+      api_key: api_key,
+      readonly: true
+    )
     Dir.chdir(root) { sh("xcodegen", "generate") }
     project = File.join(root, "WorldWideWebb.xcodeproj")
-    {"Panel" => identifier, "NextAlarmWidget" => widget}.each do |target, bundle|
+    {
+      "Panel" => identifier,
+      "NextAlarmWidget" => widget
+    }.each do |target, bundle|
       update_code_signing_settings(
-        use_automatic_signing: false, path: project, targets: [target],
-        team_id: "X9E4HG27NK", bundle_identifier: bundle,
+        use_automatic_signing: false,
+        path: project,
+        targets: [target],
+        team_id: "X9E4HG27NK",
+        bundle_identifier: bundle,
         profile_name: ENV.fetch("sigh_#{bundle}_appstore_profile-name"),
         code_sign_identity: "Apple Distribution"
       )
     end
-    build = latest_testflight_build_number(api_key: api_key, app_identifier: identifier,
-                                          version: version, initial_build_number: 48) + 1
-    profiles = identifiers.to_h { |id| [id, ENV.fetch("sigh_#{id}_appstore_profile-name")] }
+    build =
+      latest_testflight_build_number(
+        api_key: api_key,
+        app_identifier: identifier,
+        version: version,
+        initial_build_number: 48
+      ) + 1
+    profiles =
+      identifiers.to_h do |id|
+        [id, ENV.fetch("sigh_#{id}_appstore_profile-name")]
+      end
     build_app(
-      project: project, scheme: "Panel", configuration: "Release", destination: "generic/platform=iOS",
-      export_method: "app-store", export_options: {provisioningProfiles: profiles},
-      xcargs: "CODE_SIGNING_ALLOWED=YES DEVELOPMENT_TEAM=X9E4HG27NK CURRENT_PROJECT_VERSION=#{build} MARKETING_VERSION=#{version} PANEL_GIT_SHA=#{sha}",
-      output_directory: "./build", output_name: "Panel.ipa", clean: true
+      project: project,
+      scheme: "Panel",
+      configuration: "Release",
+      destination: "generic/platform=iOS",
+      export_method: "app-store",
+      export_options: {
+        provisioningProfiles: profiles
+      },
+      xcargs:
+        "CODE_SIGNING_ALLOWED=YES DEVELOPMENT_TEAM=X9E4HG27NK CURRENT_PROJECT_VERSION=#{build} MARKETING_VERSION=#{version} PANEL_GIT_SHA=#{sha}",
+      output_directory: "./build",
+      output_name: "Panel.ipa",
+      clean: true
     )
-    upload_to_testflight(api_key: api_key, skip_waiting_for_build_processing: false, skip_submission: true)
-    File.open(ENV.fetch("GITHUB_ENV"), "a") { |file| file.puts "PANEL_UPLOADED_BUILD=#{build}" }
+    upload_to_testflight(
+      api_key: api_key,
+      skip_waiting_for_build_processing: false,
+      skip_submission: true
+    )
+    File.open(ENV.fetch("GITHUB_ENV"), "a") do |file|
+      file.puts "PANEL_UPLOADED_BUILD=#{build}"
+    end
   end
 end

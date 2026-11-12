@@ -3,7 +3,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 out=${1:?usage: build-site.sh <empty-output-directory>}
-python3 - "$out" <<'PYTHON'
+python3 - "$out" << 'PYTHON'
 from pathlib import Path
 import re, shutil, sys
 source = Path('sites')

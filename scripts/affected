@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Resolve app impact from committed changes. Requires PyYAML (scripts/requirements.txt)."""
+
 import argparse
 import importlib.util
 import fnmatch
@@ -17,9 +18,17 @@ def git(*args):
 
 
 def usable(ref):
-    return bool(ref and set(ref) != {"0"} and subprocess.run(
-        ["git", "cat-file", "-e", f"{ref}^{{commit}}"], cwd=ROOT,
-        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0)
+    return bool(
+        ref
+        and set(ref) != {"0"}
+        and subprocess.run(
+            ["git", "cat-file", "-e", f"{ref}^{{commit}}"],
+            cwd=ROOT,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        ).returncode
+        == 0
+    )
 
 
 def resolve_base(base):
@@ -36,14 +45,18 @@ def resolve_base(base):
 
 def ignored(path):
     parts = Path(path).parts
-    return (path.endswith(".md") or "docs" in parts or
-            Path(path).name in {"screenshots.json", "README.md", "AGENTS.md"} or
-            (len(parts) > 2 and parts[0] == "apps" and parts[2] == "fastlane"))
+    return (
+        path.endswith(".md")
+        or "docs" in parts
+        or Path(path).name in {"screenshots.json", "README.md", "AGENTS.md"}
+        or (len(parts) > 2 and parts[0] == "apps" and parts[2] == "fastlane")
+    )
 
 
 def tooling(path):
-    return (path in {"fastlane/Fastfile", "fastlane/Appfile"} or
-            path.startswith(("Gemfile", "scripts/", ".github/workflows/", ".github/actions/")))
+    return path in {"fastlane/Fastfile", "fastlane/Appfile"} or path.startswith(
+        ("Gemfile", "scripts/", ".github/workflows/", ".github/actions/")
+    )
 
 
 def main():
@@ -60,18 +73,29 @@ def main():
     if args.head and not usable(head):
         parser.error("--head must name an available commit")
     configs = {}
-    config_paths = ([ROOT / path for path in git("ls-tree", "-r", "--name-only", head, "apps").decode().splitlines()
-                     if len(Path(path).parts) == 3 and path.endswith("/app.yml")]
-                    if args.head else sorted(ROOT.glob("apps/*/app.yml")))
+    config_paths = (
+        [
+            ROOT / path
+            for path in git("ls-tree", "-r", "--name-only", head, "apps").decode().splitlines()
+            if len(Path(path).parts) == 3 and path.endswith("/app.yml")
+        ]
+        if args.head
+        else sorted(ROOT.glob("apps/*/app.yml"))
+    )
     for config_path in config_paths:
-        config = yaml.safe_load(git("show", f"{head}:{config_path.relative_to(ROOT)}") if args.head else config_path.read_text())
+        config = yaml.safe_load(
+            git("show", f"{head}:{config_path.relative_to(ROOT)}") if args.head else config_path.read_text()
+        )
         for key in ("uses", "paths"):
             values = config.get(key, [])
             if not isinstance(values, list) or not all(isinstance(v, str) and v for v in values):
                 parser.error(f"{config_path}: {key} must be a list of nonempty strings")
         for package in config.get("uses", []):
-            package_exists = (bool(git("ls-tree", "-d", "--name-only", head, f"packages/{package}"))
-                              if args.head else (ROOT / "packages" / package).is_dir())
+            package_exists = (
+                bool(git("ls-tree", "-d", "--name-only", head, f"packages/{package}"))
+                if args.head
+                else (ROOT / "packages" / package).is_dir()
+            )
             if not package_exists or "/" in package or package in {".", ".."}:
                 parser.error(f"{config_path}: unknown package {package}")
         for pattern in config.get("paths", []):
@@ -107,20 +131,30 @@ def main():
         spec = importlib.util.spec_from_file_location("unit_selection", selector)
         shared = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(shared)
-        manifest = (yaml.safe_load(git("show", f"{head}:scripts/ci/units.json")) if args.head else
-                    json.loads(shared.CONFIG.read_text()))
+        manifest = (
+            yaml.safe_load(git("show", f"{head}:scripts/ci/units.json"))
+            if args.head
+            else json.loads(shared.CONFIG.read_text())
+        )
         selected = shared.select(files, manifest, force=args.force)
         delivery_units = selected["delivery_candidates"]
         verification_units = selected["verify"]
         preview_units = selected.get("previews", [])
         preview_tooling = selected.get("standard_preview", False)
         if args.intent == "verify":
-            standard_units = {f"{app}.native" for app, config in configs.items()
-                              if config.get("delivery_handler", "standard_ios") == "standard_ios"}
+            standard_units = {
+                f"{app}.native"
+                for app, config in configs.items()
+                if config.get("delivery_handler", "standard_ios") == "standard_ios"
+            }
             # Known host/custom-product tooling has its own checks. Preserve the
             # conservative fallback for unknown/shared inputs and legacy repos.
-            build_tooling = bool(args.force or selected["shared_tooling"] or selected["unmapped"] or
-                                 (build_tooling and standard_units.intersection(verification_units)))
+            build_tooling = bool(
+                args.force
+                or selected["shared_tooling"]
+                or selected["unmapped"]
+                or (build_tooling and standard_units.intersection(verification_units))
+            )
     apps = []
     for app, config in configs.items():
         # This is the standard iOS handler's resolver. Other products use the
@@ -129,24 +163,46 @@ def main():
             continue
         if args.intent == "ship" and config.get("testflight") is not True:
             continue
-        if args.intent == "ship" and config.get("delivery_handler") == "standard_ios" and delivery_units is not None and f"{app}.native" not in delivery_units:
+        if (
+            args.intent == "ship"
+            and config.get("delivery_handler") == "standard_ios"
+            and delivery_units is not None
+            and f"{app}.native" not in delivery_units
+        ):
             continue
         if args.only and not config.get(args.only):
             continue
-        patterns = [f"apps/{app}/**", *config.get("paths", []),
-                    *(f"packages/{package}/**" for package in config.get("uses", []))]
+        patterns = [
+            f"apps/{app}/**",
+            *config.get("paths", []),
+            *(f"packages/{package}/**" for package in config.get("uses", [])),
+        ]
         direct = any(fnmatch.fnmatchcase(path, pattern) for path in files for pattern in patterns)
-        if args.intent == "preview" and not (args.force or preview_tooling or f"{app}.native" in preview_units or direct):
+        if args.intent == "preview" and not (
+            args.force or preview_tooling or f"{app}.native" in preview_units or direct
+        ):
             continue
-        if (args.intent == "preview" or (args.intent == "verify" and build_tooling) or
-                any(fnmatch.fnmatchcase(path, pattern) for path in files for pattern in patterns)):
+        if (
+            args.intent == "preview"
+            or (args.intent == "verify" and build_tooling)
+            or any(fnmatch.fnmatchcase(path, pattern) for path in files for pattern in patterns)
+        ):
             apps.append(app)
     verify = args.intent == "verify"
     rdesign = any(path.startswith(("apps/tendr/Packages/RDesign/", "packages/RDesign/")) for path in files)
     legacy_rdesign = any(path.startswith("packages/RDesign/") for path in files)
     template = "templates" in verification_units or any(path.startswith("templates/") for path in files)
-    print(json.dumps({"apps": apps, "tooling": verify and build_tooling, "rdesign": verify and (rdesign or build_tooling),
-                      "template": verify and (template or legacy_rdesign or build_tooling)}, separators=(",", ":")))
+    print(
+        json.dumps(
+            {
+                "apps": apps,
+                "tooling": verify and build_tooling,
+                "rdesign": verify and (rdesign or build_tooling),
+                "template": verify and (template or legacy_rdesign or build_tooling),
+            },
+            separators=(",", ":"),
+        )
+    )
 
 
 if __name__ == "__main__":

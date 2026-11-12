@@ -3,13 +3,13 @@ description: Prepare pinned Ruby for Linux and macOS jobs
 inputs:
   ruby-version:
     description: Ruby version required by the product
-    default: '3.4'
+    default: "3.4"
   bundler-cache:
     description: Install the locked bundle and cache gems
-    default: 'false'
+    default: "false"
   working-directory:
     description: Product Gemfile directory
-    default: '.'
+    default: "."
 runs:
   using: composite
   steps:

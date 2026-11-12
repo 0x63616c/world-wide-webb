@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Versioned CloudKit schema operations. Never reads records or accepts tokens in argv."""
+
 import argparse
 import datetime
 import hashlib
@@ -43,8 +44,18 @@ def container(target):
 
 
 def cktool(command, target, environment, *args):
-    return run("xcrun", "cktool", command, "--team-id", TEAM,
-               "--container-id", container(target), "--environment", environment, *args)
+    return run(
+        "xcrun",
+        "cktool",
+        command,
+        "--team-id",
+        TEAM,
+        "--container-id",
+        container(target),
+        "--environment",
+        environment,
+        *args,
+    )
 
 
 def validate_receipt(receipt, target):
@@ -82,7 +93,7 @@ def check_export_fields(path):
         if entity in {"ReplicatedEvent", "TrackingInterruption"}:
             fields += ["CD_generationRevision", "CD_generationID"]
         for field in fields:
-            if not re.search(r'\b' + field + r'\b', match[1]):
+            if not re.search(r"\b" + field + r"\b", match[1]):
                 raise SystemExit(f"Export is missing {entity}.{field}")
 
 
@@ -109,8 +120,11 @@ def normalized_schema(path):
     # Conservative equality: ignore whitespace/comments but preserve tokens and their order.
     # An ordering difference fails for explicit diff review rather than claiming convergence.
     pattern = r'"(?:[^"\\]|\\.)*"|//[^\n]*|/\*.*?\*/|[^\s]'
-    return [m.group() for m in re.finditer(pattern, pathlib.Path(path).read_text(), re.S)
-            if not m.group().startswith(("//", "/*"))]
+    return [
+        m.group()
+        for m in re.finditer(pattern, pathlib.Path(path).read_text(), re.S)
+        if not m.group().startswith(("//", "/*"))
+    ]
 
 
 def main():
@@ -141,12 +155,18 @@ def main():
             cktool("export-schema", args.target, "development", "--output-file", str(staging / "schema.ckdb"))
             check_export_fields(staging / "schema.ckdb")
             write_json(staging / "bootstrap-receipt.json", receipt)
-            manifest = {"schema_version": 1, "team_id": TEAM, "target": args.target,
-                        "container": container(args.target), "environment": "development",
-                        "commit_sha": receipt["commit"], "cktool_version": CKTOOL_VERSION,
-                        "created_at": datetime.datetime.now(datetime.UTC).isoformat(),
-                        "model_source_hashes": {p: sha(ROOT / p) for p in SOURCES},
-                        "files": {p: sha(staging / p) for p in ["schema.ckdb", "bootstrap-receipt.json"]}}
+            manifest = {
+                "schema_version": 1,
+                "team_id": TEAM,
+                "target": args.target,
+                "container": container(args.target),
+                "environment": "development",
+                "commit_sha": receipt["commit"],
+                "cktool_version": CKTOOL_VERSION,
+                "created_at": datetime.datetime.now(datetime.UTC).isoformat(),
+                "model_source_hashes": {p: sha(ROOT / p) for p in SOURCES},
+                "files": {p: sha(staging / p) for p in ["schema.ckdb", "bootstrap-receipt.json"]},
+            }
             write_json(staging / "manifest.json", manifest)
             # Rename the complete directory on the same filesystem; no partial published snapshot.
             os.rename(staging, args.output)
@@ -170,13 +190,19 @@ def main():
         check_export_fields(staging / "schema.ckdb")
         if normalized_schema(directory / "schema.ckdb") != normalized_schema(staging / "schema.ckdb"):
             raise SystemExit("Production schema differs; promotion is not confirmed. Export/diff in Console.")
-        write_json(staging / "verification.json", {
-            "schema_version": 1, "container": container(target), "environment": "production",
-            "development_manifest_sha256": sha(directory / "manifest.json"),
-            "production_schema_sha256": sha(staging / "schema.ckdb"),
-            "verified_at": datetime.datetime.now(datetime.UTC).isoformat(),
-            "result": "schema_tokens_equal", "records_or_sync_verified": False,
-        })
+        write_json(
+            staging / "verification.json",
+            {
+                "schema_version": 1,
+                "container": container(target),
+                "environment": "production",
+                "development_manifest_sha256": sha(directory / "manifest.json"),
+                "production_schema_sha256": sha(staging / "schema.ckdb"),
+                "verified_at": datetime.datetime.now(datetime.UTC).isoformat(),
+                "result": "schema_tokens_equal",
+                "records_or_sync_verified": False,
+            },
+        )
         os.rename(staging, args.output)
     print(f"Production schema readback matched: {args.output}")
 

@@ -6,7 +6,7 @@ verifier=$1
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 for identity in host recovery wrong; do
-  age-keygen -o "$work/$identity.key" 2>/dev/null
+  age-keygen -o "$work/$identity.key" 2> /dev/null
 done
 host_recipient=$(age-keygen -y "$work/host.key")
 recovery_recipient=$(age-keygen -y "$work/recovery.key")
@@ -25,7 +25,7 @@ export SOPS_AGE_KEY
 SOPS_AGE_KEY=$(cat "$work/recovery.key")
 export XDG_CONFIG_HOME="$work/operator"
 if "$verifier" verify-host-secrets --key "$work/wrong.key" \
-  --ciphertext "$work/host.sops.yaml" --sops "$sops_binary" >/dev/null 2>&1; then
+  --ciphertext "$work/host.sops.yaml" --sops "$sops_binary" > /dev/null 2>&1; then
   echo 'Wrong host key was accepted through operator fallback credentials.' >&2
   exit 1
 fi

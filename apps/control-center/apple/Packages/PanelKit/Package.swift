@@ -8,7 +8,7 @@ let package = Package(
     products: [.library(name: "PanelKit", targets: ["PanelKit"])],
     targets: [
         .target(name: "PanelKit", resources: [.process("Sounds")]),
-        .testTarget(name: "PanelKitTests", dependencies: ["PanelKit"], resources: [.copy("Fixtures")])
+        .testTarget(name: "PanelKitTests", dependencies: ["PanelKit"], resources: [.copy("Fixtures")]),
     ],
     swiftLanguageModes: [.v6]
 )

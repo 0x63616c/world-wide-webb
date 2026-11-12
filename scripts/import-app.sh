@@ -12,7 +12,10 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-fail() { printf 'error: %s\n' "$*" >&2; exit 1; }
+fail() {
+  printf 'error: %s\n' "$*" >&2
+  exit 1
+}
 repo=${1:-}
 slug=${2:-}
 [[ "$repo" == */* && -n "$slug" ]] || fail "usage: scripts/import-app.sh <owner/repo> <slug> [--branch main] [--move <path>=<dest>]..."
@@ -20,8 +23,14 @@ shift 2
 branch="" moves=()
 while (($#)); do
   case "$1" in
-    --branch) branch=${2:?--branch needs a name}; shift ;;
-    --move) moves+=("${2:?--move needs <path>=<dest>}"); shift ;;
+    --branch)
+      branch=${2:?--branch needs a name}
+      shift
+      ;;
+    --move)
+      moves+=("${2:?--move needs <path>=<dest>}")
+      shift
+      ;;
     *) fail "Unknown option $1" ;;
   esac
   shift
@@ -31,11 +40,11 @@ done
 [[ ! -e "apps/$slug" ]] || fail "apps/$slug already exists"
 
 url="${IMPORT_URL:-https://github.com/$repo.git}"
-if [[ -z "${IMPORT_URL:-}" ]] && command -v gh >/dev/null && gh auth status >/dev/null 2>&1; then url=$(gh repo view "$repo" --json url --jq .url).git; fi
+if [[ -z "${IMPORT_URL:-}" ]] && command -v gh > /dev/null && gh auth status > /dev/null 2>&1; then url=$(gh repo view "$repo" --json url --jq .url).git; fi
 [[ -n "$branch" ]] || branch=$(git ls-remote --symref "$url" HEAD | sed -n 's#^ref: refs/heads/\(.*\)\tHEAD#\1#p')
 [[ -n "$branch" ]] || fail "Could not find the default branch of $repo; pass --branch"
 
-if git filter-repo --version >/dev/null 2>&1; then
+if git filter-repo --version > /dev/null 2>&1; then
   work=$(mktemp -d)
   trap 'rm -rf "$work"' EXIT
   git clone --quiet --branch "$branch" "$url" "$work/repo"

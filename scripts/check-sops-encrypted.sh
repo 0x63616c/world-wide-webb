@@ -22,7 +22,7 @@ set -euo pipefail
 
 AGE_KEY="${SOPS_AGE_KEY:-}"
 if [ -z "$AGE_KEY" ] && [ -z "${SOPS_AGE_KEY_FILE:-}" ]; then
-  AGE_KEY="$(security find-generic-password -a "$USER" -s "age-world-wide-webb-private-key" -w 2>/dev/null || true)"
+  AGE_KEY="$(security find-generic-password -a "$USER" -s "age-world-wide-webb-private-key" -w 2> /dev/null || true)"
 fi
 errors_file=$(mktemp "${TMPDIR:-/tmp}/sops-check.XXXXXX")
 chmod 600 "$errors_file"
@@ -37,7 +37,7 @@ for f in "$@"; do
   esac
 
   # Check the STAGED blob (what the commit will contain), not the working tree.
-  staged="$(git show ":$f" 2>/dev/null || true)"
+  staged="$(git show ":$f" 2> /dev/null || true)"
   if [ -z "$staged" ]; then
     # Deletion or unreadable stage — nothing to validate.
     continue
@@ -60,7 +60,7 @@ for f in "$@"; do
   fi
 
   if ! printf '%s\n' "$staged" \
-      | SOPS_AGE_KEY="$AGE_KEY" sops -d --input-type yaml --output-type yaml /dev/stdin >/dev/null 2>"$errors_file"; then
+    | SOPS_AGE_KEY="$AGE_KEY" sops -d --input-type yaml --output-type yaml /dev/stdin > /dev/null 2> "$errors_file"; then
     echo "SOPS verification failed: $f" >&2
     echo "  Supply the matching product/host identity through SOPS_AGE_KEY and verify again." >&2
     echo "  If the correct key is available, recover the last-good ciphertext and edit via sops." >&2

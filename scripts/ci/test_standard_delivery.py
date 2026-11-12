@@ -39,27 +39,42 @@ class StandardDeliveryTests(unittest.TestCase):
             write("apps/tendr/app.yml", "testflight: true\ndelivery_handler: standard_ios\nuses: []\npaths: []\n")
             write("apps/tendr/Still/Screen.swift", "screen")
             base = commit()
-            for name, expected in [("apps/tendr/Tests/ImportTests.swift", []),
-                                   ("apps/tendr/Packages/RDesign/Tests/PaletteTests.swift", []),
-                                   ("apps/tendr/Still/Screen.swift", ["tendr"]),
-                                   ("apps/tendr/Packages/RDesign/Sources/Palette.swift", ["tendr"])]:
+            for name, expected in [
+                ("apps/tendr/Tests/ImportTests.swift", []),
+                ("apps/tendr/Packages/RDesign/Tests/PaletteTests.swift", []),
+                ("apps/tendr/Still/Screen.swift", ["tendr"]),
+                ("apps/tendr/Packages/RDesign/Sources/Palette.swift", ["tendr"]),
+            ]:
                 write(name, "changed")
                 source = commit()
-                result = json.loads(subprocess.check_output(
-                    [str(repo / "scripts/affected"), base, "--head", source, "--intent", "ship"], cwd=repo, text=True))
+                result = json.loads(
+                    subprocess.check_output(
+                        [str(repo / "scripts/affected"), base, "--head", source, "--intent", "ship"],
+                        cwd=repo,
+                        text=True,
+                    )
+                )
                 self.assertEqual(result["apps"], expected)
                 base = source
             write("scripts/homelab/promote_control_center.py", "host automation")
             source = commit()
-            result = json.loads(subprocess.check_output(
-                [str(repo / "scripts/affected"), base, "--head", source, "--intent", "verify"], cwd=repo, text=True))
+            result = json.loads(
+                subprocess.check_output(
+                    [str(repo / "scripts/affected"), base, "--head", source, "--intent", "verify"], cwd=repo, text=True
+                )
+            )
             self.assertEqual(result, {"apps": [], "tooling": False, "rdesign": False, "template": False})
             for name in ("scripts/check-app-backends.py", "scripts/test-new-app.py"):
                 base = source
                 write(name, "backend template check")
                 source = commit()
-                result = json.loads(subprocess.check_output(
-                    [str(repo / "scripts/affected"), base, "--head", source, "--intent", "verify"], cwd=repo, text=True))
+                result = json.loads(
+                    subprocess.check_output(
+                        [str(repo / "scripts/affected"), base, "--head", source, "--intent", "verify"],
+                        cwd=repo,
+                        text=True,
+                    )
+                )
                 self.assertEqual(result, {"apps": [], "tooling": False, "rdesign": False, "template": True})
 
 

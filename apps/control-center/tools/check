@@ -3,17 +3,14 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 case "${1:-all}" in
   --staged)
-    cargo fmt --all -- --check
     python3 -m compileall -q tools deploy/mini scripts
     ;;
   lint)
     ruff check tools deploy/mini scripts ../../.github/scripts
-    ruff format --check tools deploy/mini scripts ../../.github/scripts
     (cd ../.. && actionlint)
     shellcheck --severity=warning tools/check tools/*.sh deploy/mini/*.sh
     ;;
   rust)
-    cargo fmt --all -- --check
     cargo clippy --workspace --all-targets -- -D warnings
     cargo test --workspace
     ;;
@@ -35,7 +32,6 @@ case "${1:-all}" in
     ;;
   infra)
     export TF_VAR_state_passphrase=fixture-only-open-tofu-encryption-passphrase
-    tofu -chdir=../../infra/cloudflare/home fmt -check
     tofu -chdir=../../infra/cloudflare/home init -backend=false -lockfile=readonly
     tofu -chdir=../../infra/cloudflare/home validate
     tofu -chdir=../../infra/cloudflare/home test
@@ -50,5 +46,8 @@ case "${1:-all}" in
     bash tools/check integration
     bash tools/check infra
     ;;
-  *) echo 'Usage: tools/check [lint|rust|dependencies|ops|apple|integration|infra|--staged|all]' >&2; exit 64 ;;
+  *)
+    echo 'Usage: tools/check [lint|rust|dependencies|ops|apple|integration|infra|--staged|all]' >&2
+    exit 64
+    ;;
 esac

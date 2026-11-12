@@ -3,16 +3,26 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 tools_dir="${RUNNER_TEMP:?GitHub runner temp directory required}/www-linters"
 mkdir -p "$tools_dir"
-read -r ruff_version actionlint_version shellcheck_version < <(python3 - <<'PY'
+read -r ruff_version actionlint_version shellcheck_version < <(
+  python3 - << 'PY'
 import json
 v=json.load(open('tools/versions.json'))
 print(v['ruff'],v['actionlint'],v['shellcheck'])
 PY
 )
 case "$(uname -m)" in
-  x86_64) actionlint_arch=amd64; shellcheck_arch=x86_64 ;;
-  aarch64|arm64) actionlint_arch=arm64; shellcheck_arch=aarch64 ;;
-  *) echo 'Unsupported Linux linter architecture' >&2; exit 1 ;;
+  x86_64)
+    actionlint_arch=amd64
+    shellcheck_arch=x86_64
+    ;;
+  aarch64 | arm64)
+    actionlint_arch=arm64
+    shellcheck_arch=aarch64
+    ;;
+  *)
+    echo 'Unsupported Linux linter architecture' >&2
+    exit 1
+    ;;
 esac
 python3 -m venv "$tools_dir/python"
 "$tools_dir/python/bin/pip" install --disable-pip-version-check "ruff==$ruff_version"

@@ -15,17 +15,11 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("environment", choices=("production",))
     parser.add_argument("simulator", help="booted simulator UUID with an iCloud account")
-    parser.add_argument(
-        "--icloud-environment", choices=("Development", "Production"), default="Development"
-    )
+    parser.add_argument("--icloud-environment", choices=("Development", "Production"), default="Development")
     args = parser.parse_args()
-    identity = json.loads((ROOT / "fastlane/app-identifiers.json").read_text())[
-        args.environment
-    ]
+    identity = json.loads((ROOT / "fastlane/app-identifiers.json").read_text())[args.environment]
     release = json.loads((ROOT / "fastlane/release-config.json").read_text())
-    source = subprocess.check_output(
-        ["git", "rev-parse", "HEAD"], cwd=ROOT, text=True
-    ).strip()
+    source = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
     subprocess.run(
         ["xcodegen", "generate", "--spec", "apps/ios/project.yml", "--project", "apps/ios"],
         cwd=ROOT,
@@ -38,9 +32,7 @@ def main() -> int:
         "FOLDING_APP_BUNDLE_ID": identity["bundle_id"],
         "FOLDING_APP_GROUP_IDENTIFIER": identity["app_group"],
         "FOLDING_CLOUD_CONTAINER_IDENTIFIER": identity["cloudkit_container"],
-        "FOLDING_API_ORIGIN": (
-            "https://api.getfolding.app"
-        ),
+        "FOLDING_API_ORIGIN": ("https://api.getfolding.app"),
         "FOLDING_ENVIRONMENT": args.environment,
         "FOLDING_SOURCE_COMMIT": source,
         "FOLDING_ICLOUD_ENVIRONMENT": args.icloud_environment,
@@ -50,11 +42,21 @@ def main() -> int:
         "OTHER_SWIFT_FLAGS": "-DLIVE_CLOUDKIT_INTEGRATION",
     }
     command = [
-        "xcodebuild", "-project", "apps/ios/Folding.xcodeproj", "-scheme", "Folding",
-        "-configuration", "Debug", "-sdk", "iphonesimulator", "-destination",
-        f"platform=iOS Simulator,id={args.simulator}", "-derivedDataPath",
+        "xcodebuild",
+        "-project",
+        "apps/ios/Folding.xcodeproj",
+        "-scheme",
+        "Folding",
+        "-configuration",
+        "Debug",
+        "-sdk",
+        "iphonesimulator",
+        "-destination",
+        f"platform=iOS Simulator,id={args.simulator}",
+        "-derivedDataPath",
         str(ROOT / "build/live-cloudkit" / args.environment / args.icloud_environment),
-        "-only-testing:FoldingBuildTests/LiveCloudKitTests", "test",
+        "-only-testing:FoldingBuildTests/LiveCloudKitTests",
+        "test",
         *(f"{key}={value}" for key, value in settings.items()),
     ]
     with log.open("w") as output:

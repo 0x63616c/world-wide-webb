@@ -12,6 +12,6 @@ file="$HOME/.ssh/authorized_keys"
 touch "$file"
 chmod 600 "$file"
 if ! grep -Fqx -- "$key" "$file"; then
-    # Existing authorized_keys may lack its final newline; never join two keys.
-    printf '\n%s\n' "$key" >> "$file"
+  # Existing authorized_keys may lack its final newline; never join two keys.
+  printf '\n%s\n' "$key" >> "$file"
 fi

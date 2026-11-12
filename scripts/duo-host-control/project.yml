@@ -3,9 +3,9 @@ options:
   bundleIdPrefix: com.calumwebb.tests
 settings:
   base:
-    SWIFT_VERSION: '6.0'
-    MACOSX_DEPLOYMENT_TARGET: '15.0'
-    CODE_SIGN_IDENTITY: '-'
+    SWIFT_VERSION: "6.0"
+    MACOSX_DEPLOYMENT_TARGET: "15.0"
+    CODE_SIGN_IDENTITY: "-"
     GENERATE_INFOPLIST_FILE: YES
 targets:
   DuoCaptureHost:

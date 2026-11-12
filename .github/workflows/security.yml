@@ -6,7 +6,7 @@ on:
         type: string
         required: true
   schedule:
-    - cron: '23 6 * * 1'
+    - cron: "23 6 * * 1"
   workflow_dispatch:
 permissions:
   contents: read

@@ -5,20 +5,31 @@ class BackendDeliveryTest < Minitest::Test
   Delivery = FoldingRelease::BackendDelivery
   class Store
     attr_reader :assets
-    def initialize; @assets = {}; end
-    def info; {"assets" => assets.keys.map { |name| {"name" => name} }}; end
-    def ensure_exists(_source); end
+    def initialize
+      @assets = {}
+    end
+    def info
+      { "assets" => assets.keys.map { |name| { "name" => name } } }
+    end
+    def ensure_exists(_source)
+    end
     def upload_artifact(path)
       name, bytes = File.basename(path), File.read(path)
-      raise "Immutable artifact changed" if assets[name] && assets[name] != bytes
+      if assets[name] && assets[name] != bytes
+        raise "Immutable artifact changed"
+      end
       assets[name] = bytes
     end
-    def download(name, directory); File.write(File.join(directory, name), assets.fetch(name)); end
+    def download(name, directory)
+      File.write(File.join(directory, name), assets.fetch(name))
+    end
     def latest(prefix)
       name = assets.keys.grep(/\A#{prefix}-r\d{8}\.json\z/).max
       name && JSON.parse(assets.fetch(name))
     end
-    def upload(path); upload_artifact(path); end
+    def upload(path)
+      upload_artifact(path)
+    end
   end
 
   def setup
@@ -28,15 +39,47 @@ class BackendDeliveryTest < Minitest::Test
     FoldingRelease.const_set(:ROOT, @root)
     @source, @old = "a" * 40, "b" * 40
     @version = "11111111-2222-3333-4444-555555555555"
-    @config = {"name" => "folding-api-production", "account_id" => "c" * 32,
-      "vars" => {"DEPLOYMENT" => "production", "APP_ATTEST_APP_ID" => "#{FoldingRelease::CONFIG.fetch('apple_team_id')}.app.getfolding.Folding", "WORKER_VERSION" => @old, "ADMIN_EMAIL_ALLOWLIST" => "operator-private-value", "VERIFIED_CAPABILITIES" => "[]", "APNS_ENABLED" => "false", "AVATAR_UPLOADS_ENABLED" => "false", "ADMIN_EMAIL_ENABLED" => "false"},
-      "d1_databases" => [{"binding" => "DB", "database_name" => "folding-production", "database_id" => @version}]}
+    @config = {
+      "name" => "folding-api-production",
+      "account_id" => "c" * 32,
+      "vars" => {
+        "DEPLOYMENT" => "production",
+        "APP_ATTEST_APP_ID" =>
+          "#{FoldingRelease::CONFIG.fetch("apple_team_id")}.app.getfolding.Folding",
+        "WORKER_VERSION" => @old,
+        "ADMIN_EMAIL_ALLOWLIST" => "operator-private-value",
+        "VERIFIED_CAPABILITIES" => "[]",
+        "APNS_ENABLED" => "false",
+        "AVATAR_UPLOADS_ENABLED" => "false",
+        "ADMIN_EMAIL_ENABLED" => "false"
+      },
+      "d1_databases" => [
+        {
+          "binding" => "DB",
+          "database_name" => "folding-production",
+          "database_id" => @version
+        }
+      ]
+    }
     @previous = ENV["FOLDING_PRODUCTION_WORKER_CONFIG"]
     ENV["FOLDING_PRODUCTION_WORKER_CONFIG"] = JSON.generate(@config)
     @artifact = File.join(@root, "backend/crates/worker/build")
     files = %w[index.js index_bg.wasm package.json worker/shim.mjs]
-    files.each { |name| path = File.join(@artifact, name); FileUtils.mkdir_p(File.dirname(path)); File.write(path, name) }
-    FoldingRelease.atomic_json(File.join(@artifact, "artifact.json"), {"source_sha" => @source, "files" => files.to_h { |name| [name, FoldingRelease.sha(File.join(@artifact, name))] }})
+    files.each do |name|
+      path = File.join(@artifact, name)
+      FileUtils.mkdir_p(File.dirname(path))
+      File.write(path, name)
+    end
+    FoldingRelease.atomic_json(
+      File.join(@artifact, "artifact.json"),
+      {
+        "source_sha" => @source,
+        "files" =>
+          files.to_h do |name|
+            [name, FoldingRelease.sha(File.join(@artifact, name))]
+          end
+      }
+    )
   end
 
   def teardown
@@ -56,10 +99,17 @@ class BackendDeliveryTest < Minitest::Test
   def test_deployment_uses_current_source_without_manual_feature_approval
     config = Delivery.configuration(@source)
     assert_equal @source, config.fetch("vars").fetch("WORKER_VERSION")
-    %w[APNS_ENABLED AVATAR_UPLOADS_ENABLED ADMIN_EMAIL_ENABLED VERIFIED_CAPABILITIES].each do |name|
-      refute config.fetch("vars").key?(name)
-    end
-    assert_equal @old, JSON.parse(ENV.fetch("FOLDING_PRODUCTION_WORKER_CONFIG")).fetch("vars").fetch("WORKER_VERSION")
+    %w[
+      APNS_ENABLED
+      AVATAR_UPLOADS_ENABLED
+      ADMIN_EMAIL_ENABLED
+      VERIFIED_CAPABILITIES
+    ].each { |name| refute config.fetch("vars").key?(name) }
+    assert_equal @old,
+                 JSON
+                   .parse(ENV.fetch("FOLDING_PRODUCTION_WORKER_CONFIG"))
+                   .fetch("vars")
+                   .fetch("WORKER_VERSION")
     @config.fetch("d1_databases").first["database_name"] = "other-product"
     ENV["FOLDING_PRODUCTION_WORKER_CONFIG"] = JSON.generate(@config)
     assert_raises(Delivery::ValidationError) { Delivery.configuration(@source) }
@@ -67,7 +117,18 @@ class BackendDeliveryTest < Minitest::Test
 
   def test_processed_distribution_receipt_is_recorded_once
     store = Store.new
-    record = Struct.new(:data).new({"commit_sha" => @old, "tag" => "folding/build-42", "build_number" => 42, "asc_processing_state" => "VALID", "testflight_distributed_build_id" => "apple42", "testflight_group_ids" => ["group42"], "testflight_group_assignment_verified_at" => "2026-11-08T00:00:00Z"})
+    record =
+      Struct.new(:data).new(
+        {
+          "commit_sha" => @old,
+          "tag" => "folding/build-42",
+          "build_number" => 42,
+          "asc_processing_state" => "VALID",
+          "testflight_distributed_build_id" => "apple42",
+          "testflight_group_ids" => ["group42"],
+          "testflight_group_assignment_verified_at" => "2026-11-08T00:00:00Z"
+        }
+      )
     Delivery.stub(:store, store) do
       Delivery.stub(:native_input_hash, "same-native-inputs") do
         2.times { Delivery.record_native_delivery(record) }
@@ -78,67 +139,116 @@ class BackendDeliveryTest < Minitest::Test
 
   def test_provider_database_is_checked_before_any_migration_or_deploy
     config = Delivery.configuration(@source)
-    deployments = {"success" => true, "result" => {"deployments" => [{"versions" => [{"version_id" => @version, "percentage" => 100}]}]}}
-    version = {"success" => true, "result" => {"id" => @version, "resources" => {"bindings" => [
-      {"name" => "WORKER_VERSION", "type" => "plain_text", "text" => @old},
-      {"name" => "DEPLOYMENT", "type" => "plain_text", "text" => "production"},
-      {"name" => "APP_ATTEST_APP_ID", "type" => "plain_text", "text" => config.fetch("vars").fetch("APP_ATTEST_APP_ID")},
-      {"name" => "DB", "type" => "d1", "id" => "different-database"}]}}}
-    Delivery.stub(:provider, ->(_config, suffix) { suffix == "deployments" ? deployments : version }) do
+    deployments = {
+      "success" => true,
+      "result" => {
+        "deployments" => [
+          { "versions" => [{ "version_id" => @version, "percentage" => 100 }] }
+        ]
+      }
+    }
+    version = {
+      "success" => true,
+      "result" => {
+        "id" => @version,
+        "resources" => {
+          "bindings" => [
+            {
+              "name" => "WORKER_VERSION",
+              "type" => "plain_text",
+              "text" => @old
+            },
+            {
+              "name" => "DEPLOYMENT",
+              "type" => "plain_text",
+              "text" => "production"
+            },
+            {
+              "name" => "APP_ATTEST_APP_ID",
+              "type" => "plain_text",
+              "text" => config.fetch("vars").fetch("APP_ATTEST_APP_ID")
+            },
+            { "name" => "DB", "type" => "d1", "id" => "different-database" }
+          ]
+        }
+      }
+    }
+    Delivery.stub(
+      :provider,
+      ->(_config, suffix) { suffix == "deployments" ? deployments : version }
+    ) do
       assert_raises(RuntimeError) { Delivery.current(config) }
-      version.fetch("result").fetch("resources").fetch("bindings").last["id"] = @version
+      version.fetch("result").fetch("resources").fetch("bindings").last[
+        "id"
+      ] = @version
       assert_equal [@old, @version], Delivery.current(config)
     end
   end
 
   def test_deployment_reconciles_migration_and_provider_crashes_without_rebuilding_or_overwriting_recovery
-    [:migration, :provider_receipt].each do |boundary|
+    %i[migration provider_receipt].each do |boundary|
       store = Store.new
       live_source = @old
       events = []
       fail_once = true
-      command = lambda do |*arguments|
-        case arguments[0, 3]
-        when ["gh", "repo", "view"] then '{"visibility":"PRIVATE"}'
-        else
-          if arguments.include?("time-travel")
-            events << :bookmark
-            '{"bookmark":"00001-00002-00003"}'
-          elsif arguments.first == "python3"
-            assert store.assets.keys.any? { |name| name.start_with?("recovery-") }, "Recovery metadata must publish before migration"
-            events << :migration
-            if boundary == :migration && fail_once
-              fail_once = false
-              raise "Interrupted migration"
-            end
-            ""
-          elsif arguments.include?("deploy")
-            events << :deploy
-            live_source = @source
-            ""
+      command =
+        lambda do |*arguments|
+          case arguments[0, 3]
+          when %w[gh repo view]
+            '{"visibility":"PRIVATE"}'
           else
-            raise "Unexpected external operation #{arguments.first}"
+            if arguments.include?("time-travel")
+              events << :bookmark
+              '{"bookmark":"00001-00002-00003"}'
+            elsif arguments.first == "python3"
+              assert store.assets.keys.any? { |name|
+                       name.start_with?("recovery-")
+                     },
+                     "Recovery metadata must publish before migration"
+              events << :migration
+              if boundary == :migration && fail_once
+                fail_once = false
+                raise "Interrupted migration"
+              end
+              ""
+            elsif arguments.include?("deploy")
+              events << :deploy
+              live_source = @source
+              ""
+            else
+              raise "Unexpected external operation #{arguments.first}"
+            end
           end
         end
-      end
-      verify = lambda do |_record, backend|
-        assert_equal @source, backend.fetch("worker_version")
-        if boundary == :provider_receipt && fail_once
-          fail_once = false
-          raise "Interrupted after provider confirmed deployment"
+      verify =
+        lambda do |_record, backend|
+          assert_equal @source, backend.fetch("worker_version")
+          if boundary == :provider_receipt && fail_once
+            fail_once = false
+            raise "Interrupted after provider confirmed deployment"
+          end
+          @source
         end
-        @source
-      end
       FoldingRelease.stub(:clean_commit!, @source) do
         FoldingRelease.stub(:run, command) do
           FoldingRelease::CheckEvidence.stub(:validate!, nil) do
             FoldingRelease.stub(:backend_input_hash, "hash") do
-              FoldingRelease.stub(:fetch_json, ->(_url) { {"worker_version" => live_source} }) do
+              FoldingRelease.stub(
+                :fetch_json,
+                ->(_url) { { "worker_version" => live_source } }
+              ) do
                 FoldingRelease.stub(:verified_backend!, verify) do
                   Delivery.stub(:store, store) do
-                    Delivery.stub(:current, ->(_config) { [live_source, @version] }) do
-                      assert_raises(RuntimeError) { Delivery.deploy(run_url: "trusted-ci-run") }
-                      2.times { |index| Delivery.deploy(run_url: "trusted-ci-rerun-#{index}") }
+                    Delivery.stub(
+                      :current,
+                      ->(_config) { [live_source, @version] }
+                    ) do
+                      assert_raises(RuntimeError) do
+                        Delivery.deploy(run_url: "trusted-ci-run")
+                      end
+                      2.times do |index|
+                        Delivery.deploy(run_url: "trusted-ci-rerun-#{index}")
+                      end
                     end
                   end
                 end
@@ -150,9 +260,15 @@ class BackendDeliveryTest < Minitest::Test
       assert_equal 1, events.count(:bookmark)
       assert_equal 1, events.count(:deploy)
       assert_equal(boundary == :migration ? 2 : 1, events.count(:migration))
-      receipt = JSON.parse(store.assets.fetch(Delivery.receipt_name(@source, @version)))
-      assert_equal @source, receipt.fetch("runtime_configuration").fetch("vars").fetch("WORKER_VERSION")
-      assert_equal "trusted-ci-rerun-0", receipt.fetch("backend_check").fetch("run_url")
+      receipt =
+        JSON.parse(store.assets.fetch(Delivery.receipt_name(@source, @version)))
+      assert_equal @source,
+                   receipt
+                     .fetch("runtime_configuration")
+                     .fetch("vars")
+                     .fetch("WORKER_VERSION")
+      assert_equal "trusted-ci-rerun-0",
+                   receipt.fetch("backend_check").fetch("run_url")
       refute receipt.to_json.include?("operator-private-value")
     end
   end

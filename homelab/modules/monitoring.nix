@@ -1,4 +1,9 @@
-{ config, lib, pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 let
   cfg = config.homelab.monitoring.agent;
   package = import ../packages/beszel-agent.nix { inherit pkgs; };
@@ -8,18 +13,24 @@ let
   '';
   # Accept only numeric addresses in Tailscale's IPv4 range. No wildcard, LAN
   # address, DNS re-resolution, or implicit port-only binding is possible.
-  tailnetAddress = lib.types.addCheck lib.types.str (value:
+  tailnetAddress = lib.types.addCheck lib.types.str (
+    value:
     let
       parts = lib.splitString "." value;
       decimal = part: builtins.match "(0|[1-9][0-9]{0,2})" part != null;
-    in builtins.length parts == 4 && builtins.all decimal parts
-      && builtins.elemAt parts 0 == "100"
-      && lib.toInt (builtins.elemAt parts 1) >= 64
-      && lib.toInt (builtins.elemAt parts 1) <= 127
-      && builtins.all (part: lib.toInt part <= 255) parts);
-  publicKey = lib.types.addCheck lib.types.str (value:
-    builtins.match "ssh-ed25519 [A-Za-z0-9+/]+={0,2}( [^\n\r]+)?" value != null);
-in {
+    in
+    builtins.length parts == 4
+    && builtins.all decimal parts
+    && builtins.elemAt parts 0 == "100"
+    && lib.toInt (builtins.elemAt parts 1) >= 64
+    && lib.toInt (builtins.elemAt parts 1) <= 127
+    && builtins.all (part: lib.toInt part <= 255) parts
+  );
+  publicKey = lib.types.addCheck lib.types.str (
+    value: builtins.match "ssh-ed25519 [A-Za-z0-9+/]+={0,2}( [^\n\r]+)?" value != null
+  );
+in
+{
   options.homelab.monitoring.agent = {
     enable = lib.mkEnableOption "the native Beszel host agent";
     publicKey = lib.mkOption {
@@ -37,8 +48,14 @@ in {
 
   config = lib.mkIf cfg.enable {
     assertions = [
-      { assertion = cfg.publicKey != null; message = "Beszel agent requires the initialized hub's publicKey."; }
-      { assertion = cfg.listenAddress != null; message = "Beszel agent requires this host's Tailscale listenAddress."; }
+      {
+        assertion = cfg.publicKey != null;
+        message = "Beszel agent requires the initialized hub's publicKey.";
+      }
+      {
+        assertion = cfg.listenAddress != null;
+        message = "Beszel agent requires this host's Tailscale listenAddress.";
+      }
     ];
     environment.systemPackages = [ package ];
     system.activationScripts.users.text = lib.mkAfter ''
