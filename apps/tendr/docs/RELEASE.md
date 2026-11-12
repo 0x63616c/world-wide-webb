@@ -64,6 +64,8 @@ Future releases use the checked-in Fastlane lanes: `verify` runs the fast core s
 
 On the release Mac, the ignored `.env.tendr` file supplies `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_BETA_FEEDBACK_EMAIL`, and either `ASC_KEY_PATH` or `ASC_KEY_CONTENT`. The API key needs the App Manager role so Fastlane can assign builds to the internal group. Run `bundle exec fastlane --env tendr ios beta changelog:"Visible changes"`. Existing internal group members receive the new build without another invitation.
 
+The TestFlight lanes ensure **Owner Preview** has screenshot feedback enabled in App Store Connect before distribution, and confirm Apple's readback. This group setting is not embedded in the app binary.
+
 # Previous verified release: Tendr 1.0.0 (5)
 
 September 10, 2026: build 5 uploaded successfully and verified Testing in the existing Owner Preview internal group. App name updated to Tendr: Dose & Weight Journal. See [build 5 notes](BUILD-5.md). Existing testers can update without another invitation. Physical build 5 installation is not verified.

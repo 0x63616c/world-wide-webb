@@ -22,6 +22,12 @@ class TestflightDeliveryTest < Minitest::Test
     @record = Record.new({"state" => "archived", "environment" => "production", "build_number" => 42,
       "bundle_id" => "app", "asc_app_id" => "asc", "marketing_version" => "1.0.0", "preview_backend_verification" => {}})
     @client = Object.new
+    api = Object.new
+    api.define_singleton_method(:get) do |path|
+      raise "Wrong group" unless path == "v1/betaGroups/group42"
+      Struct.new(:body).new({"data" => {"type" => "betaGroups", "id" => "group42", "attributes" => {"feedbackEnabled" => true}}})
+    end
+    @client.define_singleton_method(:test_flight_request_client) { api }
     members = @members
     @client.define_singleton_method(:get_builds_for_beta_group) do |group_id:|
       Response.new([Page.new(members.fetch(group_id, []).map { |id| Build.new(id, "VALID") })])

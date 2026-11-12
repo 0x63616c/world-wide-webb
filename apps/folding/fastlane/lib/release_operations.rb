@@ -2,6 +2,7 @@ require_relative "review_submission"
 require "shellwords"
 require_relative "release_assets"
 require_relative "storefront_readback"
+require_relative "../../../../scripts/testflight_feedback"
 
 module FoldingRelease
   module Operations
@@ -376,6 +377,7 @@ module FoldingRelease
         raise "Configured TestFlight group is missing or ambiguous" unless matching.length == 1
         group = matching.first
         raise "Only explicitly internal TestFlight groups are allowed" unless group.is_internal_group == true && !group.public_link_enabled && !group.id.to_s.empty?
+        TestflightFeedback.ensure_enabled!(client: FoldingRelease.client, group_id: group.id)
         group
       end
     end
