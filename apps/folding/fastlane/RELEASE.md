@@ -1,6 +1,12 @@
 # Folding release operations
 
-This is implemented orchestration, not live release acceptance. Run through the primary agent's existing credential session or a trusted release runner. Never put key values on command lines or in repository files. Monorepo workflows are prepared locally. Automatic delivery stays off until credentials, ledger and live runner/provider acceptance pass.
+For the current automatic main/TestFlight and tagged App Store flow, start with
+[How App Store releases work](../../../docs/RELEASE.md#how-app-store-releases-work).
+This document describes Folding's product-owned archive, backend and recovery
+details. Run manual release lanes through the primary agent's existing credential
+session or a trusted release runner. Never put key values on command lines or in
+repository files. Some historical acceptance notes below predate automatic delivery;
+keep remaining product acceptance deferrals distinct from the live delivery path.
 
 ## Inputs and identity
 

@@ -48,3 +48,5 @@ Run product commands from `apps/folding`. The central CI workflow selects Foldin
 from changed inputs. Core and presentation tests run on the host; affected native code is
 compiled without booting a simulator. Production is the only app/backend environment.
 See [release operations](fastlane/RELEASE.md) for TestFlight/Worker delivery and immutable retries.
+See [How App Store releases work](../../docs/RELEASE.md#how-app-store-releases-work)
+for the shared merge, tag, review and version rules.
