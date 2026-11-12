@@ -59,6 +59,17 @@ class SelectionTests(unittest.TestCase):
         result = selection.select(["homelab/cli/README.md"], CONFIG)
         self.assertEqual(result["delivery_candidates"], [])
 
+    def test_folding_store_capture_inputs_keep_a_source_bound_beta(self):
+        for path in ["apps/folding/apps/ios/Screenshots/FoldingScreenshotApp.swift",
+                     "apps/folding/apps/ios/StorefrontTests/StorefrontCaptureTests.swift",
+                     "apps/folding/fastlane/screenshot-plan.json",
+                     "apps/folding/fastlane/lib/release_assets.rb",
+                     "apps/folding/fastlane/scripts/opaque-screen.swift"]:
+            with self.subTest(path=path):
+                result = selection.select([path], CONFIG)
+                self.assertEqual(result["verify"], ["folding.native"])
+                self.assertEqual(result["delivery_candidates"], ["folding.native"])
+
     def test_native_change_only_releases_its_product(self):
         result = selection.select(["apps/folding/apps/ios/App/FoldingScreens.swift"], CONFIG)
         self.assertEqual(result["verify"], ["folding.native"])
