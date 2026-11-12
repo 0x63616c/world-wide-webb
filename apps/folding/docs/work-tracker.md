@@ -685,3 +685,24 @@ then archived build 24, but Apple rejected its 1.0.0 upload with errors 90062/90
 1.0.0 is approved and its pre-release train is closed. Preserve that immutable
 attempt. Bump app.yml to 1.0.1 and reserve a new build through ordinary delivery;
 no backend rebuild/redeployment is required for the version-only change.
+
+November 11 follow-up: #1037 merged as
+`23f3d2a066f7ac0b1a516e9c03410f9040aaf6c8`; delivery 43135668026 processed
+**1.0.1 (25)** as VALID and read back its assignment to Folding Internal. The owner
+confirmed that the leaderboard loads. App Store submission remains pending screenshot
+review/approval; the other recorded device/provider deferrals remain deferred.
+
+Screenshot CI diagnosis: run 43135057621 failed twice at Device Hub window startup.
+Its workflow skipped failure artifacts. Diagnostic branch `codex/folding-capture-diagnosis`
+adds stage markers and retains the existing native controller logs on failure.
+Run 43140054741 passed controller startup and the inner-pose request, then reproduced
+two deterministic screenshot-target compile errors: its duplicated
+`CompetitionTransportError` fixture omits `unauthorized`, and its explicit source list
+omits `LeaderboardPodiumPlaceholder.swift`. Required native CI compiles the normal
+Folding scheme, so these fixture-target errors were not checked. The earlier startup
+timeout remains intermittent and its underlying cause is unproven; do not label the
+later controller cleanup interruption as its cause. Next: share the transport error
+definition, include the placeholder source, compile the screenshot scheme in native
+CI without booting a simulator, then verify capture. Diagnostic changes pass actionlint,
+diff checks and all 34 portable capture tests; no product fix or new submission is
+claimed at this checkpoint.
