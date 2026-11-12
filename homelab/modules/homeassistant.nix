@@ -122,7 +122,8 @@ in {
       launchd.daemons.homelab-ha-vmnet = {
         script = ''
           set -eu
-          # vmnet can remain disconnected when created before Wi-Fi/LAN is ready.
+          # The transaction stops the existing guest before replacing this backend.
+          # At boot, wait for physical LAN readiness before attaching vmnet.
           ${pkgs.python3}/bin/python3 ${../scripts/wait-for-lan.py} ${lib.escapeShellArg (if cfg.bridgeInterface == null then "" else cfg.bridgeInterface)}
           /usr/bin/install -d -o root -g _containers -m 0750 /var/run/homelab
           exec /opt/homebrew/opt/socket_vmnet/bin/socket_vmnet \
