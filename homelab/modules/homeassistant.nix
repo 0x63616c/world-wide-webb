@@ -66,6 +66,14 @@ let
             docker-compose -f /etc/homelab/home-assistant/compose.yaml \
             up -d --wait --wait-timeout 240
   '';
+  stop = pkgs.writeShellScriptBin "homelab-stop-ha" ''
+    set -eu
+    export HOME=/var/lib/_containers
+    export COLIMA_HOME=${home}
+    export PATH=${lib.makeBinPath [ pkgs.colima pkgs.openssh pkgs.coreutils ]}:/usr/bin:/bin:/usr/sbin:/sbin
+    [ "$(id -u)" = ${toString config.users.users._containers.uid} ] || { echo 'Run as _containers.' >&2; exit 1; }
+    exec colima stop ha
+  '';
 in {
   options.homelab.homeassistant = {
     enable = lib.mkEnableOption "existing bridged Home Assistant container VM";
@@ -107,7 +115,7 @@ in {
     }
     (lib.mkIf cfg.enable {
       homebrew.brews = [ "socket_vmnet" ];
-      environment.systemPackages = with pkgs; [ colima docker docker-compose reconcile ];
+      environment.systemPackages = with pkgs; [ colima docker docker-compose reconcile stop ];
       environment.etc."homelab/home-assistant/compose.yaml".source = ../services/home-assistant/compose.yaml;
       # Only the small vmnet helper runs as root. Socket access is limited to
       # _containers; no passwordless sudo is granted to the service account.
@@ -135,8 +143,8 @@ in {
           set -eu
           # Lima/Colima need native macOS version and virtualization utilities.
           export PATH="$PATH:/usr/bin:/bin:/usr/sbin:/sbin"
-          # Share the readiness dependency so its changes restart the VM together
-          # with vmnet, replacing the VM's connection to the previous backend.
+          # The deployment transaction stops the existing guest before replacing
+          # either launcher, so it attaches to the new bridge on its next start.
           ${pkgs.python3}/bin/python3 ${../scripts/wait-for-lan.py} ${lib.escapeShellArg (if cfg.bridgeInterface == null then "" else cfg.bridgeInterface)}
           mkdir -p ${home}/ha ${home}/_lima/_config
           cp ${profile} ${home}/ha/colima.yaml

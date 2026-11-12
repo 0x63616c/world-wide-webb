@@ -69,6 +69,7 @@ hosts only; service activation needs a separately tested migration workflow.
 | Encrypted key | File under `/run/secrets` | Purpose |
 | --- | --- | --- |
 | `containers-env` | `containers-env` | Shared Compose environment when the container runtime is enabled |
+| `services/registry/docker-config` | `registry/config.json` | Docker authentication for private Control Center images |
 | `backups/nas-credentials` | `nas-backup-credentials` | NAS credentials and certificate pin; not mounted into containers |
 | `services/control-center/POSTGRES_PASSWORD` | `www-POSTGRES_PASSWORD` | Existing database password |
 | `services/control-center/HA_TOKEN` | `www-HA_TOKEN` | Home Assistant integration |

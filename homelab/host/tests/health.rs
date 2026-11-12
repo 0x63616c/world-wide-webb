@@ -33,6 +33,7 @@ impl Fixture {
             curl_path: docker_path.clone(),
             control_center_port: 4202,
             penpot_port: 9001,
+            home_assistant_url: "http://192.168.50.20:8123".into(),
         };
         let fixture = Self { directory, config };
         let image = format!(
@@ -88,6 +89,19 @@ impl Fixture {
     fn events(&self) -> String {
         fs::read_to_string(self.directory.path().join("events")).unwrap_or_default()
     }
+}
+
+#[test]
+fn healthy_ha_container_with_unreachable_lan_fails_deployment_health() {
+    let fixture = Fixture::new(vec![Service::HomeAssistant]);
+    fixture.check().unwrap();
+    fixture.flag("ha-http-fails");
+    assert_eq!(
+        fixture.check(),
+        Err(HealthError::UnhealthyContainer(
+            "www-home-assistant-home-assistant-1"
+        ))
+    );
 }
 
 #[test]

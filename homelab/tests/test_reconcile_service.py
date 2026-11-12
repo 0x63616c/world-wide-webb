@@ -54,6 +54,16 @@ class DeliveryTests(unittest.TestCase):
             with self.assertRaises(subprocess.CalledProcessError):
                 reconcile.main()
 
+    def test_registry_config_reaches_pre_pull_without_credentials_in_arguments(self):
+        compose_root = Path(__file__).parents[1] / 'services'
+        with patch.dict(os.environ, {'DOCKER_CONFIG': '/run/secrets/registry'}), \
+                patch.object(sys, 'argv', ['reconcile', 'control-center', '--pull', '--compose-root', str(compose_root)]), \
+                patch.object(reconcile.os, 'geteuid', return_value=450), \
+                patch.object(reconcile.subprocess, 'run') as run:
+            reconcile.main()
+        self.assertEqual(run.call_args.kwargs['env']['DOCKER_CONFIG'], '/run/secrets/registry')
+        self.assertNotIn('auth', ' '.join(run.call_args.args[0]))
+
     @patch.object(reconcile.subprocess, 'run')
     def test_projection_is_private_and_rotation_recreates_once(self, run):
         self.run_reconcile()

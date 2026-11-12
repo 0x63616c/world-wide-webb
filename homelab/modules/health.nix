@@ -7,6 +7,7 @@ let
     workersEnabled = config.homelab.containers.controlCenter.workersEnabled;
     dockerPath = "${pkgs.docker}/bin/docker";
     releasePath = "/etc/homelab/services/control-center/release.json";
+    homeAssistantUrl = config.homelab.containers.controlCenter.homeAssistantURL;
   });
   command = pkgs.writeShellScriptBin "homelab-health" ''
     exec ${hostTools}/bin/homelab-services health --config ${settings}

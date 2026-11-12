@@ -10,6 +10,7 @@ COMMANDS = {
     "backup": "homelab-backup-now",
     "reconcile": "homelab-reconcile-all",
     "health": "homelab-health",
+    "stop-ha": "homelab-stop-ha",
 }
 
 

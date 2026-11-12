@@ -48,6 +48,9 @@ in {
           name = "www-${name}";
           value = containerSecret "services/control-center/${name}";
         }) wwwNames)))
+        (lib.mkIf (selected "control-center") {
+          "registry/config.json" = containerSecret "services/registry/docker-config";
+        })
         (lib.mkIf (selected "hindsight") {
           hindsight-env = containerSecret "services/hindsight/environment";
         })

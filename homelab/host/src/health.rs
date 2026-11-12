@@ -47,6 +47,8 @@ pub struct Config {
     pub control_center_port: u16,
     #[serde(default = "default_penpot_port")]
     pub penpot_port: u16,
+    #[serde(default)]
+    pub home_assistant_url: String,
 }
 
 fn default_curl() -> PathBuf {
@@ -148,6 +150,9 @@ impl Config {
         if !self.curl_path.is_absolute()
             || self.control_center_port == 0
             || self.penpot_port == 0
+            || (self.services.contains(&Service::HomeAssistant)
+                && !(self.home_assistant_url.starts_with("http://")
+                    || self.home_assistant_url.starts_with("https://")))
             || !self.docker_path.is_absolute()
             || !self.release_path.is_absolute()
             || self.services.iter().copied().collect::<HashSet<_>>().len() != self.services.len()
@@ -509,7 +514,38 @@ pub fn check_once(config: &Config, deadline: Instant) -> Result<(), HealthError>
                     })?;
                 }
             }
-            Service::Beszel | Service::Hindsight | Service::HomeAssistant => {}
+            Service::HomeAssistant => {
+                let timeout = remaining(deadline, Duration::from_secs(10))?;
+                let mut command = Command::new(&config.curl_path);
+                command
+                    .args([
+                        "--fail",
+                        "--silent",
+                        "--show-error",
+                        "--max-time",
+                        "10",
+                        "--noproxy",
+                        "*",
+                        "--output",
+                        "/dev/null",
+                        "--url",
+                    ])
+                    .arg(&config.home_assistant_url)
+                    .env_clear()
+                    .env("PATH", "/usr/bin:/bin")
+                    .stdin(Stdio::null());
+                let result = process::capture(&mut command, timeout)
+                    .map_err(|_| HealthError::ProbeUnavailable)?;
+                if Instant::now() >= deadline {
+                    return Err(HealthError::Deadline);
+                }
+                if !result.status.success() {
+                    return Err(HealthError::UnhealthyContainer(
+                        "www-home-assistant-home-assistant-1",
+                    ));
+                }
+            }
+            Service::Beszel | Service::Hindsight => {}
         }
     }
     Ok(())
