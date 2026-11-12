@@ -27,6 +27,7 @@ import UIKit
     let calendarProvider: LiveCalendarProvider
     let diagnosticsClient: PanelAPIClient
     let panelPIN: PanelPINAPI
+    let profilesAPI: ProfilesAPI
     let diagnosticsBackendURL: String
     private var commandName = "command"
     private var commandPayload: Data?
@@ -76,6 +77,7 @@ import UIKit
             transport ?? URLSession(configuration: session, delegate: PhotoSessionDelegate(), delegateQueue: nil)
         let client = PanelAPIClient(configuration: configuration, transport: transport)
         panelPIN = PanelPINAPI(client: client)
+        profilesAPI = ProfilesAPI(client: client)
         teslaProvider = LiveTeslaProvider(api: TeslaAPI(client: client))
         let namespace = SHA256.hash(data: Data((configuration?.baseURL.absoluteString ?? "unconfigured").utf8))
             .map { String(format: "%02x", $0) }.joined()

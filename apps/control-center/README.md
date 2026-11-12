@@ -31,6 +31,11 @@ uses the active camera reservation. Climate artwork fills the window while contr
 safe areas; its mode/fan menu scrolls in short windows. App navigation uses the native zoom
 transition with the icon's rounded source shape for both opening and closing.
 
+Profiles are stored on the panel server and appear on each connected device when the launcher opens.
+Tap a profile to switch; hold it to edit. The selected profile is a device preference.
+Adding, editing and deleting a profile require the panel PIN;
+deleting removes it for every device. Existing device-local profiles are not imported.
+
 For the green clock/launcher rendering regression, capture the selected native display with
 `xcrun simctl io <device> screenshot --display=<id> /tmp/canvas.png`, then run
 `bash tools/test_canvas_layout.sh /tmp/canvas.png`. It rejects the shifted right/bottom

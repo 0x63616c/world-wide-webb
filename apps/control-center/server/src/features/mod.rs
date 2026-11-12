@@ -5,6 +5,7 @@ pub mod climate;
 pub mod diagnostics;
 pub mod lights;
 pub mod notifications;
+pub mod profiles;
 pub mod releases;
 pub mod settings;
 pub mod sound;

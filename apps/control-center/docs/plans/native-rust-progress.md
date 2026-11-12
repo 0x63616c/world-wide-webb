@@ -112,3 +112,7 @@ matched benchmark or whole-host resource improvement is claimed. No required mig
 ## Dog Walker removal
 
 The Dog Walker launcher, client integration and server API are removed. A forward migration removes the walk table and its records; prior migrations remain unchanged.
+
+## Shared profiles follow-up
+
+Profiles now use a dedicated SQLite table and typed REST API. The app reads the server list when the launcher opens, keeps its active selection per device, and supports PIN-verified add, edit and delete. Local profile records are intentionally not imported. The profile API enforces the PIN on mutations; the app does not rely on its unlock sheet alone. Delivery evidence belongs to this change's PR and its required checks.
