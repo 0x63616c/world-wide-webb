@@ -114,13 +114,19 @@ in {
       launchd.daemons.homelab-ha-vmnet = {
         script = ''
           set -eu
+          # vmnet can remain disconnected when created before Wi-Fi/LAN is ready.
+          ${pkgs.python3}/bin/python3 ${../scripts/wait-for-lan.py} ${lib.escapeShellArg (if cfg.bridgeInterface == null then "" else cfg.bridgeInterface)}
           /usr/bin/install -d -o root -g _containers -m 0750 /var/run/homelab
           exec /opt/homebrew/opt/socket_vmnet/bin/socket_vmnet \
             --socket-group=_containers --vmnet-mode=bridged \
             --vmnet-interface=${lib.escapeShellArg (if cfg.bridgeInterface == null then "" else cfg.bridgeInterface)} \
             ${socket}
         '';
-        serviceConfig = { RunAtLoad = true; KeepAlive = true; ThrottleInterval = 30; };
+        serviceConfig = {
+          RunAtLoad = true; KeepAlive = true; ThrottleInterval = 30;
+          StandardOutPath = "/var/log/homelab-ha-vmnet.log";
+          StandardErrorPath = "/var/log/homelab-ha-vmnet.log";
+        };
       };
       launchd.daemons.homelab-ha-colima = {
         path = with pkgs; [ colima docker openssh coreutils python3 ];
@@ -129,6 +135,9 @@ in {
           set -eu
           # Lima/Colima need native macOS version and virtualization utilities.
           export PATH="$PATH:/usr/bin:/bin:/usr/sbin:/sbin"
+          # Share the readiness dependency so its changes restart the VM together
+          # with vmnet, replacing the VM's connection to the previous backend.
+          ${pkgs.python3}/bin/python3 ${../scripts/wait-for-lan.py} ${lib.escapeShellArg (if cfg.bridgeInterface == null then "" else cfg.bridgeInterface)}
           mkdir -p ${home}/ha ${home}/_lima/_config
           cp ${profile} ${home}/ha/colima.yaml
           cp ${override} ${home}/_lima/_config/override.yaml

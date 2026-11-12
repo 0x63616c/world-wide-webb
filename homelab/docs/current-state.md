@@ -35,11 +35,35 @@ and maintenance holds defer recovery. Startup/recovery diagnostics are retained
 in `/var/lib/_containers/colima-startup.log`. Focused tests cover the observed failure and
 these recovery protections. The supervisor also forwards shutdown signals to
 foreground Colima and reaps it, preserving graceful VM stop during a restart.
-A real-process regression covers this lifecycle. All 170 homelab tests (one existing skip) and 31
+A real-process regression covers this lifecycle. All 173 homelab tests (one existing skip) and 31
 handler tests pass. An isolated real-process fixture on the Mini's installed Nix
 Python/coreutils also passed the stale-Running recovery and verified the stop
 subprocess retained the operation lock. Live installation and reboot acceptance
-are pending.
+are recorded in the live delivery receipt.
+
+### Home Assistant bridge after the first unattended restart
+
+The startup/signal fix reached checked WWW source
+`eb6e0b18209fc859d014526e3cb2a0cd0c4714bb`. Its first unattended restart brought back
+Bambuddy, Control Center and Penpot; the private app responded before post-boot SSH.
+HA's container was healthy and had the correct static address, but the bridged LAN
+was unreachable and guest ARP resolution failed even for the gateway. Restarting
+its bridge and existing guest after the physical LAN was ready restored LAN HTTP200.
+
+The bridge and HA guest launchers now wait for the configured physical interface to
+have an active link and usable IPv4 address. They share the same helper dependency,
+so a readiness change also replaces the guest's connection to the bridge backend.
+The wait fails after two minutes and launchd retries; it does not choose another
+interface or change the guest's address/identity. Root bridge diagnostics live in
+`/var/log/homelab-ha-vmnet.log`. A cold-network fixture, link-local rejection and
+bounded-failure test cover the readiness gate. The live delivery receipt records
+the final unattended restart result.
+
+The deployment also encountered an uncached private Control Center image. An
+existing operator credential populated that exact image through Docker's local API
+under the shared operation lock; no registry credential file was retained on the
+Mini. Future uncached private images still require a scoped pull credential or an
+approved operator cache fill. Reboot uses the retained local images.
 
 ## Read-only refresh — November 8, 2026
 
