@@ -79,6 +79,74 @@ async fn retired_walk_routes_are_unavailable() {
     }
 }
 #[tokio::test]
+async fn profiles_are_shared_editable_and_pin_protected() {
+    let (_dir, app, db) = fixture().await;
+    sqlx::query("INSERT INTO settings VALUES('singleton',?,?)")
+        .bind(r#"{"pinCode":"123456"}"#)
+        .bind(www_server::now())
+        .execute(&db)
+        .await
+        .unwrap();
+    let photo = "/9j/"; // Three JPEG header bytes.
+    let input = json!({"pin":"123456","name":" Ada ","photo":photo});
+    assert_eq!(
+        call(
+            &app,
+            "POST",
+            "/api/v1/profiles",
+            json!({"pin":"000000","name":"Ada","photo":photo})
+        )
+        .await
+        .0,
+        StatusCode::FORBIDDEN
+    );
+    let (status, created) = call(&app, "POST", "/api/v1/profiles", input).await;
+    assert_eq!(status, StatusCode::CREATED);
+    assert_eq!(created["name"], "Ada");
+    let id = created["id"].as_str().unwrap();
+    assert_eq!(
+        call(&app, "GET", "/api/v1/profiles", Value::Null).await.1[0],
+        created
+    );
+    let path = format!("/api/v1/profiles/{id}");
+    assert_eq!(
+        call(
+            &app,
+            "PATCH",
+            &path,
+            json!({"pin":"000000","name":"New","photo":photo})
+        )
+        .await
+        .0,
+        StatusCode::FORBIDDEN
+    );
+    let (status, updated) = call(
+        &app,
+        "PATCH",
+        &path,
+        json!({"pin":"123456","name":"Avery","photo":photo}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(updated["name"], "Avery");
+    assert_eq!(
+        call(&app, "GET", "/api/v1/profiles", Value::Null).await.1[0]["name"],
+        "Avery"
+    );
+    assert_eq!(
+        call(&app, "DELETE", &path, json!({"pin":"000000"})).await.0,
+        StatusCode::FORBIDDEN
+    );
+    assert_eq!(
+        call(&app, "DELETE", &path, json!({"pin":"123456"})).await.0,
+        StatusCode::OK
+    );
+    assert_eq!(
+        call(&app, "GET", "/api/v1/profiles", Value::Null).await.1,
+        json!([])
+    );
+}
+#[tokio::test]
 async fn notification_cursor_observes_deduplication_and_dismissal() {
     let (_dir, app, _db) = fixture().await;
     let input = json!({"source_module":"calendar","title":"Event","body":"Soon","deep_link":"module/calendar","dedupe_key":"same"});

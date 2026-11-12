@@ -84,6 +84,11 @@ public struct PanelAPIClient: Sendable {
     public func delete<Output: Decodable & Sendable>(_ path: String, as: Output.Type) async throws -> Output {
         try await perform(path, method: "DELETE", input: nil, as: Output.self)
     }
+    public func delete<Input: Encodable & Sendable, Output: Decodable & Sendable>(
+        _ path: String, input: Input, as: Output.Type
+    ) async throws -> Output {
+        try await perform(path, method: "DELETE", input: encode(input), as: Output.self)
+    }
     public static func component(_ value: String) throws -> String {
         guard !value.isEmpty, value.utf8.count <= 200,
             value.allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber || "_-".contains($0)) })

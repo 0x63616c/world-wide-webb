@@ -1,8 +1,8 @@
 use crate::{
     AppState,
     features::{
-        alarms, booth, climate, diagnostics, lights, notifications, releases, settings, sound,
-        tesla, weather,
+        alarms, booth, climate, diagnostics, lights, notifications, profiles, releases, settings,
+        sound, tesla, weather,
     },
 };
 use axum::{
@@ -136,16 +136,30 @@ pub fn router(state: AppState) -> Router {
             axum::routing::delete(booth::clear_filter),
         )
         .layer(DefaultBodyLimit::max(32768));
+    let profile_api = Router::new()
+        .route(
+            "/api/v1/profiles",
+            get(profiles::list).post(profiles::create),
+        )
+        .route(
+            "/api/v1/profiles/{id}",
+            axum::routing::patch(profiles::update).delete(profiles::remove),
+        )
+        .layer(DefaultBodyLimit::max(512 * 1024));
     let media = Router::new()
         .route("/media/sonos/{room}/artwork", get(sound::artwork))
         .route("/media/booth-photo", post(booth::upload))
         .route("/media/booth-photos/{*path}", get(booth::download))
         .layer(DefaultBodyLimit::max(20 * 1024 * 1024));
     Router::new()
-        .merge(api.merge(media).route_layer(middleware::from_fn_with_state(
-            state.clone(),
-            restrict_release,
-        )))
+        .merge(
+            api.merge(profile_api)
+                .merge(media)
+                .route_layer(middleware::from_fn_with_state(
+                    state.clone(),
+                    restrict_release,
+                )),
+        )
         .route("/up", get(|| async { StatusCode::NO_CONTENT }))
         .route("/healthz", get(health))
         .with_state(state)
