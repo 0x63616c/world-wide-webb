@@ -252,6 +252,9 @@ inputs@{ self, nixpkgs, darwin, ... }:
             homelab.containers.services = lib.mkForce [
               "bambuddy" "control-center" "hindsight" "cloudflared" "penpot"
             ];
+            # Compile only: validate the registry entry against its actual owner's
+            # ciphertext, without provisioning that credential on the MacBook.
+            sops.secrets."registry/config.json".sopsFile = ../secrets/homelab-mac-mini.sops.yaml;
             homelab.homeassistant.enable = true;
             # Compile only; this is not a claim about the MacBook's interface.
             homelab.homeassistant.bridgeInterface = "en0";
