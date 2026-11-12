@@ -96,7 +96,7 @@ class SelectionTests(unittest.TestCase):
                 self.assertEqual(result["delivery_candidates"], [])
 
     def test_nested_flake_selects_homelab_without_other_delivery(self):
-        for path in ["homelab/flake.nix", "homelab/flake.lock"]:
+        for path in ["homelab/flake.nix", "homelab/flake.lock", "flake.nix", "flake.lock"]:
             with self.subTest(path=path):
                 result = selection.select([path], CONFIG)
                 self.assertIn("homelab.config", result["verify"])
