@@ -79,6 +79,14 @@ class StagedFormattingTests(unittest.TestCase):
         self.assertEqual(self.git("show", ":config.yml"), b"formatted\n")
         self.assertEqual(self.run_script("--all", "--check").returncode, 0)
 
+    def test_applied_migration_is_left_byte_for_byte_unchanged(self):
+        migration = self.root / "app/migrations/0001_core.sql"
+        migration.parent.mkdir(parents=True)
+        migration.write_text("CREATE TABLE t(id INT);\n")
+        self.git("add", "app/migrations/0001_core.sql")
+        self.assertEqual(self.run_script().returncode, 0)
+        self.assertEqual(self.git("show", ":app/migrations/0001_core.sql"), b"CREATE TABLE t(id INT);\n")
+
 
 if __name__ == "__main__":
     unittest.main()

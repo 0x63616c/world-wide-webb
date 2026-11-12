@@ -41,7 +41,8 @@ unstaged edits. CI uses the same formatter command to check the full source base
 Run `bun run format` to format the full baseline locally or `bun run format:check` to
 check it. Swift, Rust, Python, Ruby, Nix and OpenTofu use their native formatters;
 JavaScript, TypeScript, HTML, CSS, JSON, YAML, Shell, SQL and TOML use locked Prettier
-plugins. A push remains an explicit action after checks.
+plugins. Applied SQL migrations and historical CloudKit receipts stay byte-for-byte intact;
+their stored checksums must not change. A push remains an explicit action after checks.
 
 [Development](docs/DEVELOPMENT.md), [new apps](docs/NEW-APP.md) and [releases](docs/RELEASE.md)
 describe the shared lifecycle and current handler boundaries.
