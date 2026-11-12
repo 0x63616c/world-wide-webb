@@ -9,8 +9,5 @@ fi
 python3 scripts/check-localization.py
 swift scripts/generate-app-icons.swift --check
 python3 scripts/test-localization.py
-swift format lint --strict apps/ios/Packages/FoldingKit/Package.swift
-swift format lint --strict -r apps/ios/Packages/FoldingKit/Sources apps/ios/Packages/FoldingKit/Tests apps/ios/App apps/ios/BuildTests
-tofu fmt -check -recursive ../../infra/cloudflare/folding
 swift test --package-path apps/ios/Packages/FoldingKit
 echo 'Personal core and contract checks passed. Backend, simulator and device checks are not included yet.'

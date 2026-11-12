@@ -11,12 +11,29 @@ workspace = true
 
 [dependencies]
 axum = { version = "0.8.9", features = ["json", "macros"] }
-tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal", "fs", "net", "io-util", "time", "sync"] }
+tokio = { version = "1", features = [
+  "macros",
+  "rt-multi-thread",
+  "signal",
+  "fs",
+  "net",
+  "io-util",
+  "time",
+  "sync"
+] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+reqwest = { version = "0.12", default-features = false, features = [
+  "json",
+  "rustls-tls"
+] }
 # Upstream's SQLite 0.39 compatibility fix; return to crates.io once it is released.
-sqlx = { version = "=0.9.0", git = "https://github.com/launchbadge/sqlx", rev = "10462fa4414c6c7f1ed1d39bb31678e3b726878c", default-features = false, features = ["runtime-tokio", "sqlite", "migrate", "macros"] }
+sqlx = { version = "=0.9.0", git = "https://github.com/launchbadge/sqlx", rev = "10462fa4414c6c7f1ed1d39bb31678e3b726878c", default-features = false, features = [
+  "runtime-tokio",
+  "sqlite",
+  "migrate",
+  "macros"
+] }
 chrono = { version = "0.4", features = ["serde"] }
 chrono-tz = "0.10"
 uuid = { version = "1", features = ["v4"] }
@@ -29,6 +46,7 @@ futures-core = "0.3"
 tokio-tungstenite = { version = "0.30", features = ["rustls-tls-webpki-roots"] }
 futures-util = { version = "0.3.34", features = ["sink"] }
 sha2 = "0.10"
+base64 = "0.22"
 
 [dev-dependencies]
 tempfile = "3"

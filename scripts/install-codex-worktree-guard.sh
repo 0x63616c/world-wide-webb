@@ -36,7 +36,7 @@ already_installed() {
   jq -e --arg marker "$MARKER" '
     (.hooks.PreToolUse // [])
     | any(.hooks[]?.command // "" | contains($marker))
-  ' "$HOOKS_JSON" >/dev/null 2>&1
+  ' "$HOOKS_JSON" > /dev/null 2>&1
 }
 
 if already_installed; then

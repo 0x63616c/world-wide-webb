@@ -3,7 +3,8 @@ export const pages = [
   {
     path: "/",
     title: "Folding — Duo fold stats & leaderboard",
-    description: "A personal fold tracker for Duo. Explore your stats, add a widget, and join a little friendly competition. Coming soon. Free, with optional tips.",
+    description:
+      "A personal fold tracker for Duo. Explore your stats, add a widget, and join a little friendly competition. Coming soon. Free, with optional tips.",
     content: `<div class="wrap">
       <section class="hero">
         <div class="hero-copy"><p class="eyebrow">Made for the fold</p><h1>Every fold.<br><span>A little story.</span></h1><p class="lead">A fold tracker for Duo. Personal stats, useful widgets, and a little friendly competition.</p><a class="button" href="#inside">See what’s inside <span class="arrow" aria-hidden="true">↓</span></a><p class="availability"><span>Coming soon</span><span class="dot" aria-hidden="true"></span><span>Free, with optional tips</span></p></div>
@@ -14,7 +15,10 @@ export const pages = [
     </div>`,
   },
   {
-    path: "/support/", title: "Support — Folding", description: "Help with Folding setup, tracking, iCloud sync, and your account.",
+    path: "/support/",
+    title: "Support — Folding",
+    description:
+      "Help with Folding setup, tracking, iCloud sync, and your account.",
     content: `<article class="wrap page prose"><p class="eyebrow">A little help</p><h1>Let’s get you folding.</h1><p class="lead">Start with setup. If something still feels off, we’re here.</p>
       <ol class="steps"><li><strong>Open Folding.</strong><p>Follow the guided setup to create your open and close automations in Shortcuts.</p></li><li><strong>Try a fold.</strong><p>Return to Folding and run both tests. Setup is complete when the app receives them.</p></li><li><strong>Make it yours.</strong><p>Pick your favourite stats, choose a colour, and add a widget.</p></li></ol>
       <h2>Common questions</h2>
@@ -28,7 +32,10 @@ export const pages = [
     </article>`,
   },
   {
-    path: "/privacy/", title: "Privacy — Folding", description: "How Folding handles personal history, optional competition data, account deletion, and retention.",
+    path: "/privacy/",
+    title: "Privacy — Folding",
+    description:
+      "How Folding handles personal history, optional competition data, account deletion, and retention.",
     content: `<article class="wrap page prose"><p class="eyebrow">Your data</p><h1>Privacy, plainly.</h1><p class="lead">Personal tracking comes first. Joining a leaderboard is your choice.</p><p class="small">Last updated 8 November 2026</p>
       <h2>Personal history</h2><p>Your fold history is stored on your device. iCloud sync uses your private iCloud storage. Records include open and close events, timestamps, timezone information, and installation identifiers so your history can sync without counting an event twice.</p><p>Folding derives counts, sessions, and estimated travel from those records. Setup test events are kept separate from your totals. Export files are generated on your device and aren’t uploaded to create a download link.</p>
       <h2>Optional competition</h2><p>If you join, Folding processes the Sign in with Apple identity information needed for your account, your display name and avatar, submitted fold events, scores, result history, milestone progress, earned badges, unlock acknowledgments, and competition preferences. Your name, processed avatar, scores and placements are visible to other signed-in leaderboard members. Badges, next-target progress, unlock dates and detailed daily history stay private. Joining includes eligible existing folding history in your score.</p><p>Installation identifiers, App Attest verification information, and limited security records help protect accounts and investigate abuse. Reports and moderation evidence are available to authorised administrators, not other participants.</p>
@@ -48,7 +55,10 @@ export const pages = [
     </article>`,
   },
   {
-    path: "/delete/", title: "Delete your data — Folding", description: "Export or reset personal history, or request account deletion in Folding.",
+    path: "/delete/",
+    title: "Delete your data — Folding",
+    description:
+      "Export or reset personal history, or request account deletion in Folding.",
     content: `<article class="wrap page prose"><p class="eyebrow">A fresh start</p><h1>Choose what to remove.</h1><p class="lead">Your personal history and competition account are separate.</p>
       <div class="choices"><section class="choice"><h2>Reset history</h2><p>Clears your personal events, sessions, public scores, historical placements, medals, badges and the featured badge selection. Your preferences, daily limit, and competition membership stay in place.</p><p class="small">In Folding: Settings → Data → Reset history.</p></section><section class="choice"><h2>Delete your competition account</h2><p>Removes your competition profile, badges, featured badge selection, account tokens, submitted data, and public identity references. It doesn’t automatically reset private history on your devices or in iCloud.</p><p class="small">In Folding: Settings → Delete competition account. Available before joining and while your competition account is restricted. Apple may ask you to confirm your identity.</p></section></div>
       <h2>Before you start</h2><p>Export anything you want to keep from Settings → Data. Account cleanup can take time; a pending status means work is still being completed. Older queued records cannot restore cleared totals.</p><p>Limited deletion-recovery and moderation records may remain for the periods described in our <a href="/privacy/">privacy notice</a>. An active restriction isn’t removed by resetting or deleting an account.</p>
@@ -56,11 +66,17 @@ export const pages = [
     </article>`,
   },
   {
-    path: "/appeal/", title: "Appeal a restriction — Folding", description: "Contact Folding about a competition restriction or moderation decision.",
+    path: "/appeal/",
+    title: "Appeal a restriction — Folding",
+    description:
+      "Contact Folding about a competition restriction or moderation decision.",
     content: `<article class="wrap page prose"><p class="eyebrow">A second look</p><h1>Something not right?</h1><p class="lead">If you think a competition restriction is a mistake, get in touch.</p><h2>What to include</h2><ul><li>Your Folding display name or participant reference.</li><li>The decision or message you received.</li><li>A short explanation of what you think happened.</li></ul><p>Please don’t include Apple passwords, verification codes, or a full private history export.</p><p><a class="button" href="${support}?subject=Folding%20restriction%20appeal">Email an appeal <span class="arrow" aria-hidden="true">↗</span></a></p><h2>Your personal tracker still works.</h2><p>A community restriction applies to competition. It does not prevent private tracking, export, account deletion, or an appeal. <a href="/delete/">Manage your data.</a></p><p class="small">Sending an appeal requests a review; it does not automatically change a restriction. Moderation information is handled according to our <a href="/privacy/">privacy notice</a>.</p></article>`,
   },
   {
-    path: "/404.html", title: "Page not found — Folding", description: "This Folding page could not be found.", noindex: true,
+    path: "/404.html",
+    title: "Page not found — Folding",
+    description: "This Folding page could not be found.",
+    noindex: true,
     content: `<article class="wrap page prose"><p class="eyebrow">A wrong turn</p><h1>This page folded away.</h1><p class="lead">Let’s get you back to somewhere familiar.</p><p><a class="button" href="/">Back to Folding</a></p></article>`,
   },
 ];

@@ -40,12 +40,7 @@
           "type": "array"
         }
       },
-      "required": [
-        "adminUser",
-        "adminUID",
-        "authorizedKeys",
-        "services"
-      ],
+      "required": ["adminUser", "adminUID", "authorizedKeys", "services"],
       "type": "object"
     },
     "OAuthReference": {
@@ -66,10 +61,7 @@
           "type": "string"
         }
       },
-      "required": [
-        "vault",
-        "item"
-      ],
+      "required": ["vault", "item"],
       "type": "object"
     },
     "OnePasswordConfig": {
@@ -83,9 +75,7 @@
           "type": "string"
         }
       },
-      "required": [
-        "backupVault"
-      ],
+      "required": ["backupVault"],
       "type": "object"
     },
     "TailscaleConfig": {
@@ -107,9 +97,7 @@
           "type": "string"
         }
       },
-      "required": [
-        "tag"
-      ],
+      "required": ["tag"],
       "type": "object"
     }
   },
@@ -119,10 +107,7 @@
   "properties": {
     "$schema": {
       "description": "Inert editor metadata. The CLI never fetches this URL.",
-      "type": [
-        "string",
-        "null"
-      ]
+      "type": ["string", "null"]
     },
     "hosts": {
       "additionalProperties": {
@@ -153,11 +138,7 @@
       ]
     }
   },
-  "required": [
-    "schema",
-    "hosts",
-    "onePassword"
-  ],
+  "required": ["schema", "hosts", "onePassword"],
   "title": "Manifest",
   "type": "object"
 }

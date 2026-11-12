@@ -24,10 +24,16 @@ tempfile = "3"
 crossterm = { version = "0.29.0", features = ["use-dev-tty"] }
 sha2 = "0.11.1"
 ureq = { version = "3.5", default-features = false, features = ["rustls"] }
-time = { version = "0.3.55", default-features = false, features = ["formatting", "parsing", "std"] }
+time = { version = "0.3.55", default-features = false, features = [
+  "formatting",
+  "parsing",
+  "std"
+] }
 schemars = { version = "=1.2.2", features = ["derive"] }
 serde_path_to_error = "0.1"
-ratatui = { version = "0.29.0", default-features = false, features = ["crossterm"] }
+ratatui = { version = "0.29.0", default-features = false, features = [
+  "crossterm"
+] }
 unicode-width = "0.2.0"
 portable-pty = "0.9.0"
 vt100 = "0.15.2"

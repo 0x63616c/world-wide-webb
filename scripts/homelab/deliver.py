@@ -69,7 +69,9 @@ def validate_ci(intent, run, jobs, allow_manual=False, checks=None):
         raise ValueError("CI source, attempt or trust context differs")
     if checks is not None and (not isinstance(checks, list) or "homelab.darwin" not in checks):
         raise ValueError("Host delivery requires its selected Darwin verification")
-    expected = dict.fromkeys(("Homelab / Homelab selection", "Homelab / Homelab Darwin configuration", "Homelab / Homelab checks"), "success")
+    expected = dict.fromkeys(
+        ("Homelab / Homelab selection", "Homelab / Homelab Darwin configuration", "Homelab / Homelab checks"), "success"
+    )
     for name, check in (
         ("Homelab / Homelab operations", "homelab.operations"),
         ("Homelab / Homelab Linux controller", "homelab.linux"),

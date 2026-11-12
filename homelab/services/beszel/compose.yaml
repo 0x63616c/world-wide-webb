@@ -4,8 +4,8 @@ services:
   data-owner:
     # BusyBox 1.37.0: idempotent ownership setup on the VM-local data volume.
     image: busybox@sha256:a7dbc319b1438115a207e11930dc4bb3e643dcb3ec0bdd694bb36cd8fad289ec
-    user: '0:0'
-    command: [chown, '450:450', /beszel_data]
+    user: "0:0"
+    command: [chown, "450:450", /beszel_data]
     network_mode: none
     read_only: true
     cap_drop: [ALL]
@@ -17,28 +17,28 @@ services:
       - beszel_data:/beszel_data
     logging:
       driver: json-file
-      options: {max-size: 1m, max-file: '2'}
+      options: { max-size: 1m, max-file: "2" }
   beszel:
     image: henrygd/beszel@sha256:8514a69d9bbbcb74f371a3205561ee231fc0289739cea64e8131f341d695b770
     depends_on:
-      data-owner: {condition: service_completed_successfully}
-    user: '450:450'
+      data-owner: { condition: service_completed_successfully }
+    user: "450:450"
     restart: unless-stopped
     ports:
-      - '127.0.0.1:8090:8090'
+      - "127.0.0.1:8090:8090"
     env_file:
       - path: ${BESZEL_ENV_FILE:?Provision the Beszel bootstrap environment}
         format: raw
     environment:
       APP_URL: https://beszel.worldwidewebb.co
-      CHECK_UPDATES: 'false'
+      CHECK_UPDATES: "false"
     volumes:
       - beszel_data:/beszel_data
       - type: bind
         source: ${BESZEL_CONFIG_FILE:?Stage the Beszel systems inventory}
         target: /beszel_data/config.yml
         read_only: true
-        bind: {create_host_path: false}
+        bind: { create_host_path: false }
     cap_drop: [ALL]
     security_opt: [no-new-privileges:true]
     read_only: true
@@ -48,14 +48,14 @@ services:
     mem_limit: 128m
     cpus: 0.5
     healthcheck:
-      test: [CMD, /beszel, health, --url, 'http://127.0.0.1:8090']
+      test: [CMD, /beszel, health, --url, "http://127.0.0.1:8090"]
       interval: 30s
       timeout: 5s
       retries: 5
       start_period: 30s
     logging:
       driver: json-file
-      options: {max-size: 10m, max-file: '3'}
+      options: { max-size: 10m, max-file: "3" }
 volumes:
   beszel_data:
     # VM-local SQLite storage; data-owner sets ownership without changing files.

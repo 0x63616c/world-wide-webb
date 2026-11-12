@@ -13,12 +13,19 @@ let
   };
   # Names verified on the live mini; no credential values were read/imported.
   wwwNames = [
-    "HA_TOKEN" "ALARM_API_TOKEN"
-    "HOME_LAT" "HOME_LON" "WIFI_GUEST_SSID" "WIFI_GUEST_PASSWORD"
+    "HA_TOKEN"
+    "ALARM_API_TOKEN"
+    "HOME_LAT"
+    "HOME_LON"
+    "WIFI_GUEST_SSID"
+    "WIFI_GUEST_PASSWORD"
   ];
-in {
+in
+{
   options.homelab.secretsAvailable = lib.mkOption {
-    type = lib.types.bool; readOnly = true; default = exists;
+    type = lib.types.bool;
+    readOnly = true;
+    default = exists;
   };
   config = lib.mkMerge [
     {
@@ -39,15 +46,25 @@ in {
       sops.defaultSopsFile = path;
       sops.secrets = lib.mkMerge [
         {
-          tailscale-auth-key = { mode = "0400"; };
+          tailscale-auth-key = {
+            mode = "0400";
+          };
         }
         (lib.mkIf config.homelab.containers.enable {
-          containers-env = { owner = "_containers"; group = "_containers"; mode = "0400"; };
+          containers-env = {
+            owner = "_containers";
+            group = "_containers";
+            mode = "0400";
+          };
         })
-        (lib.mkIf (selected "control-center") (builtins.listToAttrs (map (name: {
-          name = "www-${name}";
-          value = containerSecret "services/control-center/${name}";
-        }) wwwNames)))
+        (lib.mkIf (selected "control-center") (
+          builtins.listToAttrs (
+            map (name: {
+              name = "www-${name}";
+              value = containerSecret "services/control-center/${name}";
+            }) wwwNames
+          )
+        ))
         (lib.mkIf (selected "control-center") {
           "registry/config.json" = containerSecret "services/registry/docker-config";
         })

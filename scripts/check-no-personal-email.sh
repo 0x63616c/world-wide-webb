@@ -29,7 +29,7 @@ BLOCKED_DIGESTS=(
 # disposable address (e.g. test@example.com) , the real email is never needed,
 # and this only ever ADDS to the blocked set, so it can't weaken the guard.
 if [ -n "${PERSONAL_EMAIL_SHA256_EXTRA:-}" ]; then
-  IFS=', ' read -r -a _extra <<<"$PERSONAL_EMAIL_SHA256_EXTRA"
+  IFS=', ' read -r -a _extra <<< "$PERSONAL_EMAIL_SHA256_EXTRA"
   BLOCKED_DIGESTS+=("${_extra[@]}")
 fi
 
@@ -38,7 +38,7 @@ EMAIL_RE='[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}'
 
 # Portable SHA-256 (macOS shasum / Linux sha256sum).
 sha256_hex() {
-  if command -v shasum >/dev/null 2>&1; then
+  if command -v shasum > /dev/null 2>&1; then
     printf '%s' "$1" | shasum -a 256 | awk '{print $1}'
   else
     printf '%s' "$1" | sha256sum | awk '{print $1}'
@@ -81,7 +81,7 @@ for f in "$@"; do
       # Never echo the token itself , that would re-leak the email.
       violations+=("$f:$lineno: <redacted personal email>")
     fi
-  done < <(grep -InoE "$EMAIL_RE" "$f" 2>/dev/null || true)
+  done < <(grep -InoE "$EMAIL_RE" "$f" 2> /dev/null || true)
 done
 
 if [ ${#violations[@]} -gt 0 ]; then

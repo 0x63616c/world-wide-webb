@@ -14,7 +14,7 @@ generation=$((10#$generation))
 test -f "$root/runtime.env"
 test -f "$code/compose.yaml"
 mkdir -p "$root/releases"
-if ! mkdir "$root/deploy.lock" 2>/dev/null; then
+if ! mkdir "$root/deploy.lock" 2> /dev/null; then
   echo 'Another deployment holds the lock; retry after it finishes.' >&2
   exit 75
 fi
@@ -22,7 +22,7 @@ trap 'rmdir "$root/deploy.lock"' EXIT
 last=0
 if [[ -f "$root/generation" ]]; then last=$(cat "$root/generation"); fi
 [[ "$last" =~ ^[0-9]+$ ]] || exit 65
-if (( generation <= last )); then
+if ((generation <= last)); then
   echo 'Release already deployed or superseded.'
   exit 0
 fi
@@ -37,12 +37,18 @@ compose() {
 compose config --quiet
 compose pull www
 observed=$(docker run --rm --read-only --network none --entrypoint www-server "$image" version)
-[[ "$observed" == "$revision" ]] || { echo 'Image revision does not match the requested release.' >&2; exit 1; }
+[[ "$observed" == "$revision" ]] || {
+  echo 'Image revision does not match the requested release.' >&2
+  exit 1
+}
 # A deployment must never create a fresh production DB because of a wrong path.
 compose config --format json | python3 "$code/sqlite_preflight.py"
 legacy_pg_id=""
 if [[ -f "$root/compose.yaml" ]] && grep -q '^  postgres:' "$root/compose.yaml"; then
-  test -f "$root/.sqlite-import-verified.json" || { echo 'Finish and verify the frozen-writer SQLite import before the first Rust release.' >&2; exit 1; }
+  test -f "$root/.sqlite-import-verified.json" || {
+    echo 'Finish and verify the frozen-writer SQLite import before the first Rust release.' >&2
+    exit 1
+  }
   legacy_pg_id=$(docker compose --env-file "$root/runtime.env" --env-file "$release" -f "$root/compose.yaml" ps -q postgres)
 fi
 if [[ -f "$root/current.env" ]]; then cp "$root/current.env" "$root/previous.env"; fi
@@ -53,7 +59,7 @@ mkdir -p "$root/backups"
 if ! python3 "$code/sqlite_snapshot.py" --container www-control-center-www-1 \
   "$root/backups/before-release-$generation-$revision-$(date -u +%Y%m%dT%H%M%SZ)-$$.sqlite"; then
   # A failed backup must not leave the previously running app stopped.
-  docker --context orbstack start www-control-center-www-1 >/dev/null
+  docker --context orbstack start www-control-center-www-1 > /dev/null
   exit 1
 fi
 compose up -d --no-deps --wait --wait-timeout 180 www
@@ -72,7 +78,7 @@ if [[ "$code" != "$root" ]]; then
   done
   python3 "$backup_root/backup.py" --install-hourly
 fi
-if [[ -n "$legacy_pg_id" ]]; then docker stop "$legacy_pg_id" >/dev/null; fi
+if [[ -n "$legacy_pg_id" ]]; then docker stop "$legacy_pg_id" > /dev/null; fi
 cp "$release" "$root/current.env.tmp"
 mv "$root/current.env.tmp" "$root/current.env"
 printf '%s\n' "$generation" > "$root/generation.tmp"

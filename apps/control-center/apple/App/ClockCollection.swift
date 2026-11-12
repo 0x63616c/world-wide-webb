@@ -29,6 +29,7 @@ struct TideClockDial: View {
         GeometryReader { proxy in
             let size = proxy.size
             let band = min(size.height * 0.40, size.width * 0.47)
+            let faceHeight = size.width >= size.height ? size.height : min(size.height, size.width * 1.1)
             ZStack {
                 LinearGradient(
                     colors: [
@@ -55,13 +56,13 @@ struct TideClockDial: View {
                 .offset(y: size.height * 0.015)
                 VStack {
                     HStack {
-                        Text(fixtureTime(date, format: "EEE, MMM d").uppercased())
+                        ClockComplication(
+                            text: fixtureTime(date, format: "EEE, MMM d").uppercased(),
+                            faceHeight: faceHeight, ink: Color(red: 0.70, green: 0.91, blue: 1))
                         Spacer()
                     }
                     Spacer()
                 }
-                .font(.system(size: max(17, min(size.width, size.height) * 0.026), weight: .semibold))
-                .tracking(2).foregroundStyle(Color(red: 0.70, green: 0.91, blue: 1))
                 .padding(min(size.width, size.height) * 0.052)
                 if night { Color.black.opacity(0.32) }
             }.frame(width: size.width, height: size.height).clipped()

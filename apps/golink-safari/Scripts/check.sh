@@ -11,5 +11,8 @@ case "${1:-all}" in
     bash Scripts/build.sh macos CODE_SIGNING_ALLOWED=NO
     bash Scripts/build.sh simulator CODE_SIGNING_ALLOWED=NO
     ;;
-  *) echo 'Usage: Scripts/check.sh [javascript|all]' >&2; exit 64 ;;
+  *)
+    echo 'Usage: Scripts/check.sh [javascript|all]' >&2
+    exit 64
+    ;;
 esac

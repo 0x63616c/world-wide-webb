@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Select trusted main betas or promote a recorded beta from a product tag."""
+
 import json
 import os
 from pathlib import Path
@@ -40,10 +41,15 @@ def tag_target(ref, source):
 
 
 def trusted_ci(run, source, repo):
-    if not (run["path"] == ".github/workflows/ci.yml" and run["head_sha"] == source
-            and run["head_branch"] == "main" and run["event"] == "push"
-            and run["status"] == "completed" and run["conclusion"] == "success"
-            and run["head_repository"]["full_name"] == repo):
+    if not (
+        run["path"] == ".github/workflows/ci.yml"
+        and run["head_sha"] == source
+        and run["head_branch"] == "main"
+        and run["event"] == "push"
+        and run["status"] == "completed"
+        and run["conclusion"] == "success"
+        and run["head_repository"]["full_name"] == repo
+    ):
         raise ValueError("Successful exact-source main CI is required")
 
 
@@ -64,9 +70,12 @@ def beta_receipt(repo, app, source, version):
             continue
         run_id = artifact["workflow_run"]["id"]
         run = api(f"repos/{repo}/actions/runs/{run_id}")
-        if not (run["path"] == ".github/workflows/release.yml" and run["event"] == "workflow_run"
-                and run["status"] == "completed"
-                and run["head_repository"]["full_name"] == repo):
+        if not (
+            run["path"] == ".github/workflows/release.yml"
+            and run["event"] == "workflow_run"
+            and run["status"] == "completed"
+            and run["head_repository"]["full_name"] == repo
+        ):
             continue
         jobs = api(f"repos/{repo}/actions/runs/{run_id}/jobs?per_page=100")["jobs"]
         producer = [job for job in jobs if job["name"] == f"Delivery / {app.title()} / publish"]
@@ -100,9 +109,12 @@ def resolve(event_name, event, repo, ref, source):
         candidates = selected["delivery_candidates"]
         if not isinstance(candidates, list):
             raise ValueError("Invalid delivery selection")
-        result.update(channel="beta", tendr="tendr.native" in candidates,
-                      folding=bool({"folding.native", "folding.backend"}.intersection(candidates)),
-                      backend="folding.backend" in candidates)
+        result.update(
+            channel="beta",
+            tendr="tendr.native" in candidates,
+            folding=bool({"folding.native", "folding.backend"}.intersection(candidates)),
+            backend="folding.backend" in candidates,
+        )
     elif event_name == "push":
         app, version = tag_target(ref, source)
         _, run_id, ci = beta_receipt(repo, app, source, version)
@@ -110,8 +122,12 @@ def resolve(event_name, event, repo, ref, source):
         result[app] = True
     else:
         raise ValueError("Delivery requires successful main CI or a product release tag")
-    result.update(source=source, ci_run_id=ci["id"], ci_run_attempt=ci["run_attempt"],
-                  ci_run_url=f"https://github.com/{repo}/actions/runs/{ci['id']}/attempts/{ci['run_attempt']}")
+    result.update(
+        source=source,
+        ci_run_id=ci["id"],
+        ci_run_attempt=ci["run_attempt"],
+        ci_run_url=f"https://github.com/{repo}/actions/runs/{ci['id']}/attempts/{ci['run_attempt']}",
+    )
     return result
 
 
@@ -123,12 +139,19 @@ def main():
     if os.environ.get("DELIVERY_OPERATION") == "receipt":
         path = ROOT / "build/beta-receipt.json"
         value = json.loads(path.read_text())
-        value.update(ci_run_id=int(os.environ["SOURCE_CI_RUN_ID"]), ci_run_attempt=int(os.environ["SOURCE_CI_RUN_ATTEMPT"]))
+        value.update(
+            ci_run_id=int(os.environ["SOURCE_CI_RUN_ID"]), ci_run_attempt=int(os.environ["SOURCE_CI_RUN_ATTEMPT"])
+        )
         validate_receipt(value, os.environ["APP"], os.environ["SOURCE_SHA"], value["version"])
         path.write_text(json.dumps(value) + "\n")
         return
-    result = resolve(os.environ["GITHUB_EVENT_NAME"], json.loads(Path(os.environ["GITHUB_EVENT_PATH"]).read_text()),
-                     os.environ["GITHUB_REPOSITORY"], os.environ["GITHUB_REF"], os.environ["GITHUB_SHA"])
+    result = resolve(
+        os.environ["GITHUB_EVENT_NAME"],
+        json.loads(Path(os.environ["GITHUB_EVENT_PATH"]).read_text()),
+        os.environ["GITHUB_REPOSITORY"],
+        os.environ["GITHUB_REF"],
+        os.environ["GITHUB_SHA"],
+    )
     with open(os.environ["GITHUB_OUTPUT"], "a") as output:
         for key, value in result.items():
             output.write(f"{key}={str(value).lower() if isinstance(value, bool) else value}\n")

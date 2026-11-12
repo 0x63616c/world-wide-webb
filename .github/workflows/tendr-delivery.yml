@@ -1,5 +1,5 @@
 name: Tendr delivery
-'on':
+"on":
   workflow_call:
     inputs:
       source:
@@ -19,7 +19,7 @@ name: Tendr delivery
         required: true
       receipt_run_id:
         type: string
-        default: ''
+        default: ""
 permissions:
   contents: read
   actions: read
@@ -34,165 +34,165 @@ jobs:
       DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
       LANG: en_US.UTF-8
       LC_ALL: en_US.UTF-8
-      FASTLANE_SKIP_UPDATE_CHECK: '1'
-      FASTLANE_HIDE_CHANGELOG: '1'
-      FASTLANE_SKIP_DOCS: '1'
+      FASTLANE_SKIP_UPDATE_CHECK: "1"
+      FASTLANE_HIDE_CHANGELOG: "1"
+      FASTLANE_SKIP_DOCS: "1"
       APP: tendr
-      DUO_HOST_CONTROL: '1'
+      DUO_HOST_CONTROL: "1"
       RELEASE_MANIFEST: ${{ github.workspace }}/build/beta-receipt.json
       SOURCE_SHA: ${{ inputs.source }}
       CHANNEL: ${{ inputs.channel }}
       SOURCE_CI_RUN_ID: ${{ inputs.ci_run_id }}
       SOURCE_CI_RUN_ATTEMPT: ${{ inputs.ci_run_attempt }}
     steps:
-    - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
-      with:
-        ref: ${{ inputs.source }}
-        fetch-depth: 0
-        persist-credentials: false
-    - uses: actions/download-artifact@v4
-      if: inputs.channel == 'store'
-      with:
-        name: ios-beta-tendr-${{ inputs.source }}
-        path: build
-        run-id: ${{ inputs.receipt_run_id }}
-        github-token: ${{ github.token }}
-    - name: Check release secrets
-      env:
-        ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
-        ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
-        ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
-        ASC_BETA_FEEDBACK_EMAIL: ${{ secrets.ASC_BETA_FEEDBACK_EMAIL }}
-      run: |
-        export GITHUB_SHA="$SOURCE_SHA"
-        missing=0
-        for name in ASC_KEY_ID ASC_ISSUER_ID ASC_KEY_CONTENT ASC_BETA_FEEDBACK_EMAIL; do
-          if [[ -z "${!name}" ]]; then
-            echo "::error::Missing repository secret $name; see docs/RELEASE.md"
-            missing=1
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          ref: ${{ inputs.source }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        if: inputs.channel == 'store'
+        with:
+          name: ios-beta-tendr-${{ inputs.source }}
+          path: build
+          run-id: ${{ inputs.receipt_run_id }}
+          github-token: ${{ github.token }}
+      - name: Check release secrets
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
+          ASC_BETA_FEEDBACK_EMAIL: ${{ secrets.ASC_BETA_FEEDBACK_EMAIL }}
+        run: |
+          export GITHUB_SHA="$SOURCE_SHA"
+          missing=0
+          for name in ASC_KEY_ID ASC_ISSUER_ID ASC_KEY_CONTENT ASC_BETA_FEEDBACK_EMAIL; do
+            if [[ -z "${!name}" ]]; then
+              echo "::error::Missing repository secret $name; see docs/RELEASE.md"
+              missing=1
+            fi
+          done
+          exit "$missing"
+        if: inputs.channel == 'beta'
+      - name: Select release toolchain
+        run: |
+          export GITHUB_SHA="$SOURCE_SHA"
+          # An app.yml developer_dir overrides the runner default for this job only.
+          if dir=$(ruby scripts/app-config.rb "$APP" developer_dir 2>/dev/null); then
+            echo "DEVELOPER_DIR=$dir" >> "$GITHUB_ENV"
+            export DEVELOPER_DIR="$dir"
           fi
-        done
-        exit "$missing"
-      if: inputs.channel == 'beta'
-    - name: Select release toolchain
-      run: |
-        export GITHUB_SHA="$SOURCE_SHA"
-        # An app.yml developer_dir overrides the runner default for this job only.
-        if dir=$(ruby scripts/app-config.rb "$APP" developer_dir 2>/dev/null); then
-          echo "DEVELOPER_DIR=$dir" >> "$GITHUB_ENV"
-          export DEVELOPER_DIR="$dir"
-        fi
-        xcodebuild -version
-    - uses: ./.github/actions/ruby-tools
-      with:
-        ruby-version: '3.4'
-        bundler-cache: true
-    - uses: actions/setup-python@v5
-      with:
-        python-version: '3.12'
-    - name: Install source validation dependencies
-      run: |-
-        export GITHUB_SHA="$SOURCE_SHA"
-        python3 -m pip install -r scripts/requirements.txt
-    - name: Recheck the chosen release source
-      env:
-        DELIVERY_OPERATION: recheck
-      run: python3 scripts/ios_delivery.py
-    - name: Prepare the exact tagged App Store version
-      if: inputs.channel == 'store'
-      env:
-        ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
-        ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
-        ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
-      run: |-
-        export GITHUB_SHA="$SOURCE_SHA"
-        bundle exec fastlane ios plan_release app:"$APP"
-    - name: Authorize private signing storage
-      if: inputs.channel == 'beta'
-      uses: ./.github/actions/match-access
-      with:
-        age-key: ${{ secrets.AGE_PRIVATE_KEY }}
-    - name: Generate app project
-      run: |
-        export GITHUB_SHA="$SOURCE_SHA"
-        if [[ -f "apps/$APP/project.yml" ]]; then
-          brew list xcodegen >/dev/null 2>&1 || brew install xcodegen
-          (cd "apps/$APP" && xcodegen generate --quiet)
-        fi
-    - name: Test, upload, and distribute to the app's TestFlight group
-      if: inputs.channel == 'beta'
-      env:
-        ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
-        ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
-        ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
-        ASC_BETA_FEEDBACK_EMAIL: ${{ secrets.ASC_BETA_FEEDBACK_EMAIL }}
-        MATCH_PASSWORD: ${{ secrets.TENDR_MATCH_PASSWORD }}
-      run: |
-        export GITHUB_SHA="$SOURCE_SHA"
-        mkdir -p build
-        scripts/ci/with-match-signing.sh tendr bundle exec fastlane ios beta app:tendr skip_tests:true "changelog:Build from main ($SOURCE_SHA)"
-    - name: Check latest app source before capture
-      if: inputs.channel == 'store' && env.RELEASE_SKIP != 'true'
-      run: |-
-        export GITHUB_SHA="$SOURCE_SHA"
-        bundle exec fastlane ios check_release_source app:"$APP"
-    - name: Capture and verify all App Store screenshots
-      if: inputs.channel == 'store' && env.RELEASE_SKIP != 'true'
-      run: |
-        export GITHUB_SHA="$SOURCE_SHA"
-        python3 -m pip install -r scripts/requirements-screenshots.txt
-        selected=$(python3 scripts/select-duo-xcode.py "$DEVELOPER_DIR")
-        export DEVELOPER_DIR="$selected"
-        scripts/ci/apple-desktop.sh scripts/capture-screenshots.sh "$APP"
-        scripts/frame-screenshots.sh "$APP"
-        scripts/ci/apple-desktop.sh scripts/capture-duo-screenshots.sh "$APP"
-        python3 scripts/stage-duo-screenshots.py "apps/$APP/screenshots.json" \
-          "build/duo-screenshots/$APP/raw" "apps/$APP/fastlane/screenshots/en-US"
-    - name: Upload listing, verify Apple received images, and submit app with purchases
-      if: inputs.channel == 'store' && env.RELEASE_SKIP != 'true'
-      env:
-        ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
-        ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
-        ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
-        ASC_BETA_FEEDBACK_EMAIL: ${{ secrets.ASC_BETA_FEEDBACK_EMAIL }}
-        ASC_REVIEW_PHONE: ${{ secrets.ASC_REVIEW_PHONE }}
-        ASC_REVIEW_EMAIL: ${{ secrets.ASC_REVIEW_EMAIL }}
-      run: |-
-        export GITHUB_SHA="$SOURCE_SHA"
-        bundle exec fastlane ios finish_release app:"$APP"
-    - name: Bind the processed beta receipt to source CI
-      if: inputs.channel == 'beta'
-      env:
-        DELIVERY_OPERATION: receipt
-      run: python3 scripts/ios_delivery.py
-    - uses: actions/upload-artifact@v4
-      if: inputs.channel == 'beta'
-      with:
-        name: ios-beta-tendr-${{ inputs.source }}
-        path: build/beta-receipt.json
-        retention-days: 90
-        if-no-files-found: error
-        overwrite: true
-    - name: Read Apple submission status
-      if: success() && inputs.channel == 'store'
-      env:
-        ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
-        ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
-        ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
-      run: |
-        set -o pipefail
-        bundle exec ruby scripts/review-status.rb tendr | tee build/review-status.txt
-    - name: Retain submission result
-      if: always() && inputs.channel == 'store'
-      uses: actions/upload-artifact@v4
-      with:
-        name: ios-store-tendr-${{ github.run_id }}
-        path: |
-          build/release-state.json
-          build/review-status.txt
-          apps/tendr/fastlane/screenshots/en-US/*.png
-          build/duo-screenshots/tendr/raw/diagnostics
-          build/screenshots/tendr/*.xcresult
-          build/screenshots/tendr/raw
-        if-no-files-found: ignore
+          xcodebuild -version
+      - uses: ./.github/actions/ruby-tools
+        with:
+          ruby-version: "3.4"
+          bundler-cache: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install source validation dependencies
+        run: |-
+          export GITHUB_SHA="$SOURCE_SHA"
+          python3 -m pip install -r scripts/requirements.txt
+      - name: Recheck the chosen release source
+        env:
+          DELIVERY_OPERATION: recheck
+        run: python3 scripts/ios_delivery.py
+      - name: Prepare the exact tagged App Store version
+        if: inputs.channel == 'store'
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
+        run: |-
+          export GITHUB_SHA="$SOURCE_SHA"
+          bundle exec fastlane ios plan_release app:"$APP"
+      - name: Authorize private signing storage
+        if: inputs.channel == 'beta'
+        uses: ./.github/actions/match-access
+        with:
+          age-key: ${{ secrets.AGE_PRIVATE_KEY }}
+      - name: Generate app project
+        run: |
+          export GITHUB_SHA="$SOURCE_SHA"
+          if [[ -f "apps/$APP/project.yml" ]]; then
+            brew list xcodegen >/dev/null 2>&1 || brew install xcodegen
+            (cd "apps/$APP" && xcodegen generate --quiet)
+          fi
+      - name: Test, upload, and distribute to the app's TestFlight group
+        if: inputs.channel == 'beta'
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
+          ASC_BETA_FEEDBACK_EMAIL: ${{ secrets.ASC_BETA_FEEDBACK_EMAIL }}
+          MATCH_PASSWORD: ${{ secrets.TENDR_MATCH_PASSWORD }}
+        run: |
+          export GITHUB_SHA="$SOURCE_SHA"
+          mkdir -p build
+          scripts/ci/with-match-signing.sh tendr bundle exec fastlane ios beta app:tendr skip_tests:true "changelog:Build from main ($SOURCE_SHA)"
+      - name: Check latest app source before capture
+        if: inputs.channel == 'store' && env.RELEASE_SKIP != 'true'
+        run: |-
+          export GITHUB_SHA="$SOURCE_SHA"
+          bundle exec fastlane ios check_release_source app:"$APP"
+      - name: Capture and verify all App Store screenshots
+        if: inputs.channel == 'store' && env.RELEASE_SKIP != 'true'
+        run: |
+          export GITHUB_SHA="$SOURCE_SHA"
+          python3 -m pip install -r scripts/requirements-screenshots.txt
+          selected=$(python3 scripts/select-duo-xcode.py "$DEVELOPER_DIR")
+          export DEVELOPER_DIR="$selected"
+          scripts/ci/apple-desktop.sh scripts/capture-screenshots.sh "$APP"
+          scripts/frame-screenshots.sh "$APP"
+          scripts/ci/apple-desktop.sh scripts/capture-duo-screenshots.sh "$APP"
+          python3 scripts/stage-duo-screenshots.py "apps/$APP/screenshots.json" \
+            "build/duo-screenshots/$APP/raw" "apps/$APP/fastlane/screenshots/en-US"
+      - name: Upload listing, verify Apple received images, and submit app with purchases
+        if: inputs.channel == 'store' && env.RELEASE_SKIP != 'true'
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
+          ASC_BETA_FEEDBACK_EMAIL: ${{ secrets.ASC_BETA_FEEDBACK_EMAIL }}
+          ASC_REVIEW_PHONE: ${{ secrets.ASC_REVIEW_PHONE }}
+          ASC_REVIEW_EMAIL: ${{ secrets.ASC_REVIEW_EMAIL }}
+        run: |-
+          export GITHUB_SHA="$SOURCE_SHA"
+          bundle exec fastlane ios finish_release app:"$APP"
+      - name: Bind the processed beta receipt to source CI
+        if: inputs.channel == 'beta'
+        env:
+          DELIVERY_OPERATION: receipt
+        run: python3 scripts/ios_delivery.py
+      - uses: actions/upload-artifact@v4
+        if: inputs.channel == 'beta'
+        with:
+          name: ios-beta-tendr-${{ inputs.source }}
+          path: build/beta-receipt.json
+          retention-days: 90
+          if-no-files-found: error
+          overwrite: true
+      - name: Read Apple submission status
+        if: success() && inputs.channel == 'store'
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
+        run: |
+          set -o pipefail
+          bundle exec ruby scripts/review-status.rb tendr | tee build/review-status.txt
+      - name: Retain submission result
+        if: always() && inputs.channel == 'store'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-store-tendr-${{ github.run_id }}
+          path: |
+            build/release-state.json
+            build/review-status.txt
+            apps/tendr/fastlane/screenshots/en-US/*.png
+            build/duo-screenshots/tendr/raw/diagnostics
+            build/screenshots/tendr/*.xcresult
+            build/screenshots/tendr/raw
+          if-no-files-found: ignore
     name: publish

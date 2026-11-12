@@ -12,7 +12,7 @@ revision="${2:?expected target commit SHA required}"
   echo 'Verify database compatibility before passing --database-compatible.' >&2
   exit 64
 }
-mkdir "$root/deploy.lock" 2>/dev/null || exit 75
+mkdir "$root/deploy.lock" 2> /dev/null || exit 75
 trap 'rmdir "$root/deploy.lock"' EXIT
 test -f "$root/current.env"
 line=$(cat "$root/$target.env")
@@ -29,7 +29,10 @@ compose() {
 compose config --quiet
 compose pull www
 observed=$(docker run --rm --read-only --network none --entrypoint www-server "${line#WWW_IMAGE=}" version)
-[[ "$observed" == "$revision" ]] || { echo 'Image revision does not match the requested release.' >&2; exit 1; }
+[[ "$observed" == "$revision" ]] || {
+  echo 'Image revision does not match the requested release.' >&2
+  exit 1
+}
 # The rollback target may predate database-check. Keep validation on the
 # currently accepted image, whose capability is checked before mounting data.
 validator=$(docker --context orbstack inspect --format '{{.Config.Image}}' www-control-center-www-1)
@@ -41,7 +44,7 @@ compose stop www
 if ! python3 "$code/sqlite_snapshot.py" --container www-control-center-www-1 \
   "$root/backups/before-recovery-$stamp.sqlite"; then
   # A failed backup must not leave the previously running app stopped.
-  docker --context orbstack start www-control-center-www-1 >/dev/null
+  docker --context orbstack start www-control-center-www-1 > /dev/null
   exit 1
 fi
 compose up -d --no-deps --wait --wait-timeout 180 www

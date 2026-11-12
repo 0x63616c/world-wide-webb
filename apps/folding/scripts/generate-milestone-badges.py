@@ -4,6 +4,7 @@
 Current generated color assets and their prompts live in design/badges.
 This script preserves the original vector experiment without overwriting them.
 """
+
 import json
 from pathlib import Path
 
@@ -22,8 +23,8 @@ GLYPHS = {
 def numerals(label):
     step = 24
     width = (len(label) - 1) * step + 18
-    return ''.join(
-        f'<path transform="translate({64-width/2+index*step:g} 83)" d="{GLYPHS[glyph]}"/>'
+    return "".join(
+        f'<path transform="translate({64 - width / 2 + index * step:g} 83)" d="{GLYPHS[glyph]}"/>'
         for index, glyph in enumerate(label)
     )
 
@@ -37,8 +38,14 @@ def render(label, days):
 
 
 def main():
-    for badge, label in [("folds_1", "1"), ("folds_100", "100"), ("folds_1000", "1K"),
-                         ("folds_10000", "10K"), ("days_7", "7"), ("days_30", "30")]:
+    for badge, label in [
+        ("folds_1", "1"),
+        ("folds_100", "100"),
+        ("folds_1000", "1K"),
+        ("folds_10000", "10K"),
+        ("days_7", "7"),
+        ("days_30", "30"),
+    ]:
         folder = DESTINATION / f"badge_{badge}.imageset"
         folder.mkdir(parents=True, exist_ok=True)
         (folder / "badge.svg").write_text(render(label, badge.startswith("days")))

@@ -15,11 +15,20 @@ def repository_root
 end
 
 def apple_destination
-  sh("python3", File.join(repository_root, "scripts/apple-build-environment.py"), log: false).strip
+  sh(
+    "python3",
+    File.join(repository_root, "scripts/apple-build-environment.py"),
+    log: false
+  ).strip
 end
 
 def generate_project
-  sh("xcodegen", "generate", "--spec", File.join(repository_root, "apps/ios/project.yml"))
+  sh(
+    "xcodegen",
+    "generate",
+    "--spec",
+    File.join(repository_root, "apps/ios/project.yml")
+  )
 end
 
 def run_app_verification
@@ -45,9 +54,13 @@ platform :ios do
   desc "Enable required capabilities on Folding identifiers; preserve existing services"
   lane :configure_capabilities do
     begin
-      UI.message(JSON.pretty_generate(FoldingAppleAccount.configure_capabilities))
+      UI.message(
+        JSON.pretty_generate(FoldingAppleAccount.configure_capabilities)
+      )
     rescue StandardError => error
-      UI.user_error!("Apple capability setup failed (#{error.class}); inspect inventory before retrying")
+      UI.user_error!(
+        "Apple capability setup failed (#{error.class}); inspect inventory before retrying"
+      )
     end
   end
 
@@ -57,7 +70,9 @@ platform :ios do
       result = FoldingAppleAccount.inventory
       UI.message(JSON.pretty_generate(result))
     rescue StandardError => error
-      UI.user_error!("Apple inventory failed (#{error.class}); credentials and raw responses are suppressed")
+      UI.user_error!(
+        "Apple inventory failed (#{error.class}); credentials and raw responses are suppressed"
+      )
     end
   end
 
@@ -67,7 +82,9 @@ platform :ios do
       result = FoldingAppleAccount.register_bundles
       UI.message(JSON.pretty_generate(result))
     rescue StandardError => error
-      UI.user_error!("Apple registration failed (#{error.class}); inspect inventory before retrying")
+      UI.user_error!(
+        "Apple registration failed (#{error.class}); inspect inventory before retrying"
+      )
     end
   end
 
@@ -86,70 +103,124 @@ platform :ios do
   lane :screenshots do |options|
     apple_destination
     generate_project
-    record = FoldingRelease::LocalCaptureRecord.new(environment: options[:environment] || "production")
-    FoldingRelease::Assets.metadata(record) unless File.exist?(File.join(record.directory, "assets/metadata-manifest.json"))
+    record =
+      FoldingRelease::LocalCaptureRecord.new(
+        environment: options[:environment] || "production"
+      )
+    unless File.exist?(
+             File.join(record.directory, "assets/metadata-manifest.json")
+           )
+      FoldingRelease::Assets.metadata(record)
+    end
     FoldingRelease::Assets.capture(self, record)
   end
 
   desc "Run one named local release check and capture its immutable output hashes"
   lane :local_check do |options|
-    UI.message(JSON.pretty_generate(FoldingRelease::CheckEvidence.capture(
-      name: options.fetch(:name), directory: options[:directory] || File.join(repository_root, "build/check-evidence"))))
+    UI.message(
+      JSON.pretty_generate(
+        FoldingRelease::CheckEvidence.capture(
+          name: options.fetch(:name),
+          directory:
+            options[:directory] ||
+              File.join(repository_root, "build/check-evidence")
+        )
+      )
+    )
   end
 
   desc "Reserve a globally monotonic build and immutable draft release record"
   lane :reserve do |options|
-    FoldingRelease.reserve(tag: options[:tag], environment: options[:environment] || "production", version: options.fetch(:version))
+    FoldingRelease.reserve(
+      tag: options[:tag],
+      environment: options[:environment] || "production",
+      version: options.fetch(:version)
+    )
   end
 
   desc "Check current evidence/backend/pages; final:true also checks processed release assets"
   lane :release_preflight do |options|
-    FoldingRelease::Operations.preflight(FoldingRelease::Record.new(options.fetch(:tag)), options.fetch(:evidence), final: options[:final] == true || options[:final] == "true")
+    FoldingRelease::Operations.preflight(
+      FoldingRelease::Record.new(options.fetch(:tag)),
+      options.fetch(:evidence),
+      final: options[:final] == true || options[:final] == "true"
+    )
   end
 
   desc "Capture and seal metadata/screenshots into immutable release artifacts"
   lane :release_assets do |options|
     apple_destination
     generate_project
-    FoldingRelease::Operations.assets(self, FoldingRelease::Record.new(options.fetch(:tag)))
+    FoldingRelease::Operations.assets(
+      self,
+      FoldingRelease::Record.new(options.fetch(:tag))
+    )
   end
 
   desc "Create one signed archive using readonly match; reuse its immutable artifacts on retry"
   lane :archive do |options|
     apple_destination
     generate_project
-    FoldingRelease::Operations.archive(self, FoldingRelease::Record.new(options.fetch(:tag)))
+    FoldingRelease::Operations.archive(
+      self,
+      FoldingRelease::Record.new(options.fetch(:tag))
+    )
   end
 
   desc "Archive an internal TestFlight build with distribution signing, before storefront assets"
   lane :archive_beta_preview do |options|
     apple_destination
     generate_project
-    FoldingRelease::Operations.archive(self, FoldingRelease::Record.new(options.fetch(:tag)), preview: true)
+    FoldingRelease::Operations.archive(
+      self,
+      FoldingRelease::Record.new(options.fetch(:tag)),
+      preview: true
+    )
   end
 
   desc "Replace an interrupted archive with an audited fresh build reservation"
   lane :recover_archive do |options|
     FoldingRelease::Operations.replace_interrupted_archive(
-      FoldingRelease::Record.new(options.fetch(:tag)), reason: options.fetch(:reason))
+      FoldingRelease::Record.new(options.fetch(:tag)),
+      reason: options.fetch(:reason)
+    )
   end
 
   desc "Upload the exact IPA and distribute its processed build to explicit TestFlight groups"
   lane :beta do |options|
-    FoldingRelease::Operations.beta(self, FoldingRelease::Record.new(options.fetch(:tag)))
+    FoldingRelease::Operations.beta(
+      self,
+      FoldingRelease::Record.new(options.fetch(:tag))
+    )
   end
 
   desc "Ship a source-verified internal beta automatically, preserving its immutable archive on retry"
   lane :continuous_beta do |options|
     apple_destination
     generate_project
-    record = FoldingRelease::Operations.continuous_beta(self, version: options.fetch(:version), evidence_path: options.fetch(:evidence))
+    record =
+      FoldingRelease::Operations.continuous_beta(
+        self,
+        version: options.fetch(:version),
+        evidence_path: options.fetch(:evidence)
+      )
     FoldingRelease::BackendDelivery.record_native_delivery(record)
-    receipt = {"app" => "folding", "sha" => record.data.fetch("commit_sha"),
-      "version" => record.data.fetch("marketing_version"), "build" => record.data.fetch("build_number").to_s,
-      "release_tag" => record.data.fetch("tag")}
-    FoldingRelease.atomic_json(File.expand_path("../../build/beta-receipt.json", FoldingRelease::ROOT), receipt)
-    File.open(ENV.fetch("GITHUB_OUTPUT"), "a") { |file| file.puts("tag=#{record.data.fetch('tag')}") } if ENV["GITHUB_OUTPUT"]
+    receipt = {
+      "app" => "folding",
+      "sha" => record.data.fetch("commit_sha"),
+      "version" => record.data.fetch("marketing_version"),
+      "build" => record.data.fetch("build_number").to_s,
+      "release_tag" => record.data.fetch("tag")
+    }
+    FoldingRelease.atomic_json(
+      File.expand_path("../../build/beta-receipt.json", FoldingRelease::ROOT),
+      receipt
+    )
+    if ENV["GITHUB_OUTPUT"]
+      File.open(ENV.fetch("GITHUB_OUTPUT"), "a") do |file|
+        file.puts("tag=#{record.data.fetch("tag")}")
+      end
+    end
   end
 
   desc "Promote a recorded internal beta without reserving, archiving or uploading another binary"
@@ -160,26 +231,38 @@ platform :ios do
     record = FoldingRelease::AutomaticRelease.promote(self, receipt)
     source = record.data.fetch("commit_sha")
     File.open(ENV.fetch("GITHUB_STEP_SUMMARY"), "a") do |file|
-      file.puts("Submitted Folding #{receipt.fetch('version')} (#{receipt.fetch('build')}) from #{source}. Apple review state: #{record.data.fetch('submission_state')}.")
+      file.puts(
+        "Submitted Folding #{receipt.fetch("version")} (#{receipt.fetch("build")}) from #{source}. Apple review state: #{record.data.fetch("submission_state")}."
+      )
     end
   end
 
   desc "Populate an existing App Store draft from current captures without uploading a build or submitting"
   lane :storefront_draft do |options|
-    FoldingRelease::StorefrontDraft.upload(self, version: options.fetch(:version))
+    FoldingRelease::StorefrontDraft.upload(
+      self,
+      version: options.fetch(:version)
+    )
   end
 
   desc "Upload reviewed metadata and screenshots to the exact build without submitting for review"
   lane :storefront do |options|
     record = FoldingRelease::Record.new(options.fetch(:tag))
-    FoldingRelease::Operations.storefront(self, record, options.fetch(:evidence))
+    FoldingRelease::Operations.storefront(
+      self,
+      record,
+      options.fetch(:evidence)
+    )
   end
 
   desc "Submit the exact reviewed production build and verify Apple review state"
   lane :submit do |options|
-    FoldingRelease::Operations.submit(self, FoldingRelease::Record.new(options.fetch(:tag)), options.fetch(:evidence))
+    FoldingRelease::Operations.submit(
+      self,
+      FoldingRelease::Record.new(options.fetch(:tag)),
+      options.fetch(:evidence)
+    )
   end
-
 
   desc "Build an explicit Debug CloudKit schema bootstrap app; does not initialize/upload schema"
   lane :schema_bootstrap_build do |options|
@@ -193,38 +276,54 @@ platform :ios do
       "DEVELOPMENT_TEAM" => FoldingRelease::CONFIG.fetch("apple_team_id"),
       "FOLDING_APP_BUNDLE_ID" => identity.fetch("bundle_id"),
       "FOLDING_APP_GROUP_IDENTIFIER" => identity.fetch("app_group"),
-      "FOLDING_CLOUD_CONTAINER_IDENTIFIER" => identity.fetch("cloudkit_container"),
-      "FOLDING_API_ORIGIN" => config.fetch("api_origin"), "FOLDING_ENVIRONMENT" => environment,
+      "FOLDING_CLOUD_CONTAINER_IDENTIFIER" =>
+        identity.fetch("cloudkit_container"),
+      "FOLDING_API_ORIGIN" => config.fetch("api_origin"),
+      "FOLDING_ENVIRONMENT" => environment,
       "FOLDING_SOURCE_COMMIT" => source,
-      "FOLDING_ICLOUD_ENVIRONMENT" => "Development", "FOLDING_ATTEST_ENVIRONMENT" => "development",
+      "FOLDING_ICLOUD_ENVIRONMENT" => "Development",
+      "FOLDING_ATTEST_ENVIRONMENT" => "development",
       "FOLDING_APNS_ENVIRONMENT" => "development",
-      "FOLDING_SIMULATOR_ENTITLEMENTS" => "Config/SchemaBootstrapSimulator.entitlements"
+      "FOLDING_SIMULATOR_ENTITLEMENTS" =>
+        "Config/SchemaBootstrapSimulator.entitlements"
     }
-    sh("xcodebuild", "-project", File.join(repository_root, "apps/ios/Folding.xcodeproj"),
-      "-scheme", "Folding", "-configuration", "Debug", "-sdk", "iphonesimulator",
-      "-destination", destination, "-derivedDataPath", File.join(repository_root, "build/cloudkit-bootstrap", environment),
-      "build", *settings.map { |key, value| "#{key}=#{value}" })
+    sh(
+      "xcodebuild",
+      "-project",
+      File.join(repository_root, "apps/ios/Folding.xcodeproj"),
+      "-scheme",
+      "Folding",
+      "-configuration",
+      "Debug",
+      "-sdk",
+      "iphonesimulator",
+      "-destination",
+      destination,
+      "-derivedDataPath",
+      File.join(repository_root, "build/cloudkit-bootstrap", environment),
+      "build",
+      *settings.map { |key, value| "#{key}=#{value}" }
+    )
   end
-
 
   desc "Bootstrap scoped Folding distribution signing assets in the dedicated private match repository"
   lane :setup_signing do
     FoldingAppleAccount.bootstrap_signing(context: self)
   end
 
-
   desc "Create/update the three production consumable tips without submitting them for review"
   lane :setup_tips do |options|
-    result = FoldingTipProducts.setup(screenshot_manifest: options[:screenshots])
+    result =
+      FoldingTipProducts.setup(screenshot_manifest: options[:screenshots])
     UI.message(JSON.pretty_generate(result))
   end
 
-
   desc "Reconcile production App Store territories with the committed availability policy"
   lane :configure_app_availability do
-    UI.message(JSON.pretty_generate(FoldingTipProducts.configure_app_availability))
+    UI.message(
+      JSON.pretty_generate(FoldingTipProducts.configure_app_availability)
+    )
   end
-
 
   desc "Capture only the native Tip jar review image and product map without Apple credentials"
   lane :tip_review_screenshots do
@@ -239,7 +338,9 @@ platform :ios do
     if options[:tag]
       record = FoldingRelease::Record.new(options[:tag])
       record.verify_identity!
-      UI.user_error!("Production review assets required") unless record.data.fetch("environment") == "production"
+      unless record.data.fetch("environment") == "production"
+        UI.user_error!("Production review assets required")
+      end
       FoldingRelease::Operations.restore_assets(record)
     else
       record = FoldingRelease::LocalCaptureRecord.new(environment: "production")
@@ -247,12 +348,28 @@ platform :ios do
     map = FoldingRelease::Assets.validate_tip_review!(record)
     result = FoldingTipProducts.setup(screenshot_manifest: map)
     FoldingRelease::Assets.validate_tip_review!(record)
-    capture = FoldingRelease.read_json(File.join(record.directory, "assets/tip-review-manifest.json"))
-    UI.user_error!("Apple tip review asset identity differs from capture") unless result.fetch("products").all? { |product| product.fetch("review_screenshot")["sha256"] == capture.fetch("raw_sha256") }
+    capture =
+      FoldingRelease.read_json(
+        File.join(record.directory, "assets/tip-review-manifest.json")
+      )
+    unless result
+             .fetch("products")
+             .all? { |product|
+               product.fetch("review_screenshot")["sha256"] ==
+                 capture.fetch("raw_sha256")
+             }
+      UI.user_error!("Apple tip review asset identity differs from capture")
+    end
     if options[:tag]
-      record.save("tip_review_assets" => result.fetch("products").map { |product| product.slice("product_id", "id", "state", "review_screenshot") })
+      record.save(
+        "tip_review_assets" =>
+          result
+            .fetch("products")
+            .map do |product|
+              product.slice("product_id", "id", "state", "review_screenshot")
+            end
+      )
     end
     UI.message(JSON.pretty_generate(result))
   end
-
 end

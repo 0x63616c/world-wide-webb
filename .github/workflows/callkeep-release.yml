@@ -1,13 +1,13 @@
 name: Callkeep delivery
-'on':
+"on":
   workflow_dispatch: {}
   workflow_run:
     workflows:
-    - CI
+      - CI
     types:
-    - completed
+      - completed
     branches:
-    - main
+      - main
 permissions:
   contents: read
   actions: read
@@ -22,28 +22,28 @@ jobs:
     outputs:
       publish: ${{ steps.select.outputs.publish }}
     steps:
-    - uses: actions/download-artifact@v4
-      if: github.event_name == 'workflow_run'
-      with:
-        name: repository-selection
-        run-id: ${{ github.event.workflow_run.id }}
-        github-token: ${{ github.token }}
-    - id: select
-      env:
-        SOURCE: ${{ github.event.workflow_run.head_sha }}
-      run: |
-        if [[ "$GITHUB_EVENT_NAME" == workflow_dispatch ]]; then
-          echo "publish=true" >> "$GITHUB_OUTPUT"
-          exit 0
-        fi
-        python3 - <<'PYTHON'
-        import json, os
-        value = json.load(open('ci-selection.json'))
-        assert isinstance(value['delivery_candidates'], list), 'Invalid delivery selection'
-        assert value['head'] == os.environ['SOURCE'] and value['event'] == 'push', 'Selection source differs'
-        with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
-            output.write('publish=' + str('callkeep.native' in value['delivery_candidates']).lower() + '\n')
-        PYTHON
+      - uses: actions/download-artifact@v4
+        if: github.event_name == 'workflow_run'
+        with:
+          name: repository-selection
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+      - id: select
+        env:
+          SOURCE: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          if [[ "$GITHUB_EVENT_NAME" == workflow_dispatch ]]; then
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          python3 - <<'PYTHON'
+          import json, os
+          value = json.load(open('ci-selection.json'))
+          assert isinstance(value['delivery_candidates'], list), 'Invalid delivery selection'
+          assert value['head'] == os.environ['SOURCE'] and value['event'] == 'push', 'Selection source differs'
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              output.write('publish=' + str('callkeep.native' in value['delivery_candidates']).lower() + '\n')
+          PYTHON
   publish:
     name: Build and sign Callkeep
     needs: selection
@@ -62,112 +62,113 @@ jobs:
         working-directory: apps/callkeep
     env:
       DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
-      CALLKEEP_SOURCE_CI_RUN_URL: ${{ github.event.workflow_run.html_url }}/attempts/${{ github.event.workflow_run.run_attempt
+      CALLKEEP_SOURCE_CI_RUN_URL:
+        ${{ github.event.workflow_run.html_url }}/attempts/${{ github.event.workflow_run.run_attempt
         }}
       SOURCE: ${{ github.event.workflow_run.head_sha || github.sha }}
     steps:
-    - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
-      with:
-        ref: ${{ github.event.workflow_run.head_sha || github.sha }}
-        fetch-depth: 0
-        filter: blob:none
-        persist-credentials: false
-    - name: Set the release-state path
-      run: echo "CALLKEEP_RELEASE_STATE=$RUNNER_TEMP/callkeep-release.json" >> "$GITHUB_ENV"
-    - id: reserve
-      name: Reserve or resume this verified source
-      env:
-        GH_TOKEN: ${{ github.token }}
-      run: |
-        if [[ "$GITHUB_EVENT_NAME" == workflow_dispatch ]]; then
-          # Use a disposable version for signing verification without reserving a release.
-          printf '%s\n' needed=false build=true version=1.0.1 >> "$GITHUB_OUTPUT"
-          exit 0
-        fi
-        python3 Scripts/release.py reserve --state "$CALLKEEP_RELEASE_STATE"
-    - name: Record archive intent
-      if: steps.reserve.outputs.needed == 'true' && steps.reserve.outputs.build == 'true'
-      env:
-        GH_TOKEN: ${{ github.token }}
-      run: python3 Scripts/release.py start --state "$CALLKEEP_RELEASE_STATE"
-    - name: Build universal source-bound production app
-      if: steps.reserve.outputs.build == 'true'
-      env:
-        VERSION: ${{ steps.reserve.outputs.version }}
-      run: |
-        xcodebuild -project Callkeep.xcodeproj -scheme Callkeep -configuration Release             -derivedDataPath build ARCHS='arm64 x86_64' ONLY_ACTIVE_ARCH=NO             MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="${VERSION##*.}"             CALLKEEP_SOURCE_COMMIT="$SOURCE" CALLKEEP_PRODUCTION=YES             DEBUG_INFORMATION_FORMAT=dwarf-with-dsym build
-        mkdir -p "build/releases/$VERSION"
-    - name: Set up the release bundle
-      if: steps.reserve.outputs.build == 'true'
-      uses: ./.github/actions/ruby-tools
-      with:
-        ruby-version: '3.4'
-        bundler-cache: true
-    - name: Authorize private signing storage
-      if: steps.reserve.outputs.build == 'true'
-      uses: ./.github/actions/match-access
-      with:
-        age-key: ${{ secrets.AGE_PRIVATE_KEY }}
-    - name: Sign, notarize and staple this build
-      if: steps.reserve.outputs.build == 'true'
-      env:
-        VERSION: ${{ steps.reserve.outputs.version }}
-        BUNDLE_GEMFILE: ${{ github.workspace }}/Gemfile
-        MATCH_PASSWORD: ${{ secrets.CALLKEEP_MATCH_PASSWORD }}
-        APPLE_API_KEY_P8_BASE64: ${{ secrets.CALLKEEP_APPLE_API_KEY_P8_BASE64 }}
-        APPLE_API_KEY_ID: ${{ secrets.CALLKEEP_APPLE_API_KEY_ID }}
-        APPLE_API_ISSUER_ID: ${{ secrets.CALLKEEP_APPLE_API_ISSUER_ID }}
-      run: ../../scripts/ci/with-match-signing.sh callkeep Scripts/notarize.sh build/Build/Products/Release/Callkeep.app "build/releases/$VERSION/Callkeep-$VERSION.zip"
-    - name: Seal signed archive, symbols and notarization receipt
-      if: steps.reserve.outputs.needed == 'true' && steps.reserve.outputs.build == 'true'
-      env:
-        GH_TOKEN: ${{ github.token }}
-      run: python3 Scripts/release.py seal --state "$CALLKEEP_RELEASE_STATE"
-    - id: artifact
-      name: Publish the same sealed app as a public release
-      if: steps.reserve.outputs.needed == 'true'
-      env:
-        GH_TOKEN: ${{ github.token }}
-      run: python3 Scripts/release.py promote --state "$CALLKEEP_RELEASE_STATE"
-    - name: Verify the public archive download
-      if: steps.reserve.outputs.needed == 'true'
-      env:
-        GH_TOKEN: ${{ github.token }}
-        HOMEBREW_GITHUB_API_TOKEN: ${{ github.token }}
-        HOMEBREW_NO_AUTO_UPDATE: '1'
-        HOMEBREW_NO_ANALYTICS: '1'
-      run: |
-        python3 Scripts/release.py verify-download --state "$CALLKEEP_RELEASE_STATE"
-    - name: Check out the installation recipe authority
-      if: steps.reserve.outputs.needed == 'true'
-      uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
-      with:
-        repository: 0x63616c/homebrew-tap
-        ssh-key: ${{ secrets.CALLKEEP_HOMEBREW_TAP_DEPLOY_KEY }}
-        path: build/homebrew-tap
-    - name: Update only Callkeep's cask
-      if: steps.reserve.outputs.needed == 'true'
-      env:
-        GH_TOKEN: ${{ github.token }}
-        VERSION: ${{ steps.reserve.outputs.version }}
-      run: |
-        python3 Scripts/release.py cask --state "$CALLKEEP_RELEASE_STATE" --tap "$GITHUB_WORKSPACE/build/homebrew-tap"
-        ruby -c "$GITHUB_WORKSPACE/build/homebrew-tap/Casks/callkeep.rb"
-        cd "$GITHUB_WORKSPACE/build/homebrew-tap"
-        git config user.name 'github-actions[bot]'
-        git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-        git add Casks/callkeep.rb
-        if ! git diff --cached --quiet; then
-          git commit -m "chore(callkeep): release $VERSION"
-          for attempt in 1 2 3; do
-            git pull --rebase origin main
-            if git push origin HEAD:main; then break; fi
-            [[ "$attempt" != 3 ]] || exit 1
-          done
-        fi
-        git fetch origin main
-    - name: Confirm the exact Homebrew recipe
-      if: steps.reserve.outputs.needed == 'true'
-      env:
-        GH_TOKEN: ${{ github.token }}
-      run: python3 Scripts/release.py complete --state "$CALLKEEP_RELEASE_STATE" --tap "$GITHUB_WORKSPACE/build/homebrew-tap"
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          fetch-depth: 0
+          filter: blob:none
+          persist-credentials: false
+      - name: Set the release-state path
+        run: echo "CALLKEEP_RELEASE_STATE=$RUNNER_TEMP/callkeep-release.json" >> "$GITHUB_ENV"
+      - id: reserve
+        name: Reserve or resume this verified source
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [[ "$GITHUB_EVENT_NAME" == workflow_dispatch ]]; then
+            # Use a disposable version for signing verification without reserving a release.
+            printf '%s\n' needed=false build=true version=1.0.1 >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          python3 Scripts/release.py reserve --state "$CALLKEEP_RELEASE_STATE"
+      - name: Record archive intent
+        if: steps.reserve.outputs.needed == 'true' && steps.reserve.outputs.build == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 Scripts/release.py start --state "$CALLKEEP_RELEASE_STATE"
+      - name: Build universal source-bound production app
+        if: steps.reserve.outputs.build == 'true'
+        env:
+          VERSION: ${{ steps.reserve.outputs.version }}
+        run: |
+          xcodebuild -project Callkeep.xcodeproj -scheme Callkeep -configuration Release             -derivedDataPath build ARCHS='arm64 x86_64' ONLY_ACTIVE_ARCH=NO             MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="${VERSION##*.}"             CALLKEEP_SOURCE_COMMIT="$SOURCE" CALLKEEP_PRODUCTION=YES             DEBUG_INFORMATION_FORMAT=dwarf-with-dsym build
+          mkdir -p "build/releases/$VERSION"
+      - name: Set up the release bundle
+        if: steps.reserve.outputs.build == 'true'
+        uses: ./.github/actions/ruby-tools
+        with:
+          ruby-version: "3.4"
+          bundler-cache: true
+      - name: Authorize private signing storage
+        if: steps.reserve.outputs.build == 'true'
+        uses: ./.github/actions/match-access
+        with:
+          age-key: ${{ secrets.AGE_PRIVATE_KEY }}
+      - name: Sign, notarize and staple this build
+        if: steps.reserve.outputs.build == 'true'
+        env:
+          VERSION: ${{ steps.reserve.outputs.version }}
+          BUNDLE_GEMFILE: ${{ github.workspace }}/Gemfile
+          MATCH_PASSWORD: ${{ secrets.CALLKEEP_MATCH_PASSWORD }}
+          APPLE_API_KEY_P8_BASE64: ${{ secrets.CALLKEEP_APPLE_API_KEY_P8_BASE64 }}
+          APPLE_API_KEY_ID: ${{ secrets.CALLKEEP_APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER_ID: ${{ secrets.CALLKEEP_APPLE_API_ISSUER_ID }}
+        run: ../../scripts/ci/with-match-signing.sh callkeep Scripts/notarize.sh build/Build/Products/Release/Callkeep.app "build/releases/$VERSION/Callkeep-$VERSION.zip"
+      - name: Seal signed archive, symbols and notarization receipt
+        if: steps.reserve.outputs.needed == 'true' && steps.reserve.outputs.build == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 Scripts/release.py seal --state "$CALLKEEP_RELEASE_STATE"
+      - id: artifact
+        name: Publish the same sealed app as a public release
+        if: steps.reserve.outputs.needed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 Scripts/release.py promote --state "$CALLKEEP_RELEASE_STATE"
+      - name: Verify the public archive download
+        if: steps.reserve.outputs.needed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HOMEBREW_GITHUB_API_TOKEN: ${{ github.token }}
+          HOMEBREW_NO_AUTO_UPDATE: "1"
+          HOMEBREW_NO_ANALYTICS: "1"
+        run: |
+          python3 Scripts/release.py verify-download --state "$CALLKEEP_RELEASE_STATE"
+      - name: Check out the installation recipe authority
+        if: steps.reserve.outputs.needed == 'true'
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          repository: 0x63616c/homebrew-tap
+          ssh-key: ${{ secrets.CALLKEEP_HOMEBREW_TAP_DEPLOY_KEY }}
+          path: build/homebrew-tap
+      - name: Update only Callkeep's cask
+        if: steps.reserve.outputs.needed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.reserve.outputs.version }}
+        run: |
+          python3 Scripts/release.py cask --state "$CALLKEEP_RELEASE_STATE" --tap "$GITHUB_WORKSPACE/build/homebrew-tap"
+          ruby -c "$GITHUB_WORKSPACE/build/homebrew-tap/Casks/callkeep.rb"
+          cd "$GITHUB_WORKSPACE/build/homebrew-tap"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add Casks/callkeep.rb
+          if ! git diff --cached --quiet; then
+            git commit -m "chore(callkeep): release $VERSION"
+            for attempt in 1 2 3; do
+              git pull --rebase origin main
+              if git push origin HEAD:main; then break; fi
+              [[ "$attempt" != 3 ]] || exit 1
+            done
+          fi
+          git fetch origin main
+      - name: Confirm the exact Homebrew recipe
+        if: steps.reserve.outputs.needed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 Scripts/release.py complete --state "$CALLKEEP_RELEASE_STATE" --tap "$GITHUB_WORKSPACE/build/homebrew-tap"

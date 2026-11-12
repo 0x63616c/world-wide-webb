@@ -7,11 +7,41 @@
     { "screen": "settings", "appearance": "dark" }
   ],
   "shots": [
-    { "screen": "home", "appearance": "dark", "eyebrow": "Dose & weight journal", "headline": "A calm journal\nfor your treatment." },
-    { "screen": "progress", "appearance": "light", "eyebrow": "Progress", "headline": "See how far\nyou've come." },
-    { "screen": "log-dose", "appearance": "dark", "eyebrow": "Logging", "headline": "Log a dose\nin seconds." },
-    { "screen": "journal", "appearance": "light", "eyebrow": "Journal", "headline": "Your history,\nday by day." },
-    { "screen": "settings", "appearance": "dark", "eyebrow": "Privacy", "headline": "Private\nby design." },
-    { "screen": "home", "appearance": "light", "eyebrow": "Light & dark", "headline": "Easy on the eyes,\nday or night." }
+    {
+      "screen": "home",
+      "appearance": "dark",
+      "eyebrow": "Dose & weight journal",
+      "headline": "A calm journal\nfor your treatment."
+    },
+    {
+      "screen": "progress",
+      "appearance": "light",
+      "eyebrow": "Progress",
+      "headline": "See how far\nyou've come."
+    },
+    {
+      "screen": "log-dose",
+      "appearance": "dark",
+      "eyebrow": "Logging",
+      "headline": "Log a dose\nin seconds."
+    },
+    {
+      "screen": "journal",
+      "appearance": "light",
+      "eyebrow": "Journal",
+      "headline": "Your history,\nday by day."
+    },
+    {
+      "screen": "settings",
+      "appearance": "dark",
+      "eyebrow": "Privacy",
+      "headline": "Private\nby design."
+    },
+    {
+      "screen": "home",
+      "appearance": "light",
+      "eyebrow": "Light & dark",
+      "headline": "Easy on the eyes,\nday or night."
+    }
   ]
 }

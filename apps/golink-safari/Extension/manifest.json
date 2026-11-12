@@ -5,9 +5,20 @@
   "description": "Open tailnet go links from Safari’s address bar.",
   "permissions": ["declarativeNetRequestWithHostAccess"],
   "host_permissions": ["https://www.google.com/*", "https://google.com/*"],
-  "background": {"scripts": ["background.js"], "type": "module", "persistent": false},
-  "action": {"default_title": "Golink", "default_popup": "popup.html"},
-  "icons": {"48": "icon.svg", "128": "icon.svg"},
-  "web_accessible_resources": [{"resources": ["resolve.html"], "matches": ["https://www.google.com/*", "https://google.com/*"]}],
-  "content_security_policy": {"extension_pages": "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'"}
+  "background": {
+    "scripts": ["background.js"],
+    "type": "module",
+    "persistent": false
+  },
+  "action": { "default_title": "Golink", "default_popup": "popup.html" },
+  "icons": { "48": "icon.svg", "128": "icon.svg" },
+  "web_accessible_resources": [
+    {
+      "resources": ["resolve.html"],
+      "matches": ["https://www.google.com/*", "https://google.com/*"]
+    }
+  ],
+  "content_security_policy": {
+    "extension_pages": "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'"
+  }
 }

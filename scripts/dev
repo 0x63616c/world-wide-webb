@@ -5,7 +5,7 @@ root=$(cd "$(dirname "$0")/.." && pwd)
 cd "$root"
 
 usage() {
-  cat <<'HELP'
+  cat << 'HELP'
 Usage: scripts/dev <command>
   apps                         List app folders
   new <Name> <bundle-suffix> [--backend cloudflare]   Create an independent app
@@ -19,11 +19,14 @@ present and an unsigned simulator build. These are local checks, not release pro
 See docs/NEW-APP.md and docs/DEVELOPMENT.md for account setup and delivery.
 HELP
 }
-fail() { printf 'error: %s\n' "$*" >&2; exit 64; }
+fail() {
+  printf 'error: %s\n' "$*" >&2
+  exit 64
+}
 command_name=${1:-help}
 if (($#)); then shift; fi
 case "$command_name" in
-  help|--help|-h) usage ;;
+  help | --help | -h) usage ;;
   apps)
     (($# == 0)) || fail 'apps takes no arguments'
     exec ruby scripts/app-config.rb --list
@@ -43,20 +46,20 @@ case "$command_name" in
     (($# == 0)) || fail 'doctor takes no arguments'
     missing=0
     for tool in git ruby bundle python3 bun cargo swift xcodegen xcrun; do
-      if command -v "$tool" >/dev/null 2>&1; then
+      if command -v "$tool" > /dev/null 2>&1; then
         printf 'Available: %s\n' "$tool"
       else
         printf 'Missing: %s\n' "$tool"
         missing=1
       fi
     done
-    if python3 -c 'import yaml' >/dev/null 2>&1; then
+    if python3 -c 'import yaml' > /dev/null 2>&1; then
       printf 'Available: Python PyYAML\n'
     else
       printf 'Missing: Python PyYAML (activate an environment with scripts/requirements.txt)\n'
       missing=1
     fi
-    printf 'Product pins and runtime/account readiness are checked by their own workflows.\n' 
+    printf 'Product pins and runtime/account readiness are checked by their own workflows.\n'
     exit "$missing"
     ;;
   check)
@@ -89,5 +92,8 @@ case "$command_name" in
       *) fail "no local check handler for $app ($handler)" ;;
     esac
     ;;
-  *) usage >&2; fail "unknown command: $command_name" ;;
+  *)
+    usage >&2
+    fail "unknown command: $command_name"
+    ;;
 esac

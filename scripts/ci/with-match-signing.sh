@@ -5,9 +5,22 @@ set +x
 product=$1
 shift
 case "$product" in
-  tendr) type=appstore; platform=ios; bundle_id=com.calumwebb.still; extension=mobileprovision ;;
-  callkeep) type=developer_id; platform=macos; bundle_id=co.calum.callkeep; extension=provisionprofile ;;
-  *) echo "Unsupported Match product: $product" >&2; exit 2 ;;
+  tendr)
+    type=appstore
+    platform=ios
+    bundle_id=com.calumwebb.still
+    extension=mobileprovision
+    ;;
+  callkeep)
+    type=developer_id
+    platform=macos
+    bundle_id=co.calum.callkeep
+    extension=provisionprofile
+    ;;
+  *)
+    echo "Unsupported Match product: $product" >&2
+    exit 2
+    ;;
 esac
 : "${MATCH_PASSWORD:?Missing Match encryption password}"
 : "${MATCH_GIT_BASIC_AUTHORIZATION:?Missing private Match repository access}"
@@ -18,7 +31,7 @@ keychain="$signing/signing.keychain-db"
 profile_uuid=
 security list-keychains -d user > "$signing/search-list"
 cleanup() {
-  python3 - "$signing/search-list" <<'PY'
+  python3 - "$signing/search-list" << 'PY'
 import shlex
 import subprocess
 import sys
@@ -27,7 +40,7 @@ from pathlib import Path
 keys = shlex.split(Path(sys.argv[1]).read_text())
 subprocess.run(["security", "list-keychains", "-d", "user", "-s", *keys], check=True)
 PY
-  security delete-keychain "$keychain" >/dev/null 2>&1 || true
+  security delete-keychain "$keychain" > /dev/null 2>&1 || true
   if [[ -n "$profile_uuid" && -n "${RUNNER_TEMP:-}" ]]; then
     rm -f "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles/$profile_uuid.$extension"
   fi
@@ -43,7 +56,7 @@ fi
 security create-keychain -p "$MATCH_KEYCHAIN_PASSWORD" "$keychain"
 security set-keychain-settings -lut 21600 "$keychain"
 security unlock-keychain -p "$MATCH_KEYCHAIN_PASSWORD" "$keychain"
-python3 - "$keychain" "$signing/search-list" <<'PY'
+python3 - "$keychain" "$signing/search-list" << 'PY'
 import shlex
 import subprocess
 import sys
@@ -59,7 +72,10 @@ bundle exec fastlane match "$type" --readonly true --platform "$platform" \
   --keychain_name "$keychain" --output_path "$signing"
 shopt -s nullglob
 profiles=("$signing/"*."$extension")
-[[ "${#profiles[@]}" -eq 1 ]] || { echo "Expected one Match profile for $product" >&2; exit 1; }
+[[ "${#profiles[@]}" -eq 1 ]] || {
+  echo "Expected one Match profile for $product" >&2
+  exit 1
+}
 security cms -D -i "${profiles[0]}" > "$signing/profile.plist"
 /usr/libexec/PlistBuddy -c 'Print :UUID' "$signing/profile.plist" > "$signing/profile.uuid"
 read -r profile_uuid < "$signing/profile.uuid"

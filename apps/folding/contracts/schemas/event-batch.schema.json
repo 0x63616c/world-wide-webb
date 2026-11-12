@@ -24,10 +24,5 @@
       }
     }
   },
-  "required": [
-    "schema_version",
-    "operation_id",
-    "epoch_id",
-    "events"
-  ]
+  "required": ["schema_version", "operation_id", "epoch_id", "events"]
 }

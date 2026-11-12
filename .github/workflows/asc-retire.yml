@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: 'Report only, expire builds and delete profiles, or delete retired bundle IDs'
+        description: "Report only, expire builds and delete profiles, or delete retired bundle IDs"
         type: choice
         default: report
         options: [report, retire, delete-ids]
@@ -24,7 +24,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: "3.12"
       - name: Install API authentication dependency
         run: python3 -m pip install 'PyJWT[crypto]==2.10.1'
       - name: Run guarded retirement
