@@ -51,7 +51,9 @@ bundle exec fastlane ios screenshots
 
 This requires no Apple key or signing repository access. It creates and deletes its own Duo simulator; it never shuts down the owner's simulator. `screenshot-plan.json` pins the installed model/runtime, outer and inner display dimensions, deterministic fixture version/clock and all five native-view scenes. The separate simulator scheme includes real UI view sources with fixture-only composition and excludes live clients. Its fixture condition cannot be enabled in the device archive.
 
-Fastlane runs direct hosted XCTest renders of production views for each locale/display/scenario. It captures the inner native landscape display first (951 × 669 points), then the outer portrait display (466 × 678 points). The native-control request JSON pauses for Device Hub’s Open/Closed control and a matching acknowledgment; use the actual pose buttons, not the hinge slider or a resized host. XCTest asserts the real window-scene geometry before every capture; wrong dimensions fail rather than being relabeled. Each locale uses explicit test language/region. The task-owned simulator is shut down and deleted on success or failure; existing devices remain untouched. The Swift compositor preserves the whole native UI at its original aspect ratio on an opaque caption canvas. The required medium upload canvas is explicitly marked as composed from a Duo capture, not claimed to be a medium-device capture. Every raw/composed hash and exact tuple is in the capture manifest. App locale, notification locale and Apple storefront locale are separate mappings.
+Fastlane launches the dedicated simulator fixture app and captures the actual display with `XCUIScreen.screenshot()`, matching Tendr's native capture approach. The app retains its real window, safe areas, navigation, status bar, sheet presentation and system-composited materials. The fixture-only URL scheme switches configured scenes within one app session per device/locale; it is absent from the shipped app. Device Hub selects the Duo's native Open/Closed display; the UI test verifies window geometry and selects the screen by its native pixel dimensions before attaching a PNG. Each locale has explicit app language/region. The task-owned simulators are shut down and deleted on success or failure; existing devices remain untouched.
+
+Each locale includes ten Duo images (five scenes across both displays) and five actual iPhone 18 Pro images for Apple's required medium slot. There are no drawn phone frames, caption canvases, crops or resized Duo substitutes. RGB PNGs are copied byte for byte. A PNG with fully opaque alpha is converted to RGB while retaining its color space, dimensions and pixel values; a round-trip pixel comparison rejects any change. Transparent captures fail. Every original/staged hash, native device/runtime, display size and scene is recorded. App, notification and Apple storefront locale identifiers remain separate mappings.
 
 `metadata-source.json` is the content source; committed deliver `.txt` files must match it. Metadata is deliberately marked draft until final language review. `release_assets` seals its own current captures and metadata to the selected release identity. It does not silently reuse unrelated screenshots or replace a missing image with an older one. Independent visual review, real Fastlane capture execution, ASC upload-size acceptance and locale readback remain required before release acceptance.
 
@@ -83,32 +85,11 @@ Signing preparation attempts are audited separately from archive attempts. A key
 
 Submission prepares one Apple review submission containing the exact app version and all three `inAppPurchaseVersions`, then reads back every item and its purchase ownership. Retry preparation reconciles existing draft items; unrelated or ambiguous drafts fail closed. The irreversible submit marker is saved before requesting review. A lost submission response is observed, never blindly repeated. Live Apple acceptance of these newer public review resources remains a shipping check.
 
-## Tendr-style marketing frames
+## Native screen images
 
-The frame renderer is adapted from `0x63616c/apps`'s RDesign `rframe` template:
-tracked uppercase label, large headline, graphite light/dark background and a thin
-frame/shadow around the complete native capture. It fits Duo proportions without
-adding a Dynamic Island or cropping the source UI. Frame geometry is versioned in
-`screenshot-frame.json`; all ten locales' headlines/labels live in
-`metadata-source.json`. Both remain subject to final language/visual review.
+`fastlane ios screenshots` captures Today, Patterns and Milestones in dark mode, and History and Leaderboard in light mode. The capture plan owns the actual simulator models, runtimes, display dimensions, scene order and appearances. Its validator rejects missing/duplicate images, wrong display sizes, changed source/configuration, modified RGB captures and mismatched Apple upload slots. Required native CI compiles the capture app and its UI-test runner without booting a simulator. Capture execution and visual fidelity are verified on the hosted runner.
 
-`fastlane ios screenshots` captures Today, Patterns and Milestones in dark mode,
-and History and Leaderboard in light mode. Each locale has ten ordered Duo images
-(outer then inner for each scene, sharing Apple's ten-image gallery limit) and five
-medium-canvas images. The latter preserve a Duo capture's aspect ratio and are
-identified as composed canvases in the manifest. Fastlane's pinned image classifier
-must recognise each actual output's intended upload slot. Manifest validation also
-rejects changed copy, capture plan, frame geometry or renderer source.
-
-For a quick **draft frame only**, without starting a simulator:
-
-```sh
-scripts/preview-storefront /absolute/path/to/raw.png build/frame-preview.png --scene today --display duo-outer --locale en-US
-```
-
-Use a raw capture matching the scene's appearance. This command never creates
-release evidence; only capture from a clean, committed source through the release
-lanes can do that. It refuses to overwrite an existing output.
+Show the completed set for visibility and proceed with the owner's already-authorized submission; screenshot approval is no longer a release gate.
 
 After sealing/reviewing all release assets and completing final preflight, upload
 the listing without requesting App Review:
@@ -195,11 +176,7 @@ confirm an already-recorded build-policy row; they do not recreate revoked autho
 
 ## Monorepo capture jobs
 
-`folding-screenshots.yml` captures five English outer-display PR previews. Its `preview-manifest.json`
-and separate `build/preview-assets` output are not App Store acceptance. `folding-store-checks.yml`
-captures the full existing locale/display matrix on an explicit main-branch dispatch. Both use
-`DUO_HOST_CONTROL=1` with the repository's scoped native controller on an isolated Mac guest.
-Capture artifacts stay private; no screenshot branches or public comments are created.
+`folding-store-checks.yml` captures the complete locale/display matrix on an explicit source-bound dispatch. Device Hub runs only on the isolated capture Mac. Failure artifacts retain the native controller logs/stage; successful artifacts retain native PNGs, review images, metadata and manifests so the existing release handler can validate and seal the same capture without repeating it. Capture artifacts stay private.
 
 ## Main betas and tagged App Store promotion
 

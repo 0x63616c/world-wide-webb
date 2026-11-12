@@ -10,9 +10,12 @@ import struct FoldingData.SetupProgress
 #endif
 
 @main @MainActor struct FoldingScreenshotApp: App {
-  private let fixture: ScreenshotFixture
+  @State private var fixture: ScreenshotFixture
   init() {
-    do { fixture = try ScreenshotFixture(arguments: ProcessInfo.processInfo.arguments) } catch {
+    do {
+      _fixture = State(
+        initialValue: try ScreenshotFixture(arguments: ProcessInfo.processInfo.arguments))
+    } catch {
       fatalError("Invalid screenshot fixture configuration: \(error)")
     }
   }
@@ -43,6 +46,37 @@ import struct FoldingData.SetupProgress
       .environment(\.locale, Locale(identifier: fixture.locale))
       .environment(\.timeZone, TimeZone(secondsFromGMT: 0)!)
       .accessibilityIdentifier("folding.screenshot.ready")
+      .id(fixture.captureIdentity)
+      .onOpenURL { url in
+        // This URL exists only in the simulator fixture target. Changing scenes
+        // keeps the real app window and its system chrome in one capture session.
+        guard url.scheme == "folding-screenshot", url.host == "scene",
+          let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+          let scenario = components.queryItems?.first(where: { $0.name == "scenario" })?.value,
+          let appearance = components.queryItems?.first(where: { $0.name == "appearance" })?.value
+        else { fatalError("Invalid screenshot scene URL") }
+        do {
+          fixture = try ScreenshotFixture(arguments: [
+            "--folding-screenshot-scenario", scenario,
+            "--folding-screenshot-locale", fixture.locale,
+            "--folding-screenshot-appearance", appearance,
+          ])
+        } catch { fatalError("Invalid screenshot scene: \(error)") }
+      }
+      .task(id: fixture.captureIdentity) {
+        // An accessibility-only acknowledgment; never change window geometry,
+        // safe areas, materials or system appearance to produce a screenshot.
+        for _ in 0..<100 {
+          if let window = UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene })
+            .flatMap(\.windows).first(where: \.isKeyWindow)
+          {
+            window.accessibilityIdentifier = fixture.captureIdentity
+            return
+          }
+          try? await Task.sleep(for: .milliseconds(50))
+        }
+        fatalError("Screenshot app has no real key window")
+      }
     }
   }
 }
@@ -55,6 +89,8 @@ import struct FoldingData.SetupProgress
   var actions: FoldingActions
   let locale: String
   let scenario: String
+  let appearance: String
+  var captureIdentity: String { "folding.screenshot.\(scenario).\(appearance)" }
   let tipRows: [TipJarRow]
   enum Failure: Error { case invalidArguments, readOnly }
 
@@ -67,7 +103,7 @@ import struct FoldingData.SetupProgress
     }
     scenario = value("--folding-screenshot-scenario", default: "today")
     locale = value("--folding-screenshot-locale", default: "en")
-    let appearance = value("--folding-screenshot-appearance", default: "light")
+    appearance = value("--folding-screenshot-appearance", default: "light")
     guard
       [
         "today", "today-running", "today-live", "history", "history-month", "history-long",

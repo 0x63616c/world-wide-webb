@@ -717,3 +717,25 @@ Remote capture, the intermittent startup failure and App Store submission remain
 The store-check artifact now retains raw captures, reviewer image/map and metadata
 alongside composed screenshots/manifests, so successful captures can be validated and
 sealed by the existing release handler instead of requiring a second capture.
+
+
+November 11 native screenshot correction: the owner identified square screen corners
+inside the synthetic rounded frame and questioned Liquid Glass fidelity. The previous
+pipeline used hosted `drawHierarchy` renders with safe areas removed; Tendr uses actual
+screen captures. The owner requested the same native approach for Folding and explicitly
+removed screenshot approval as a release gate going forward. Preserve build 26 and its
+sealed rendered assets as historical receipts; do not alter them or claim they are native
+screen captures.
+
+The replacement uses the real fixture app/window and `XCUIScreen.screenshot()`, keeps
+native safe areas/materials, switches only configured scenes within each device/locale
+session, and captures both Duo displays plus an actual iPhone 18 Pro for the required
+medium gallery. It removes the frame compositor, caption copy, resized Duo substitutes,
+old snapshot helper and obsolete preview entrypoints. PNG packaging preserves original
+RGB bytes; fully opaque alpha is removed only after a pixel/color-space round-trip check.
+Transparent or wrong-size captures fail. Local pixel-preservation regression failed
+before the change and passes after it; 60 release-tool tests (300 assertions) and the
+capture app/UI-runner build pass. Next: self-review, source-bound remote capture, visual
+comparison with the running native app, green required CI and the ordinary release flow.
+The reason for the flat rail remains unproven until this native comparison; no production
+glass styling has been changed. Existing provider/device deferrals remain deferred.

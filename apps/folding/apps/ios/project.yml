@@ -118,6 +118,9 @@ targets:
     info:
       path: Config/GeneratedScreenshots-Info.plist
       properties:
+        CFBundleURLTypes:
+          - CFBundleURLName: app.getfolding.Folding.Screenshots
+            CFBundleURLSchemes: [folding-screenshot]
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
           - UIInterfaceOrientationPortraitUpsideDown
@@ -163,28 +166,15 @@ targets:
         product: FoldingDomain
       - package: FoldingKit
         product: FoldingData
-  FoldingScreenshotTests:
+  FoldingStorefrontTests:
     type: bundle.ui-testing
     platform: iOS
     sources:
-      - path: ScreenshotTests
-    settings:
-      base:
-        PRODUCT_BUNDLE_IDENTIFIER: app.getfolding.Folding.ScreenshotTests
-        TEST_TARGET_NAME: FoldingScreenshots
-        SUPPORTED_PLATFORMS: iphonesimulator
-    dependencies:
-      - target: FoldingScreenshots
-  FoldingStorefrontTests:
-    type: bundle.unit-test
-    platform: iOS
-    sources:
       - path: StorefrontTests
-      - path: ../../fastlane/screenshot-plan.json
-        buildPhase: resources
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: app.getfolding.Folding.StorefrontTests
+        TEST_TARGET_NAME: FoldingScreenshots
         SUPPORTED_PLATFORMS: iphonesimulator
     dependencies:
       - target: FoldingScreenshots
@@ -217,19 +207,6 @@ schemes:
       config: Debug
       targets:
         - FoldingBuildTests
-      gatherCoverageData: false
-
-  FoldingScreenshots:
-    build:
-      targets:
-        FoldingScreenshots: all
-        FoldingScreenshotTests: [test]
-    run:
-      config: Screenshots
-    test:
-      config: Screenshots
-      targets:
-        - FoldingScreenshotTests
       gatherCoverageData: false
 
   FoldingStorefront:

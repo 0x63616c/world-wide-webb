@@ -1,5 +1,7 @@
 # Screenshot composition contract
 
+Historical fixture spike. Superseded on November 11 by actual simulator-screen capture through `FoldingStorefront` / `StorefrontCaptureTests`; see [current release operations](../../fastlane/RELEASE.md#screenshots-and-localization).
+
 Fixture version **1**, fixed clock **2026-11-02T10:09:00Z**.
 
 Scheme `FoldingScreenshots`, configuration `Screenshots`, app target

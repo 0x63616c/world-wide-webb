@@ -1,7 +1,6 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "fixture_version": 2,
-  "caption_version": 3,
   "fixed_clock": "2026-11-02T10:09:00Z",
   "scheme": "FoldingStorefront",
   "configuration": "Screenshots",
@@ -14,7 +13,6 @@
     {
       "id": "duo-outer",
       "model": "iPhone Duo",
-      "screen": "primary",
       "pixel_width": 1398,
       "pixel_height": 2034,
       "upload_display_type": "APP_IPHONE_DUO"
@@ -22,93 +20,50 @@
     {
       "id": "duo-inner",
       "model": "iPhone Duo",
-      "screen": "primary-1",
       "pixel_width": 2853,
       "pixel_height": 2007,
       "upload_display_type": "APP_IPHONE_DUO"
+    },
+    {
+      "id": "iphone-medium",
+      "model": "iPhone 18 Pro",
+      "device_type": "com.apple.CoreSimulator.SimDeviceType.iPhone-18-Pro",
+      "runtime": "com.apple.CoreSimulator.SimRuntime.iOS-27-2",
+      "runtime_build": "24B8117",
+      "pixel_width": 1206,
+      "pixel_height": 2622,
+      "upload_display_type": "APP_IPHONE_61"
     }
   ],
   "scenarios": [
     {
       "id": "today",
-      "caption_key": "today",
       "order": 1,
       "appearance": "dark"
     },
     {
       "id": "history",
-      "caption_key": "history",
       "order": 2,
       "appearance": "light"
     },
     {
       "id": "patterns",
-      "caption_key": "patterns",
       "order": 3,
       "appearance": "dark"
     },
     {
       "id": "leaderboard",
-      "caption_key": "leaderboard",
       "order": 4,
       "appearance": "light"
     },
     {
       "id": "milestones",
-      "caption_key": "milestones",
       "order": 5,
       "appearance": "dark"
     }
   ],
-  "additional_upload_slots": [
-    {
-      "id": "iphone-medium-today",
-      "pixel_width": 1206,
-      "pixel_height": 2622,
-      "upload_display_type": "APP_IPHONE_61",
-      "source_device_id": "duo-outer",
-      "scenario_id": "today",
-      "preserve_source_aspect_ratio": true
-    },
-    {
-      "id": "iphone-medium-history",
-      "pixel_width": 1206,
-      "pixel_height": 2622,
-      "upload_display_type": "APP_IPHONE_61",
-      "source_device_id": "duo-outer",
-      "scenario_id": "history",
-      "preserve_source_aspect_ratio": true
-    },
-    {
-      "id": "iphone-medium-patterns",
-      "pixel_width": 1206,
-      "pixel_height": 2622,
-      "upload_display_type": "APP_IPHONE_61",
-      "source_device_id": "duo-outer",
-      "scenario_id": "patterns",
-      "preserve_source_aspect_ratio": true
-    },
-    {
-      "id": "iphone-medium-leaderboard",
-      "pixel_width": 1206,
-      "pixel_height": 2622,
-      "upload_display_type": "APP_IPHONE_61",
-      "source_device_id": "duo-outer",
-      "scenario_id": "leaderboard",
-      "preserve_source_aspect_ratio": true
-    },
-    {
-      "id": "iphone-medium-milestones",
-      "pixel_width": 1206,
-      "pixel_height": 2622,
-      "upload_display_type": "APP_IPHONE_61",
-      "source_device_id": "duo-outer",
-      "scenario_id": "milestones",
-      "preserve_source_aspect_ratio": true
-    }
-  ],
   "apple_size_specification": "https://developer.apple.com/help/app-store-connect/reference/app-information/screenshot-specifications",
-  "size_source_checked_at": "2026-11-07",
+  "size_source_checked_at": "2026-11-11",
   "live_asc_upload_validation": "pending",
   "review_scenarios": [
     {
@@ -120,5 +75,5 @@
       "purpose": "in_app_purchase_review"
     }
   ],
-  "capture_method": "direct_production_view_xctest"
+  "capture_method": "simulator_screen_xctest"
 }
