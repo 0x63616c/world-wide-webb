@@ -81,5 +81,5 @@
       "title_key": "tips.title"
     }
   ],
-  "capture_method": "simulator_screen_xctest"
+  "capture_method": "simulator_screen"
 }

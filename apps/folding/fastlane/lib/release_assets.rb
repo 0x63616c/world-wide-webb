@@ -77,6 +77,7 @@ module FoldingRelease
           native_directory = File.join(output, "native-control")
           if group.any? { |display| display.fetch("id").start_with?("duo-") }
             controller = DuoHost.new(directory: native_directory, device_name: name, device_id: device).start
+            controller.capture_bridge(output: File.join(output, "raw", "native-displays"))
           end
           LOCALES.each do |locale|
             next if review_only && locale.fetch("storefront_locale") != "en-US"
@@ -113,6 +114,13 @@ module FoldingRelease
             attachments = FoldingRelease.read_json(File.join(export, "manifest.json")).flat_map { |test| test.fetch("attachments") }
             group.each do |display|
               find_capture = lambda do |scene|
+                if controller
+                  pose = display.fetch("id").delete_prefix("duo-")
+                  name = "storefront-#{locale.fetch('app_locale')}-#{display.fetch('id')}-#{scene.fetch('id')}".downcase
+                  path = File.join(output, "raw", "native-displays", "#{pose}-#{scene.fetch('appearance', 'light')}-#{name}.png")
+                  raise "Missing/wrong native display capture: #{name}" unless File.file?(path) && png_size(path) == display.values_at("pixel_width", "pixel_height")
+                  next path
+                end
                 prefix = "storefront-#{locale.fetch('app_locale')}-#{display.fetch('id')}-#{scene.fetch('id')}_"
                 matches = attachments.select { |item| item.fetch("suggestedHumanReadableName").start_with?(prefix) && item.fetch("exportedFileName").end_with?(".png") }
                 raise "Missing/duplicate native screen capture: #{prefix}" unless matches.one?
@@ -171,7 +179,7 @@ module FoldingRelease
     def self.validate_tip_review!(record)
       output = File.join(record.directory, "assets")
       manifest = FoldingRelease.read_json(File.join(output, "tip-review-manifest.json"))
-      raise "Tip review capture identity mismatch" unless manifest["schema_version"] == 2 && manifest["capture_method"] == "simulator_screen_xctest" && manifest["purpose"] == "in_app_purchase_review" && manifest["commit_sha"] == record.data["commit_sha"] && manifest["configuration_hash"] == record.data["configuration_hash"] && manifest["fixture_version"] == PLAN["fixture_version"] && manifest["fixed_clock"] == PLAN["fixed_clock"]
+      raise "Tip review capture identity mismatch" unless manifest["schema_version"] == 2 && manifest["capture_method"] == "simulator_screen" && manifest["purpose"] == "in_app_purchase_review" && manifest["commit_sha"] == record.data["commit_sha"] && manifest["configuration_hash"] == record.data["configuration_hash"] && manifest["fixture_version"] == PLAN["fixture_version"] && manifest["fixed_clock"] == PLAN["fixed_clock"]
       scene = PLAN.fetch("review_scenarios").find { |candidate| candidate["id"] == manifest["scenario_id"] }
       raise "Unexpected tip review scenario/locale" unless scene && scene["device_id"] == manifest["device_id"] && scene["storefront_locale"] == manifest["storefront_locale"] && scene["app_locale"] == manifest["app_locale"]
       display = PLAN.fetch("devices").find { |candidate| candidate["id"] == scene["device_id"] }
@@ -242,7 +250,7 @@ module FoldingRelease
           raise "Invalid screenshot path" unless path.start_with?(output + "/")
           raise "Screenshot content changed" unless FoldingRelease.sha(path) == entry.fetch("#{kind}_sha256")
         end
-        raise "Native capture plan changed" unless entry["capture_method"] == "simulator_screen_xctest" && entry["plan_sha256"] == FoldingRelease.sha(File.join(ROOT, "fastlane/screenshot-plan.json"))
+        raise "Native capture plan changed" unless entry["capture_method"] == "simulator_screen" && entry["plan_sha256"] == FoldingRelease.sha(File.join(ROOT, "fastlane/screenshot-plan.json"))
         raise "PNG processor changed" unless entry["png_processor_sha256"] == FoldingRelease.sha(File.join(ROOT, "fastlane/scripts/opaque-screen.swift"))
         raise "Native capture was resized" unless entry["raw_pixel_size"] == entry.values_at("pixel_width", "pixel_height")
         raise "Store screenshot contains an alpha channel" unless File.binread(File.join(output, entry.fetch("composed_path")), 26).getbyte(25) == 2

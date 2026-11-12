@@ -65,6 +65,17 @@ class DuoHost
     end
   end
 
+  # Reuse Tendr's enumerated-display capture bridge. XCUIScreen can expose only
+  # the inactive outer framebuffer while the app occupies Duo's inner display.
+  def capture_bridge(output:)
+    tool = File.join(__dir__, "duo-simulator.py")
+    FileUtils.mkdir_p(output)
+    run("python3", tool, "probe", @device_id, @directory)
+    run("python3", tool, "configure-host", @device_id, @directory)
+    spawn({}, "python3", tool, "serve", @device_id, @directory,
+      "--output", output, "--appearance", "light", log: "capture.log")
+  end
+
   def close
     FileUtils.touch(File.join(@directory, "host-stop")) if File.directory?(@directory)
     @processes.reverse_each do |pid|

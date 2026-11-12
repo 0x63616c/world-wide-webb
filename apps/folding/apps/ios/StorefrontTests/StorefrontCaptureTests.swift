@@ -68,14 +68,26 @@ import XCTest
         XCTWaiter.wait(for: [geometry], timeout: 45), .completed,
         "The app must occupy the selected physical simulator display")
       for scene in scenes where scene.deviceID == nil || scene.deviceID == display.id {
+        if display.id.hasPrefix("duo-") {
+          try request("appearance", name: scene.appearance, environment: env)
+        }
         try show(scene, in: app)
         print("STOREFRONT_SCREEN=\(locale)/\(display.id)/\(scene.id)")
-        let matches = XCUIScreen.screens.map { $0.screenshot() }.filter {
+        if display.id.hasPrefix("duo-") {
+          try request(
+            "capture", name: "storefront-\(locale)-\(display.id)-\(scene.id)".lowercased(),
+            environment: env)
+          continue
+        }
+        let screens = XCUIScreen.screens.map { $0.screenshot() }
+        let matches = screens.filter {
           $0.image.cgImage?.width == display.pixelWidth
             && $0.image.cgImage?.height == display.pixelHeight
         }
         XCTAssertEqual(
-          matches.count, 1, "Exactly one native screen must match the selected display")
+          matches.count, 1,
+          "Expected \(display.pixelWidth)×\(display.pixelHeight); actual screens: \(screens.map { $0.image.size })"
+        )
         let attachment = XCTAttachment(screenshot: try XCTUnwrap(matches.first))
         attachment.name = "storefront-\(locale)-\(display.id)-\(scene.id)"
         attachment.lifetime = .keepAlways
@@ -113,21 +125,27 @@ import XCTest
   }
 
   private func selectPose(_ pose: String, environment: [String: String]) throws {
+    try request("pose", name: pose, environment: environment)
+  }
+
+  private func request(_ action: String, name: String, environment: [String: String]) throws {
     let directory = URL(fileURLWithPath: try XCTUnwrap(environment["DUO_HOST_CONTROL_DIR"]))
     let id = UUID().uuidString
-    let request = try JSONSerialization.data(withJSONObject: ["id": id, "pose": pose])
-    try request.write(to: directory.appendingPathComponent("host-request.json"), options: .atomic)
-    let deadline = Date().addingTimeInterval(60)
+    let request = try JSONSerialization.data(
+      withJSONObject: ["id": id, "action": action, "name": name])
+    try request.write(to: directory.appendingPathComponent("request.json"), options: .atomic)
+    let deadline = Date().addingTimeInterval(120)
     while Date() < deadline {
-      if let data = try? Data(contentsOf: directory.appendingPathComponent("host-response.json")),
+      if let data = try? Data(contentsOf: directory.appendingPathComponent("response.json")),
         let response = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-        response["id"] as? String == id, response["ok"] as? Bool == true
+        response["id"] as? String == id
       {
+        XCTAssertTrue(response["ok"] as? Bool == true, "\(response)")
         return
       }
       RunLoop.current.run(until: Date().addingTimeInterval(0.1))
     }
-    XCTFail("Native Device Hub pose \(pose) was not acknowledged")
+    XCTFail("Native capture \(action) \(name) was not acknowledged")
     throw NSError(domain: "FoldingCapture", code: 1)
   }
 }

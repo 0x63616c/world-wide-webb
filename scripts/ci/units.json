@@ -58,7 +58,12 @@
         "apps/folding/apps/ios/Packages/FoldingKit/Package.swift",
         "apps/folding/apps/ios/project.yml",
         "apps/folding/cloudkit/**",
-        "apps/folding/app.yml"
+        "apps/folding/app.yml",
+        "apps/folding/apps/ios/Screenshots/**",
+        "apps/folding/apps/ios/StorefrontTests/**",
+        "apps/folding/fastlane/screenshot-plan.json",
+        "apps/folding/fastlane/lib/release_assets.rb",
+        "apps/folding/fastlane/scripts/opaque-screen.swift"
       ],
       "delivery_exclude": [
         "**/Tests/**",
@@ -67,8 +72,7 @@
         "**/*_test.*",
         "**/fixtures/**",
         "**/BuildTests/**",
-        "**/ScreenshotTests/**",
-        "**/StorefrontTests/**"
+        "**/ScreenshotTests/**"
       ]
     },
     "folding.backend": {

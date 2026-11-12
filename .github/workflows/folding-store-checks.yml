@@ -53,6 +53,10 @@ jobs:
             apps/folding/build/store-assets/**/assets/native-control/application.log
             apps/folding/build/store-assets/**/assets/native-control/host-stage.txt
             apps/folding/build/store-assets/**/assets/native-control/host-hierarchy.txt
+            apps/folding/build/store-assets/**/assets/native-control/capture.log
+            apps/folding/build/store-assets/**/assets/native-control/plan.json
+            apps/folding/build/store-assets/**/assets/native-control/simctl-capabilities.txt
+            apps/folding/build/store-assets/**/assets/raw/native-displays
             apps/folding/build/store-assets/**/assets/results/*.xcresult
             apps/folding/build/store-assets/**/assets/logs
           if-no-files-found: ignore

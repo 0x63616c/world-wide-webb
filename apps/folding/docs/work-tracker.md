@@ -750,3 +750,13 @@ remove the artificial window metadata, and retain the UI-test xcresult/logs on f
 No App Store submission has been made; build 27 and its receipt remain preserved.
 The screenshot app also drops the obsolete internal-testability setting: its new
 UI runner uses public screen/navigation APIs and no longer imports the app module.
+
+Native-display follow-up: the real app/navigation readiness passed at source
+`9f29bd6331eac384921ff684208e0e4ea85cc905` (TestFlight 1.0.1 build 28), but
+[capture 43162341223](https://github.com/0x63616c/world-wide-webb/actions/runs/43162341223)
+rejected XCTest's missing inner-size screen. Reuse Tendr's existing enumerated
+`simctl` display bridge for Duo; ordinary phones retain native XCTest captures.
+Keep full native geometry/title/hash guards. Store-capture source inputs now
+select Folding beta delivery because its immutable screenshot/release record
+requires the exact processed source. Other test changes remain verification only.
+Full capture and App Store submission remain pending.
