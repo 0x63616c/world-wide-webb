@@ -329,12 +329,14 @@ import XCTest
 
     func testPollingStartsExplicitlyAndStops() async throws {
         let transport = SonosProviderStub(Array(repeating: .state(), count: 100))
-        let provider = makeProvider(transport)
+        let clock = SonosPollingClock()
+        let provider = makeProvider(transport, clock: clock.value)
         provider.startPolling(every: .milliseconds(20))
-        try await waitFor(transport, count: 2)
-        provider.stop()
+        await fulfillment(of: [clock.sleepStarted], timeout: 1)
         let before = await transport.count
-        try await Task.sleep(for: .milliseconds(60))
+        XCTAssertEqual(before, 1)
+        provider.stop()
+        await fulfillment(of: [clock.cancelled], timeout: 1)
         let after = await transport.count
         XCTAssertEqual(before, after)
     }
@@ -423,12 +425,12 @@ import XCTest
         XCTAssertTrue(reloaded.groupLock)
     }
 
-    private func makeProvider(_ transport: SonosProviderStub) -> LiveSonosProvider {
+    private func makeProvider(_ transport: SonosProviderStub, clock: SyncClock = .continuous()) -> LiveSonosProvider {
         LiveSonosProvider(
             api: SonosAPI(
                 configuration: PanelConfiguration(
                     baseURL: URL(string: "https://panel.example.invalid")!
-                ), transport: transport))
+                ), transport: transport), clock: clock)
     }
 
     private func assertRequest(_ transport: SonosProviderStub, at index: Int, path: String, json: String) async throws {
@@ -485,6 +487,34 @@ import XCTest
         throw WaitFailure.timeout
     }
     private enum WaitFailure: Error { case timeout }
+}
+
+@MainActor private final class SonosPollingClock {
+    let sleepStarted = XCTestExpectation(description: "Sonos initial poll completed")
+    let cancelled = XCTestExpectation(description: "Sonos poll cancelled")
+    private var sleeper: CheckedContinuation<Void, any Error>?
+
+    var value: SyncClock {
+        SyncClock(
+            now: { Date(timeIntervalSince1970: 0) }, elapsed: { .zero },
+            sleep: { _ in
+                let cancelled = self.cancelled
+                try await withTaskCancellationHandler {
+                    try Task.checkCancellation()
+                    try await withCheckedThrowingContinuation { continuation in
+                        self.sleeper = continuation
+                        self.sleepStarted.fulfill()
+                    }
+                } onCancel: {
+                    Task { @MainActor in
+                        let sleeper = self.sleeper
+                        self.sleeper = nil
+                        sleeper?.resume(throwing: CancellationError())
+                        cancelled.fulfill()
+                    }
+                }
+            })
+    }
 }
 
 private actor SonosProviderStub: PanelTransport {

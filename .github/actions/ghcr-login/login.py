@@ -1,4 +1,5 @@
 """Pass the scoped vault field directly to Docker; never emit decrypted vault content."""
+
 import os
 import subprocess
 from pathlib import Path

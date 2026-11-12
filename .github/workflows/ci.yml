@@ -1,8 +1,8 @@
 name: CI
-'on':
+"on":
   push:
     branches:
-    - main
+      - main
   pull_request: null
   workflow_dispatch:
     inputs:
@@ -23,65 +23,95 @@ jobs:
       tooling: ${{ steps.select.outputs.tooling }}
       security_languages: ${{ steps.select.outputs.security_languages }}
     steps:
-    - &id001
-      uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
-      with:
-        fetch-depth: 0
-        persist-credentials: false
-    - id: select
-      env:
-        BASE: ${{ github.event.pull_request.base.sha || github.event.before || github.sha }}
-        HEAD: ${{ github.sha }}
-        EVENT: ${{ github.event_name }}
-        FORCE: ${{ inputs.force_all || false }}
-      run: python3 scripts/ci/dispatch.py
-    - uses: actions/upload-artifact@v4
-      with:
-        name: repository-selection
-        path: ${{ runner.temp }}/ci-selection.json
-        retention-days: 14
-        if-no-files-found: error
-    - uses: actions/upload-artifact@v4
-      if: '!contains(fromJSON(steps.select.outputs.products), ''control-center'')'
-      with:
-        name: ci-selection
-        path: ${{ runner.temp }}/control-center/ci-selection.json
-        retention-days: 7
-        if-no-files-found: error
+      - &id001
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - id: select
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before || github.sha }}
+          HEAD: ${{ github.sha }}
+          EVENT: ${{ github.event_name }}
+          FORCE: ${{ inputs.force_all || false }}
+        run: python3 scripts/ci/dispatch.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: repository-selection
+          path: ${{ runner.temp }}/ci-selection.json
+          retention-days: 14
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: "!contains(fromJSON(steps.select.outputs.products), 'control-center')"
+        with:
+          name: ci-selection
+          path: ${{ runner.temp }}/control-center/ci-selection.json
+          retention-days: 7
+          if-no-files-found: error
   typecheck:
     needs: changes
     if: needs.changes.outputs.tooling == 'true'
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 5
     steps:
-    - *id001
-    - run: bash apps/control-center/tools/install_ci_linters.sh
-    - run: |-
-        actionlint
-        python3 -m compileall -q scripts/ci
+      - *id001
+      - run: bash apps/control-center/tools/install_ci_linters.sh
+      - run: |-
+          actionlint
+          python3 -m compileall -q scripts/ci
   test-unit:
     needs: changes
     if: needs.changes.outputs.tooling == 'true'
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 5
     steps:
-    - *id001
-    - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
-      with:
-        python-version: 3.15.2
-    - run: python3 -m pip install PyYAML==6.0.3
-    - uses: ./.github/actions/ruby-tools
-    - run: |-
-        python3 -m unittest discover -s scripts/ci -p 'test_*.py'
-        ruby scripts/check-release.rb
-        python3 scripts/test-changed-apps.py
+      - *id001
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: 3.15.2
+      - run: python3 -m pip install PyYAML==6.0.3
+      - uses: ./.github/actions/ruby-tools
+      - run: |-
+          python3 -m unittest discover -s scripts/ci -p 'test_*.py'
+          python3 -m unittest scripts/test_format_staged.py
+          ruby scripts/check-release.rb
+          python3 scripts/test-changed-apps.py
+  format:
+    needs: changes
+    runs-on: xcode-27
+    timeout-minutes: 12
+    steps:
+      - *id001
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
+        with:
+          bun-version: 1.4.4
+      - uses: ./.github/actions/ruby-tools
+      - run: bun install --frozen-lockfile
+      - run: gem install syntax_tree -v 6.3.0 --no-document
+      - uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_version_file: .opentofu-version
+          tofu_wrapper: false
+      - run: brew install nixfmt
+      - run: |-
+          python3 -m venv "$RUNNER_TEMP/format-venv"
+          "$RUNNER_TEMP/format-venv/bin/pip" install "ruff==$(python3 -c 'import json; print(json.load(open("apps/control-center/tools/versions.json"))["ruff"])')"
+          echo "$RUNNER_TEMP/format-venv/bin" >> "$GITHUB_PATH"
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
+        with:
+          toolchain: 1.99.0
+          components: rustfmt
+      - run: |-
+          rustup toolchain install 1.99.1 --profile minimal --component rustfmt
+      - run: python3 scripts/format-staged.py --all --check
   control-center:
     name: Control Center
     needs:
-    - changes
-    - typecheck
-    - test-unit
-    if: always() && !cancelled() && needs.changes.result == 'success' && (needs.typecheck.result == 'success' || needs.typecheck.result
+      - changes
+      - typecheck
+      - test-unit
+    if:
+      always() && !cancelled() && needs.changes.result == 'success' && (needs.typecheck.result == 'success' || needs.typecheck.result
       == 'skipped') && (needs.test-unit.result == 'success' || needs.test-unit.result == 'skipped') && contains(fromJSON(needs.changes.outputs.products),
       'control-center')
     uses: ./.github/workflows/control-center-ci.yml
@@ -91,10 +121,11 @@ jobs:
   folding:
     name: Folding
     needs:
-    - changes
-    - typecheck
-    - test-unit
-    if: always() && !cancelled() && needs.changes.result == 'success' && (needs.typecheck.result == 'success' || needs.typecheck.result
+      - changes
+      - typecheck
+      - test-unit
+    if:
+      always() && !cancelled() && needs.changes.result == 'success' && (needs.typecheck.result == 'success' || needs.typecheck.result
       == 'skipped') && (needs.test-unit.result == 'success' || needs.test-unit.result == 'skipped') && contains(fromJSON(needs.changes.outputs.products),
       'folding')
     uses: ./.github/workflows/folding-ci.yml
@@ -102,10 +133,11 @@ jobs:
   tendr:
     name: Standard iOS
     needs:
-    - changes
-    - typecheck
-    - test-unit
-    if: always() && !cancelled() && needs.changes.result == 'success' && (needs.typecheck.result == 'success' || needs.typecheck.result
+      - changes
+      - typecheck
+      - test-unit
+    if:
+      always() && !cancelled() && needs.changes.result == 'success' && (needs.typecheck.result == 'success' || needs.typecheck.result
       == 'skipped') && (needs.test-unit.result == 'success' || needs.test-unit.result == 'skipped') && contains(fromJSON(needs.changes.outputs.products),
       'tendr')
     uses: ./.github/workflows/tendr-ci.yml
@@ -113,10 +145,11 @@ jobs:
   callkeep:
     name: Callkeep
     needs:
-    - changes
-    - typecheck
-    - test-unit
-    if: always() && !cancelled() && needs.changes.result == 'success' && (needs.typecheck.result == 'success' || needs.typecheck.result
+      - changes
+      - typecheck
+      - test-unit
+    if:
+      always() && !cancelled() && needs.changes.result == 'success' && (needs.typecheck.result == 'success' || needs.typecheck.result
       == 'skipped') && (needs.test-unit.result == 'success' || needs.test-unit.result == 'skipped') && contains(fromJSON(needs.changes.outputs.products),
       'callkeep')
     uses: ./.github/workflows/callkeep-ci.yml
@@ -124,10 +157,11 @@ jobs:
   golink:
     name: Golink Safari
     needs:
-    - changes
-    - typecheck
-    - test-unit
-    if: always() && !cancelled() && needs.changes.result == 'success' && (needs.typecheck.result == 'success' || needs.typecheck.result
+      - changes
+      - typecheck
+      - test-unit
+    if:
+      always() && !cancelled() && needs.changes.result == 'success' && (needs.typecheck.result == 'success' || needs.typecheck.result
       == 'skipped') && (needs.test-unit.result == 'success' || needs.test-unit.result == 'skipped') && contains(fromJSON(needs.changes.outputs.products),
       'golink')
     uses: ./.github/workflows/golink-safari-ci.yml
@@ -135,10 +169,11 @@ jobs:
   homelab:
     name: Homelab
     needs:
-    - changes
-    - typecheck
-    - test-unit
-    if: always() && !cancelled() && needs.changes.result == 'success' && (needs.typecheck.result == 'success' || needs.typecheck.result
+      - changes
+      - typecheck
+      - test-unit
+    if:
+      always() && !cancelled() && needs.changes.result == 'success' && (needs.typecheck.result == 'success' || needs.typecheck.result
       == 'skipped') && (needs.test-unit.result == 'success' || needs.test-unit.result == 'skipped') && contains(fromJSON(needs.changes.outputs.products),
       'homelab')
     uses: ./.github/workflows/homelab-ci.yml
@@ -146,10 +181,11 @@ jobs:
   sites:
     name: Sites
     needs:
-    - changes
-    - typecheck
-    - test-unit
-    if: always() && !cancelled() && needs.changes.result == 'success' && (needs.typecheck.result == 'success' || needs.typecheck.result
+      - changes
+      - typecheck
+      - test-unit
+    if:
+      always() && !cancelled() && needs.changes.result == 'success' && (needs.typecheck.result == 'success' || needs.typecheck.result
       == 'skipped') && (needs.test-unit.result == 'success' || needs.test-unit.result == 'skipped') && contains(fromJSON(needs.changes.outputs.products),
       'sites')
     uses: ./.github/workflows/site.yml
@@ -167,21 +203,22 @@ jobs:
   build-and-test:
     if: always() && !cancelled()
     needs:
-    - changes
-    - typecheck
-    - test-unit
-    - control-center
-    - folding
-    - tendr
-    - callkeep
-    - golink
-    - homelab
-    - sites
-    - security
+      - changes
+      - typecheck
+      - test-unit
+      - format
+      - control-center
+      - folding
+      - tendr
+      - callkeep
+      - golink
+      - homelab
+      - sites
+      - security
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 3
     steps:
-    - *id001
-    - env:
-        CI_NEEDS: ${{ toJSON(needs) }}
-      run: python3 scripts/ci/gate.py
+      - *id001
+      - env:
+          CI_NEEDS: ${{ toJSON(needs) }}
+        run: python3 scripts/ci/gate.py

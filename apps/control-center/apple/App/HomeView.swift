@@ -81,6 +81,7 @@ struct HomeView: View {
     var onWake: () -> Void = {}
     @State private var shell = PanelShellState()
     @State private var timer: PanelTimerStore
+    @State private var brightnessPreview = PanelBrightnessPreview()
     private let runsTimer: Bool
     private var display = PanelDisplayPreferences()
     @AppStorage("panel.clockFace") private var clockFace = PanelClockFace.green
@@ -308,6 +309,7 @@ struct HomeView: View {
             PanelIdleDimming(
                 onIdle: clock, timeout: display.returnToClockSeconds, inhibited: keepsAwake, onWake: onWake)
         )
+        .environment(brightnessPreview)
         #if targetEnvironment(simulator)
             .background {
                 Button("Open apps") { if showingClock || selected != nil { home() } else { clock() } }

@@ -1,5 +1,5 @@
 name: Folding CI
-'on':
+"on":
   workflow_call: {}
 permissions:
   contents: read
@@ -14,51 +14,53 @@ jobs:
     outputs:
       verify: ${{ steps.selection.outputs.verify }}
     steps:
-    - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
-      with:
-        fetch-depth: 0
-        sparse-checkout: |
-          .github/actions/select
-          scripts/ci
-        persist-credentials: true
-    - id: selection
-      uses: ./.github/actions/select
-    - uses: actions/upload-artifact@v4
-      with:
-        name: folding-selection
-        path: ${{ runner.temp }}/ci-selection.json
-        retention-days: 14
-        if-no-files-found: error
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          fetch-depth: 0
+          sparse-checkout: |
+            .github/actions/select
+            scripts/ci
+          persist-credentials: true
+      - id: selection
+        uses: ./.github/actions/select
+      - uses: actions/upload-artifact@v4
+        with:
+          name: folding-selection
+          path: ${{ runner.temp }}/ci-selection.json
+          retention-days: 14
+          if-no-files-found: error
   contracts:
     name: Folding contracts
     needs: selection
-    if: contains(fromJSON(needs.selection.outputs.verify), 'folding.contracts') || contains(fromJSON(needs.selection.outputs.verify),
+    if:
+      contains(fromJSON(needs.selection.outputs.verify), 'folding.contracts') || contains(fromJSON(needs.selection.outputs.verify),
       'folding.native')
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 10
     steps:
-    - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
-      with:
-        persist-credentials: false
-    - uses: ./.github/actions/folding-tools
-      with:
-        target: contracts
-    - run: .venv/contracts/bin/python scripts/check-contracts.py
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/folding-tools
+        with:
+          target: contracts
+      - run: .venv/contracts/bin/python scripts/check-contracts.py
   localization:
     name: Folding localization
     needs: selection
-    if: contains(fromJSON(needs.selection.outputs.verify), 'folding.native') || contains(fromJSON(needs.selection.outputs.verify),
+    if:
+      contains(fromJSON(needs.selection.outputs.verify), 'folding.native') || contains(fromJSON(needs.selection.outputs.verify),
       'folding.tooling')
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 10
     steps:
-    - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
-      with:
-        persist-credentials: false
-    - run: |
-        python3 scripts/check-localization.py
-        python3 scripts/test-localization.py
-        python3 scripts/test-apple-build-environment.py
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - run: |
+          python3 scripts/check-localization.py
+          python3 scripts/test-localization.py
+          python3 scripts/test-apple-build-environment.py
   backend:
     name: Folding backend
     needs: selection
@@ -66,31 +68,31 @@ jobs:
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 45
     steps:
-    - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
-      with:
-        persist-credentials: false
-    - uses: ./.github/actions/folding-tools
-      with:
-        target: backend
-    - run: scripts/check-backend
-    - name: Seal the tested Worker bytes
-      run: |
-        python3 - <<'PYTHON'
-        import hashlib, json, os, pathlib
-        root = pathlib.Path('backend/crates/worker/build')
-        names = ['index.js', 'index_bg.wasm', 'package.json', 'worker/shim.mjs']
-        (root / 'artifact.json').write_text(json.dumps({'source_sha': os.environ['GITHUB_SHA'], 'files': {name: hashlib.sha256((root / name).read_bytes()).hexdigest() for name in names}}, sort_keys=True) + '\n')
-        PYTHON
-    - uses: actions/upload-artifact@v4
-      with:
-        name: folding-worker-${{ github.sha }}
-        path: apps/folding/backend/crates/worker/build
-        retention-days: 14
-        if-no-files-found: error
-    - name: Database policy and migration source fences
-      run: |
-        python3 scripts/test-published-build.py
-        python3 scripts/test-migration-source.py
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/folding-tools
+        with:
+          target: backend
+      - run: scripts/check-backend
+      - name: Seal the tested Worker bytes
+        run: |
+          python3 - <<'PYTHON'
+          import hashlib, json, os, pathlib
+          root = pathlib.Path('backend/crates/worker/build')
+          names = ['index.js', 'index_bg.wasm', 'package.json', 'worker/shim.mjs']
+          (root / 'artifact.json').write_text(json.dumps({'source_sha': os.environ['GITHUB_SHA'], 'files': {name: hashlib.sha256((root / name).read_bytes()).hexdigest() for name in names}}, sort_keys=True) + '\n')
+          PYTHON
+      - uses: actions/upload-artifact@v4
+        with:
+          name: folding-worker-${{ github.sha }}
+          path: apps/folding/backend/crates/worker/build
+          retention-days: 14
+          if-no-files-found: error
+      - name: Database policy and migration source fences
+        run: |
+          python3 scripts/test-published-build.py
+          python3 scripts/test-migration-source.py
   domain:
     name: Folding domain and storage
     needs: selection
@@ -100,30 +102,30 @@ jobs:
     env:
       DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
     steps:
-    - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
-      with:
-        persist-credentials: false
-    - uses: actions/cache@v4
-      with:
-        path: |-
-          apps/folding/apps/ios/Packages/FoldingKit/.build
-          apps/folding/.build
-        key: folding-host-${{ runner.os }}-${{ hashFiles('apps/folding/**/Package.swift', 'apps/folding/**/Package.resolved')
-          }}-${{ github.sha }}
-        restore-keys: folding-host-${{ runner.os }}-${{ hashFiles('apps/folding/**/Package.swift', 'apps/folding/**/Package.resolved')
-          }}-
-    - run: swift test --package-path apps/ios/Packages/FoldingKit
-    - name: Host presentation tests
-      run: swift test --package-path .
-    - uses: ./.github/actions/folding-tools
-      with:
-        target: release
-    - name: Release invariants without provider access
-      run: bundle exec ruby -e 'Dir["fastlane/tests/*_test.rb"].sort.each { |file| require_relative file }'
-    - name: Native formatting and generated icons
-      run: |
-        swift format lint --strict -r apps/ios/Packages/FoldingKit/Sources apps/ios/Packages/FoldingKit/Tests apps/ios/App apps/ios/BuildTests
-        swift scripts/generate-app-icons.swift --check
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - uses: actions/cache@v4
+        with:
+          path: |-
+            apps/folding/apps/ios/Packages/FoldingKit/.build
+            apps/folding/.build
+          key:
+            folding-host-${{ runner.os }}-${{ hashFiles('apps/folding/**/Package.swift', 'apps/folding/**/Package.resolved')
+            }}-${{ github.sha }}
+          restore-keys:
+            folding-host-${{ runner.os }}-${{ hashFiles('apps/folding/**/Package.swift', 'apps/folding/**/Package.resolved')
+            }}-
+      - run: swift test --package-path apps/ios/Packages/FoldingKit
+      - name: Host presentation tests
+        run: swift test --package-path .
+      - uses: ./.github/actions/folding-tools
+        with:
+          target: release
+      - name: Release invariants without provider access
+        run: bundle exec ruby -e 'Dir["fastlane/tests/*_test.rb"].sort.each { |file| require_relative file }'
+      - name: Generated icons
+        run: swift scripts/generate-app-icons.swift --check
   native:
     name: Folding native
     needs: selection
@@ -135,47 +137,49 @@ jobs:
       LANG: en_US.UTF-8
       LC_ALL: en_US.UTF-8
     steps:
-    - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
-      with:
-        persist-credentials: false
-    - name: Generate native project
-      run: |-
-        brew list xcodegen >/dev/null 2>&1 || brew install xcodegen
-        xcodegen generate --spec apps/ios/project.yml
-    - name: Compile native app without starting a simulator
-      run: xcodebuild -project apps/ios/Folding.xcodeproj -scheme Folding -configuration Debug -destination "generic/platform=iOS
-        Simulator" CODE_SIGNING_ALLOWED=NO build -quiet
-    - name: Compile screenshot app and tests without starting a simulator
-      run: xcodebuild -project apps/ios/Folding.xcodeproj -scheme FoldingStorefront -configuration Screenshots -destination "generic/platform=iOS
-        Simulator" CODE_SIGNING_ALLOWED=NO build-for-testing -quiet
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - name: Generate native project
+        run: |-
+          brew list xcodegen >/dev/null 2>&1 || brew install xcodegen
+          xcodegen generate --spec apps/ios/project.yml
+      - name: Compile native app without starting a simulator
+        run:
+          xcodebuild -project apps/ios/Folding.xcodeproj -scheme Folding -configuration Debug -destination "generic/platform=iOS
+          Simulator" CODE_SIGNING_ALLOWED=NO build -quiet
+      - name: Compile screenshot app and tests without starting a simulator
+        run:
+          xcodebuild -project apps/ios/Folding.xcodeproj -scheme FoldingStorefront -configuration Screenshots -destination "generic/platform=iOS
+          Simulator" CODE_SIGNING_ALLOWED=NO build-for-testing -quiet
   gate:
     name: Folding checks
     needs:
-    - selection
-    - contracts
-    - localization
-    - backend
-    - domain
-    - native
+      - selection
+      - contracts
+      - localization
+      - backend
+      - domain
+      - native
     if: always() && !cancelled()
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 5
     steps:
-    - env:
-        RESULTS: ${{ toJSON(needs) }}
-      working-directory: .
-      run: |
-        python3 - <<'PYTHON'
-        import json, os
-        results = json.loads(os.environ["RESULTS"])
-        assert results["selection"]["result"] == "success", "Selection failed"
-        selected = json.loads(results["selection"]["outputs"]["verify"])
-        expected = {"backend": "folding.backend", "domain": "folding.native", "native": "folding.native"}
-        for job, unit in expected.items():
-            wanted = "success" if unit in selected else "skipped"
-            assert results[job]["result"] == wanted, f"{job}: expected {wanted}"
-        wanted = "success" if set(selected) & {"folding.contracts", "folding.native"} else "skipped"
-        assert results["contracts"]["result"] == wanted, "Contract validation did not complete as selected"
-        wanted = "success" if set(selected) & {"folding.native", "folding.tooling"} else "skipped"
-        assert results["localization"]["result"] == wanted, "Localization did not complete as selected"
-        PYTHON
+      - env:
+          RESULTS: ${{ toJSON(needs) }}
+        working-directory: .
+        run: |
+          python3 - <<'PYTHON'
+          import json, os
+          results = json.loads(os.environ["RESULTS"])
+          assert results["selection"]["result"] == "success", "Selection failed"
+          selected = json.loads(results["selection"]["outputs"]["verify"])
+          expected = {"backend": "folding.backend", "domain": "folding.native", "native": "folding.native"}
+          for job, unit in expected.items():
+              wanted = "success" if unit in selected else "skipped"
+              assert results[job]["result"] == wanted, f"{job}: expected {wanted}"
+          wanted = "success" if set(selected) & {"folding.contracts", "folding.native"} else "skipped"
+          assert results["contracts"]["result"] == wanted, "Contract validation did not complete as selected"
+          wanted = "success" if set(selected) & {"folding.native", "folding.tooling"} else "skipped"
+          assert results["localization"]["result"] == wanted, "Localization did not complete as selected"
+          PYTHON

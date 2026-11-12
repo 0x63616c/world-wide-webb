@@ -1,0 +1,14 @@
+{
+  "name": "world-wide-webb-formatting",
+  "private": true,
+  "scripts": {
+    "format": "python3 scripts/format-staged.py --all",
+    "format:check": "python3 scripts/format-staged.py --all --check"
+  },
+  "devDependencies": {
+    "prettier": "3.10.1",
+    "prettier-plugin-sh": "0.20.2",
+    "prettier-plugin-sql": "0.20.0",
+    "prettier-plugin-toml": "4.1.0"
+  }
+}

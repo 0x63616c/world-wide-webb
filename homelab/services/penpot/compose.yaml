@@ -232,10 +232,7 @@
         "POSTGRES_USER": "penpot"
       },
       "healthcheck": {
-        "test": [
-          "CMD-SHELL",
-          "pg_isready -U penpot"
-        ],
+        "test": ["CMD-SHELL", "pg_isready -U penpot"],
         "timeout": "10s",
         "interval": "2s",
         "retries": 30
@@ -273,11 +270,7 @@
       "command": null,
       "entrypoint": null,
       "healthcheck": {
-        "test": [
-          "CMD",
-          "valkey-cli",
-          "ping"
-        ],
+        "test": ["CMD", "valkey-cli", "ping"],
         "timeout": "3s",
         "interval": "2s",
         "retries": 30

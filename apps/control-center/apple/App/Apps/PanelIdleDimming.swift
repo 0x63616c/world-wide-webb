@@ -39,6 +39,7 @@ struct PanelIdleDimming: ViewModifier {
     private var display = PanelDisplayPreferences()
     @State private var idle = PanelIdleState()
     @Environment(\.scenePhase) private var phase
+    @Environment(PanelBrightnessPreview.self) private var brightnessPreview: PanelBrightnessPreview?
 
     init(onIdle: @escaping () -> Void, timeout: Int, inhibited: Bool = false, onWake: @escaping () -> Void = {}) {
         self.onIdle = onIdle
@@ -49,12 +50,14 @@ struct PanelIdleDimming: ViewModifier {
 
     private var visualOpacity: Double {
         #if targetEnvironment(simulator)
-            return 1 - display.brightness(dimmed: idle.dimmed)
+            return 1 - level
         #else
             // Hardware brightness must not be multiplied by a second dark overlay.
             return 0
         #endif
     }
+
+    private var level: Double { brightnessPreview?.dimLevel ?? display.brightness(dimmed: idle.dimmed) }
 
     func body(content: Content) -> some View {
         content.allowsHitTesting(!idle.dimmed)
@@ -72,7 +75,7 @@ struct PanelIdleDimming: ViewModifier {
                 }
             }
             .background {
-                PanelScreenBrightness(level: display.brightness(dimmed: idle.dimmed), active: phase == .active)
+                PanelScreenBrightness(level: level, active: phase == .active)
                     .allowsHitTesting(false)
                 PanelInputObserver(activity: { idle.activity() })
             }

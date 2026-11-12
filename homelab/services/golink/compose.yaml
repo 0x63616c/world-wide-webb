@@ -5,7 +5,7 @@ services:
   golink:
     image: ghcr.io/tailscale/golink@sha256:6eaa20d3798f6998102b1758ca0601f6bd357380a1df8804d9d2ac3d2e421eb1
     container_name: golink
-    user: '65532:65532'
+    user: "65532:65532"
     command: [--sqlitedb, /home/nonroot/golink.db]
     env_file:
       - path: ${GOLINK_ENV_FILE:?Provision the golink enrollment environment}
@@ -24,7 +24,7 @@ services:
       - /tmp:rw,noexec,nosuid,nodev,size=16m,mode=1777
     logging:
       driver: json-file
-      options: {max-size: 5m, max-file: '2'}
+      options: { max-size: 5m, max-file: "2" }
 volumes:
   golink_data:
     # Initialize once before assignment; subsequent missing state must fail closed.

@@ -1,21 +1,14 @@
 {
   "version": 1,
-  "retired_paths": [
-    "apps/airmiles/**"
-  ],
+  "retired_paths": ["apps/airmiles/**"],
   "shared_verify": [],
   "units": {
     "golink.safari": {
-      "paths": [
-        "apps/golink-safari/**"
-      ],
+      "paths": ["apps/golink-safari/**"],
       "delivery": null
     },
     "tendr.native": {
-      "paths": [
-        "scripts/ci/with-match-signing.sh",
-        "apps/tendr/**"
-      ],
+      "paths": ["scripts/ci/with-match-signing.sh", "apps/tendr/**"],
       "delivery": "testflight",
       "delivery_paths": [
         "apps/tendr/Still/**",
@@ -76,9 +69,7 @@
       ]
     },
     "folding.backend": {
-      "paths": [
-        "apps/folding/backend/**"
-      ],
+      "paths": ["apps/folding/backend/**"],
       "delivery": "worker",
       "delivery_paths": [
         "apps/folding/backend/crates/**",
@@ -100,13 +91,8 @@
       ]
     },
     "folding.contracts": {
-      "paths": [
-        "apps/folding/contracts/**"
-      ],
-      "verify_dependents": [
-        "folding.native",
-        "folding.backend"
-      ],
+      "paths": ["apps/folding/contracts/**"],
+      "verify_dependents": ["folding.native", "folding.backend"],
       "delivery": null
     },
     "folding.tooling": {
@@ -159,9 +145,7 @@
       ]
     },
     "control-center.native": {
-      "paths": [
-        "apps/control-center/apple/**"
-      ],
+      "paths": ["apps/control-center/apple/**"],
       "delivery": "testflight",
       "delivery_paths": [
         "apps/control-center/apple/App/**",
@@ -210,13 +194,8 @@
       ]
     },
     "control-center.contracts": {
-      "paths": [
-        "apps/control-center/contracts/**"
-      ],
-      "verify_dependents": [
-        "control-center.native",
-        "control-center.server"
-      ],
+      "paths": ["apps/control-center/contracts/**"],
+      "verify_dependents": ["control-center.native", "control-center.server"],
       "delivery": null
     },
     "control-center.tooling": {
@@ -238,9 +217,7 @@
       ]
     },
     "sites.folding": {
-      "paths": [
-        "sites/folding/**"
-      ],
+      "paths": ["sites/folding/**"],
       "delivery": "site",
       "delivery_exclude": [
         "**/Tests/**",
@@ -278,9 +255,7 @@
       ]
     },
     "cloudflare.folding": {
-      "paths": [
-        "infra/cloudflare/folding/**"
-      ],
+      "paths": ["infra/cloudflare/folding/**"],
       "delivery": "infra",
       "delivery_paths": [
         "infra/cloudflare/folding/**/*.tf",
@@ -308,9 +283,7 @@
         "bootstrap/**",
         "scripts/homelab/**"
       ],
-      "exclude": [
-        "homelab/cli/**"
-      ],
+      "exclude": ["homelab/cli/**"],
       "delivery": "host-promotion",
       "delivery_exclude": [
         "**/Tests/**",
@@ -332,9 +305,7 @@
         "scripts/distribution/**",
         "homelab/process/**"
       ],
-      "verify_dependents": [
-        "homelab.config"
-      ],
+      "verify_dependents": ["homelab.config"],
       "delivery": "homebrew",
       "delivery_exclude": [
         "**/Tests/**",
@@ -384,9 +355,7 @@
         "**/ScreenshotTests/**",
         "**/StorefrontTests/**"
       ],
-      "exclude": [
-        "sites/folding/**"
-      ],
+      "exclude": ["sites/folding/**"],
       "delivery_paths": [
         "sites/**",
         "scripts/build-site.sh",
@@ -394,13 +363,8 @@
       ]
     },
     "credentials.home": {
-      "paths": [
-        "secrets/vault.yaml"
-      ],
-      "verify_dependents": [
-        "control-center.server",
-        "cloudflare.home"
-      ],
+      "paths": ["secrets/vault.yaml"],
+      "verify_dependents": ["control-center.server", "cloudflare.home"],
       "delivery": null
     },
     "repo.tooling": {
@@ -413,6 +377,9 @@
         "Gemfile",
         "Gemfile.lock",
         "lefthook.yml",
+        ".prettierrc.json",
+        "package.json",
+        "bun.lock",
         "renovate.json",
         "ruff.toml",
         ".gitleaks.toml",
@@ -426,86 +393,37 @@
         ".config/**"
       ],
       "delivery": null,
-      "exclude": [
-        "scripts/homelab/**",
-        "scripts/distribution/**"
-      ]
+      "exclude": ["scripts/homelab/**", "scripts/distribution/**"]
     }
   },
   "workflow_units": {
-    ".github/workflows/golink-safari-ci.yml": [
-      "golink.safari"
-    ],
-    ".github/workflows/homelab-ci.yml": [
-      "homelab.config",
-      "homelab.cli"
-    ],
-    ".github/workflows/homelab-delivery.yml": [
-      "homelab.config"
-    ],
-    ".github/workflows/homelab-hindsight-recovery.yml": [
-      "homelab.config"
-    ],
-    ".github/workflows/homelab-operations-canary.yml": [
-      "homelab.config"
-    ],
-    ".github/workflows/homelab-cli-release.yml": [
-      "homelab.cli"
-    ],
-    ".github/workflows/ci.yml": [
-      "repo.tooling"
-    ],
-    ".github/workflows/apple-panel-testflight.yml": [
-      "control-center.tooling"
-    ],
-    ".github/workflows/deploy-mini.yml": [
-      "control-center.tooling"
-    ],
-    ".github/workflows/cloudflare.yml": [
-      "cloudflare.home"
-    ],
+    ".github/workflows/golink-safari-ci.yml": ["golink.safari"],
+    ".github/workflows/homelab-ci.yml": ["homelab.config", "homelab.cli"],
+    ".github/workflows/homelab-delivery.yml": ["homelab.config"],
+    ".github/workflows/homelab-hindsight-recovery.yml": ["homelab.config"],
+    ".github/workflows/homelab-operations-canary.yml": ["homelab.config"],
+    ".github/workflows/homelab-cli-release.yml": ["homelab.cli"],
+    ".github/workflows/ci.yml": ["repo.tooling"],
+    ".github/workflows/apple-panel-testflight.yml": ["control-center.tooling"],
+    ".github/workflows/deploy-mini.yml": ["control-center.tooling"],
+    ".github/workflows/cloudflare.yml": ["cloudflare.home"],
     ".github/workflows/folding-ci.yml": [
       "folding.native",
       "folding.backend",
       "folding.contracts",
       "folding.tooling"
     ],
-    ".github/workflows/folding-release.yml": [
-      "folding.tooling"
-    ],
-    ".github/workflows/folding-store-checks.yml": [
-      "folding.tooling"
-    ],
-    ".github/workflows/callkeep-ci.yml": [
-      "callkeep.native"
-    ],
-    ".github/workflows/callkeep-release.yml": [
-      "callkeep.native"
-    ],
-    ".github/workflows/tendr-ci.yml": [
-      "tendr.native"
-    ],
-    ".github/workflows/testflight.yml": [
-      "tendr.native",
-      "folding.tooling"
-    ],
-    ".github/workflows/iap.yml": [
-      "tendr.native"
-    ],
-    ".github/workflows/release.yml": [
-      "tendr.native",
-      "folding.tooling"
-    ],
-    ".github/workflows/testers.yml": [
-      "tendr.native"
-    ],
-    ".github/workflows/register-ids.yml": [
-      "tendr.native"
-    ],
-    ".github/workflows/site.yml": [
-      "sites.pages",
-      "sites.folding"
-    ],
+    ".github/workflows/folding-release.yml": ["folding.tooling"],
+    ".github/workflows/folding-store-checks.yml": ["folding.tooling"],
+    ".github/workflows/callkeep-ci.yml": ["callkeep.native"],
+    ".github/workflows/callkeep-release.yml": ["callkeep.native"],
+    ".github/workflows/tendr-ci.yml": ["tendr.native"],
+    ".github/workflows/testflight.yml": ["tendr.native", "folding.tooling"],
+    ".github/workflows/iap.yml": ["tendr.native"],
+    ".github/workflows/release.yml": ["tendr.native", "folding.tooling"],
+    ".github/workflows/testers.yml": ["tendr.native"],
+    ".github/workflows/register-ids.yml": ["tendr.native"],
+    ".github/workflows/site.yml": ["sites.pages", "sites.folding"],
     ".github/actions/folding-tools/action.yml": [
       "folding.native",
       "folding.backend",
@@ -517,9 +435,7 @@
       "control-center.native",
       "control-center.server"
     ],
-    ".github/workflows/tendr-delivery.yml": [
-      "tendr.native"
-    ],
+    ".github/workflows/tendr-delivery.yml": ["tendr.native"],
     ".github/actions/match-access/action.yml": [
       "tendr.native",
       "callkeep.native",
@@ -528,9 +444,7 @@
   },
   "checks": {
     "homelab.operations": {
-      "units": [
-        "homelab.config"
-      ],
+      "units": ["homelab.config"],
       "paths": [
         "homelab/**",
         "homelab.json",
@@ -550,9 +464,7 @@
       ]
     },
     "homelab.linux": {
-      "units": [
-        "homelab.config"
-      ],
+      "units": ["homelab.config"],
       "paths": [
         "homelab/runner/**",
         "homelab/packages/runner.nix",
@@ -560,9 +472,7 @@
       ]
     },
     "homelab.darwin": {
-      "units": [
-        "homelab.config"
-      ],
+      "units": ["homelab.config"],
       "paths": [
         "homelab/**",
         "homelab.json",
@@ -582,9 +492,7 @@
       ]
     },
     "homelab.cli": {
-      "units": [
-        "homelab.cli"
-      ],
+      "units": ["homelab.cli"],
       "paths": [
         "homelab/cli/**",
         "homelab/process/**",
@@ -681,9 +589,7 @@
       ]
     },
     "homelab.host": {
-      "units": [
-        "homelab.config"
-      ],
+      "units": ["homelab.config"],
       "paths": [
         "homelab/host/**",
         "homelab/process/**",

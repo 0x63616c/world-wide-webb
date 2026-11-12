@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Exercise two real OpenTofu clients and encrypted backup restoration against R2."""
+
 import hashlib
 import json
 import os
@@ -17,8 +18,9 @@ ENDPOINT = "https://eb3ea2e5ef93e58704d39980583fee38.r2.cloudflarestorage.com"
 
 
 def run(directory, *args):
-    return subprocess.run(["tofu", f"-chdir={directory}", *args, "-no-color"],
-                          check=True, capture_output=True, text=True).stdout
+    return subprocess.run(
+        ["tofu", f"-chdir={directory}", *args, "-no-color"], check=True, capture_output=True, text=True
+    ).stdout
 
 
 def main():
@@ -30,12 +32,17 @@ def main():
         dirs = [Path(temp) / name for name in ("first", "contender", "restored")]
         for directory in dirs:
             directory.mkdir()
-            shutil.copyfile(ROOT.parents[1] / "infra/cloudflare/folding/state-verification/main.tf", directory / "main.tf")
+            shutil.copyfile(
+                ROOT.parents[1] / "infra/cloudflare/folding/state-verification/main.tf", directory / "main.tf"
+            )
         for directory in dirs[:2]:
             run(directory, "init", "-input=false", f"-backend-config=key={evidence_key}")
         first = subprocess.Popen(
             ["tofu", f"-chdir={dirs[0]}", "apply", "-input=false", "-auto-approve", "-no-color"],
-            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+        )
         try:
             for line in first.stdout:
                 # Match emitted output, not the preceding command-echo line.
@@ -44,8 +51,19 @@ def main():
             else:
                 raise RuntimeError("First client never confirmed holding the lock")
             contender = subprocess.run(
-                ["tofu", f"-chdir={dirs[1]}", "apply", "-input=false", "-auto-approve",
-                 "-lock-timeout=0s", "-no-color"], capture_output=True, text=True, timeout=15)
+                [
+                    "tofu",
+                    f"-chdir={dirs[1]}",
+                    "apply",
+                    "-input=false",
+                    "-auto-approve",
+                    "-lock-timeout=0s",
+                    "-no-color",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=15,
+            )
             assert contender.returncode != 0, "Competing client incorrectly acquired lock"
             assert "Error acquiring the state lock" in contender.stderr + contender.stdout
             first.communicate(timeout=35)
@@ -70,10 +88,17 @@ def main():
         resources = restored["resources"]
         assert len(resources) == 1
         assert resources[0]["instances"][0]["attributes"]["input"]["value"] == "folding-r2-lock-and-restore-v1"
-        print(json.dumps({"result": "pass", "key": evidence_key,
-                          "encrypted_backup_sha256": hashlib.sha256(encrypted).hexdigest(),
-                          "lock_contention": "second client rejected",
-                          "restore": "encrypted backup decrypted by independent client"}))
+        print(
+            json.dumps(
+                {
+                    "result": "pass",
+                    "key": evidence_key,
+                    "encrypted_backup_sha256": hashlib.sha256(encrypted).hexdigest(),
+                    "lock_contention": "second client rejected",
+                    "restore": "encrypted backup decrypted by independent client",
+                }
+            )
+        )
 
 
 if __name__ == "__main__":

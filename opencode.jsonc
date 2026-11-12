@@ -1,7 +1,10 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "lsp": true,
-  "plugin": ["@slkiser/opencode-quota", "./.opencode/plugins/secret-redactor.ts"],
+  "plugin": [
+    "@slkiser/opencode-quota",
+    "./.opencode/plugins/secret-redactor.ts"
+  ],
   "command": {
     "recap": {
       "description": "Recap the current conversation; pass 'full' for the entire session",

@@ -8,16 +8,33 @@ module TestflightFeedback
     enabled = feedback_enabled(api.get(path), group_id)
     return if enabled
 
-    api.patch(path, {data: {type: "betaGroups", id: group_id, attributes: {feedbackEnabled: true}}})
-    raise "TestFlight screenshot feedback remains disabled for group #{group_id}" unless feedback_enabled(api.get(path), group_id)
+    api.patch(
+      path,
+      {
+        data: {
+          type: "betaGroups",
+          id: group_id,
+          attributes: {
+            feedbackEnabled: true
+          }
+        }
+      }
+    )
+    unless feedback_enabled(api.get(path), group_id)
+      raise "TestFlight screenshot feedback remains disabled for group #{group_id}"
+    end
   end
 
   def self.feedback_enabled(response, group_id)
     data = response.body.fetch("data")
-    raise "Unexpected TestFlight group response" unless data.fetch("type") == "betaGroups" && data.fetch("id") == group_id
+    unless data.fetch("type") == "betaGroups" && data.fetch("id") == group_id
+      raise "Unexpected TestFlight group response"
+    end
 
     value = data.fetch("attributes").fetch("feedbackEnabled")
-    raise "Missing TestFlight feedback setting" unless value == true || value == false
+    unless value == true || value == false
+      raise "Missing TestFlight feedback setting"
+    end
 
     value
   end

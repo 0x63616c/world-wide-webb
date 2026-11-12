@@ -11,8 +11,8 @@ fi
 # `wtp add <branch>` also runs post_create for existing branches. Only repair
 # the exact origin/main tracking that Git inherits when creating a branch from
 # origin/main; leave every other established upstream alone.
-upstream_remote=$(git config --get "branch.$branch.remote" 2>/dev/null || true)
-upstream_merge=$(git config --get "branch.$branch.merge" 2>/dev/null || true)
+upstream_remote=$(git config --get "branch.$branch.remote" 2> /dev/null || true)
+upstream_merge=$(git config --get "branch.$branch.merge" 2> /dev/null || true)
 if [ "$upstream_remote" != "origin" ] || [ "$upstream_merge" != "refs/heads/main" ]; then
   exit 0
 fi

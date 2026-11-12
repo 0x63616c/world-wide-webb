@@ -14,18 +14,22 @@ try {
   const data = build?.result?.data;
   const sourceRevision = (data?.json ?? data)?.hash;
   const workersEnabled = health?.cycles?.enabled;
-  if (typeof health?.database !== "string" ||
-      typeof health?.stopping !== "boolean" ||
-      typeof workersEnabled !== "boolean" ||
-      typeof sourceRevision !== "string") {
+  if (
+    typeof health?.database !== "string" ||
+    typeof health?.stopping !== "boolean" ||
+    typeof workersEnabled !== "boolean" ||
+    typeof sourceRevision !== "string"
+  ) {
     throw new Error("Missing health facts");
   }
-  console.log(JSON.stringify({
-    database: health.database,
-    stopping: health.stopping,
-    workersEnabled,
-    sourceRevision,
-  }));
+  console.log(
+    JSON.stringify({
+      database: health.database,
+      stopping: health.stopping,
+      workersEnabled,
+      sourceRevision,
+    }),
+  );
 } catch {
   process.exitCode = 1;
 }

@@ -13,7 +13,7 @@ scheme=$(ruby scripts/app-config.rb "$app" scheme)
 test_id=$(ruby scripts/app-config.rb "$app" "${SCREENSHOT_TEST_KEY:-screenshot_test}")
 name=$(ruby scripts/app-config.rb "$app" name)
 out=${2:-build/screenshots/$app/raw}
-shift $(( $# > 1 ? 2 : 1 ))
+shift $(($# > 1 ? 2 : 1))
 appearances=("$@")
 [[ ${#appearances[@]} -gt 0 ]] || appearances=(light dark)
 screenshot_settings=$(python3 scripts/screenshot-build-settings.py "$app")
@@ -24,7 +24,7 @@ done <<< "$screenshot_settings"
 # Generated projects are absent in a fresh checkout (for example Air Miles).
 # Prepare before simulator boot so missing inputs fail without consuming boot time.
 if [[ -f "apps/$app/project.yml" ]]; then
-  command -v xcodegen >/dev/null || HOMEBREW_NO_AUTO_UPDATE=1 brew install xcodegen
+  command -v xcodegen > /dev/null || HOMEBREW_NO_AUTO_UPDATE=1 brew install xcodegen
   (cd "apps/$app" && xcodegen generate --quiet)
 fi
 device_type=com.apple.CoreSimulator.SimDeviceType.iPhone-18-Pro-Max
@@ -56,7 +56,7 @@ for appearance in "${appearances[@]}"; do
     -resultBundlePath "build/screenshots/$app/${SCREENSHOT_TEST_KEY:-screenshot_test}-$appearance.xcresult" -quiet
 done
 
-python3 - "$out" <<'PY'
+python3 - "$out" << 'PY'
 import struct, sys, pathlib
 for png in sorted(pathlib.Path(sys.argv[1]).rglob("*.png")):
     width, height = struct.unpack(">II", png.read_bytes()[16:24])

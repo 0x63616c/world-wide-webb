@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Transfer only private signing-repository authentication from the existing CI vault."""
+
 import os
 import uuid
 

@@ -1,5 +1,9 @@
 import SwiftUI
 
+@MainActor @Observable final class PanelBrightnessPreview {
+    var dimLevel: Double?
+}
+
 /// Device-local preferences shared by the shell and the native Settings form.
 struct PanelDisplayPreferences: DynamicProperty {
     @AppStorage("panel.idleDimming") var idleDimming = true
@@ -17,6 +21,8 @@ struct PanelDisplayPreferences: DynamicProperty {
 
 struct PanelDisplaySettings: View {
     private var display = PanelDisplayPreferences()
+    @Environment(PanelBrightnessPreview.self) private var brightnessPreview: PanelBrightnessPreview?
+    @State private var previewingDim = false
 
     var body: some View {
         Section("Return to Clock") {
@@ -35,7 +41,7 @@ struct PanelDisplaySettings: View {
             brightnessSlider("Wake brightness", value: display.$wakeBrightness)
             Toggle("Dim when idle", isOn: display.$idleDimming)
             if display.idleDimming {
-                brightnessSlider("Dim brightness", value: display.$dimBrightness)
+                brightnessSlider("Dim brightness", value: display.$dimBrightness, previewDim: true)
                 Picker("Dim after", selection: display.$dimAfterSeconds) {
                     Text("30 seconds").tag(30)
                     Text("1 minute").tag(60)
@@ -52,22 +58,33 @@ struct PanelDisplaySettings: View {
         .onChange(of: display.dimBrightness) { _, value in
             if value > display.wakeBrightness { display.wakeBrightness = value }
         }
+        .onDisappear { brightnessPreview?.dimLevel = nil }
     }
 
-    private func brightnessSlider(_ title: String, value: Binding<Double>) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
+    private func brightnessSlider(_ title: String, value: Binding<Double>, previewDim: Bool = false) -> some View {
+        let sliderValue = Binding(
+            get: { value.wrappedValue },
+            set: { newValue in
+                value.wrappedValue = newValue
+                if previewDim && previewingDim { brightnessPreview?.dimLevel = newValue }
+            })
+        return VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Text(title)
                 Spacer()
                 Text(value.wrappedValue, format: .percent.precision(.fractionLength(0)))
                     .foregroundStyle(.secondary).monospacedDigit()
             }
-            Slider(value: value, in: 0.1...1, step: 0.05) {
+            Slider(value: sliderValue, in: 0.1...1, step: 0.05) {
                 Text(title)
             } minimumValueLabel: {
                 Image(systemName: "sun.min.fill")
             } maximumValueLabel: {
                 Image(systemName: "sun.max.fill")
+            } onEditingChanged: { editing in
+                guard previewDim else { return }
+                previewingDim = editing
+                brightnessPreview?.dimLevel = editing ? value.wrappedValue : nil
             }
             .accessibilityValue(value.wrappedValue.formatted(.percent.precision(.fractionLength(0))))
         }

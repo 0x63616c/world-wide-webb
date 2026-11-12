@@ -9,11 +9,7 @@
       "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
     },
     "purpose": {
-      "enum": [
-        "sign_in",
-        "reauthenticate",
-        "recover_deletion"
-      ]
+      "enum": ["sign_in", "reauthenticate", "recover_deletion"]
     },
     "challenge_id": {
       "type": "string",
@@ -88,9 +84,7 @@
     },
     {
       "if": {
-        "required": [
-          "existing_participant_id"
-        ]
+        "required": ["existing_participant_id"]
       },
       "then": {
         "properties": {
@@ -107,9 +101,7 @@
             "const": true
           }
         },
-        "required": [
-          "existing_account_only"
-        ]
+        "required": ["existing_account_only"]
       },
       "then": {
         "properties": {

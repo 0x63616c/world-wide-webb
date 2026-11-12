@@ -12,7 +12,7 @@ base=${base%/}
 
 page() { # page <file> <target-url>
   mkdir -p "$(dirname "$1")"
-  cat > "$1" <<HTML
+  cat > "$1" << HTML
 <!doctype html>
 <html lang="en">
 <head>
@@ -35,7 +35,7 @@ page "$out/index.html" "$base/"
 page "$out/privacy/index.html" "$base/privacy/"
 page "$out/support/index.html" "$base/support/"
 # GitHub Pages serves 404.html for anything else: keep the rest of the path.
-cat > "$out/404.html" <<HTML
+cat > "$out/404.html" << HTML
 <!doctype html>
 <html lang="en">
 <head>
@@ -53,7 +53,7 @@ cat > "$out/404.html" <<HTML
 </html>
 HTML
 touch "$out/.nojekyll"
-cat > "$out/README.md" <<MD
+cat > "$out/README.md" << MD
 # $app (moved)
 
 GitHub Pages redirects for $app's original URLs. The app's site now lives at $base/.

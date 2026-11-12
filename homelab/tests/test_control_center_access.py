@@ -22,10 +22,14 @@ class AccessTests(unittest.TestCase):
 
         def run(args, **kwargs):
             if args[1] == "status":
-                value = {"BackendState": "Running", "Self": {
-                    "HostName": host, "Tags": ["tag:homelab"],
-                    "DNSName": "homelab-mac-mini.tail8c014d.ts.net.",
-                }}
+                value = {
+                    "BackendState": "Running",
+                    "Self": {
+                        "HostName": host,
+                        "Tags": ["tag:homelab"],
+                        "DNSName": "homelab-mac-mini.tail8c014d.ts.net.",
+                    },
+                }
             elif args[1:3] == ["serve", "status"]:
                 value = state
             else:
@@ -43,17 +47,19 @@ class AccessTests(unittest.TestCase):
 
     def test_rebuilt_mini_advertises_original_app_address_without_renaming_host(self):
         state, mutations = self.run_route()
-        self.assertEqual(mutations, [[
-            "serve", "--service=svc:homelab", "--https=443", "http://127.0.0.1:4202"
-        ], ["serve", "advertise", "svc:homelab"]])
+        self.assertEqual(
+            mutations,
+            [
+                ["serve", "--service=svc:homelab", "--https=443", "http://127.0.0.1:4202"],
+                ["serve", "advertise", "svc:homelab"],
+            ],
+        )
         self.assertEqual(state["Services"]["svc:homelab"], access.EXPECTED)
 
     def test_preserves_node_routes_and_other_services(self):
         before = {
             "TCP": {"8000": {"HTTPS": True}},
-            "Web": {"homelab-mac-mini.tail8c014d.ts.net:8000": {
-                "Handlers": {"/": {"Proxy": "http://127.0.0.1:8000"}}
-            }},
+            "Web": {"homelab-mac-mini.tail8c014d.ts.net:8000": {"Handlers": {"/": {"Proxy": "http://127.0.0.1:8000"}}}},
             "Services": {"svc:other": {"TCP": {"1234": {"TCPForward": "localhost:1234"}}}},
         }
         after, _ = self.run_route(before)

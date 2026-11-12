@@ -2,14 +2,14 @@ name: www-control-center
 services:
   www:
     image: ${WWW_IMAGE:?Set an immutable native SQLite app image digest}
-    user: '${WWW_UID:-450}:${WWW_GID:-450}'
+    user: "${WWW_UID:-450}:${WWW_GID:-450}"
     restart: unless-stopped
     environment:
       TZ: America/Los_Angeles
       WWW_LISTEN: 0.0.0.0:4201
       WWW_DATA_DIR: /app/data
       WWW_DATABASE_PATH: /app/data/control-center.sqlite
-      WWW_REQUIRE_DATABASE: 'on'
+      WWW_REQUIRE_DATABASE: "on"
       WWW_SECRETS_DIR: /run/secrets
       HA_URL: ${HA_URL:?Set the Home Assistant origin}
       WORKER_CYCLES: ${WORKER_CYCLES:?Explicitly choose on or off}
@@ -22,14 +22,14 @@ services:
         source: ${WWW_SECRETS_DIR:?Set the secrets directory}
         target: /run/secrets
         read_only: true
-        bind: {create_host_path: false}
+        bind: { create_host_path: false }
       - type: volume
         source: www_sqlite
         target: /app/data
       - type: bind
         source: ${WWW_DATA_DIR:?Restore the persistent media directory}/media
         target: /app/media
-        bind: {create_host_path: false}
+        bind: { create_host_path: false }
     ports:
       - 127.0.0.1:${WWW_PORT:-4202}:4201
     healthcheck:
@@ -42,7 +42,7 @@ services:
     mem_limit: 768m
     logging:
       driver: json-file
-      options: {max-size: 10m, max-file: '3'}
+      options: { max-size: 10m, max-file: "3" }
 volumes:
   www_sqlite:
     external: true

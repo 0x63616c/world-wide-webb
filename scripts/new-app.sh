@@ -10,10 +10,13 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-fail() { printf 'error: %s\n' "$*" >&2; exit 1; }
+fail() {
+  printf 'error: %s\n' "$*" >&2
+  exit 1
+}
 raw=${1:-}
 suffix=${2:-}
-[[ $# == 2 || ( $# == 4 && "$3" == --backend && "$4" == cloudflare ) ]] || fail "usage: scripts/new-app.sh <Name> <bundle-suffix> [--backend cloudflare]"
+[[ $# == 2 || ($# == 4 && "$3" == --backend && "$4" == cloudflare) ]] || fail "usage: scripts/new-app.sh <Name> <bundle-suffix> [--backend cloudflare]"
 backend=${4:-none}
 [[ -n "$raw" && -n "$suffix" ]] || fail "Name and bundle suffix are required"
 [[ "$raw" =~ ^[A-Za-z][A-Za-z0-9]*$ ]] || fail "Name must be letters and digits, starting with a letter (for example Samplr)"
@@ -26,7 +29,7 @@ dest="apps/$slug"
 [[ ! -e "$dest" ]] || fail "$dest already exists"
 [[ ! -e "sites/$slug" ]] || fail "sites/$slug already exists"
 # Standard delivery requires an explicit unit; unknown paths authorize verification only.
-python3 - "$slug" <<'PYTHON'
+python3 - "$slug" << 'PYTHON'
 import json, sys
 from pathlib import Path
 config = json.loads(Path('scripts/ci/units.json').read_text())
@@ -44,8 +47,8 @@ if [[ "$backend" == cloudflare ]]; then
 fi
 cp -R templates/new-app/site "sites/$slug"
 printf '%s\n' "$slug" >> sites/.pages
-find "$dest" "sites/$slug" -type f \( -name '*.swift' -o -name '*.yml' -o -name '*.json' -o -name '*.txt' -o -name '*.md' -o -name '*.html' -o -name '*.plist' -o -name '*.ts' -o -name '*.jsonc' \) -print0 |
-  while IFS= read -r -d '' file; do
+find "$dest" "sites/$slug" -type f \( -name '*.swift' -o -name '*.yml' -o -name '*.json' -o -name '*.txt' -o -name '*.md' -o -name '*.html' -o -name '*.plist' -o -name '*.ts' -o -name '*.jsonc' \) -print0 \
+  | while IFS= read -r -d '' file; do
     sed -i.bak \
       -e "s#__NAME__#$name#g" -e "s#__SLUG__#$slug#g" -e "s#__BUNDLE_ID__#$bundle#g" \
       -e "s#__PAGES__#$pages#g" -e "s#__YEAR__#$(date +%Y)#g" -e "s#__DATE__#$(date '+%B %-d, %Y')#g" \
@@ -58,7 +61,7 @@ card="<a class=\"card\" href=\"./$slug/\"><h2>$name</h2><span>New app</span></a>
 sed -i.bak "s#$marker#$card\\
 $marker#" sites/index.html && rm -f sites/index.html.bak
 
-python3 - "$slug" <<'PYTHON'
+python3 - "$slug" << 'PYTHON'
 import json, sys
 from pathlib import Path
 slug = sys.argv[1]
@@ -81,14 +84,14 @@ config['units'][slug + '.native'] = {
 path.write_text(json.dumps(config, indent=2) + '\n')
 PYTHON
 
-if command -v xcodegen >/dev/null; then
+if command -v xcodegen > /dev/null; then
   (cd "$dest" && xcodegen generate --quiet)
   generated="Generated $dest/$name.xcodeproj."
 else
   generated="Install XcodeGen (brew install xcodegen), then run: (cd $dest && xcodegen generate)"
 fi
 
-cat <<EOF
+cat << EOF
 Created $name ($bundle) in $dest and sites/$slug. $generated
 
 Done for you: native SwiftUI, launch screen, placeholder icon, Settings with privacy and support links,
@@ -106,7 +109,7 @@ Remaining setup (the agent can complete supported account/API steps):
 EOF
 
 if [[ "$backend" == cloudflare ]]; then
-  cat <<EOF
+  cat << EOF
 
 Cloudflare backend: $dest/backend (separate staging/production, no resources provisioned).
   cd $dest/backend && bun install --frozen-lockfile && bun run check

@@ -26,8 +26,8 @@
 # root. Read-only tools and most Bash commands pass through untouched.
 
 input=$(cat)
-tool_name=$(printf '%s' "$input" | jq -r '.tool_name // empty' 2>/dev/null)
-cwd=$(printf '%s' "$input" | jq -r '.cwd // empty' 2>/dev/null)
+tool_name=$(printf '%s' "$input" | jq -r '.tool_name // empty' 2> /dev/null)
+cwd=$(printf '%s' "$input" | jq -r '.cwd // empty' 2> /dev/null)
 [ -z "$cwd" ] && cwd="$PWD"
 
 # Every line of a Bash command is treated as a command start, so a commit
@@ -45,7 +45,7 @@ deny() {
 # git-common-dir always points at the main checkout's .git, so its parent is the
 # main worktree root regardless of where this call came from.
 main_root_from() {
-  common=$(git -C "$1" rev-parse --path-format=absolute --git-common-dir 2>/dev/null) || return 1
+  common=$(git -C "$1" rev-parse --path-format=absolute --git-common-dir 2> /dev/null) || return 1
   [ -n "$common" ] || return 1
   printf '%s' "${common%/.git}"
 }
@@ -69,18 +69,18 @@ fi
 [ -f "$main_root/.wtp.yml" ] || exit 0
 
 case "$tool_name" in
-  Edit|Write|NotebookEdit|apply_patch)
-    file_path=$(printf '%s' "$input" | jq -r '.tool_input.file_path // .tool_input.path // empty' 2>/dev/null)
+  Edit | Write | NotebookEdit | apply_patch)
+    file_path=$(printf '%s' "$input" | jq -r '.tool_input.file_path // .tool_input.path // empty' 2> /dev/null)
     [ -n "$file_path" ] || exit 0
     case "$file_path" in
-      /tmp/*|/private/tmp/*) exit 0 ;;
+      /tmp/* | /private/tmp/*) exit 0 ;;
       /*) ;;
       *) file_path="$cwd/$file_path" ;;
     esac
 
     target_dir=$(existing_ancestor "$(dirname "$file_path")")
-    target_git=$(git -C "$target_dir" rev-parse --path-format=absolute --git-dir 2>/dev/null)
-    target_common=$(git -C "$target_dir" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)
+    target_git=$(git -C "$target_dir" rev-parse --path-format=absolute --git-dir 2> /dev/null)
+    target_common=$(git -C "$target_dir" rev-parse --path-format=absolute --git-common-dir 2> /dev/null)
     # Not a git repo, or unreadable: not ours to police.
     [ -n "$target_git" ] && [ -n "$target_common" ] || exit 0
     # In a linked worktree git-dir and git-common-dir differ. Only writes whose
@@ -96,7 +96,7 @@ case "$tool_name" in
     ;;
 
   Bash)
-    cmd=$(printf '%s' "$input" | jq -r '.tool_input.command // empty' 2>/dev/null)
+    cmd=$(printf '%s' "$input" | jq -r '.tool_input.command // empty' 2> /dev/null)
     [ -z "$cmd" ] && exit 0
     # A newline starts a new command, so it must count as a separator - a
     # multi-line Bash block is the ordinary way to write several commands, and
@@ -129,8 +129,8 @@ case "$tool_name" in
     # so a quoted message body like -m 'docs: explain git switch' cannot be
     # mistaken for an invocation.
     opt='((-[^[:space:]]*|/[^[:space:]]+)[[:space:]]+)*'
-    if printf '%s' "$norm" | grep -Eq "${pre}git[[:space:]]+${opt}(checkout|switch|merge|rebase|cherry-pick)([[:space:]]|$)" ||
-      printf '%s' "$norm" | grep -Eq "${pre}git[[:space:]]+${opt}reset[[:space:]]+--hard([[:space:]]|$)"; then
+    if printf '%s' "$norm" | grep -Eq "${pre}git[[:space:]]+${opt}(checkout|switch|merge|rebase|cherry-pick)([[:space:]]|$)" \
+      || printf '%s' "$norm" | grep -Eq "${pre}git[[:space:]]+${opt}reset[[:space:]]+--hard([[:space:]]|$)"; then
       # An explicit reference to the main checkout is always the main checkout,
       # even when the call comes from a worktree ('git -C <main> switch ...').
       case "$norm" in
@@ -142,11 +142,11 @@ case "$tool_name" in
         [ -n "$wt" ] || continue
         [ "$wt" = "$main_root" ] && continue
         case "$norm" in *"$wt"*) exit 0 ;; esac
-      done <<EOF
-$(git -C "$main_root" worktree list --porcelain 2>/dev/null | sed -n 's/^worktree //p')
+      done << EOF
+$(git -C "$main_root" worktree list --porcelain 2> /dev/null | sed -n 's/^worktree //p')
 EOF
-      cwd_git=$(git -C "$cwd" rev-parse --path-format=absolute --git-dir 2>/dev/null)
-      cwd_common=$(git -C "$cwd" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)
+      cwd_git=$(git -C "$cwd" rev-parse --path-format=absolute --git-dir 2> /dev/null)
+      cwd_common=$(git -C "$cwd" rev-parse --path-format=absolute --git-common-dir 2> /dev/null)
       # Unknown or stale cwd is treated as the main checkout: fail closed.
       if [ -z "$cwd_git" ] || [ "$cwd_git" = "$cwd_common" ]; then
         deny "Branch-switching git commands are blocked in the MAIN checkout - concurrent sessions share its working tree. Run 'wtp add -b <branch> origin/main' and target that worktree explicitly ('git -C <worktree> ...'). $PROSE_HINT"

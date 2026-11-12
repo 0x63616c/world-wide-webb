@@ -4,8 +4,15 @@
   "type": "object",
   "additionalProperties": false,
   "properties": {
-    "minimum_ios_build": {"type": "integer", "minimum": 0, "maximum": 2147483647},
-    "request_id": {"type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"}
+    "minimum_ios_build": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 2147483647
+    },
+    "request_id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    }
   },
   "required": ["minimum_ios_build", "request_id"]
 }

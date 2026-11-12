@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Apply checksum-fenced D1 migrations through the pinned Wrangler migration command."""
+
 import argparse
 import datetime
 import hashlib
@@ -29,10 +30,13 @@ DDL = f"""CREATE TABLE IF NOT EXISTS {LEDGER} (
 
 
 def run(args, *, checked=True, environment=None):
-    result = subprocess.run(args, cwd=ROOT, env=environment, stdin=subprocess.DEVNULL,
-                            capture_output=True, text=True, check=False)
+    result = subprocess.run(
+        args, cwd=ROOT, env=environment, stdin=subprocess.DEVNULL, capture_output=True, text=True, check=False
+    )
     if checked and result.returncode:
-        raise RuntimeError(f"{pathlib.Path(args[0]).name} failed ({result.returncode}); inspect migration state before retry")
+        raise RuntimeError(
+            f"{pathlib.Path(args[0]).name} failed ({result.returncode}); inspect migration state before retry"
+        )
     return result
 
 
@@ -66,8 +70,9 @@ def sources(require_committed, migrations=MIGRATIONS):
             raise RuntimeError("Migration symlinks are not allowed")
         raw = file.read_bytes()
         if require_committed:
-            committed = subprocess.run(["git", "show", f"HEAD:{file.relative_to(repository)}"], cwd=ROOT,
-                                       capture_output=True, check=False)
+            committed = subprocess.run(
+                ["git", "show", f"HEAD:{file.relative_to(repository)}"], cwd=ROOT, capture_output=True, check=False
+            )
             if committed.returncode or committed.stdout != raw:
                 raise RuntimeError(f"Commit exact migration source before apply: {file.name}")
         sql = raw.decode("utf-8")
@@ -77,26 +82,33 @@ def sources(require_committed, migrations=MIGRATIONS):
         no_comments = re.sub(r"--[^\n]*|/\*.*?\*/", " ", sql, flags=re.S)
         if re.search(rf"\b({TABLE}|{LEDGER})\b", no_comments, re.I):
             raise RuntimeError("Source migrations may not manage the migration ledgers")
-        if re.search(r"(?:\A|;)\s*(BEGIN|COMMIT|END|ROLLBACK|SAVEPOINT|RELEASE|ATTACH|DETACH|VACUUM)\b", no_comments, re.I):
+        if re.search(
+            r"(?:\A|;)\s*(BEGIN|COMMIT|END|ROLLBACK|SAVEPOINT|RELEASE|ATTACH|DETACH|VACUUM)\b", no_comments, re.I
+        ):
             raise RuntimeError("Explicit transactions/external database operations are unsupported")
-        rows.append({"name": file.name, "ordinal": ordinal, "sha256": sha(raw),
-                     "source_bytes": len(raw), "sql": sql})
+        rows.append({"name": file.name, "ordinal": ordinal, "sha256": sha(raw), "source_bytes": len(raw), "sql": sql})
     return rows
 
 
 def instrument(row, previous, commit):
     # A failing CHECK aborts this same Wrangler migration batch. No separate success write.
-    checks = [f"(SELECT count(*) FROM {LEDGER}) = {len(previous)}",
-              f"(SELECT count(*) FROM {TABLE}) = {len(previous)}"]
+    checks = [f"(SELECT count(*) FROM {LEDGER}) = {len(previous)}", f"(SELECT count(*) FROM {TABLE}) = {len(previous)}"]
     for prior in previous:
-        checks += [f"EXISTS (SELECT 1 FROM {LEDGER} WHERE name='{prior['name']}' AND ordinal={prior['ordinal']} AND sha256='{prior['sha256']}' AND source_bytes={prior['source_bytes']})",
-                   f"EXISTS (SELECT 1 FROM {TABLE} WHERE name='{prior['name']}')"]
+        checks += [
+            f"EXISTS (SELECT 1 FROM {LEDGER} WHERE name='{prior['name']}' AND ordinal={prior['ordinal']} AND sha256='{prior['sha256']}' AND source_bytes={prior['source_bytes']})",
+            f"EXISTS (SELECT 1 FROM {TABLE} WHERE name='{prior['name']}')",
+        ]
     guard = " AND ".join(checks)
-    return DDL + f"""\nINSERT INTO {LEDGER}(name,ordinal,sha256,source_bytes,source_commit)
-VALUES ('{row['name']}',{row['ordinal']},CASE WHEN {guard}
-THEN '{row['sha256']}' ELSE '' END,{row['source_bytes']},'{commit}');
+    return (
+        DDL
+        + f"""\nINSERT INTO {LEDGER}(name,ordinal,sha256,source_bytes,source_commit)
+VALUES ('{row["name"]}',{row["ordinal"]},CASE WHEN {guard}
+THEN '{row["sha256"]}' ELSE '' END,{row["source_bytes"]},'{commit}');
 -- Exact source bytes below; wrapper adds only a boundary newline/semicolon afterwards.
-""" + row["sql"] + "\n;\n"
+"""
+        + row["sql"]
+        + "\n;\n"
+    )
 
 
 def prepare(configuration, target, output, require_committed, database_kind="application"):
@@ -142,20 +154,39 @@ def prepare(configuration, target, output, require_committed, database_kind="app
     folder.mkdir()
     for index, row in enumerate(rows):
         (folder / row["name"]).write_text(instrument(row, rows[:index], commit))
-    minimal = {"name": f"{expected_name}-migrations", "account_id": config["account_id"],
-               "compatibility_date": config["compatibility_date"], "d1_databases": [{
-                   "binding": "DB", "database_name": database["database_name"],
-                   "database_id": database["database_id"], "migrations_dir": str(folder),
-                   "migrations_table": TABLE}]}
+    minimal = {
+        "name": f"{expected_name}-migrations",
+        "account_id": config["account_id"],
+        "compatibility_date": config["compatibility_date"],
+        "d1_databases": [
+            {
+                "binding": "DB",
+                "database_name": database["database_name"],
+                "database_id": database["database_id"],
+                "migrations_dir": str(folder),
+                "migrations_table": TABLE,
+            }
+        ],
+    }
     write_json(output / "wrangler.json", minimal)
-    manifest = {"schema_version": 1, "environment": target, "database_kind": database_kind, "account_id": config["account_id"],
-                "database_name": database["database_name"], "database_id": database["database_id"],
-                "commit_sha": commit, "wrangler_version": VERSION,
-                "wrangler_cli_sha256": sha((ROOT / "backend/node_modules/wrangler/wrangler-dist/cli.js").read_bytes()),
-                "wrapper_sha256": sha(pathlib.Path(__file__).read_bytes()),
-                "migration_contract": "wrangler-per-migration-rollback",
-                "migrations": [{k: v for k, v in row.items() if k != "sql"} | {
-                    "instrumented_sha256": sha((folder / row["name"]).read_bytes())} for row in rows]}
+    manifest = {
+        "schema_version": 1,
+        "environment": target,
+        "database_kind": database_kind,
+        "account_id": config["account_id"],
+        "database_name": database["database_name"],
+        "database_id": database["database_id"],
+        "commit_sha": commit,
+        "wrangler_version": VERSION,
+        "wrangler_cli_sha256": sha((ROOT / "backend/node_modules/wrangler/wrangler-dist/cli.js").read_bytes()),
+        "wrapper_sha256": sha(pathlib.Path(__file__).read_bytes()),
+        "migration_contract": "wrangler-per-migration-rollback",
+        "migrations": [
+            {k: v for k, v in row.items() if k != "sql"}
+            | {"instrumented_sha256": sha((folder / row["name"]).read_bytes())}
+            for row in rows
+        ],
+    }
     write_json(output / "manifest.json", manifest)
     return output, manifest
 
@@ -172,29 +203,40 @@ class Database:
             raise RuntimeError("Disable Wrangler debug logging before credential-dependent operations")
 
     def query(self, sql):
-        result = run(self.base + ["execute", self.name, "--command", sql, "--json"] + self.flags,
-                     environment=self.environment)
+        result = run(
+            self.base + ["execute", self.name, "--command", sql, "--json"] + self.flags, environment=self.environment
+        )
         responses = json.loads(result.stdout)
         if not isinstance(responses, list) or len(responses) != 1 or responses[0].get("success") is not True:
             raise RuntimeError("Unexpected Wrangler D1 read response")
         return responses[0].get("results", [])
 
     def state(self):
-        tables = {row["name"] for row in self.query(f"SELECT name FROM sqlite_master WHERE type='table' AND name IN ('{TABLE}','{LEDGER}');")}
+        tables = {
+            row["name"]
+            for row in self.query(
+                f"SELECT name FROM sqlite_master WHERE type='table' AND name IN ('{TABLE}','{LEDGER}');"
+            )
+        }
         applied = self.query(f"SELECT name FROM {TABLE} ORDER BY id;") if TABLE in tables else []
-        ledger = self.query(f"SELECT name,ordinal,sha256,source_bytes,source_commit FROM {LEDGER} ORDER BY ordinal;") if LEDGER in tables else []
+        ledger = (
+            self.query(f"SELECT name,ordinal,sha256,source_bytes,source_commit FROM {LEDGER} ORDER BY ordinal;")
+            if LEDGER in tables
+            else []
+        )
         return applied, ledger
 
     def apply(self):
-        return run(self.base + ["migrations", "apply", self.name] + self.flags,
-                   environment=self.environment, checked=False)
+        return run(
+            self.base + ["migrations", "apply", self.name] + self.flags, environment=self.environment, checked=False
+        )
 
 
 def validate_state(state, manifest):
     applied, ledger = state
     expected = manifest["migrations"]
     names = [row["name"] for row in applied]
-    if names != [row["name"] for row in expected[:len(names)]]:
+    if names != [row["name"] for row in expected[: len(names)]]:
         raise RuntimeError("Applied migrations are not a prefix of this source history")
     if len(ledger) != len(applied):
         raise RuntimeError("Unchecksummed or inconsistent migration state; no automatic baseline adoption")
@@ -219,14 +261,22 @@ def main():
     if args.local != bool(args.persist_to):
         parser.error("--local and --persist-to must be supplied together")
     destination = args.output or ROOT / "build/migrations" / args.environment / str(uuid.uuid4())
-    directory, manifest = prepare(args.configuration, args.environment, destination, args.command == "apply", args.database_kind)
+    directory, manifest = prepare(
+        args.configuration, args.environment, destination, args.command == "apply", args.database_kind
+    )
     if args.command == "prepare":
         print(f"Prepared {len(manifest['migrations'])} migrations: {directory}")
         return
     database = Database(directory, manifest, args.local, args.persist_to)
     count = validate_state(database.state(), manifest)
-    report = {"schema_version": 1, "before_applied": count, "database_id": manifest["database_id"],
-              "environment": args.environment, "local": args.local, "manifest_sha256": sha((directory / "manifest.json").read_bytes())}
+    report = {
+        "schema_version": 1,
+        "before_applied": count,
+        "database_id": manifest["database_id"],
+        "environment": args.environment,
+        "local": args.local,
+        "manifest_sha256": sha((directory / "manifest.json").read_bytes()),
+    }
     write_json(directory / "result.json", report)
     if args.command == "status":
         print(f"Verified {count} applied migrations; {len(manifest['migrations']) - count} pending")
@@ -234,12 +284,17 @@ def main():
     result = database.apply()
     # Read durable provider state even after a nonzero exit. A killed wrapper resumes by re-running.
     after = validate_state(database.state(), manifest)
-    report.update(after_applied=after, cli_exit_code=result.returncode,
-                  verified_at=datetime.datetime.now(datetime.timezone.utc).isoformat(),
-                  complete=after == len(manifest["migrations"]))
+    report.update(
+        after_applied=after,
+        cli_exit_code=result.returncode,
+        verified_at=datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        complete=after == len(manifest["migrations"]),
+    )
     write_json(directory / "result.json", report)
     if result.returncode or not report["complete"]:
-        raise RuntimeError(f"Migration attempt stopped; {after} durable migrations verified. Retained evidence: {directory}. Resume the wrapper after inspecting the failure.")
+        raise RuntimeError(
+            f"Migration attempt stopped; {after} durable migrations verified. Retained evidence: {directory}. Resume the wrapper after inspecting the failure."
+        )
     print(f"Verified all {after} migrations and source hashes: {directory}")
 
 

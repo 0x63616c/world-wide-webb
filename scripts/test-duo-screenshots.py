@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Portable tests for capability probing, fallback and the full capture script handshake."""
+
 import importlib.util
 import json
 import os
@@ -37,8 +38,10 @@ class HostControlProtocolTests(unittest.TestCase):
                     request = json.loads((directory / "host-request.json").read_text())
                     (directory / "host-response.json").write_text(json.dumps({"id": request["id"], "ok": True}))
 
-            with patch.object(duo.time, "monotonic", side_effect=lambda: elapsed[0]), \
-                 patch.object(duo.time, "sleep", side_effect=pause):
+            with (
+                patch.object(duo.time, "monotonic", side_effect=lambda: elapsed[0]),
+                patch.object(duo.time, "sleep", side_effect=pause),
+            ):
                 duo.host_command(directory, {"orientation": "portrait"})
             self.assertGreaterEqual(elapsed[0], 65)
 
@@ -47,22 +50,24 @@ class HostControlProtocolTests(unittest.TestCase):
             directory = Path(temporary)
             (directory / "host-response.json").write_text(json.dumps({"id": "previous", "ok": True}))
             (directory / "host-control.log").write_text("Waiting for Device Hub to idle before Portrait\n")
-            with patch.object(duo.time, "monotonic", side_effect=[0, 0, 121]), \
-                 patch.object(duo.time, "sleep"):
+            with patch.object(duo.time, "monotonic", side_effect=[0, 0, 121]), patch.object(duo.time, "sleep"):
                 with self.assertRaises(ValueError) as failure:
                     duo.host_command(directory, {"orientation": "portrait"})
             self.assertIn("portrait", str(failure.exception))
             self.assertIn("Waiting for Device Hub to idle", str(failure.exception))
-            self.assertEqual(json.loads((directory / "native-control-timeout.json").read_text())["control"], {"orientation": "portrait"})
+            self.assertEqual(
+                json.loads((directory / "native-control-timeout.json").read_text())["control"],
+                {"orientation": "portrait"},
+            )
 
     def test_orientation_selects_pose_before_rotation_and_waits_for_both(self):
         for accepted in (True, False):
             with self.subTest(accepted=accepted), tempfile.TemporaryDirectory() as temporary:
                 directory = Path(temporary)
                 (directory / "plan.json").write_text(json.dumps({"mode": "fold", "host_control": True}))
-                (directory / "request.json").write_text(json.dumps({
-                    "id": "turn-inner", "action": "orientation", "name": "landscape-right"
-                }))
+                (directory / "request.json").write_text(
+                    json.dumps({"id": "turn-inner", "action": "orientation", "name": "landscape-right"})
+                )
                 response = directory / "response.json"
                 physical = {"pose": "outer", "orientation": "portrait"}
 
@@ -80,9 +85,11 @@ class HostControlProtocolTests(unittest.TestCase):
                     if response.exists():
                         raise StopIteration
 
-                with patch.object(duo, "host_command", side_effect=orient), \
-                     patch.object(duo, "host_pose", side_effect=select_pose), \
-                     patch.object(duo.time, "sleep", side_effect=pause):
+                with (
+                    patch.object(duo, "host_command", side_effect=orient),
+                    patch.object(duo, "host_pose", side_effect=select_pose),
+                    patch.object(duo.time, "sleep", side_effect=pause),
+                ):
                     with self.assertRaises(StopIteration):
                         duo.serve("duo", directory, directory, "light")
                 result = json.loads(response.read_text())
@@ -103,7 +110,9 @@ class HostControlProtocolTests(unittest.TestCase):
 
             def send():
                 action, name = requests[index[0]]
-                (directory / "request.json").write_text(json.dumps({"id": str(index[0]), "action": action, "name": name}))
+                (directory / "request.json").write_text(
+                    json.dumps({"id": str(index[0]), "action": action, "name": name})
+                )
 
             def pause(_seconds):
                 response = directory / "response.json"
@@ -117,9 +126,11 @@ class HostControlProtocolTests(unittest.TestCase):
                     send()
 
             send()
-            with patch.object(duo, "host_pose", side_effect=lambda _folder, pose: calls.append({"pose": pose})), \
-                 patch.object(duo, "host_command", side_effect=lambda _folder, command: calls.append(command)), \
-                 patch.object(duo.time, "sleep", side_effect=pause):
+            with (
+                patch.object(duo, "host_pose", side_effect=lambda _folder, pose: calls.append({"pose": pose})),
+                patch.object(duo, "host_command", side_effect=lambda _folder, command: calls.append(command)),
+                patch.object(duo.time, "sleep", side_effect=pause),
+            ):
                 with self.assertRaises(StopIteration):
                     duo.serve("duo", directory, directory, "light")
             self.assertEqual(calls, [{"pose": "outer"}, {"orientation": "landscape-left"}, {"orientation": "portrait"}])
@@ -159,7 +170,8 @@ class HostControlProtocolTests(unittest.TestCase):
                 self.assertEqual(observed[0]["orientation"], "landscape-right")
                 self.assertNotEqual(observed[0]["id"], "previous")
 
-MOCK_TOOL = r'''#!/usr/bin/env python3
+
+MOCK_TOOL = r"""#!/usr/bin/env python3
 import base64, json, os, pathlib, sys, time
 name = pathlib.Path(sys.argv[0]).name
 args = sys.argv[1:]
@@ -242,7 +254,7 @@ elif name == "xcodebuild" and args[0] == "test-without-building":
         for shot in json.loads(os.environ["TEST_RUNNER_DUO_CAPTURE_SHOTS"]):
             request("appearance", shot["appearance"])
             request("capture", shot["screen"])
-'''
+"""
 
 
 class XcodeSelectionTests(unittest.TestCase):
@@ -312,9 +324,13 @@ class SimctlTimeoutTests(unittest.TestCase):
                     os.environ["DUO_SIMCTL_TIMEOUT"] = value
                 duo.simctl("help", "io", check=True)
                 run.assert_called_once_with(
-                    ["xcrun", "simctl", "help", "io"], text=True,
-                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                    timeout=expected, check=True)
+                    ["xcrun", "simctl", "help", "io"],
+                    text=True,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    timeout=expected,
+                    check=True,
+                )
 
     def test_read_only_probe_timeout_retries_once(self):
         for args in [("help",), ("help", "io"), ("help", "ui"), ("help", "fold"), ("list", "devices")]:
@@ -357,8 +373,13 @@ class DuoCapabilitiesTests(unittest.TestCase):
     def test_only_explicit_inner_and_outer_names_are_used(self):
         self.assertEqual(duo.named_displays("Display 0: Main\nDisplay 1: External"), {})
         self.assertEqual(duo.named_displays("Display 0: Inner"), {})
-        self.assertEqual(duo.named_displays("Display 2: Inner\nDisplay 4: Outer"), {"inner":"2", "outer":"4"})
-        self.assertEqual(duo.named_displays(json.dumps({"displays":[{"id":3,"name":"Inner display"},{"id":7,"name":"Outer display"}]})), {"inner":"3", "outer":"7"})
+        self.assertEqual(duo.named_displays("Display 2: Inner\nDisplay 4: Outer"), {"inner": "2", "outer": "4"})
+        self.assertEqual(
+            duo.named_displays(
+                json.dumps({"displays": [{"id": 3, "name": "Inner display"}, {"id": 7, "name": "Outer display"}]})
+            ),
+            {"inner": "3", "outer": "7"},
+        )
 
     def test_device_hub_bridge_requires_both_enumerated_native_modes_and_ready_controller(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -373,7 +394,9 @@ class DuoCapabilitiesTests(unittest.TestCase):
             plan = json.loads((folder / "plan.json").read_text())
             self.assertEqual(plan, {"mode": "fold", "host_control": True, "displays": {"inner": "8", "outer": "2"}})
             (folder / "plan.json").write_text(json.dumps({"mode": "unmapped"}))
-            (folder / "simctl-capabilities.txt").write_text(enumeration.replace("2007, 2853", "2853, 2007").replace("1398, 2034", "2034, 1398"))
+            (folder / "simctl-capabilities.txt").write_text(
+                enumeration.replace("2007, 2853", "2853, 2007").replace("1398, 2034", "2034, 1398")
+            )
             duo.configure_host(folder, set_pose=lambda directory, pose: self.assertEqual(pose, "inner"))
             self.assertEqual(json.loads((folder / "plan.json").read_text())["displays"], {"inner": "8", "outer": "2"})
             for invalid in ["", enumeration.replace("1398, 2034", "720, 480"), enumeration + enumeration]:
@@ -384,16 +407,23 @@ class DuoCapabilitiesTests(unittest.TestCase):
 
     def test_no_undocumented_fold_command_is_attempted(self):
         self.assertEqual(duo.fold_candidates("test", {}), [])
-        self.assertEqual(duo.fold_candidates("test", {"ui":"appearance light dark"}), [])
-        commands = duo.fold_candidates("test", {"ui":"fold <state>: folded unfolded"})
-        self.assertEqual(commands, [{"outer":["ui","test","fold","folded"],"inner":["ui","test","fold","unfolded"]}])
+        self.assertEqual(duo.fold_candidates("test", {"ui": "appearance light dark"}), [])
+        commands = duo.fold_candidates("test", {"ui": "fold <state>: folded unfolded"})
+        self.assertEqual(
+            commands, [{"outer": ["ui", "test", "fold", "folded"], "inner": ["ui", "test", "fold", "unfolded"]}]
+        )
 
     def capture(self, mode, override=None, devices=None, release=None):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             scripts = root / "scripts"
             scripts.mkdir()
-            for name in ["capture-duo-screenshots.sh", "duo-simulator.py", "boot-simulator.sh", "screenshot-build-settings.py"]:
+            for name in [
+                "capture-duo-screenshots.sh",
+                "duo-simulator.py",
+                "boot-simulator.sh",
+                "screenshot-build-settings.py",
+            ]:
                 shutil.copy2(ROOT / "scripts" / name, scripts / name)
             (root / "apps/tendr").mkdir(parents=True)
             shutil.copy2(ROOT / "apps/tendr/screenshots.json", root / "apps/tendr/screenshots.json")
@@ -404,20 +434,32 @@ class DuoCapabilitiesTests(unittest.TestCase):
             tool.chmod(0o755)
             for name in ["ruby", "xcrun", "xcodebuild"]:
                 (commands / name).symlink_to(tool)
-            env = dict(os.environ, PATH=f"{commands}:{os.environ['PATH']}", MOCK_DUO_MODE=mode,
-                       MOCK_CREATED_DEVICE=str(root / "created-device"),
-                       MOCK_XCODE_ARGS=str(root / "build-arguments.json"),
-                       MOCK_TEST_ARGUMENTS=str(root / "test-arguments.jsonl"),
-                       MOCK_TEST_COUNT=str(root / "test-invocations"),
-                       MOCK_SIMCTL_LOG=str(root / "simctl.jsonl"),
-                       MOCK_SIMULATORS=json.dumps({"devices": devices or {}}))
+            env = dict(
+                os.environ,
+                PATH=f"{commands}:{os.environ['PATH']}",
+                MOCK_DUO_MODE=mode,
+                MOCK_CREATED_DEVICE=str(root / "created-device"),
+                MOCK_XCODE_ARGS=str(root / "build-arguments.json"),
+                MOCK_TEST_ARGUMENTS=str(root / "test-arguments.jsonl"),
+                MOCK_TEST_COUNT=str(root / "test-invocations"),
+                MOCK_SIMCTL_LOG=str(root / "simctl.jsonl"),
+                MOCK_SIMULATORS=json.dumps({"devices": devices or {}}),
+            )
             env.pop("R_SIM_DEVICE_TYPE", None)
             env.pop("R_SIM_RUNTIME", None)
-            for key in ("RELEASE_MANIFEST", "RELEASE_VERSION", "RELEASE_BUILD", "DUO_CAPTURE_ATTEMPT", "DUO_CAPTURE_REPORT"):
+            for key in (
+                "RELEASE_MANIFEST",
+                "RELEASE_VERSION",
+                "RELEASE_BUILD",
+                "DUO_CAPTURE_ATTEMPT",
+                "DUO_CAPTURE_REPORT",
+            ):
                 env.pop(key, None)
             if release:
                 manifest = root / "release-manifest.json"
-                manifest.write_text(json.dumps({"app": "tendr", "version": release[0], "build": release[1], "sha": "release-source"}))
+                manifest.write_text(
+                    json.dumps({"app": "tendr", "version": release[0], "build": release[1], "sha": "release-source"})
+                )
                 env.update(RELEASE_MANIFEST=str(manifest), RELEASE_VERSION=release[0], GITHUB_SHA="release-source")
             if override:
                 env["R_SIM_DEVICE_TYPE"] = override
@@ -431,12 +473,21 @@ class DuoCapabilitiesTests(unittest.TestCase):
             (output / "default-screen-1-light-obsolete.png").write_bytes(b"stale")
             (output / "default-screen-unrelated.png").write_bytes(b"user file")
             (output / "keep.txt").write_text("unrelated user file")
-            result = subprocess.run(["bash", str(scripts / "capture-duo-screenshots.sh"), "tendr", str(output)],
-                                    text=True, capture_output=True, env=env, timeout=55)
+            result = subprocess.run(
+                ["bash", str(scripts / "capture-duo-screenshots.sh"), "tendr", str(output)],
+                text=True,
+                capture_output=True,
+                env=env,
+                timeout=55,
+            )
             self.assertFalse(list(output.glob("*-obsolete.png")))
             self.assertEqual((output / "default-screen-unrelated.png").read_bytes(), b"user file")
             self.assertEqual((output / "keep.txt").read_text(), "unrelated user file")
-            creations = [json.loads(line) for line in (root / "simctl.jsonl").read_text().splitlines() if json.loads(line)[0] == "create"]
+            creations = [
+                json.loads(line)
+                for line in (root / "simctl.jsonl").read_text().splitlines()
+                if json.loads(line)[0] == "create"
+            ]
             if mode == "native-timeout-cancelled":
                 self.assertEqual(result.returncode, 143, result.stdout + result.stderr)
                 self.assertEqual(len(creations), 1, "Cancellation must stop capture without retrying")
@@ -480,7 +531,13 @@ class DuoCapabilitiesTests(unittest.TestCase):
             plan = json.loads((output / "plan.json").read_text())
             expected_mode = "unmapped" if mode == "integrated" else mode if mode in ("fold", "displays") else "default"
             self.assertEqual(plan["mode"], expected_mode)
-            poses = list(plan["displays"]) if expected_mode == "unmapped" else ["inner", "outer"] if expected_mode in ("fold", "displays") else ["default"]
+            poses = (
+                list(plan["displays"])
+                if expected_mode == "unmapped"
+                else ["inner", "outer"]
+                if expected_mode in ("fold", "displays")
+                else ["default"]
+            )
             self.assertEqual(len(list(output.glob("*.png"))), len(poses) * 5 + 1)
             for pose in poses:
                 for shot in json.loads((ROOT / "apps/tendr/screenshots.json").read_text())["duo_shots"]:
@@ -491,47 +548,92 @@ class DuoCapabilitiesTests(unittest.TestCase):
             return [json.loads(line) for line in (root / "simctl.jsonl").read_text().splitlines()]
 
     def test_stale_simulators_are_removed_before_creation_and_boot(self):
-        commands = self.capture("default", devices={
-            "com.apple.CoreSimulator.SimRuntime.iOS-27-1": [
-                {"name": "Tendr Duo Screenshots", "udid": "stale-booted", "state": "Booted", "isAvailable": True},
-                {"name": "Tendr Screenshots", "udid": "other-capture", "state": "Booted", "isAvailable": True},
-                {"name": "Personal Tendr Duo Screenshots", "udid": "personal", "state": "Booted", "isAvailable": True},
-                {"name": "Samplr Duo Screenshots", "udid": "other-app", "state": "Booted", "isAvailable": True},
-            ],
-            "mock.ios26": [
-                {"name": "Tendr Duo Screenshots old-run", "udid": "stale-shutdown", "state": "Shutdown", "isAvailable": False},
-            ],
-        })
+        commands = self.capture(
+            "default",
+            devices={
+                "com.apple.CoreSimulator.SimRuntime.iOS-27-1": [
+                    {"name": "Tendr Duo Screenshots", "udid": "stale-booted", "state": "Booted", "isAvailable": True},
+                    {"name": "Tendr Screenshots", "udid": "other-capture", "state": "Booted", "isAvailable": True},
+                    {
+                        "name": "Personal Tendr Duo Screenshots",
+                        "udid": "personal",
+                        "state": "Booted",
+                        "isAvailable": True,
+                    },
+                    {"name": "Samplr Duo Screenshots", "udid": "other-app", "state": "Booted", "isAvailable": True},
+                ],
+                "mock.ios26": [
+                    {
+                        "name": "Tendr Duo Screenshots old-run",
+                        "udid": "stale-shutdown",
+                        "state": "Shutdown",
+                        "isAvailable": False,
+                    },
+                ],
+            },
+        )
         lifecycle = [command for command in commands if command[0] in ("shutdown", "delete", "create", "boot")]
-        self.assertEqual(lifecycle, [
-            ["shutdown", "stale-booted"],
-            ["delete", "stale-booted"],
-            ["shutdown", "stale-shutdown"],
-            ["delete", "stale-shutdown"],
-            ["create", "Tendr Duo Screenshots", "mock.duo", "com.apple.CoreSimulator.SimRuntime.iOS-27-2-iPhone19-4"],
-            ["boot", "mock-udid"],
-            ["shutdown", "mock-udid"],
-            ["delete", "mock-udid"],
-        ])
+        self.assertEqual(
+            lifecycle,
+            [
+                ["shutdown", "stale-booted"],
+                ["delete", "stale-booted"],
+                ["shutdown", "stale-shutdown"],
+                ["delete", "stale-shutdown"],
+                [
+                    "create",
+                    "Tendr Duo Screenshots",
+                    "mock.duo",
+                    "com.apple.CoreSimulator.SimRuntime.iOS-27-2-iPhone19-4",
+                ],
+                ["boot", "mock-udid"],
+                ["shutdown", "mock-udid"],
+                ["delete", "mock-udid"],
+            ],
+        )
 
-    def test_fold_capture(self): self.capture("fold")
-    def test_named_displays_capture(self): self.capture("displays")
+    def test_fold_capture(self):
+        self.capture("fold")
+
+    def test_named_displays_capture(self):
+        self.capture("displays")
+
     def test_unnamed_integrated_screens_use_reported_ids(self):
         commands = self.capture("integrated")
         screenshots = [command for command in commands if command[:1] == ["io"] and command[2] == "screenshot"]
         self.assertTrue(screenshots)
         selectors = {argument for command in screenshots for argument in command if argument.startswith("--display=")}
         self.assertEqual(selectors, {"--display=1", "--display=3"})
-    def test_default_capture(self): self.capture("default")
-    def test_rejected_fold_falls_back(self): self.capture("rejected")
-    def test_missing_device_fails_clearly(self): self.capture("missing")
-    def test_explicit_device_override(self): self.capture("missing", override="custom.duo")
-    def test_failed_run_removes_stale_captures(self): self.capture("test-failure")
-    def test_release_capture_uses_processed_build_metadata(self): self.capture("default", release=("1.1.1", "1"))
-    def test_release_recovers_one_native_timeout_with_a_fresh_complete_capture(self): self.capture("native-timeout-once", release=("1.1.1", "1"))
-    def test_repeated_native_timeouts_stop_release_after_one_retry(self): self.capture("native-timeout-always", release=("1.1.1", "1"))
-    def test_release_does_not_retry_app_or_test_failures(self): self.capture("test-failure", release=("1.1.1", "1"))
-    def test_release_does_not_retry_cancelled_capture(self): self.capture("native-timeout-cancelled", release=("1.1.1", "1"))
+
+    def test_default_capture(self):
+        self.capture("default")
+
+    def test_rejected_fold_falls_back(self):
+        self.capture("rejected")
+
+    def test_missing_device_fails_clearly(self):
+        self.capture("missing")
+
+    def test_explicit_device_override(self):
+        self.capture("missing", override="custom.duo")
+
+    def test_failed_run_removes_stale_captures(self):
+        self.capture("test-failure")
+
+    def test_release_capture_uses_processed_build_metadata(self):
+        self.capture("default", release=("1.1.1", "1"))
+
+    def test_release_recovers_one_native_timeout_with_a_fresh_complete_capture(self):
+        self.capture("native-timeout-once", release=("1.1.1", "1"))
+
+    def test_repeated_native_timeouts_stop_release_after_one_retry(self):
+        self.capture("native-timeout-always", release=("1.1.1", "1"))
+
+    def test_release_does_not_retry_app_or_test_failures(self):
+        self.capture("test-failure", release=("1.1.1", "1"))
+
+    def test_release_does_not_retry_cancelled_capture(self):
+        self.capture("native-timeout-cancelled", release=("1.1.1", "1"))
 
 
 if __name__ == "__main__":

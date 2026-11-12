@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Stage the configured Duo shots for deliver; never publish default-screen fallbacks."""
+
 import json
 from pathlib import Path
 import sys
@@ -16,18 +17,25 @@ def stage(config_path, raw, output):
     raw, output = Path(raw), Path(output)
     plan = json.loads((raw / "plan.json").read_text())
     if plan["mode"] not in ("fold", "displays"):
-        raise ValueError("Duo release requires verified inner and outer captures; default-screen fallback cannot be uploaded")
+        raise ValueError(
+            "Duo release requires verified inner and outer captures; default-screen fallback cannot be uploaded"
+        )
     files = []
     for index, shot in enumerate(shots, 1):
         screen, appearance = shot["screen"], shot["appearance"]
-        if screen not in {"home", "treatment", "progress", "journal", "settings", "log-dose"} or appearance not in {"light", "dark"}:
+        if screen not in {"home", "treatment", "progress", "journal", "settings", "log-dose"} or appearance not in {
+            "light",
+            "dark",
+        }:
             raise ValueError(f"Invalid Duo shot: {shot}")
         for pose, dimensions in (("inner", (2007, 2853)), ("outer", (1398, 2034))):
             source = raw / f"{pose}-{appearance}-{screen}.png"
             with Image.open(source) as image:
                 image.load()
                 if image.format != "PNG" or image.size not in (dimensions, dimensions[::-1]):
-                    raise ValueError(f"{source}: expected {dimensions[0]}x{dimensions[1]} or {dimensions[1]}x{dimensions[0]} PNG, got {image.format} {image.size}")
+                    raise ValueError(
+                        f"{source}: expected {dimensions[0]}x{dimensions[1]} or {dimensions[1]}x{dimensions[0]} PNG, got {image.format} {image.size}"
+                    )
                 # Simulator PNGs may have a fully opaque alpha channel; strip it for ASC.
                 if image.convert("RGBA").getchannel("A").getextrema() != (255, 255):
                     raise ValueError(f"{source}: screenshot contains transparent pixels")

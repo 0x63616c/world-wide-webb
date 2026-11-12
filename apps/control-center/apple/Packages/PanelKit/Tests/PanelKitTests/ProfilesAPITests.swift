@@ -6,9 +6,10 @@ import Testing
 @Suite struct ProfilesAPITests {
     @Test func createEditAndDeleteUseSharedResource() async throws {
         let transport = ProfileTransport()
-        let api = ProfilesAPI(client: PanelAPIClient(
-            configuration: PanelConfiguration(baseURL: URL(string: "https://fixtures.example.invalid")!),
-            transport: transport))
+        let api = ProfilesAPI(
+            client: PanelAPIClient(
+                configuration: PanelConfiguration(baseURL: URL(string: "https://fixtures.example.invalid")!),
+                transport: transport))
         #expect(try await api.list().isEmpty)
         let photo = Data([0xff, 0xd8, 0xff])
         let created = try await api.create(name: "Ada", photo: photo, pin: "123456")
@@ -35,7 +36,11 @@ private actor ProfileTransport: PanelTransport {
         let data: Data
         switch request.httpMethod {
         case "POST", "PATCH":
-            struct Input: Decodable { let pin: String; let name: String; let photo: Data }
+            struct Input: Decodable {
+                let pin: String
+                let name: String
+                let photo: Data
+            }
             let input = try JSONDecoder().decode(Input.self, from: #require(request.httpBody))
             #expect(input.pin == "123456")
             profile = PanelProfile(id: "profile_1", name: input.name, photo: input.photo)

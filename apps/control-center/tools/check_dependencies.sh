@@ -5,9 +5,12 @@ version=$(python3 -c 'import json; print(json.load(open("tools/versions.json"))[
 case "$(uname -s)-$(uname -m)" in
   Darwin-arm64) target=aarch64-apple-darwin ;;
   Darwin-x86_64) target=x86_64-apple-darwin ;;
-  Linux-aarch64|Linux-arm64) target=aarch64-unknown-linux-musl ;;
+  Linux-aarch64 | Linux-arm64) target=aarch64-unknown-linux-musl ;;
   Linux-x86_64) target=x86_64-unknown-linux-musl ;;
-  *) echo 'Unsupported cargo-deny host' >&2; exit 1 ;;
+  *)
+    echo 'Unsupported cargo-deny host' >&2
+    exit 1
+    ;;
 esac
 cache_dir="${XDG_CACHE_HOME:-$HOME/.cache}/world-wide-webb/cargo-deny/$version/$target"
 binary="$cache_dir/cargo-deny"
@@ -22,9 +25,10 @@ if [ ! -x "$binary" ]; then
   # The release API serves the same upstream bytes without the browser-download
   # route, which can return504 from fresh guests. Keep checksum verification.
   if curl --fail --silent --show-error --location \
-      "https://api.github.com/repos/EmbarkStudios/cargo-deny/releases/tags/$version" \
-      -o "$download_dir/release.json"; then
-    read -r archive_api checksum_api < <(python3 - "$download_dir/release.json" "$archive" <<'PY'
+    "https://api.github.com/repos/EmbarkStudios/cargo-deny/releases/tags/$version" \
+    -o "$download_dir/release.json"; then
+    read -r archive_api checksum_api < <(
+      python3 - "$download_dir/release.json" "$archive" << 'PY'
 import json, sys
 with open(sys.argv[1], encoding='utf-8') as source:
     assets = json.load(source)['assets']
@@ -41,14 +45,14 @@ PY
   download_asset() {
     local api_url=$1 browser_url=$2 destination=$3
     if [[ -n "$api_url" ]] && curl --fail --silent --show-error --location \
-        -H 'Accept: application/octet-stream' "$api_url" -o "$destination"; then
+      -H 'Accept: application/octet-stream' "$api_url" -o "$destination"; then
       return
     fi
     curl --fail --silent --show-error --location "$browser_url" -o "$destination"
   }
   download_asset "$archive_api" "$url" "$download_dir/$archive"
   download_asset "$checksum_api" "$url.sha256" "$download_dir/checksum"
-  python3 - "$download_dir/$archive" "$download_dir/checksum" <<'PY'
+  python3 - "$download_dir/$archive" "$download_dir/checksum" << 'PY'
 import hashlib, sys
 from pathlib import Path
 archive, checksum = map(Path, sys.argv[1:])

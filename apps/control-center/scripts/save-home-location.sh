@@ -17,14 +17,19 @@ echo "Type your real values. The [brackets] show a PUBLIC placeholder, not your"
 echo "home , press Enter only if you actually want the placeholder."
 echo ""
 
-read -rp "Latitude  [$DEF_LAT]: " LAT;    LAT="${LAT:-$DEF_LAT}"
-read -rp "Longitude [$DEF_LON]: " LON;     LON="${LON:-$DEF_LON}"
+read -rp "Latitude  [$DEF_LAT]: " LAT
+LAT="${LAT:-$DEF_LAT}"
+read -rp "Longitude [$DEF_LON]: " LON
+LON="${LON:-$DEF_LON}"
 
 for v in "$LAT" "$LON"; do
-  [ -n "$v" ] || { echo "FATAL: empty field" >&2; exit 1; }
+  [ -n "$v" ] || {
+    echo "FATAL: empty field" >&2
+    exit 1
+  }
 done
 
-echo "$LAT"    | "$REPO_ROOT/scripts/set-secret.sh" HOME_LOCATION__LAT
-echo "$LON"    | "$REPO_ROOT/scripts/set-secret.sh" HOME_LOCATION__LON
+echo "$LAT" | "$REPO_ROOT/scripts/set-secret.sh" HOME_LOCATION__LAT
+echo "$LON" | "$REPO_ROOT/scripts/set-secret.sh" HOME_LOCATION__LON
 
 echo "Done. Vault keys: HOME_LOCATION__LAT, HOME_LOCATION__LON"
