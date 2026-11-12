@@ -132,6 +132,8 @@ targets:
       - path: App/CompetitionScreens.swift
       - path: App/ProfileIdentityEditor.swift
       - path: App/CompetitionPresentation.swift
+      - path: App/CompetitionFailure.swift
+      - path: App/LeaderboardPodiumPlaceholder.swift
       - path: App/PodiumRing.swift
       - path: App/MilestoneModels.swift
       - path: App/MilestoneCache.swift

@@ -129,7 +129,7 @@ jobs:
     needs: selection
     if: contains(fromJSON(needs.selection.outputs.verify), 'folding.native')
     runs-on: xcode-27
-    timeout-minutes: 10
+    timeout-minutes: 20
     env:
       DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
       LANG: en_US.UTF-8
@@ -145,6 +145,9 @@ jobs:
     - name: Compile native app without starting a simulator
       run: xcodebuild -project apps/ios/Folding.xcodeproj -scheme Folding -configuration Debug -destination "generic/platform=iOS
         Simulator" CODE_SIGNING_ALLOWED=NO build -quiet
+    - name: Compile screenshot app and tests without starting a simulator
+      run: xcodebuild -project apps/ios/Folding.xcodeproj -scheme FoldingStorefront -configuration Screenshots -destination "generic/platform=iOS
+        Simulator" CODE_SIGNING_ALLOWED=NO build-for-testing -quiet
   gate:
     name: Folding checks
     needs:
