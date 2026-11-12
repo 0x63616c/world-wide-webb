@@ -33,6 +33,12 @@ python3 -m unittest discover -s scripts/ci -p 'test_*.py'
 Tendr uses the root locked Ruby/Fastlane bundle. Folding keeps its own release bundle and
 existing internal layout. Root `tools/check` and `tools/setup` preserve Control Center entrypoints.
 
+Install the tracked Git hooks with `lefthook install` in each checkout. Before a commit,
+the hook formats staged Swift, Rust, Python and OpenTofu files with the same tools used by
+maintained CI checks, stages those formatting changes in the commit, and checks whitespace
+in every staged file. It refuses partially staged source files to avoid including
+unstaged edits. A push remains an explicit action after checks.
+
 [Development](docs/DEVELOPMENT.md), [new apps](docs/NEW-APP.md) and [releases](docs/RELEASE.md)
 describe the shared lifecycle and current handler boundaries.
 
