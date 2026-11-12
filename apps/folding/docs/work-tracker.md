@@ -759,4 +759,22 @@ rejected XCTest's missing inner-size screen. Reuse Tendr's existing enumerated
 Keep full native geometry/title/hash guards. Store-capture source inputs now
 select Folding beta delivery because its immutable screenshot/release record
 requires the exact processed source. Other test changes remain verification only.
-Full capture and App Store submission remain pending.
+[WWW #1043](https://github.com/0x63616c/world-wide-webb/pull/1043) merged as
+`843d05161f224d5e3ca3ff09669d8485b67fbda4`. Required source CI passed; 62 release-tool
+tests / 322 assertions, 34 Duo bridge tests, 54 CI selection/delivery tests and the native
+capture app/UI-runner compile pass. [Delivery](https://github.com/0x63616c/world-wide-webb/actions/runs/43167079457)
+processed 1.0.1 (29), Apple build `fe3a4695-39ad-4893-abd9-697e5a7a791a`, and verified its
+Folding Internal assignment at `2026-11-12T06:28:23Z`.
+[Native capture](https://github.com/0x63616c/world-wide-webb/actions/runs/43166409090)
+passes with 150 storefront PNGs (ten locales, both Duo displays and iPhone 18 Pro) plus
+the Tip jar review PNG. Downloaded source/configuration/hash/dimension/gallery validation
+passes; representative screens in light/dark and localized layouts were visually inspected.
+The complete set was shown before starting the authorized submission. Build 29's manifest
+revision 19 seals these assets (`0d4a2ebc65ab942df46401f33ece9ec91a53accbe90e377b110b65c73bf735e6`).
+[Tagged promotion](https://github.com/0x63616c/world-wide-webb/actions/runs/43175001980)
+completed from the same source. Manifest revision 41 records **submitted / WAITING_FOR_REVIEW**,
+submission `79d619e2-b4c6-473a-bbe0-e69b59a38524`, exact build 29, and automatic release after
+approval. Apple storefront readback verified all ten locales (ten Duo images and five
+medium-phone images each) and release notes at `2026-11-12T07:31:55Z`. Existing F13
+physical-device/provider checks remain owner-deferred; no production glass styling or
+Worker redeployment was included in the screenshot changes.
