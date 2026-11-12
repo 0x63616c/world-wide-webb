@@ -1,4 +1,4 @@
-//! Audited operational controls. Deployment acceptance gates remain separate and fail closed.
+//! Audited minimum-build policy and operational failure reporting.
 use crate::{
     admin_auth::Administrator,
     auth_runtime::{Configuration, Failure, blob, now, number, statement, text, uuid},
@@ -11,28 +11,11 @@ use worker::*;
 #[derive(Deserialize, Serialize)]
 pub(crate) struct Controls {
     pub revision: i64,
-    pub competition_ingestion_enabled: i64,
-    pub result_notifications_enabled: i64,
-    pub avatar_uploads_enabled: i64,
     pub notification_failure: Option<String>,
     pub minimum_ios_build: i64,
 }
 pub(crate) async fn controls(db: &D1Database) -> std::result::Result<Controls, Failure> {
-    statement(db,"SELECT revision,competition_ingestion_enabled,result_notifications_enabled,avatar_uploads_enabled,notification_failure,minimum_ios_build FROM administrative_configuration WHERE singleton=1",&[])?.first(None).await.map_err(|_|Failure::unavailable())?.ok_or_else(Failure::unavailable)
-}
-pub(crate) async fn require(db: &D1Database, kind: &str) -> std::result::Result<(), Failure> {
-    let c = controls(db).await?;
-    let enabled = match kind {
-        "ingestion" => c.competition_ingestion_enabled,
-        "avatars" => c.avatar_uploads_enabled,
-        "notifications" => c.result_notifications_enabled,
-        _ => 0,
-    };
-    if enabled == 1 {
-        Ok(())
-    } else {
-        Err(Failure::unavailable())
-    }
+    statement(db,"SELECT revision,notification_failure,minimum_ios_build FROM administrative_configuration WHERE singleton=1",&[])?.first(None).await.map_err(|_|Failure::unavailable())?.ok_or_else(Failure::unavailable)
 }
 #[derive(Template)]
 #[template(path = "operations.html")]
@@ -56,9 +39,6 @@ struct Change {
     operation_id: Id,
     csrf_token: String,
     expected_revision: i64,
-    competition_ingestion_enabled: i64,
-    result_notifications_enabled: i64,
-    avatar_uploads_enabled: i64,
     reason: String,
     minimum_ios_build: i64,
 }
@@ -100,13 +80,6 @@ pub(crate) async fn admin(
     admin.check_csrf(request, &input.csrf_token, config)?;
     if input.expected_revision < 0
         || !(0..=i64::from(i32::MAX)).contains(&input.minimum_ios_build)
-        || ![
-            input.competition_ingestion_enabled,
-            input.result_notifications_enabled,
-            input.avatar_uploads_enabled,
-        ]
-        .iter()
-        .all(|v| [0, 1].contains(v))
         || !crate::admin_runtime::valid_reason(&input.reason)
         || input.reason.chars().any(|c| c.is_control() && c != '\n')
     {
@@ -140,14 +113,11 @@ pub(crate) async fn admin(
     }
     let after = Controls {
         revision: before.revision + 1,
-        competition_ingestion_enabled: input.competition_ingestion_enabled,
-        result_notifications_enabled: input.result_notifications_enabled,
-        avatar_uploads_enabled: input.avatar_uploads_enabled,
-        notification_failure: None,
+        notification_failure: before.notification_failure.clone(),
         minimum_ios_build: input.minimum_ios_build,
     };
     let guard = uuid()?;
-    db.batch(vec![statement(db,"INSERT INTO mutation_guards VALUES (?1,CASE WHEN EXISTS(SELECT 1 FROM administrative_configuration WHERE singleton=1 AND revision=?2) THEN 1 ELSE 0 END)",&[text(&guard),number(before.revision)])?,statement(db,"UPDATE administrative_configuration SET revision=revision+1,competition_ingestion_enabled=?1,result_notifications_enabled=?2,avatar_uploads_enabled=?3,minimum_ios_build=?4,notification_failure=NULL WHERE singleton=1",&[number(after.competition_ingestion_enabled),number(after.result_notifications_enabled),number(after.avatar_uploads_enabled),number(after.minimum_ios_build)])?,statement(db,"INSERT INTO operational_audit VALUES (?1,?2,?3,?4,?5,?6,?7)",&[text(input.operation_id.as_str()),text(&admin.actor),blob(&hash),text(&input.reason),text(&serde_json::to_string(&before).map_err(|_|Failure::unavailable())?),text(&serde_json::to_string(&after).map_err(|_|Failure::unavailable())?),number(now())])?,statement(db,"DELETE FROM mutation_guards WHERE guard_id=?1",&[text(&guard)])?]).await.map_err(|_|Failure::conflict())?;
+    db.batch(vec![statement(db,"INSERT INTO mutation_guards VALUES (?1,CASE WHEN EXISTS(SELECT 1 FROM administrative_configuration WHERE singleton=1 AND revision=?2) THEN 1 ELSE 0 END)",&[text(&guard),number(before.revision)])?,statement(db,"UPDATE administrative_configuration SET revision=revision+1,minimum_ios_build=?1 WHERE singleton=1",&[number(after.minimum_ios_build)])?,statement(db,"INSERT INTO operational_audit VALUES (?1,?2,?3,?4,?5,?6,?7)",&[text(input.operation_id.as_str()),text(&admin.actor),blob(&hash),text(&input.reason),text(&serde_json::to_string(&before).map_err(|_|Failure::unavailable())?),text(&serde_json::to_string(&after).map_err(|_|Failure::unavailable())?),number(now())])?,statement(db,"DELETE FROM mutation_guards WHERE guard_id=?1",&[text(&guard)])?]).await.map_err(|_|Failure::conflict())?;
     crate::client_policy_runtime::invalidate();
     redirect()
 }
@@ -163,19 +133,13 @@ fn redirect() -> std::result::Result<Response, Failure> {
         .map_err(|_| Failure::unavailable())?;
     Ok(r)
 }
-/// Preserve pending jobs and surface the provider failure in the protected management UI.
-pub(crate) async fn pause_notifications(
+/// Report provider failures without disabling the feature or changing the update policy.
+pub(crate) async fn record_notification_failure(
     db: &D1Database,
     reason: &str,
 ) -> std::result::Result<(), Failure> {
-    let before = controls(db).await?;
-    if before.result_notifications_enabled == 0 {
-        return Ok(());
-    }
-    let guard = uuid()?;
-    let operation = uuid()?;
-    let after = serde_json::json!({"revision":before.revision+1,"competition_ingestion_enabled":before.competition_ingestion_enabled,"result_notifications_enabled":0,"avatar_uploads_enabled":before.avatar_uploads_enabled,"notification_failure":reason,"minimum_ios_build":before.minimum_ios_build});
-    db.batch(vec![statement(db,"INSERT INTO mutation_guards VALUES (?1,CASE WHEN EXISTS(SELECT 1 FROM administrative_configuration WHERE singleton=1 AND revision=?2) THEN 1 ELSE 0 END)",&[text(&guard),number(before.revision)])?,statement(db,"UPDATE administrative_configuration SET revision=revision+1,result_notifications_enabled=0,notification_failure=?1 WHERE singleton=1",&[text(reason)])?,statement(db,"INSERT INTO operational_audit VALUES (?1,'system:apns',?2,?3,?4,?5,?6)",&[text(&operation),blob(&Sha256::digest(reason.as_bytes())),text(reason),text(&serde_json::to_string(&before).map_err(|_|Failure::unavailable())?),text(&after.to_string()),number(now())])?,statement(db,"DELETE FROM mutation_guards WHERE guard_id=?1",&[text(&guard)])?]).await.map_err(|_|Failure::conflict())?;
-    console_error!("apns_category_paused_check_admin_config");
+    statement(db, "UPDATE administrative_configuration SET notification_failure=?1 WHERE singleton=1 AND (notification_failure IS NULL OR notification_failure<>?1)", &[text(reason)])?
+        .run().await.map_err(|_| Failure::unavailable())?;
+    console_error!("apns_provider_failure_check_admin_config");
     Ok(())
 }

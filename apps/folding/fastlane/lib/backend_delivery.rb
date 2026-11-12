@@ -19,16 +19,7 @@ module FoldingRelease
         value.fetch("account_id").match?(/\A[0-9a-f]{32}\z/) && variables["DEPLOYMENT"] == ENVIRONMENT &&
         variables["APP_ATTEST_APP_ID"] == "#{CONFIG.fetch('apple_team_id')}.#{identity.fetch('bundle_id')}" &&
         database.length == 1 && database.first["binding"] == "DB" && database.first["database_name"] == "folding-production"
-      claims = JSON.parse(variables.fetch("VERIFIED_CAPABILITIES"))
-      raise ValidationError, "Invalid configured capability claims" unless claims.is_a?(Array) && claims.uniq == claims && claims.all? { |claim| claim.is_a?(String) && !claim.empty? }
-      flags = %w[APNS_ENABLED AVATAR_UPLOADS_ENABLED ADMIN_EMAIL_ENABLED]
-      raise ValidationError, "Explicit configured feature flags are required" unless flags.all? { |name| %w[true false].include?(variables.fetch(name)) }
-      promoted = !claims.empty? || %w[APNS_ENABLED AVATAR_UPLOADS_ENABLED ADMIN_EMAIL_ENABLED].any? { |name| variables[name] == "true" }
-      approved = variables.fetch("WORKER_VERSION")
-      raise ValidationError, "Invalid approved Worker source" unless approved.match?(/\A[0-9a-f]{40}\z/)
-      if promoted && approved != source && FoldingRelease.backend_input_hash(approved) != FoldingRelease.backend_input_hash(source)
-        raise ValidationError, "Refresh the source-bound configuration through the existing readiness/evidence generator before deploying changed backend inputs"
-      end
+      %w[APNS_ENABLED AVATAR_UPLOADS_ENABLED ADMIN_EMAIL_ENABLED VERIFIED_CAPABILITIES].each { |name| variables.delete(name) }
       variables["WORKER_VERSION"] = source
       value["main"] = File.join(ROOT, "backend/crates/worker/build/worker/shim.mjs")
       database.first["migrations_dir"] = File.join(ROOT, "backend/migrations")

@@ -53,19 +53,16 @@ class BackendDeliveryTest < Minitest::Test
     assert_raises(RuntimeError) { Delivery.verify_artifact!(@source) }
   end
 
-  def test_readiness_claims_cannot_be_relabelled_over_changed_backend_inputs
-    @config.fetch("vars")["VERIFIED_CAPABILITIES"] = '["profiles.milestones"]'
-    ENV["FOLDING_PRODUCTION_WORKER_CONFIG"] = JSON.generate(@config)
-    FoldingRelease.stub(:backend_input_hash, ->(source) { source == @source ? "changed" : "approved" }) do
-      assert_raises(RuntimeError) { Delivery.configuration(@source) }
-    end
-    FoldingRelease.stub(:backend_input_hash, "same-runtime-inputs") do
-      assert_equal @source, Delivery.configuration(@source).fetch("vars").fetch("WORKER_VERSION")
+  def test_deployment_uses_current_source_without_manual_feature_approval
+    config = Delivery.configuration(@source)
+    assert_equal @source, config.fetch("vars").fetch("WORKER_VERSION")
+    %w[APNS_ENABLED AVATAR_UPLOADS_ENABLED ADMIN_EMAIL_ENABLED VERIFIED_CAPABILITIES].each do |name|
+      refute config.fetch("vars").key?(name)
     end
     assert_equal @old, JSON.parse(ENV.fetch("FOLDING_PRODUCTION_WORKER_CONFIG")).fetch("vars").fetch("WORKER_VERSION")
-    @config.fetch("vars").delete("VERIFIED_CAPABILITIES")
+    @config.fetch("d1_databases").first["database_name"] = "other-product"
     ENV["FOLDING_PRODUCTION_WORKER_CONFIG"] = JSON.generate(@config)
-    assert_raises(KeyError) { Delivery.configuration(@source) }
+    assert_raises(Delivery::ValidationError) { Delivery.configuration(@source) }
   end
 
   def test_processed_distribution_receipt_is_recorded_once

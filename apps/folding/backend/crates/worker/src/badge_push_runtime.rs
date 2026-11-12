@@ -73,9 +73,8 @@ async fn finish(
     state: &str,
     error: &str,
     next: i64,
-    paused: bool,
 ) -> Result<(), Failure> {
-    statement(db,"UPDATE badge_notification_jobs SET state=?1,lease_until_ms=0,next_attempt_ms=?2,last_error=?3,attempts=attempts-?9,sent_at_ms=CASE WHEN ?1='sent' THEN ?4 ELSE NULL END WHERE participant_id=?5 AND generation_revision=?6 AND generation_id=?7 AND delivery_id=?8 AND lease_until_ms=?10 AND state='pending'",&[text(state),number(next),text(error),number(now()),text(&job.participant_id),number(job.generation_revision),text(&job.generation_id),text(delivery),number(i64::from(paused)),number(lease)])?.run().await.map_err(|_|Failure::unavailable())?;
+    statement(db,"UPDATE badge_notification_jobs SET state=?1,lease_until_ms=0,next_attempt_ms=?2,last_error=?3,sent_at_ms=CASE WHEN ?1='sent' THEN ?4 ELSE NULL END WHERE participant_id=?5 AND generation_revision=?6 AND generation_id=?7 AND delivery_id=?8 AND lease_until_ms=?9 AND state='pending'",&[text(state),number(next),text(error),number(now()),text(&job.participant_id),number(job.generation_revision),text(&job.generation_id),text(delivery),number(lease)])?.run().await.map_err(|_|Failure::unavailable())?;
     Ok(())
 }
 pub(crate) async fn dispatch(
@@ -87,13 +86,6 @@ pub(crate) async fn dispatch(
 ) -> Result<(), Failure> {
     let jobs=statement(db,"SELECT participant_id,generation_revision,generation_id,COALESCE(delivery_id,'') AS delivery_id,MIN(attempts) AS attempts FROM badge_notification_jobs WHERE state='pending' AND lease_until_ms<=?1 AND next_attempt_ms<=?1 GROUP BY participant_id,generation_revision,generation_id,delivery_id ORDER BY MIN(created_at_ms),participant_id LIMIT 10",&[number(now())])?.all().await.map_err(|_|Failure::unavailable())?.results::<Job>().map_err(|_|Failure::unavailable())?;
     for job in jobs {
-        if crate::operational_runtime::controls(db)
-            .await?
-            .result_notifications_enabled
-            == 0
-        {
-            break;
-        }
         let time = now();
         let lease = time + 120000;
         let delivery = if job.delivery_id.is_empty() {
@@ -107,7 +99,7 @@ pub(crate) async fn dispatch(
         }
         let ids = badges(db, &job, &delivery, lease).await?;
         if !enabled(db, &job).await? || ids.is_empty() {
-            finish(db, &job, &delivery, lease, "suppressed", "", 0, false).await?;
+            finish(db, &job, &delivery, lease, "suppressed", "", 0).await?;
             continue;
         }
         let destination = target(db, config, &job, topic, environment).await?;
@@ -135,7 +127,7 @@ pub(crate) async fn dispatch(
                 match crate::apns_runtime::provider(env, db, config, environment, topic).await {
                     Ok(value) => value,
                     Err(error) => {
-                        crate::operational_runtime::pause_notifications(
+                        crate::operational_runtime::record_notification_failure(
                             db,
                             "Badge provider configuration unavailable",
                         )
@@ -150,7 +142,6 @@ pub(crate) async fn dispatch(
             {
                 return Err(Failure::unavailable());
             }
-            crate::operational_runtime::require(db, "notifications").await?;
             crate::apns_runtime::send_payload(
                 &token,
                 &provider,
@@ -189,7 +180,7 @@ pub(crate) async fn dispatch(
                     }
                 }
             } else if outcome.status == 403 {
-                crate::operational_runtime::pause_notifications(
+                crate::operational_runtime::record_notification_failure(
                     db,
                     "APNs rejected badge provider authorization",
                 )
@@ -200,29 +191,11 @@ pub(crate) async fn dispatch(
                 error = "provider_rejected";
             }
         }
-        let paused = state != "sent"
-            && crate::operational_runtime::controls(db)
-                .await?
-                .result_notifications_enabled
-                == 0;
-        if paused {
-            state = "pending";
-        }
-        if state == "pending" && job.attempts >= 11 && !paused {
+        if state == "pending" && job.attempts >= 11 {
             state = "failed";
         }
         let retry = (30000_i64.saturating_mul(1_i64 << job.attempts.min(11))).min(3600000);
-        finish(
-            db,
-            &job,
-            &delivery,
-            lease,
-            state,
-            error,
-            time + retry,
-            paused,
-        )
-        .await?;
+        finish(db, &job, &delivery, lease, state, error, time + retry).await?;
     }
     Ok(())
 }

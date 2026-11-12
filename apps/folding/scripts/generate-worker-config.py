@@ -5,7 +5,6 @@ Apple and Access configuration is supplied in a public JSON file. Secrets are in
 separately with Wrangler secret bindings; never pass credentials in this document.
 """
 import argparse
-import hashlib
 import json
 import pathlib
 import re
@@ -14,12 +13,7 @@ import sys
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--configuration', type=pathlib.Path, required=True)
 parser.add_argument('--output', type=pathlib.Path, required=True)
-parser.add_argument('--readiness', type=pathlib.Path, help='Reviewed, version-bound public acceptance overlay')
-parser.add_argument('--testflight-preview', action='store_true',
-    help='Enable avatar uploads and APNs for an owner TestFlight build without advertising release readiness')
 args = parser.parse_args()
-if args.testflight_preview and args.readiness:
-    raise SystemExit('TestFlight preview and reviewed release readiness are separate deployment modes')
 bindings = json.load(sys.stdin)
 configuration = json.loads(args.configuration.read_text())
 environment = bindings['environment']
@@ -59,62 +53,9 @@ variables = dict(configuration, DEPLOYMENT=environment,
     APPLE_SIGN_IN_CLIENT_ID=bundle,
     APNS_TOPIC=bundle, APNS_ENVIRONMENT='production',
     APNS_TEAM_ID=configuration['APPLE_SIGN_IN_TEAM_ID'],
-    APNS_ENABLED='false', AVATAR_UPLOADS_ENABLED='false', ADMIN_EMAIL_ENABLED='false',
     APP_ATTEST_APP_ID=configuration['APPLE_SIGN_IN_TEAM_ID'] + '.' + bundle,
-    VERIFIED_CAPABILITIES='[]', API_ORIGIN=bindings['api_origin'],
+    API_ORIGIN=bindings['api_origin'],
     ADMIN_ORIGIN=bindings['admin_origin'], ACCESS_AUDIENCE=bindings['access_audience'])
-# Bootstrap is fail-closed. A checked-in public overlay is the sole promotion input;
-# regenerating the config must not silently lose an accepted feature gate.
-if args.readiness:
-    readiness = json.loads(args.readiness.read_text())
-    expected = {'environment', 'worker_version', 'bindings_sha256', 'reviewer',
-                'reviewed_at', 'evidence', 'capabilities', 'features'}
-    if set(readiness) != expected:
-        raise SystemExit('Readiness overlay fields differ from the contract')
-    binding_hash = hashlib.sha256(json.dumps(bindings, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
-    if (readiness['environment'] != environment
-            or readiness['worker_version'] != configuration['WORKER_VERSION']
-            or readiness['bindings_sha256'] != binding_hash):
-        raise SystemExit('Readiness identity differs from this deployment')
-    if not all(isinstance(readiness[field], str) and readiness[field].strip()
-               for field in ('reviewer', 'reviewed_at')):
-        raise SystemExit('Readiness needs an identified reviewer and review time')
-    import datetime
-    datetime.datetime.fromisoformat(readiness['reviewed_at'].replace('Z', '+00:00'))
-    implemented_source = (pathlib.Path(__file__).resolve().parent.parent /
-                          'backend/crates/worker/src/capabilities_runtime.rs').read_text()
-    implemented = set(re.findall(r'"([a-z_]+\.[a-z_]+)"',
-                                implemented_source.split('pub(crate) fn get')[0]))
-    capabilities = readiness['capabilities']
-    if (not isinstance(capabilities, list) or not all(isinstance(c, str) for c in capabilities)
-            or len(set(capabilities)) != len(capabilities) or not set(capabilities) <= implemented):
-        raise SystemExit('Unknown or duplicate verified capability')
-    features = readiness['features']
-    feature_keys = {'APNS_ENABLED', 'AVATAR_UPLOADS_ENABLED', 'ADMIN_EMAIL_ENABLED'}
-    if set(features) != feature_keys or any(type(v) is not bool for v in features.values()):
-        raise SystemExit('Readiness requires explicit boolean feature flags')
-    if ('notifications.results' in capabilities and not features['APNS_ENABLED']
-            or 'avatars.upload' in capabilities and not features['AVATAR_UPLOADS_ENABLED']):
-        raise SystemExit('Verified capabilities conflict with their feature gates')
-    evidence = readiness['evidence']
-    claims = set(capabilities) | {key for key, enabled in features.items() if enabled}
-    if not isinstance(evidence, dict) or set(evidence) != claims:
-        raise SystemExit('Each promoted claim requires its own acceptance evidence')
-    for claim, item in evidence.items():
-        if (not isinstance(item, dict) or set(item) != {'path', 'sha256'}
-                or not isinstance(item['path'], str)
-                or not re.fullmatch(r'[0-9a-f]{64}', item['sha256'])):
-            raise SystemExit('Invalid evidence record: ' + claim)
-        evidence_path = (args.readiness.parent / item['path']).resolve()
-        if not evidence_path.is_relative_to(args.readiness.parent.resolve()):
-            raise SystemExit('Evidence must be stored beside the overlay')
-        if hashlib.sha256(evidence_path.read_bytes()).hexdigest() != item['sha256']:
-            raise SystemExit('Acceptance evidence hash differs: ' + claim)
-    variables.update({key: str(enabled).lower() for key, enabled in features.items()})
-    variables['VERIFIED_CAPABILITIES'] = json.dumps(sorted(capabilities), separators=(',', ':'))
-if args.testflight_preview:
-    variables['APNS_ENABLED'] = 'true'
-    variables['AVATAR_UPLOADS_ENABLED'] = 'true'
 root = pathlib.Path(__file__).resolve().parent.parent
 # Absolute paths make the generated file safe to keep outside the checkout.
 result = {
@@ -148,5 +89,4 @@ result = {
 }
 args.output.parent.mkdir(parents=True, exist_ok=True)
 args.output.write_text(json.dumps(result, indent=2) + '\n')
-print(f'Generated {environment} Worker bindings; readiness overlay: {bool(args.readiness)}; '
-      f'TestFlight preview: {args.testflight_preview}.', file=sys.stderr)
+print(f'Generated {environment} Worker bindings.', file=sys.stderr)

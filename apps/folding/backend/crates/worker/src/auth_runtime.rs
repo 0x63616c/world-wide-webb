@@ -337,7 +337,6 @@ pub async fn dispatch(
             crate::attestation_runtime::enroll(request, env, &db, &config, body, request_id).await?
         }
         "/v1/event-batches" | "/v1/history-batches" => {
-            crate::operational_runtime::require(&db, "ingestion").await?;
             crate::competition_runtime::events(request, env, &db, &config, body, request_id).await?
         }
         "/v1/enrollment/join" => {

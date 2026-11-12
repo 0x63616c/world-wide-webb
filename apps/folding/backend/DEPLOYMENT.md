@@ -27,11 +27,7 @@ immutable. The primary agent alone provisions credentials, deploys and enables a
   slash; `ACCESS_AUDIENCE`; `ADMIN_EMAIL_ALLOWLIST`: explicit JSON array.
 - `APNS_TOPIC`: exact bundle ID; `APNS_ENVIRONMENT`: sandbox or production; `APNS_KEY_ID`, `APNS_TEAM_ID`.
   Production refuses sandbox APNs.
-- `VERIFIED_CAPABILITIES`: default`[]`. Populate only with final accepted names; never use compilation
-  evidence to advertise shipping readiness.
-- `AVATAR_UPLOADS_ENABLED=false`, `APNS_ENABLED=false`, `ADMIN_EMAIL_ENABLED=false` until their respective
-  acceptance/verification. Optional `ADMIN_ALERT_FROM` and `ADMIN_ALERT_TO` require verified outbound
-  sender/recipient capability; inbound support forwarding does not establish that.
+Permanent product features run by default. `/v1/capabilities` lists implemented API operations; it does not certify physical-device or provider acceptance. Keep those results in the release record. Missing provider configuration is reported as an error.
 
 ## Secret binding names and formats
 
@@ -82,8 +78,6 @@ performed by the backend implementation agent. See `docs/experiments/backend-run
 
 ## Reviewed readiness overlay
 
-`generate-worker-config.py --readiness path/to/readiness.json` preserves reviewed feature readiness across regeneration. Without this option all three feature gates remain false and capabilities empty. Store the overlay with deployment evidence in the repo; never include secrets.
-
-Required fields: `environment`, exact `worker_version`, `bindings_sha256` (SHA-256 of the OpenTofu bindings serialized with sorted keys and compact JSON separators), `reviewer`, ISO-8601 `reviewed_at`, `capabilities`, `features`, and `evidence`. Features explicitly map `APNS_ENABLED`, `AVATAR_UPLOADS_ENABLED`, `ADMIN_EMAIL_ENABLED` to booleans. Evidence maps each capability and enabled feature to `{path, sha256}`; paths must stay inside the overlay directory. A changed commit/binding/evidence hash fails before replacing generated output. Promotion remains a reviewed acceptance decision; the generator never invents evidence. See `scripts/test-worker-readiness.py` for a synthetic example and regression coverage.
+Generate resource bindings with `scripts/generate-worker-config.py`. No feature-enablement overlay or manual source approval is required. Deployment validates the tested artifact, application/database identity and immutable receipt.
 
 `./scripts/check-backend` rebuilds the pinned Wasm artifact before local workerd tests. Host-only Cargo tests cannot exercise Worker bindings. Quarantine approval checks current membership/restriction/generation, original enrollment/device/cutoff, setup exclusion and time ordering; closed awards change only through the existing audited correction flow.

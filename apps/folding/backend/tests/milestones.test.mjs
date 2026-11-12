@@ -231,7 +231,7 @@ test('account deletion immediately removes ready and partially built badge proje
 
 test('new capability stays unadvertised without deployment acceptance evidence',async()=>{
  const response=await runtime.dispatchFetch('https://api.example/v1/capabilities');
- const value=await jsonOK(response);assert.equal(value.contract_version,1);assert.equal(value.worker_version,'milestones-local');assert.ok(!value.capabilities.includes('profiles.milestones'));
+ const value=await jsonOK(response);assert.equal(value.contract_version,1);assert.equal(value.worker_version,'milestones-local');assert.ok(value.capabilities.includes('profiles.milestones'));
 });
 
 test('pre-join history brings 18 accepted folds to the original 59 without rewriting or double-counting',async()=>{

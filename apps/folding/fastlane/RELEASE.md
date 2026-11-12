@@ -233,13 +233,11 @@ and explicit cleanup. Local signing defaults use the same private repository/bra
 Cloudflare Time Travel bookmark commands are documented at
 https://developers.cloudflare.com/d1/reference/time-travel/ . Live restore acceptance remains required.
 
-Readiness is carried forward only for identical normalized backend inputs. Existing promoted
-capabilities/feature flags stay bound to their approved configured Worker source; changing Rust
-code or compiler/build pins requires refreshing the generated source-bound configuration through
-the existing readiness/evidence process as part of the agent's backend change. Unrelated app,
-Xcode, Node/Bun test tooling and documentation changes do not invalidate the deployed backend.
-Rust/worker-build pins are owned by `backend/tool-versions.json`; the native tool manifest keeps
-Apple/Ruby/Python/JavaScript test tooling. The Rustup file is checked against the backend pin.
+Backend deliveries validate the tested artifact and its source, account/database bindings,
+migrations, deployed version and immutable receipt. Ordinary backend changes require no manual
+feature approval. Features run by default; the protected Operations page retains only the
+minimum-app-build policy and error reporting. Capability listings describe implemented operations,
+not physical-device acceptance; existing acceptance deferrals remain in release records.
 
 Delivery resolves every configured group on the exact App Store app, rejects external/ambiguous
 or missing groups, and verifies the exact processed build through Apple's group-build relationship.
