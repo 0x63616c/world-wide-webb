@@ -11,7 +11,6 @@ struct PanelProfileSelector: ViewModifier {
     let inset: CGFloat
 
     @AppStorage("panel.selectedProfileID") private var selectedID = ""
-    @AppStorage("panel.profilePhoto") private var legacyPhoto = Data()
     @Environment(\.homeIntegration) private var integration
     @Environment(\.panelContentInsets) private var contentInsets
     @Environment(\.horizontalSizeClass) private var sizeClass
@@ -117,7 +116,7 @@ struct PanelProfileSelector: ViewModifier {
                 return data
             }
         #endif
-        return legacyPhoto
+        return Data()
     }
 
     private func showProfiles(_ showing: Bool) {
