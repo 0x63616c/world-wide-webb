@@ -75,7 +75,7 @@ struct PanelProfileSelector: ViewModifier {
                     delete: { pin in try await remove(target.profile, pin: pin) }
                 )
                 .preferredColorScheme(.dark)
-                .frame(idealWidth: 420, idealHeight: 340)
+                .frame(idealWidth: 420, idealHeight: 310)
                 .presentationSizing(.fitted)
             }
             .onChange(of: isAvailable) { _, available in
@@ -386,7 +386,7 @@ private struct EditPanelProfile: View {
                         Button("Delete", role: .destructive) { confirmingDelete = true }
                             .buttonStyle(.glass)
                             .disabled(saving)
-                            .alert("Delete this profile?", isPresented: $confirmingDelete) {
+                            .alert("Are you sure?", isPresented: $confirmingDelete) {
                                 Button("Delete Profile", role: .destructive) {
                                     saving = true
                                     Task {
