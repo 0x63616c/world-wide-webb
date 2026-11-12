@@ -15,7 +15,7 @@ Credentials come from the persistent authorized shell, never committed files. Bo
 
 Provider lockfiles are committed. Plans, state, local backend metadata and credentials are ignored. Never disable state encryption, locking or `prevent_destroy` to work around an error.
 
-Generate code bindings after a successful apply with `tofu -chdir=infra/cloudflare/folding/production output -json application_bindings | python3 apps/folding/scripts/generate-worker-config.py --configuration /path/to/public-runtime-config.json --output /path/to/wrangler.json`. The generator requires the exact Git commit and explicit Apple build allowlist, includes no credentials, disables public preview URLs, and initializes accepted capabilities to empty. Install runtime secrets separately. The jobs queue is bound to the Rust queue handler with ten-message batches, concurrency two and bounded retries and its separate dead-letter queue. The dead-letter queue has no ordinary consumer.
+Generate code bindings after a successful apply with `tofu -chdir=infra/cloudflare/folding/production output -json application_bindings | python3 apps/folding/scripts/generate-worker-config.py --configuration /path/to/public-runtime-config.json --output /path/to/wrangler.json`. The generator requires the exact Git commit and explicit Apple build allowlist, includes no credentials, disables public preview URLs, with permanent product features available by default. Install runtime secrets separately. The jobs queue is bound to the Rust queue handler with ten-message batches, concurrency two and bounded retries and its separate dead-letter queue. The dead-letter queue has no ordinary consumer.
 
 The public runtime input contains exactly `APPLE_SIGN_IN_TEAM_ID`, `APPLE_SIGN_IN_KEY_ID`, `APP_ATTEST_ENVIRONMENT`, `APP_ATTEST_BUNDLE_VERSIONS` (a JSON array encoded as a string), `ACCESS_TEAM_DOMAIN`, `WORKER_VERSION`, `ADMIN_EMAIL_ALLOWLIST` (a JSON array encoded as a string), and `APNS_KEY_ID`. Distribution builds use Production APNs for distribution/TestFlight builds, with the topic derived from the production bundle identifier. Notification delivery, avatar uploads and optional admin email start disabled pending their acceptance checks. Apple key IDs and vault recovery references are recorded in `docs/experiments/apple-account-bootstrap.md`; private keys are installed as secret bindings, never included in this input.
 
@@ -41,9 +41,7 @@ Existing tokens and the encrypted state bucket retain `prevent_destroy`.
 Recover the encrypted bootstrap state/key from the existing Folding vault, retain an encrypted
 before-copy, and require a plan containing only the two named token creates. Do not initialize an
 empty replacement state or reuse the owner identity in CI. Save the updated encrypted state back
-to its existing recovery document before activating delivery. Runtime configuration remains
-source-bound: preserve live flags, resources and accepted claims and use the existing source-bound
-acceptance/readiness generator for changed backend inputs.
+to its existing recovery document before activating delivery. Runtime configuration preserves resource identities. CI validates tested source and deployed artifacts; feature enablement and manual revision approval are no longer deployment inputs.
 
 Verified token recovery references: deployment `o6wdqovsjw4vw4ghcbqnr7gvzq`; published-build
 policy `4xugt4o46euaezdnu6pswshs4u`. The updated encrypted bootstrap state was saved back to

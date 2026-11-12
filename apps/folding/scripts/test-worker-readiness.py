@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""Local-only deployment overlay regression tests; never accesses a provider."""
-import hashlib
+"""Local-only Worker configuration checks; never accesses a provider."""
 import json
 import pathlib
 import subprocess
@@ -9,8 +8,8 @@ import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 
-class ReadinessTests(unittest.TestCase):
-    def test_regeneration_preserves_reviewed_flags_and_rejects_changed_evidence(self):
+class ConfigurationTests(unittest.TestCase):
+    def test_configuration_preserves_resources_and_requires_valid_identity(self):
         with tempfile.TemporaryDirectory() as tmp:
             directory = pathlib.Path(tmp)
             bindings = dict(environment='production', api_origin='https://api.getfolding.app',
@@ -23,25 +22,14 @@ class ReadinessTests(unittest.TestCase):
                 ADMIN_EMAIL_ALLOWLIST='["test@example.com"]', APNS_KEY_ID='KEY1234567')
             config = directory / 'configuration.json'
             config.write_text(json.dumps(configuration))
-            artifact = directory / 'acceptance.json'
-            artifact.write_text('{"result":"passed","environment":"production"}')
-            evidence = dict(path=artifact.name, sha256=hashlib.sha256(artifact.read_bytes()).hexdigest())
-            overlay = dict(environment='production', worker_version='a'*40,
-                bindings_sha256=hashlib.sha256(json.dumps(bindings,sort_keys=True,separators=(',', ':')).encode()).hexdigest(),
-                reviewer='local-test', reviewed_at='2026-11-07T00:00:00Z',
-                capabilities=['notifications.results'],
-                features=dict(APNS_ENABLED=True, AVATAR_UPLOADS_ENABLED=False, ADMIN_EMAIL_ENABLED=False),
-                evidence={'notifications.results':evidence, 'APNS_ENABLED':evidence})
-            readiness = directory / 'readiness.json'
-            readiness.write_text(json.dumps(overlay))
             output = directory / 'worker.json'
             command = ['python3', str(ROOT/'scripts/generate-worker-config.py'), '--configuration', str(config), '--output', str(output)]
-            def run(with_overlay=True):
-                return subprocess.run(command + (['--readiness',str(readiness)] if with_overlay else []),
-                    input=json.dumps(bindings), text=True, capture_output=True)
-            self.assertEqual(run(False).returncode, 0)
+            def run():
+                return subprocess.run(command, input=json.dumps(bindings), text=True, capture_output=True)
+            self.assertEqual(run().returncode, 0)
             generated = json.loads(output.read_text())
-            self.assertEqual(generated['vars']['APNS_ENABLED'], 'false')
+            for name in ('APNS_ENABLED', 'AVATAR_UPLOADS_ENABLED', 'ADMIN_EMAIL_ENABLED', 'VERIFIED_CAPABILITIES'):
+                self.assertNotIn(name, generated['vars'])
             self.assertEqual(generated['limits']['cpu_ms'], 5000)
             self.assertNotIn('MINIMUM_IOS_BUILD', generated['vars'])
             self.assertEqual(generated['observability']['head_sampling_rate'], 0.1)
@@ -51,32 +39,16 @@ class ReadinessTests(unittest.TestCase):
             self.assertEqual(generated['queues']['consumers'][0]['max_batch_size'],10)
             configuration['MINIMUM_IOS_BUILD'] = '10'
             config.write_text(json.dumps(configuration))
-            self.assertNotEqual(run(False).returncode, 0)
+            self.assertNotEqual(run().returncode, 0)
             configuration['MINIMUM_IOS_BUILD'] = '-1'
             config.write_text(json.dumps(configuration))
-            self.assertNotEqual(run(False).returncode, 0)
+            self.assertNotEqual(run().returncode, 0)
             configuration.pop('MINIMUM_IOS_BUILD')
             config.write_text(json.dumps(configuration))
-            preview = subprocess.run(command + ['--testflight-preview'],
-                                     input=json.dumps(bindings), text=True, capture_output=True)
-            self.assertEqual(preview.returncode, 0, preview.stderr)
-            preview_vars = json.loads(output.read_text())['vars']
-            self.assertEqual(preview_vars['APNS_ENABLED'], 'true')
-            self.assertEqual(preview_vars['AVATAR_UPLOADS_ENABLED'], 'true')
-            self.assertEqual(preview_vars['ADMIN_EMAIL_ENABLED'], 'false')
-            self.assertEqual(preview_vars['VERIFIED_CAPABILITIES'], '[]')
-            self.assertNotEqual(subprocess.run(command + ['--testflight-preview', '--readiness', str(readiness)],
-                             input=json.dumps(bindings), text=True, capture_output=True).returncode, 0)
             self.assertEqual(run().returncode, 0)
-            initial = output.read_bytes()
-            self.assertEqual(json.loads(initial)['vars']['APNS_ENABLED'], 'true')
-            self.assertEqual(run().returncode, 0)
-            self.assertEqual(output.read_bytes(), initial)
-            artifact.write_text('changed')
-            self.assertNotEqual(run().returncode, 0)
-            self.assertEqual(output.read_bytes(), initial)
-            overlay['worker_version'] = 'b'*40
-            readiness.write_text(json.dumps(overlay))
+            self.assertEqual(json.loads(output.read_text())['vars']['WORKER_VERSION'], 'a'*40)
+            configuration['WORKER_VERSION'] = 'bad-source'
+            config.write_text(json.dumps(configuration))
             self.assertNotEqual(run().returncode, 0)
 
 if __name__ == '__main__':

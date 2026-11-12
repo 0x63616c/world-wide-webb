@@ -62,13 +62,6 @@ pub(crate) async fn schedule(env: &Env, db: &D1Database) -> std::result::Result<
     .map_err(|_| Failure::unavailable())?;
     let mut writes = vec![];
     for category in categories {
-        let feature = match category.kind.as_str() {
-            "awards" => Some("APNS_ENABLED"),
-            _ => None,
-        };
-        if feature.is_some_and(|name| !env.var(name).is_ok_and(|v| v.to_string() == "true")) {
-            continue;
-        }
         let version = if category.kind == "milestones" || category.kind == "awards" {
             time
         } else {

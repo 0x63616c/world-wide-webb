@@ -146,7 +146,7 @@ const authenticatedRuntime = new Miniflare(convertV4MiniflareOptions({ workers: 
   queueProducers: {JOBS:"folding-local-jobs", JOBS_DEAD:"folding-local-dead"},
   queueConsumers: {"folding-local-jobs":{maxBatchSize:1,maxBatchTimeout:0}},
   bindings: {
-    WORKER_VERSION:"synthetic-local-worker",VERIFIED_CAPABILITIES:'["profiles.milestones"]',ADMIN_ORIGIN:"https://admin.example",ACCESS_TEAM_DOMAIN:"https://folding-test.cloudflareaccess.com",ACCESS_AUDIENCE:"local-admin",ADMIN_EMAIL_ALLOWLIST:JSON.stringify(["admin@example.test"]),AVATAR_UPLOADS_ENABLED:"true",
+    WORKER_VERSION:"synthetic-local-worker",ADMIN_ORIGIN:"https://admin.example",ACCESS_TEAM_DOMAIN:"https://folding-test.cloudflareaccess.com",ACCESS_AUDIENCE:"local-admin",ADMIN_EMAIL_ALLOWLIST:JSON.stringify(["admin@example.test"]),
     APP_ATTEST_APP_ID:"TEAM123456.app.test.Folding",APP_ATTEST_ENVIRONMENT:"production",APP_ATTEST_BUNDLE_VERSIONS:JSON.stringify(["1"]),
     APPLE_SIGN_IN_CLIENT_ID:"app.test.Folding",APPLE_SIGN_IN_TEAM_ID:"TEAM123456",APPLE_SIGN_IN_KEY_ID:"KEY1234567",
     APPLE_SIGN_IN_PRIVATE_KEY_PKCS8:appleClient.privateKey.export({type:"pkcs8",format:"der"}).toString("base64url"),
@@ -553,6 +553,8 @@ for (const documentedNames of [true, false]) test(`actual Worker verifies ${docu
   assert.equal(changed.status,200);
   const changedProfile=(await changed.json()).profile;
   assert.equal(changedProfile.nickname,"Public Name"); assert.equal(changedProfile.nickname_status,"approved");
+  // Legacy operational switches no longer disable permanent features.
+  await db.prepare("UPDATE administrative_configuration SET avatar_uploads_enabled=0,competition_ingestion_enabled=0,result_notifications_enabled=0 WHERE singleton=1").run();
   const photo=await readFile(`${root}tests/fixtures/valid-avatar.png`);
   const avatarPath="/v1/avatars/00000000-0000-4000-8000-000000000050";
   const issued=await authenticatedRuntime.dispatchFetch("https://api.example/v1/attestation/challenges",{method:"POST",headers,body:JSON.stringify({purpose:"avatar_upload",device_id:device,key_id:keyID})});
@@ -605,9 +607,9 @@ test("admin minimum build is authenticated, audited, revision guarded and revers
  assert.equal(await policy(),0);
  const form=async()=>{
   const r=await authenticatedRuntime.dispatchFetch('https://admin.example/admin/config',{headers:auth});assert.equal(r.status,200);
-  const html=await r.text();assert.match(html,/name="minimum_ios_build"/);assert.match(html,/0 = off/);
+  const html=await r.text();assert.match(html,/name="minimum_ios_build"/);assert.match(html,/0 = off/);assert.doesNotMatch(html,/name="(?:competition_ingestion_enabled|result_notifications_enabled|avatar_uploads_enabled)"/);
   const field=name=>html.match(new RegExp(`name="${name}" value="([^"]+)"`))[1];
-  return {operation_id:field('operation_id'),csrf_token:field('csrf_token'),expected_revision:field('expected_revision'),competition_ingestion_enabled:'1',result_notifications_enabled:'1',avatar_uploads_enabled:'1',minimum_ios_build:'12',reason:'Require available build 12'};
+  return {operation_id:field('operation_id'),csrf_token:field('csrf_token'),expected_revision:field('expected_revision'),minimum_ios_build:'12',reason:'Require available build 12'};
  };
  const post=(input,headers={})=>authenticatedRuntime.dispatchFetch('https://admin.example/admin/config',{method:'POST',redirect:'manual',headers:{...auth,Origin:'https://admin.example','Content-Type':'application/x-www-form-urlencoded',...headers},body:new URLSearchParams(input)});
  const input=await form();
@@ -668,7 +670,7 @@ test('admin quarantine and reinstatement reconcile awards without replaying ackn
   const own=await get();assert.equal(own.progress.folds,index?100:0);assert.equal(own.featured_badge_id,null);
   assert.equal(own.grants.length,index?2:0);assert.ok(own.grants.every(g=>g.acknowledged));
  }
- const capability=await authenticatedRuntime.dispatchFetch('https://api.example/v1/capabilities');assert.deepEqual((await capability.json()).capabilities,['profiles.milestones']);
+ const capability=await authenticatedRuntime.dispatchFetch('https://api.example/v1/capabilities');const supported=(await capability.json()).capabilities;for(const name of ['profiles.milestones','avatars.upload','notifications.results']) assert.ok(supported.includes(name));
 });
 
 test("published build policy authorizes exact signed versions without a Worker reconfiguration", async () => {

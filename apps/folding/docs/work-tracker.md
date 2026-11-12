@@ -664,3 +664,15 @@ refresh rejection, preserves pending uploads, recovers interrupted token rotatio
 extends active sessions. Local tests cover delayed refresh recovery, token reuse,
 interrupted client persistence, the sign-in fallback, and the upload queue. Device
 verification and the reason for the original refresh rejection remain open.
+
+November 11 release simplification: owner requested removal of global feature
+switches and the manual source-approval gate, while retaining minimum app build.
+The implementation removes deployment/admin switches, makes implemented API
+operations discoverable by default, and keeps notification consent, leases,
+bounded retries, provider-error reporting and audited update-policy changes.
+Existing legacy database columns remain unused for rollback compatibility.
+The authentication fix in #1035 passed main CI but its delivery stopped before
+Worker publication because of the old source-approval gate. This follow-up must
+pass checks and deliver the combined source before TestFlight is claimed complete.
+App Store submission is requested after TestFlight verification; screenshot approval
+and physical-device acceptance retain their existing requirements/deferrals.
