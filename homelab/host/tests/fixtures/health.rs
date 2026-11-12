@@ -7,6 +7,10 @@ fn main() {
     let root = executable.parent().unwrap();
     let arguments: Vec<_> = std::env::args().skip(1).collect();
     if arguments[0] == "--fail" {
+        if arguments.last().unwrap() == "http://192.168.50.20:8123" {
+            if root.join("ha-http-fails").exists() { std::process::exit(1); }
+            return;
+        }
         if arguments.last().unwrap() == "http://go/" {
             assert!(arguments.iter().any(|a| a == "--location"));
             if root.join("golink-http-fails").exists() { std::process::exit(1); }

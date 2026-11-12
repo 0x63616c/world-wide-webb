@@ -2,6 +2,7 @@ import contextlib
 import importlib.util
 import json
 import os
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -145,6 +146,65 @@ class StatefulActivationTests(unittest.TestCase):
         ):
             activation.main()
             self.assertEqual(transaction.call_args.args[1], self.new)
+
+    def test_hot_bridge_replacement_stops_existing_guest_before_switch_and_reloads_after(self):
+        for system, content in ((self.old, 'old-bridge'), (self.new, 'new-bridge')):
+            metadata = system / 'etc/homelab/deployment.json'
+            value = json.loads(metadata.read_text())
+            value['services'] = ['home-assistant']
+            metadata.write_text(json.dumps(value))
+            daemons = system / 'Library/LaunchDaemons'
+            daemons.mkdir(parents=True)
+            for name in ('vmnet', 'colima'):
+                (daemons / f'org.nixos.homelab-ha-{name}.plist').write_text(content)
+            (system / 'activate').write_text('#!/usr/bin/env -i /nix/store/fixture/bin/bash\n')
+        events = []
+        def run(command, *args, **kwargs):
+            events.append(command)
+        with patch.object(activation, 'run', side_effect=run), \
+                patch.object(activation, 'unload_ha_launcher', side_effect=lambda *a: events.append(['unload', *a])), \
+                patch.object(activation, 'ensure_ha_launchers', side_effect=lambda: events.append(['reload'])), \
+                patch.object(activation.children, 'run_service', side_effect=lambda *a, **k: events.append(list(a[:1]))):
+            activation.activate(self.new, self.old, 7, 'transaction', None)
+        self.assertEqual(events[0:2], [['unload'], ['stop-ha']])
+        self.assertEqual(events[2], ['unload', 'org.nixos.homelab-ha-vmnet'])
+        self.assertIn('nix-env', events[3][0])
+        self.assertEqual(events[-1], ['reload'])
+
+    def test_unchanged_ha_bridge_or_non_ha_host_does_not_restart_guest(self):
+        self.assertFalse(activation.ha_runtime_changed(self.old, self.new))
+        for system in (self.old, self.new):
+            metadata = system / 'etc/homelab/deployment.json'
+            value = json.loads(metadata.read_text())
+            value['services'] = ['home-assistant']
+            metadata.write_text(json.dumps(value))
+            daemons = system / 'Library/LaunchDaemons'
+            daemons.mkdir(parents=True)
+            for name in ('vmnet', 'colima'):
+                (daemons / f'org.nixos.homelab-ha-{name}.plist').write_text('same')
+        self.assertFalse(activation.ha_runtime_changed(self.old, self.new))
+
+    def test_failed_ha_stop_prevents_profile_switch(self):
+        with patch.object(activation, 'ha_runtime_changed', return_value=True), \
+                patch.object(activation, 'unload_ha_launcher'), \
+                patch.object(activation.children, 'run_service', side_effect=subprocess.CalledProcessError(1, 'stop-ha')), \
+                patch.object(activation, 'run') as switch:
+            with self.assertRaises(subprocess.CalledProcessError):
+                activation.activate(self.new, self.old, 7, 'transaction', None)
+            switch.assert_not_called()
+
+    def test_launcher_unload_waits_for_async_teardown(self):
+        with patch.object(activation, 'launcher_loaded', side_effect=[True, True, False]), \
+                patch.object(activation.subprocess, 'run') as run, \
+                patch.object(activation.time, 'sleep') as sleep:
+            activation.unload_ha_launcher()
+        self.assertEqual(run.call_args.args[0], ['/bin/launchctl', 'bootout', 'system/org.nixos.homelab-ha-colima'])
+        sleep.assert_called_once_with(1)
+
+    def test_unexpected_launchd_failure_is_not_treated_as_an_absent_job(self):
+        with patch.object(activation.subprocess, 'run', return_value=subprocess.CompletedProcess([], 1)):
+            with self.assertRaisesRegex(RuntimeError, 'inspect HA launcher'):
+                activation.ensure_ha_launchers()
 
     def test_interrupted_transaction_cannot_be_bypassed_by_a_boot_receipt(self):
         current = self.root / "absent"

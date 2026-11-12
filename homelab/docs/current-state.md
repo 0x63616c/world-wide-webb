@@ -6,7 +6,7 @@ for current ownership; inspect live host state before operations.
 
 ## Restart incident — November 11, 2026
 
-After the owner restarted and logged into the rebuilt Mini, host Tailscale and SSH
+After the owner power-cycled the Mini and logged in, host Tailscale and SSH
 were available at `admin@homelab-mac-mini.tail8c014d.ts.net`, but Bambuddy was offline
 and localhost ports 8000/4202 refused connections. Host uptime was approximately
 32 minutes. Comin recorded installed WWW source
@@ -51,19 +51,31 @@ was unreachable and guest ARP resolution failed even for the gateway. Restarting
 its bridge and existing guest after the physical LAN was ready restored LAN HTTP200.
 
 The bridge and HA guest launchers now wait for the configured physical interface to
-have an active link and usable IPv4 address. They share the same helper dependency,
-so a readiness change also replaces the guest's connection to the bridge backend.
+have an active link and usable IPv4 address. A launchd restart alone did not stop
+the existing HA guest during hot activation, leaving its old backend connection.
+The deployment transaction now unloads its launcher and gracefully stops that
+guest before changing either HA launcher, then ensures both launchers are loaded.
+This runs after backup under the existing operation lock and retains the journal
+on failure. Unchanged HA launchers do not restart the guest. HA deployment health
+also requires its configured LAN HTTP endpoint, not just a healthy container.
 The wait fails after two minutes and launchd retries; it does not choose another
 interface or change the guest's address/identity. Root bridge diagnostics live in
 `/var/log/homelab-ha-vmnet.log`. A cold-network fixture, link-local rejection and
 bounded-failure test cover the readiness gate. The live delivery receipt records
 the final unattended restart result.
 
-The deployment also encountered an uncached private Control Center image. An
-existing operator credential populated that exact image through Docker's local API
-under the shared operation lock; no registry credential file was retained on the
-Mini. Future uncached private images still require a scoped pull credential or an
-approved operator cache fill. Reboot uses the retained local images.
+Registry authorization was already failing on November 9 (PR #981); reusing cached
+images let deployments proceed without fixing private-image authentication. A new
+image promoted at 12:15 on November 11 exposed that existing gap during this task's
+deployment, separately from the power interruption and stalled VM boot.
+The existing Homelab PAT now supplies the encrypted
+`services/registry/docker-config` secret. SOPS installs it as the service-owned,
+mode-0400 `/run/secrets/registry/config.json`; normal and preflight reconciliation
+use that directory through `DOCKER_CONFIG`. No login session, vault client or
+operator cache fill is needed on the Mini. Both existing host and recovery age
+identities decrypt the ciphertext, and other secret values are preserved.
+The reused PAT retains its existing repository/package-write permissions; a
+read:packages-only replacement would narrow access but is not required for pulls.
 
 ## Read-only refresh — November 8, 2026
 

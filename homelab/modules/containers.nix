@@ -10,6 +10,7 @@ let
         set -eu
         export PATH=${lib.makeBinPath [ pkgs.docker pkgs.docker-compose pkgs.coreutils pkgs.python3 ]}
         export HOME=/var/lib/_containers
+        export DOCKER_CONFIG=/run/secrets/registry
         export DOCKER_HOST=unix:///var/lib/_containers/.colima/services/docker.sock
         export WORKER_CYCLES=${if cfg.controlCenter.workersEnabled then "on" else "off"}
         export HA_URL=${lib.escapeShellArg cfg.controlCenter.homeAssistantURL}

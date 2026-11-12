@@ -11,6 +11,7 @@ let
     workersEnabled = config.homelab.containers.controlCenter.workersEnabled;
     dockerPath = "${pkgs.docker}/bin/docker";
     releasePath = "/etc/homelab/services/control-center/release.json";
+    homeAssistantUrl = config.homelab.containers.controlCenter.homeAssistantURL;
   }); in [ "${hostTools}/bin/homelab-services" "health" "--config" "${settings}" ];
   settings = pkgs.writeText "homelab-reconcile.json" (builtins.toJSON {
     inherit services;
@@ -27,6 +28,7 @@ let
   reconcile = pkgs.writeShellScriptBin "homelab-reconcile-all" ''
     export PATH=${lib.makeBinPath [ pkgs.python3 pkgs.docker pkgs.docker-compose pkgs.colima pkgs.openssh pkgs.coreutils ]}:/usr/bin:/bin
     export HOME=/var/lib/_containers
+    export DOCKER_CONFIG=/run/secrets/registry
     export DOCKER_HOST=unix:///var/lib/_containers/.colima-ha/ha/docker.sock
     export WORKER_CYCLES=${if config.homelab.containers.controlCenter.workersEnabled then "on" else "off"}
     export HA_URL=${lib.escapeShellArg config.homelab.containers.controlCenter.homeAssistantURL}
