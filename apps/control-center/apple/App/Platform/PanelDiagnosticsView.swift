@@ -19,6 +19,7 @@ struct PanelDiagnosticsAccess: UIViewRepresentable {
         var open: () -> Void
         private weak var installedWindow: UIWindow?
         private(set) var recognizer = UILongPressGestureRecognizer()
+        private let tapProbe = UITapGestureRecognizer()
         init(open: @escaping () -> Void) {
             self.open = open
             super.init(frame: .zero)
@@ -27,6 +28,9 @@ struct PanelDiagnosticsAccess: UIViewRepresentable {
             recognizer.cancelsTouchesInView = false
             recognizer.delegate = self
             recognizer.addTarget(self, action: #selector(pressed))
+            tapProbe.cancelsTouchesInView = false
+            tapProbe.delegate = self
+            tapProbe.addTarget(self, action: #selector(tapped))
         }
         required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
         override func didMoveToWindow() {
@@ -34,9 +38,11 @@ struct PanelDiagnosticsAccess: UIViewRepresentable {
             detach()
             installedWindow = window
             window?.addGestureRecognizer(recognizer)
+            window?.addGestureRecognizer(tapProbe)
         }
         func detach() {
             installedWindow?.removeGestureRecognizer(recognizer)
+            installedWindow?.removeGestureRecognizer(tapProbe)
             installedWindow = nil
         }
         // Present from this window's visible controller so the gesture also works
@@ -57,6 +63,11 @@ struct PanelDiagnosticsAccess: UIViewRepresentable {
             presenter.present(controller, animated: true)
         }
         @objc private func pressed() { if recognizer.state == .began { open() } }
+        @objc private func tapped() {
+            if tapProbe.state == .ended {
+                PanelEventLog.shared.record(category: "input", action: "tap")
+            }
+        }
         func gestureRecognizer(
             _ gestureRecognizer: UIGestureRecognizer,
             shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer

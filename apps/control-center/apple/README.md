@@ -22,8 +22,9 @@ are bundled. Historical design studies are reference material, not alternate app
 Settings → Diagnostics shows the installation ID, editable device label, connection/feature status,
 the latest 500 control actions and 500 client events. Share diagnostics exports that local history
 and status as a JSON file through the iOS share sheet.
-Events contain fixed action names, outcomes, HTTP status and duration; request URLs, response bodies,
-headers, credentials and user content are excluded. The client keeps the latest 500 events locally
+Events contain fixed action names, outcomes, HTTP status and duration, including touch taps and app
+open/close transitions; touch coordinates, request URLs, response bodies, headers, credentials and
+user content are excluded. The client keeps the latest 500 events locally
 and uploads batches while the app is active, with build and Git revision metadata. Uploads are idempotent,
 and the server retains up to 2 MB of events per installation in SQLite. `GET /api/v1/diagnostics/events` returns the newest 500
 events, optionally filtered with `?deviceId=<installation UUID>`; the full retained history is
