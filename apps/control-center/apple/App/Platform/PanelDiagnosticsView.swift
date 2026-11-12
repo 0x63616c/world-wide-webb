@@ -212,26 +212,30 @@ struct PanelDiagnosticsView: View {
                     if let shareError { Text(shareError).foregroundStyle(.secondary) }
                 }.id("diagnostics-actions")
                 Section {
-                    HStack {
-                        Text("Backend")
-                        Spacer()
-                        Label(Self.connectionLabel(backend), systemImage: Self.stateSymbol(backend))
-                            .foregroundStyle(Self.stateColor(backend))
+                    VStack(spacing: 0) {
+                        statusRow(title: "Backend", status: Self.connectionLabel(backend), state: backend)
+                        Divider()
+                        statusRow(
+                            title: "Home Assistant", status: Self.connectionLabel(homeAssistant),
+                            state: homeAssistant)
+                        if let latencyMs {
+                            Divider()
+                            HStack {
+                                Text("Ping latency")
+                                Spacer()
+                                Text("\(latencyMs) ms").foregroundStyle(.secondary)
+                            }
+                            .padding(.horizontal, 18)
+                            .frame(minHeight: 44)
+                        }
                     }
-                    if let latencyMs { LabeledContent("Ping latency", value: "\(latencyMs) ms") }
-                    HStack {
-                        Text("Home Assistant")
-                        Spacer()
-                        Label(Self.connectionLabel(homeAssistant), systemImage: Self.stateSymbol(homeAssistant))
-                            .foregroundStyle(Self.stateColor(homeAssistant))
-                    }
+                    .listRowInsets(EdgeInsets())
                 } header: {
                     HStack {
                         Text("Connection")
                         Spacer()
                         if let lastCheckedAt {
                             HStack(spacing: 3) {
-                                Text("Checked")
                                 Text(lastCheckedAt, style: .relative)
                                 Text("ago")
                             }.foregroundStyle(.secondary)
@@ -245,26 +249,24 @@ struct PanelDiagnosticsView: View {
                         }
                         .accessibilityLabel("Retry connection check")
                         .buttonStyle(.plain)
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(.secondary)
                         .disabled(checking)
                     }
                 }
                 Section("Feature status") {
-                    ForEach(modules, id: \.module) { module in
-                        VStack(alignment: .leading, spacing: 4) {
-                            HStack {
-                                Text(module.module.capitalized)
-                                Spacer()
-                                Label(Self.statusLabel(module.status), systemImage: Self.stateSymbol(module.status))
-                                    .foregroundStyle(Self.stateColor(module.status))
-                            }
-                            if let reason = module.reason {
-                                Text(reason).font(.caption).foregroundStyle(.secondary)
+                    VStack(spacing: 0) {
+                        ForEach(Array(modules.enumerated()), id: \.element.module) { index, module in
+                            statusRow(
+                                title: module.module.capitalized, status: Self.statusLabel(module.status),
+                                state: module.status, reason: module.reason
+                            )
+                            .accessibilityIdentifier("diagnostics-module-\(module.module)")
+                            if index < modules.count - 1 {
+                                Divider()
                             }
                         }
-                        .accessibilityElement(children: .combine)
-                        .accessibilityIdentifier("diagnostics-module-\(module.module)")
                     }
+                    .listRowInsets(EdgeInsets())
                 }
                 Section("Control actions (last 500)") {
                     ForEach(commands) { entry in
@@ -383,6 +385,25 @@ struct PanelDiagnosticsView: View {
         case "cancelled": .secondary
         default: .red
         }
+    }
+    private func statusRow(title: String, status: String, state: String, reason: String? = nil) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            HStack(spacing: 10) {
+                Text(title)
+                Spacer(minLength: 12)
+                Text(status).foregroundStyle(Self.stateColor(state))
+                Image(systemName: Self.stateSymbol(state))
+                    .foregroundStyle(Self.stateColor(state))
+                    .accessibilityHidden(true)
+            }
+            if let reason {
+                Text(reason).font(.caption).foregroundStyle(.secondary)
+            }
+        }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 10)
+        .frame(minHeight: 44)
+        .accessibilityElement(children: .combine)
     }
     private struct Health: Decodable, Sendable { let homeAssistant: String }
     @MainActor private func check() async {
