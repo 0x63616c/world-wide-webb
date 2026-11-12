@@ -14,7 +14,7 @@ class NixScopeTests(unittest.TestCase):
         for paths in [
             [],
             ["homelab/modules/operations.nix"],
-            ["homelab/services/beszel/config.yml", "flake.lock"],
+            ["homelab/services/beszel/config.yml", "homelab/flake.lock"],
             ["homelab/cli/src/lib.rs"],
         ]:
             self.assertFalse(service_only(paths))
@@ -51,11 +51,12 @@ class NixScopeTests(unittest.TestCase):
                 self.assertEqual(json.loads(roots.read_text()), sorted(expected))
                 commands = [call.args[0] for call in run.call_args_list]
                 self.assertEqual(commands[0][:3], ["nix", "flake", "check"])
+                self.assertIn("./homelab", commands[0])
                 if service:
                     self.assertIn("--no-build", commands[0])
-                    self.assertIn(".#checks.aarch64-darwin.mac-mini", commands[1])
-                    self.assertIn(".#checks.aarch64-darwin.macbook", commands[1])
-                    self.assertIn(".#checks.aarch64-darwin.deployment-inputs", commands[1])
+                    self.assertIn("./homelab#checks.aarch64-darwin.mac-mini", commands[1])
+                    self.assertIn("./homelab#checks.aarch64-darwin.macbook", commands[1])
+                    self.assertIn("./homelab#checks.aarch64-darwin.deployment-inputs", commands[1])
                 else:
                     self.assertNotIn("--no-build", commands[0])
                     self.assertEqual(len(commands), 1)

@@ -11,5 +11,5 @@
     comin.url = "github:nlewo/comin/004a55ced41d72340373ebc6774e29a417512638";
     comin.inputs.nixpkgs.follows = "nixpkgs";
   };
-  outputs = inputs: import ./homelab/flake-outputs.nix inputs;
+  outputs = inputs: import ./flake-outputs.nix inputs;
 }

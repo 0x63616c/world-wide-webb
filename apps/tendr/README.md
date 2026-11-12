@@ -65,7 +65,3 @@ The health journal is stored in the app's Application Support directory using at
 ## Contributing
 
 Keep changes focused on a user journey. Add a failing regression test before changing calculation or persistence behaviour, and include actual simulator screenshots for UI changes. Never commit personal health data, signing credentials or provisioning profiles. Use synthetic fixtures in screenshots.
-
-## License
-
-MIT. See [LICENSE](LICENSE).

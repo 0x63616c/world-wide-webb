@@ -107,7 +107,13 @@ fn main() {
                 let repo = Path::new(args.last().unwrap());
                 fs::create_dir_all(repo.join("secrets")).unwrap();
                 fs::create_dir_all(repo.join("bootstrap")).unwrap();
-                fs::write(repo.join("flake.lock"), "fixture-lock").unwrap();
+                if flag("nested-flake") {
+                    fs::create_dir_all(repo.join("homelab")).unwrap();
+                    fs::write(repo.join("homelab/flake.nix"), "fixture-flake").unwrap();
+                    fs::write(repo.join("homelab/flake.lock"), "fixture-lock").unwrap();
+                } else {
+                    fs::write(repo.join("flake.lock"), "fixture-lock").unwrap();
+                }
                 fs::copy(root.join("manifest.json"), repo.join("homelab.json")).unwrap();
                 if !flag("missing-ciphertext") {
                     fs::write(
@@ -149,6 +155,9 @@ fn main() {
                 }
                 println!("nix fixture");
             } else if args[0] == "eval" {
+                if flag("nested-flake") {
+                    assert!(args.iter().any(|arg| arg.contains("/homelab#lib.setupPlan.hosts.")));
+                }
                 event(root, "evaluate");
                 if flag("evaluation-fails") { fail(); }
                 if flag("build-supervision-fails") {
@@ -159,6 +168,9 @@ fn main() {
                     fs::read_to_string(root.join("readiness.json")).unwrap()
                 );
             } else if args[0] == "build" {
+                if flag("nested-flake") {
+                    assert!(args.iter().any(|arg| arg.contains("/homelab#darwinConfigurations.")));
+                }
                 event(root, "build");
                 if flag("build-fails") {
                     fail();

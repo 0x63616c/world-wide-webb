@@ -111,7 +111,6 @@ pub fn resolve(
         for path in [
             "homelab.json".to_owned(),
             ".sops.yaml".into(),
-            "flake.lock".into(),
             "bootstrap/installer.json".into(),
             format!("secrets/{host}.sops.yaml"),
         ] {
@@ -123,6 +122,26 @@ pub fn resolve(
             if before != after {
                 return Err(Error::Conflict);
             }
+        }
+        // Accept the original root flake or a flake under homelab, but never
+        // let a repair move or change the lockfile behind the approved system.
+        let mut found_lock = false;
+        for path in ["flake.lock", "homelab/flake.lock"] {
+            let read =
+                |revision: &str| match api.raw(&format!("{base}/contents/{path}?ref={revision}")) {
+                    Ok(bytes) => Ok(Some(bytes)),
+                    Err(Error::Missing) => Ok(None),
+                    Err(error) => Err(error),
+                };
+            let before = read(from)?;
+            let after = read(&selection.repaired_revision)?;
+            if before != after || (found_lock && before.is_some()) {
+                return Err(Error::Conflict);
+            }
+            found_lock |= before.is_some();
+        }
+        if !found_lock {
+            return Err(Error::Missing);
         }
     }
     crate::provisioning::save_installation_repair(root, host, &selection)

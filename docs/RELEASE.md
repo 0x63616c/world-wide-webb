@@ -1,155 +1,115 @@
 # Releases
 
-Publish from WWW using the product’s handler and verified source. Repository consolidation
-is complete; the [migration record](plans/monorepo-migration-progress.md) records ownership.
-WWW and its Callkeep/CLI release downloads are currently public.
+Each product has a publication owner. The [CI selection policy](../scripts/ci/units.json)
+chooses verification separately from delivery candidates; passing checks or changing
+shared documentation does not publish an unrelated product. Required checks must
+pass before merge, and a delivery is complete only when its external result is
+verified.
 
-## Product handlers
+| Product | Main delivery | Release or activation |
+| --- | --- | --- |
+| Tendr, Folding | Selected changes reach internal TestFlight after successful main CI and Apple processing. | `tendr/vX.Y.Z` or `folding/vX.Y.Z` at the tested commit submits that processed build to App Review. |
+| Callkeep | Selected main CI produces a signed, notarized app. | Product delivery publishes `callkeep/v1.0.N` and updates its Homebrew cask. |
+| Homelab CLI | Selected Homelab CI builds release archives. | `homelab/vVERSION` updates its Homebrew formula. |
+| Control Center | Native TestFlight and immutable server image use separate publishers. | Server promotion proposes a digest for Homelab; `deploy/homelab` activates checked host state. |
+| Tendr website | Selected site changes publish to Cloudflare. | The public `/`, `/privacy/` and `/support/` pages are checked after deployment. |
+| Folding website | Site publisher is gated by `FOLDING_SITE_DELIVERY_ENABLED`. | Its own tested artifact and Cloudflare configuration are used. |
+| Golink for Safari | Product CI verifies builds and behavior. | No automatic app publication. |
 
-Tendr and standard iOS apps use the root locked Ruby bundle and explicit app selection:
+[Callkeep](../apps/callkeep/README.md#release-automation),
+[Control Center](../apps/control-center/README.md),
+[Homelab](../homelab/docs/releases.md) and [sites](../sites/README.md) retain their
+product-specific commands and recovery steps.
+
+## How App Store releases work
+
+Tendr and Folding share the event selector, exact-source beta receipt validation,
+per-app publisher lock and review-state rules. Tendr uses the root Fastlane bundle;
+Folding keeps its own immutable archive, Worker prerequisites and Fastlane bundle.
+
+1. Set the new marketing version in `apps/<app>/app.yml` before merging the app
+   change. Several TestFlight builds may share that version; each has a different
+   build number.
+2. Merge to `main`. Wait for successful exact-source CI, internal TestFlight
+   delivery and Apple processing. Selected Folding backend changes deploy the
+   tested Worker before native beta delivery. A docs-only merge does not upload
+   either app.
+3. Pick that tested main commit and its processed beta receipt. Push an annotated
+   `tendr/vX.Y.Z` or `folding/vX.Y.Z` tag at the commit. Its version must match
+   `app.yml` and the processed binary. The tag job captures and verifies current
+   store screenshots, prepares listing and ready purchases, then submits the
+   **existing build**. It does not archive, sign or upload another binary.
+4. Confirm **Waiting for Review** or **In Review** in App Store Connect. Both apps
+   request release automatically after approval. Approval and public availability
+   are different results; verify the public storefront separately.
+
+For example, after a processed Tendr beta for version 1.2.3, set
+`TESTED_MAIN_COMMIT` to the commit SHA recorded by that beta's receipt:
 
 ```sh
-bundle install
-ruby scripts/check-release.rb
-bundle exec fastlane ios verify app:tendr
-bundle exec fastlane ios beta app:tendr
+git tag -a tendr/v1.2.3 "$TESTED_MAIN_COMMIT" -m 'Tendr 1.2.3'
+git push origin tendr/v1.2.3
 ```
 
-## Tendr and Folding
+The shared `release.yml` workflow calls `testflight.yml` and the product delivery
+handler. Each processed beta has an `ios-beta-<app>-<source>` receipt retained for
+90 days; Folding also keeps its durable private archive and build ledger. See
+[Folding operations](../apps/folding/fastlane/RELEASE.md) for its release details.
 
-### How App Store releases work
+### If Apple already has a version
 
-1. Set a new marketing version in `apps/<app>/app.yml` before merging the intended
-   app changes. A version may have several TestFlight builds; each main delivery has
-   its own build number.
-2. Merge to `main`. Successful exact-source CI delivers selected Tendr/Folding changes
-   to the internal TestFlight group. Wait for the delivery job and Apple's build
-   processing to finish. A docs-only merge does not deliver an app. Folding backend
-   changes also deploy the tested Worker before its native beta.
-3. Choose the tested main commit and its processed beta receipt. Create and push an
-   annotated `tendr/vX.Y.Z` or `folding/vX.Y.Z` tag at that commit, with the version
-   exactly matching its `app.yml`. The tag run captures and verifies current App Store
-   screenshots, prepares listing and purchase review assets, and submits the existing
-   build. It does **not** rebuild or upload a new binary.
-4. Check the App delivery result and App Store Connect for **Waiting for Review** or
-   **In Review**. Submission is not approval. Both apps request automatic App Store
-   release after approval; check public availability separately.
-
-Run these from a checkout with the tested commit available, substituting the app,
-version and commit:
-
-```sh
-git tag -a tendr/v1.1.2 <tested-main-commit> -m 'Tendr 1.1.2'
-git push origin tendr/v1.1.2
-```
-
-The two apps share the same event selection, source/receipt validation, per-app
-publisher lock and Apple review policy. Tendr uses the root Fastlane handler; Folding
-uses its product-owned immutable archive and Worker checks. See
-[Folding release operations](../apps/folding/fastlane/RELEASE.md) for those details.
-
-### When a release is already at Apple
-
-| Previous version | New tag behavior |
+| Apple state | What the tag run does |
 | --- | --- |
-| TestFlight only, or an editable App Store draft | Select the tagged processed build and prepare its review submission. A prior draft must be compatible with the tagged version. |
-| **Waiting for Review** | A tag for a *new* App Store version defers; it does not override the waiting version. The handler can replace a pipeline-owned waiting submission only when the tagged build has that **same** marketing version, all new assets are ready and Apple has not advanced review. The normal one-tag-per-version flow does not produce a second tag for this case. A replacement would lose its place in the review queue. |
-| **In Review** or later review transition | Preserve Apple's current submission. The new tag run defers; it does not automatically interrupt review or replace its build. Retry the deferred run after the review resolves, if that version is still eligible. |
+| TestFlight only or editable draft | Prepares the tagged processed build when the existing draft is compatible with its version. |
+| **Waiting for Review** | A *new version* tag defers; it does not override the waiting submission. The handler can replace a pipeline-owned waiting submission for the **same** marketing version after preparing new assets, but the normal one-tag-per-version flow does not create a second tag for that case. Replacement loses the review queue position. |
+| **In Review** or another active review transition | Preserves the current submission and defers the new tag. It never interrupts an in-review app automatically. |
+| Rejected app or purchase | Inspect Apple's feedback. Resolve the affected item, prepare a new processed build for a code fix, and retry only when Apple state permits it. |
 | Approved or live | Use a strictly higher marketing version for the next App Store release. Approval can precede public availability. |
 
-Apple permits a developer to remove an app in review, but doing so restarts review.
-This pipeline deliberately leaves an in-review submission intact. If Apple rejects
-the app or an included purchase, inspect the feedback and resolve the affected item
-before retrying. A code fix needs a new processed build; do not treat a successful
-upload or an expired receipt as a releasable build.
-
-### Version and retry rules
-
-- Increase the App Store marketing version for each new public version. Do not tag
-  `v0.2.0` after `v0.2.1`, or reuse a version already released. Set the new value in
-  `app.yml` **before** its TestFlight build. Apple requires an incremental version;
-  the release handlers compare it with Apple versions and fail when the tagged
-  version cannot be used. Several beta builds may share one marketing version while
-  it remains unreleased.
-- A release tag names one tested commit and one processed beta receipt. Do not move
-  or force-push tags. If the tag run fails before submission, rerun that GitHub Actions
-  run after fixing an external prerequisite; inspect its recorded state first. Do
-  not create a second tag or assume another push of the same tag starts a new run.
-- If main has moved on, a tag can still select an older main commit and its beta.
-  Newer untagged main changes never silently replace the selected build. If Apple
-  has already advanced the selected version, the tag cannot roll the store back.
-- A tag with a malformed name, non-main commit, mismatched `app.yml` version, missing
-  or expired beta receipt, unsuccessful source CI or unprocessed build fails before
-  submission. Publisher locks serialize runs for each app, and ambiguous Apple
-  submission outcomes are reconciled before another write.
-
-Git hooks are local checks, not a release authorization boundary. This repo's
-`.wtp.yml` runs `lefthook install --force` when `wtp add` creates a worktree, so the
-configured **pre-commit** checks are installed there by default. They check staged
-files, formatting and secrets; they do not check a future tag against live Apple
-state. A missing `lefthook` binary or failed setup needs attention, and a clone or
-worktree made without `wtp` needs `lefthook install`. GitHub CI plus the Apple
-preflight provide the release checks even when local hooks are absent.
-
-`release.yml` owns the event and calls the shared `testflight.yml` coordinator and the
-product delivery handler. Product CI owns verification. There are no app delivery
-enablement variables. A processed beta has an `ios-beta-<app>-<source>` receipt kept
-for 90 days; Folding also retains its durable private archive and build ledger. The
-read-only status watcher observes Apple and the public store without submitting
-untagged changes.
-
-Apple's [version guidance](https://developer.apple.com/help/app-store-connect/update-your-app/create-a-new-version),
+Apple allows developers to remove an app from review, but resubmission starts review
+again. This pipeline leaves an in-review submission intact. See Apple's
 [review statuses](https://developer.apple.com/help/app-store-connect/reference/app-information/app-and-submission-statuses/)
-and [removal behavior](https://developer.apple.com/help/app-store-connect/manage-submissions-to-app-review/remove-a-submission-from-review)
-explain the external constraints behind these rules.
+and [removal behavior](https://developer.apple.com/help/app-store-connect/manage-submissions-to-app-review/remove-a-submission-from-review).
 
-Tendr uses the root locked Ruby bundle and listing/screenshot handlers. Its TestFlight job reads the existing Apple Distribution identity and App Store profile from private `certificates` branch `tendr` with read-only Match. Folding
-keeps its product bundle, readonly Match signing from private `certificates` branch `folding`,
-backend/build-policy receipts and private immutable
-archives. Root lanes reject Folding, Callkeep and Control Center. Existing physical-device
-acceptance deferrals remain recorded in Folding’s product instructions.
+### Version, source and retry rules
 
-Callkeep publishes signed/notarized universal ZIPs and symbols from selected main CI under
-`callkeep/v1.0.N`. The publisher updates only Callkeep’s cask in the separate `homebrew-tap`
-repository, using an ordinary release URL and SHA-256. Homebrew owns updates; no private Git
-transport, appcast or migration enable gate is required. See the [product README](../apps/callkeep/README.md).
+- Increase the marketing version for each new App Store version. Do not tag
+  `v0.2.0` after `v0.2.1` has been released, or reuse a released version. Set
+  `app.yml` before the beta build; the handlers compare the tagged version with
+  Apple's records. Apple requires an [incremental version](https://developer.apple.com/help/app-store-connect/update-your-app/create-a-new-version).
+- A tag names one tested main commit and one processed beta receipt. An older main
+  commit can be selected while newer *untagged* betas continue; the tag never
+  silently selects the latest beta. Do not move or force-push release tags.
+- Invalid tags, non-main commits, version mismatches, missing or expired receipts,
+  failed source CI and unprocessed builds fail before submission. Per-app locks
+  serialize publishers. Ambiguous Apple results are read back before another write.
+- If a tag job fails, inspect its recorded state and rerun that GitHub Actions run
+  after resolving the cause. Another push of the same tag does not start a fresh
+  run. The read-only status watcher does not submit untagged main changes.
 
-Homelab CLI publishes `homelab/vVERSION` archives from successful selected Homelab CI and
-updates its Homebrew formula. Install with `brew install 0x63616c/tap/homelab`. Both the formula
-and Callkeep’s cask download WWW releases. See the [CLI README](../homelab/cli/README.md).
+For a Tendr listing-only correction, the root handler is
+`bundle exec fastlane ios metadata app:tendr skip_screenshots:true`. It neither
+uploads a binary nor requests review. Check live page URLs before uploading them.
 
-Control Center’s `Apple Panel TestFlight` workflow follows successful main `CI`, selects native
-publication and archives with Xcode 27.2. It waits for Apple processing, records the source/build
-receipt and announces the processed build through the private API. Its native/image publishers
-have no temporary migration enable gates. Backend delivery publishes the tested immutable image;
-`deploy-mini.yml` proposes its digest in `homelab/services/control-center/release.json`, then
-normal Homelab CI/promotion and the mini updater activate it. `HOMELAB_DELIVERY_ENABLED` controls
-host promotion; authoring `main` and deployment `deploy/homelab` remain distinct.
+## Other publication boundaries
 
-## Credentials and publication
+Callkeep's public ZIP and symbols are verified before its separate `homebrew-tap`
+cask changes. The Homelab CLI formula also downloads WWW release archives.
+Control Center's native beta, server image and host activation have separate
+owners; a service image is not a deployed host revision. Host promotion depends
+on `HOMELAB_DELIVERY_ENABLED`. Home Cloudflare infrastructure applies require
+`OPEN_TOFU_DEPLOY_ENABLED` and the retained encrypted state. Tendr and Folding
+websites publish independently; site changes do not ship app binaries.
 
-Use the existing product-scoped credentials and approved signing stores. Load secrets only in
-steps that need them; do not copy a complete vault into job-wide environment variables. All
-operator credential access reuses the primary agent’s persistent shell. Never print secret values.
-Signing repositories and encrypted recovery storage remain separate from source retirement.
+Use product-scoped credentials and existing private signing storage. Keep secret
+values and release evidence out of source. An upload is not proof of a processed
+build; a submitted build is not proof of an approved or public app. Verify the
+specific result affected by the change.
 
-Required checks must pass before merge/delivery. Verify the affected outcome: Apple processing,
-installation, or the deployed service revision as appropriate. An upload alone is not a processed
-build. Reuse valid evidence for unchanged mechanisms rather than repeating unrelated acceptance.
-Delegated reviews require an explicit owner request.
+## Local hooks
 
-Verification and delivery selection are separate. Test/docs changes and forced verification do
-not authorize app releases. Use one quiet watcher and report meaningful changes or failures.
-
-## Websites and infrastructure
-
-Folding’s production/staging websites publish from `sites/folding` through `Sites`, controlled by
-`FOLDING_SITE_DELIVERY_ENABLED`. OpenTofu applies retained home infrastructure through the
-`Apply Cloudflare` workflow with `OPEN_TOFU_DEPLOY_ENABLED`; it reuses existing encrypted state.
-
-Tendr publishes the existing static site to `https://tendr.worldwidewebb.co/` through `Sites`
-on selected main pushes, using `TENDR_SITE_DEPLOY_TOKEN`. Its app/listing URLs point to this host;
-the normal Tendr pipeline delivers the binary and uploads metadata through `ios finish_release`.
-For a listing-only update, the existing handler is `bundle exec fastlane ios metadata app:tendr skip_screenshots:true`. This does not submit an app or upload a binary. Verify the
-live website before uploading its URLs. See [sites](../sites/README.md) for configuration and
-ownership. Old GitHub Pages links in installed builds require an app update.
+`.wtp.yml` runs `lefthook install --force` when `wtp add` creates a worktree.
+The installed pre-commit checks cover staged files, formatting and secrets. A
+clone or worktree made another way needs `lefthook install`. Local hooks cannot
+query Apple's future review state and are not release authorization; GitHub CI
+and the Apple preflight enforce the release checks.

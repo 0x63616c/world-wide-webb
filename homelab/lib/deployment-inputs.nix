@@ -35,9 +35,9 @@ in {
       operations = sourceHash ../modules/operations.nix;
       backups = sourceHash ../modules/backups.nix;
       planner = sourceHash ./deployment-inputs.nix;
-      flake = sourceHash ../../flake.nix;
+      flake = sourceHash ../flake.nix;
       outputs = sourceHash ../flake-outputs.nix;
-      lock = sourceHash ../../flake.lock;
+      lock = sourceHash ../flake.lock;
     };
     containers = hash {
       inherit (cfg.containers) enable memoryGiB diskGiB;

@@ -13,6 +13,7 @@ struct Git {
     descendant: bool,
     main_reads: Cell<usize>,
     followup: Cell<bool>,
+    nested_lock: Cell<bool>,
 }
 impl Default for Git {
     fn default() -> Self {
@@ -23,6 +24,7 @@ impl Default for Git {
             descendant: true,
             main_reads: Cell::new(0),
             followup: Cell::new(false),
+            nested_lock: Cell::new(false),
         }
     }
 }
@@ -37,6 +39,16 @@ impl Api for Git {
         Ok(json!({"status":if self.descendant {"ahead"} else {"diverged"}}))
     }
     fn raw(&self, path: &str) -> Result<Vec<u8>, Error> {
+        if path.contains("/contents/homelab/flake.lock") {
+            return if self.nested_lock.get() {
+                Ok(b"nested lock".to_vec())
+            } else {
+                Err(Error::Missing)
+            };
+        }
+        if path.contains("/contents/flake.lock") && self.nested_lock.get() {
+            return Err(Error::Missing);
+        }
         if path.contains("/setup-repairs/") {
             if path.contains(&format!("/{}.json", "b".repeat(40))) && self.followup.get() {
                 return Ok(serde_json::to_vec(&json!({"schema":1,"repository":"example/config","host":"build-mac","originalRevision":"b".repeat(40),"repairedRevision":"d".repeat(40)})).unwrap());
@@ -58,6 +70,19 @@ impl Api for Git {
 }
 fn workspace() -> Workspace {
     Workspace { repository:"example/config".into(), revision:"a".repeat(40), manifest:serde_json::from_value(json!({"schema":1,"hosts":{"build-mac":{"adminUser":"admin","adminUID":501,"authorizedKeys":["ssh-ed25519 AAAA"],"services":[]}}})).unwrap() }
+}
+
+#[test]
+fn repair_preserves_nested_flake_lock() {
+    let directory = tempfile::tempdir().unwrap();
+    let root = directory.path().join("state");
+    saved(&root);
+    let api = Git::default();
+    api.nested_lock.set(true);
+    let (repaired, original) =
+        setup_repair::resolve(&api, &root, workspace(), "build-mac").unwrap();
+    assert_eq!(repaired.revision, "b".repeat(40));
+    assert_eq!(original, Some("a".repeat(40)));
 }
 fn saved(root: &std::path::Path) {
     provisioning::save_approved_installation(root, "example/config", "build-mac", &"a".repeat(40))

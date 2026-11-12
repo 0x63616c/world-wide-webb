@@ -28,6 +28,7 @@ in {
 
     services.comin = {
       enable = true;
+      repositorySubdir = "homelab";
       # Pinned Comin otherwise advances only its private profile, leaving
       # nix-darwin's boot/RunAtLoad activation on the old configuration.
       package = inputs.comin.packages.${pkgs.stdenv.hostPlatform.system}.comin.overrideAttrs (old: {

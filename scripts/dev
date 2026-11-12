@@ -42,7 +42,7 @@ case "$command_name" in
   doctor)
     (($# == 0)) || fail 'doctor takes no arguments'
     missing=0
-    for tool in git ruby bundle python3 bun cargo swift xcodegen xcrun; do
+    for tool in git mise ruby bundle python3 bun cargo swift xcodegen xcrun; do
       if command -v "$tool" >/dev/null 2>&1; then
         printf 'Available: %s\n' "$tool"
       else

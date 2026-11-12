@@ -9,8 +9,5 @@ pre-commit:
     no-plaintext-secrets:
       glob: 'secrets/*.yaml'
       run: bash scripts/check-sops-encrypted.sh {staged_files}
-    worktree-guard:
-      glob: '.claude/hooks/guard-worktree-only*.sh'
-      run: bash .claude/hooks/guard-worktree-only.test.sh
     gitleaks:
       run: gitleaks git --staged --redact --no-banner -c .gitleaks.toml

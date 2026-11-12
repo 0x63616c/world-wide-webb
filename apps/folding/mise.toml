@@ -1,0 +1,3 @@
+# Folding's release bundle uses the exact Ruby version in tool-versions.json.
+[tools]
+ruby = "3.3.13"

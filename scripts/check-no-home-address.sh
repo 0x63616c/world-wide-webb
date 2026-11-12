@@ -22,7 +22,6 @@ is_sanctioned() {
     scripts/check-no-home-address.sh) return 0 ;;
     lefthook.yml) return 0 ;;
     .gitleaks.toml) return 0 ;;
-    CLAUDE.md) return 0 ;;
     *) return 1 ;;
   esac
 }

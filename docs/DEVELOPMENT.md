@@ -1,111 +1,81 @@
-# Development and delivery
+# Development
 
-Products own their behavior and appearance. Shared tooling owns repository discovery,
-checks, release processes and infrastructure boundaries. Tendr keeps RDesign; Folding,
-Callkeep and Control Center keep their own components and packages.
+Start with the [repository map](../CODEBASE_OVERVIEW.md) and the README for the
+product you are changing. Product code, fixtures, UI and release details stay with
+the product. Root tooling selects work and provides entrypoints; it does not turn
+all products into one app.
 
-## Working lifecycle
+## Start a task
 
-1. Capture the app idea or concrete bug briefly; use an issue/spec when the scope earns it.
-2. Create a task worktree and read the product instructions. Preserve other active work.
-3. Implement a useful coherent batch. Reuse an existing handler before adding orchestration.
-4. Run relevant checks and inspect the real outcome. Fix independent final-review findings.
-5. Publish the reviewed candidate, pass required checks and merge. Verify the affected release,
-   live service or user journey. Record deferrals and keep incomplete acceptance open.
+```sh
+wtp add -b codex/my-change origin/main
+cd "$(wtp cd codex/my-change)"
+mise install
+scripts/dev doctor
+```
 
-Keep each complete candidate local until reviewed, then publish, pass required checks and merge.
-Delegated reviews require an explicit owner request. The migration tracker records live ownership
-and delivery separately from source consolidation.
-Agents perform routine setup, fixes, checks, publication and verification within the authorized
-scope. Owner involvement is reserved for unavoidable account/2FA/legal/hardware facts or purchases.
-Prepare those concrete decisions together; a small code change needs no ticket ceremony.
+Worktrees live outside the main checkout. `wtp add` runs `tools/setup` and installs
+the repository's Lefthook pre-commit checks. If you created a worktree without
+`wtp`, run `lefthook install`.
+Read product-local `AGENTS.md` and setup instructions before changing that area.
 
-## Local entrypoint
+Root `mise.toml` pins Bun, Node, Python, Ruby, XcodeGen and OpenTofu for local
+work. Run commands with `mise exec -- …` or activate mise in your shell.
+Folding's `mise.toml` selects its release Ruby version when working in that
+directory. Product lockfiles and CI pins remain the release authority; the
+mise pin check prevents common local versions drifting from them. Xcode and
+simulator runtimes are installed separately; Rust toolchain files keep their
+product-specific targets and components. The Homelab Nix flake lives under
+`homelab/` and is not replaced by mise.
+For `scripts/dev affected` and shared CI selector tests, create a local Python
+environment with `mise exec -- python3 -m venv .venv`, install
+`scripts/requirements.txt` into it, and put `.venv/bin` on `PATH` for those
+commands. `scripts/dev doctor` reports a missing PyYAML dependency.
 
-`scripts/dev apps` lists products, `scripts/dev new <Name> <bundle-suffix>` creates a standalone
-app, and `scripts/dev check <folder>` runs its existing checks. Standard iOS products run their
-core package tests when declared and an unsigned simulator build. Folding, Callkeep and Control
-Center keep their product-owned handlers. These commands neither publish nor activate hosts.
-`scripts/dev affected <base>` resolves committed app changes; `scripts/ci/select_units.py` provides the
-full multi-area selection. Activate a Python environment containing `scripts/requirements.txt`
-for affected selection; `scripts/dev doctor` reports a missing PyYAML installation.
-`scripts/dev doctor` checks shared tool availability; exact product pins,
-Apple runtime availability and credentials remain the relevant workflow's responsibility.
+## Choose a local check
 
-## Tool choices
+| Command | What it does |
+| --- | --- |
+| `scripts/dev apps` | List app folders known to the app manifest reader. |
+| `scripts/dev check <app>` | Run that app's local handler. Standard iOS apps run package tests when declared and an unsigned simulator build; Folding, Callkeep and Control Center use their own handlers. |
+| `scripts/dev homelab <area>` | Run focused Homelab planner, activation or backup tests. |
+| `scripts/dev affected <base>` | Resolve affected apps for verification from committed changes. |
+| `scripts/dev doctor` | Report missing shared tools; product pins, Apple runtimes and account readiness are checked in their own workflows. |
 
-- Native SwiftUI and platform frameworks, SwiftPM and XcodeGen. Keep each app's OS floor and
-  architecture. Use built-in Swift Testing for useful new domain tests; retain existing XCTest,
-  hosted/UI/performance tests. No mass framework conversion or shared UI library is required.
-- Toolchain `swift-format` for Swift. Introduce additional lint rules only for a demonstrated
-  benefit. Preserve pinned FluidAudio/WhisperKit and other actual product dependencies.
-- Fastlane with locked Bundler dependencies for Apple delivery. Product handlers keep their
-  tested Ruby/Bundler pins; the initial common Fastlane version is 2.241.2. Update pins with
-  real toolchain/release validation rather than silently following an image's system tools.
-- Rust workspaces keep their own lock/toolchain and fmt/clippy/tests; dependency policy follows
-  the product. Bun is the JavaScript installation/tooling default with frozen locks. Preserve
-  Node for tools and suites that require it.
-- Python environments and pinned requirements, ShellCheck and actionlint. Use explicit hosted
-  or homelab labels and product pins. GitHub’s `xcode-27` image includes Xcode 27.2 and Duo;
-  Apple jobs pinned to that toolchain use `runs-on: xcode-27`. Runtime/client setup is part of
-  the job contract; do not assume an image’s default tool versions match the product pins.
-- OpenTofu owns durable Cloudflare resources; Wrangler owns Worker code/assets and explicit D1
-  operations. Keep one owner for each resource/property. SOPS/age and 1Password retain their roles.
+Prefix these commands with `mise exec --` if your shell has not activated mise.
 
-Use initializer/closure injection for deterministic clock, UUID and service tests. Add
-swift-dependencies only if actual injection pain warrants it. Existing fixture/gallery renderers
-come first; SnapshotTesting is an optional focused pilot with explicit stable baselines, not a
-mandatory package. Keep UI image tests on Apple runtimes and review changed baselines.
+The product README supplies narrower commands and required toolchains. For example,
+Tendr package tests run with `swift test --package-path apps/tendr`; Folding's
+backend and native checks are separate. Run the affected checks while iterating,
+then the relevant integration and required CI checks for the completed change.
+Documentation-only edits need link and documentation checks, not app builds.
 
-## Check the behavior that matters
+## From change to delivery
 
-Choose tests by the risk and changed boundary. Domain tests cover deterministic rules and
-migration edges; integration tests exercise real serialization/storage/service boundaries.
-Use a small primary-journey UI smoke test and product-owned synthetic render scenes. Static
-screens should render directly in hosted XCTest when possible; interaction tests prove behavior.
+1. Make a coherent change in its product area. Keep private records, credentials,
+   signing material and generated release evidence out of Git.
+2. Check the changed behavior through existing product handlers. Review the diff
+   and record any remaining limits honestly.
+3. Publish the candidate, pass required checks and merge through the repository's
+   normal review flow. A green test does not prove Apple processing or a live host.
+4. Verify the affected delivery outcome when the change selects one. See
+   [releases](RELEASE.md) for each channel.
 
-Prioritize offline/empty/error states, background behavior, persistence/recovery, accessibility,
-Dynamic Type/VoiceOver/Reduce Motion and measured startup/memory/battery. Preserve sanitized
-OSLog/MetricKit/crash/dSYM evidence where appropriate. Passing mocks, a capture archive or an
-upload does not prove device behavior, a processed build or a working store release.
+[scripts/ci/units.json](../scripts/ci/units.json) is the selection policy. It
+names verification units and delivery inputs separately. Tests and documentation
+can trigger verification without publishing another product. Product release
+handlers own external writes; do not run multiple publishers for the same target.
 
-## Selection and publication
+## Ownership and toolchains
 
-`scripts/ci/units.json` selects verification separately from delivery candidates. App, backend,
-site, infrastructure and host inputs have separate owners. Tests/docs verify as appropriate and
-cannot upload other products or activate hosts. Shared/unknown inputs trigger conservative
-verification without authorizing publication. Forced checks are verification-only.
+- Apps choose their SwiftUI components and architecture. Tendr's `RDesign`,
+  Folding's `FoldingKit`, and Control Center's native packages remain local.
+- Fastlane handles Apple distribution. Tendr uses the root Ruby bundle; Folding
+  keeps its product bundle. Callkeep and Control Center have their own handlers.
+- Bun is the JavaScript default where a product uses it. Keep Rust, Node, Python
+  and other runtimes required by actual product tools and lockfiles.
+- OpenTofu owns durable Cloudflare resources; Wrangler owns Worker code/assets.
+  Homelab host promotion is distinct from authoring changes on `main`.
 
-The same manifest also names individual checks and workflow consumers. Homelab Python tests,
-Linux controller tests and Darwin configuration builds select independently. Control Center
-separates Rust, operations, wire-contract and full simulator verification. Selection artifacts
-include the input reasons; an unknown workflow/action remains a conservative full verification.
-Operations-only Control Center changes share the lint job instead of allocating a Rust test job.
-Optional UI captures use preview inputs rather than conservative verification fan-out, so selector
-or unrelated infrastructure changes do not allocate screenshot/snapshot jobs.
-
-Compiler snapshots use source-specific keys with toolchain/lockfile-compatible restore prefixes.
-Docker's Cargo mount is transferred explicitly between disposable builders. Nix verification can
-restore signed output closures from the private repository cache; export is limited to 2 GiB and
-120 seconds, with a separate two-minute cache upload limit. Only protected-main pushes and explicit
-manual runs receive the signing key. Cache errors remain visible and fall back to required builds;
-production Nix trust and host activation ownership are unchanged. The shared `homelab/process`
-crate lets host operations depend on process supervision without compiling interactive CLI code.
-
-For comparable measurements, dispatch **Homelab CI** on the candidate with `benchmark=backup-test`
-or `benchmark=service` and a full `baseline` SHA. Two fresh Mac jobs replay each source's selector
-and real handlers, then repeat on the same runner for a local-warm measurement. Artifacts contain
-per-check execution seconds. This is a same-path handler replay, not full distributed CI latency;
-use Actions job timestamps for queue, setup, cache download/upload and actual critical-path time.
-Benchmark evidence cannot authorize host promotion. Normal dispatch (`benchmark=none`) retains
-full verification and can exercise signed cross-run output reuse after review.
-
-The standard iOS resolver also discovers independent `standard_ios` app manifests. Product
-workflows retain their existing handlers for Folding, Callkeep and Control Center. Always-reporting
-gates fail selected failed/cancelled/skipped jobs; review and successful checks remain part of the publication process. The owner chose
-automation gates without GitHub branch protections or a Pro upgrade. Publication uses trusted exact-source evidence and immutable artifacts.
-
-Cloudflare Workers/static assets, D1 and R2 are the default for a new hosted backend when needed.
-Offline apps get no backend by default. Folding's working Rust Worker and Control Center's
-home-local Rust/SQLite service remain intact. Keep staging/production, health/version, migrations,
-rate/cost controls and recovery explicit. Operator Access is not application-user authentication.
+The [new-app guide](NEW-APP.md) covers scaffolding. Historical migration evidence
+lives under `docs/plans/`; use current product runbooks for active operations.

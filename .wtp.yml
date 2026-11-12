@@ -1,7 +1,7 @@
 version: "1.0"
 
 # Worktrees live outside the repo tree entirely (never nested under
-# .claude/worktrees/ or any repo subfolder) so lefthook, glob-based tooling,
+# another repo subfolder) so lefthook, glob-based tooling,
 # and gitignore scoping never get confused by a nested checkout. See
 # https://github.com/0x63616c/world-wide-webb/issues/182.
 defaults:

@@ -121,6 +121,7 @@
         "apps/folding/tool-versions.json",
         "apps/folding/Gemfile",
         "apps/folding/Gemfile.lock",
+        "apps/folding/mise.toml",
         "apps/folding/design/**",
         "apps/folding/.cursor/**",
         "apps/folding/.githooks/**",
@@ -301,8 +302,6 @@
       "paths": [
         "homelab/**",
         "homelab.json",
-        "flake.nix",
-        "flake.lock",
         ".sops.yaml",
         "secrets/*.sops.yaml",
         "bootstrap/**",
@@ -412,6 +411,7 @@
         "templates/**",
         "Gemfile",
         "Gemfile.lock",
+        "mise.toml",
         "lefthook.yml",
         "renovate.json",
         "ruff.toml",
@@ -419,7 +419,6 @@
         ".wtp.yml",
         ".gitignore",
         ".opentofu-version",
-        ".claude/**",
         ".codex/**",
         "opencode.jsonc",
         "tui.json",
@@ -534,7 +533,6 @@
       "paths": [
         "homelab/**",
         "homelab.json",
-        "flake.*",
         "bootstrap/**",
         ".sops.yaml",
         "secrets/*.sops.yaml",
@@ -556,7 +554,7 @@
       "paths": [
         "homelab/runner/**",
         "homelab/packages/runner.nix",
-        "flake.lock"
+        "homelab/flake.lock"
       ]
     },
     "homelab.darwin": {
@@ -566,7 +564,6 @@
       "paths": [
         "homelab/**",
         "homelab.json",
-        "flake.*",
         "bootstrap/**",
         "secrets/*.sops.yaml",
         "scripts/homelab/check_nix.py"
@@ -688,7 +685,7 @@
         "homelab/host/**",
         "homelab/process/**",
         "homelab/packages/host.nix",
-        "flake.lock"
+        "homelab/flake.lock"
       ]
     }
   }
