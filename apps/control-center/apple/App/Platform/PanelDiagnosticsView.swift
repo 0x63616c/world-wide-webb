@@ -163,7 +163,7 @@ struct PanelDiagnosticsView: View {
             Foundation.NotificationCenter.default.publisher(for: PanelEventLog.changedNotification).receive(
                 on: RunLoop.main)
         ) { _ in events = PanelEventLog.shared.snapshot() }
-        .sheet(item: $shareFile, onDismiss: { shareFile = nil }) { file in
+        .sheet(item: $shareFile) { file in
             DiagnosticActivitySheet(url: file.url)
         }
     }

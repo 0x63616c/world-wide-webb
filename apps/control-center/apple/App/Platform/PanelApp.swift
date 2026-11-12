@@ -242,7 +242,8 @@ struct PanelRoot: View {
                         let delay = Int((ProcessInfo.processInfo.systemUptime - sent) * 1000)
                         if delay >= 400 && UIApplication.shared.applicationState == .active {
                             PanelEventLog.shared.record(
-                                category: "performance", action: "main_thread_delay", outcome: "slow", durationMs: delay)
+                                category: "performance", action: "main_thread_delay", outcome: "slow", durationMs: delay
+                            )
                         }
                     }
                 }
@@ -322,17 +323,21 @@ struct PanelRoot: View {
         struct Receipt: Decodable, Sendable { let accepted: Bool }
         for start in stride(from: 0, to: pending.count, by: 50) {
             let batch = Array(pending[start..<min(start + 50, pending.count)])
-            let label = String(UserDefaults.standard.string(forKey: "panel.diagnostics.deviceLabel")?
-                .filter { character in character.unicodeScalars.allSatisfy { !CharacterSet.controlCharacters.contains($0) } }
-                .prefix(32) ?? "")
+            let label = String(
+                UserDefaults.standard.string(forKey: "panel.diagnostics.deviceLabel")?
+                    .filter { character in
+                        character.unicodeScalars.allSatisfy { !CharacterSet.controlCharacters.contains($0) }
+                    }
+                    .prefix(32) ?? "")
             let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "dev"
             let rawSHA = Bundle.main.object(forInfoDictionaryKey: "PanelGitSHA") as? String ?? "dev"
             let gitSHA = rawSHA.isEmpty || rawSHA.hasPrefix("$(") ? "dev" : rawSHA
             do {
                 let receipt = try await store.diagnosticsClient.post(
                     "diagnostics/events",
-                    input: PanelEventBatch(deviceId: PanelDeviceIdentity.id, deviceLabel: label,
-                                           build: build, gitSHA: gitSHA, entries: batch),
+                    input: PanelEventBatch(
+                        deviceId: PanelDeviceIdentity.id, deviceLabel: label,
+                        build: build, gitSHA: gitSHA, entries: batch),
                     as: Receipt.self)
                 guard receipt.accepted else { return }
                 UserDefaults.standard.set(batch.last?.id.uuidString, forKey: key)
