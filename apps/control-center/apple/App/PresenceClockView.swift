@@ -78,7 +78,6 @@ struct CardinalClockDial: View {
         let digitHeight: CGFloat
         let fontSize: CGFloat
         let inset: CGFloat
-        var complicationFontSize: CGFloat { max(17, face.height * 0.042) }
         init(size: CGSize) {
             let height = size.width >= size.height ? size.height : min(size.height, size.width * 1.1)
             face = CGRect(x: 0, y: (size.height - height) / 2, width: size.width, height: height)
@@ -123,22 +122,28 @@ struct CardinalClockDial: View {
                 )
                 numeral("6", layout, alignment: .center, glyphTop: face.minY + face.height * 0.975 - layout.digitHeight)
                 if !numeralsOnly {
-                    ClockComplication(
-                        text: fixtureTime(date, format: "h:mm"), layout: layout, alignment: .trailing,
-                        y: face.minY + face.height * 0.07, ink: ink)
+                    complication(
+                        fixtureTime(date, format: "h:mm"), layout: layout, alignment: .trailing,
+                        y: face.minY + face.height * 0.07)
                     if let weather {
-                        ClockComplication(
-                            text: "H:\(weather.high) L:\(weather.low)", layout: layout, alignment: .trailing,
-                            y: face.minY + face.height * 0.915, ink: ink)
+                        complication(
+                            "H:\(weather.high) L:\(weather.low)", layout: layout, alignment: .trailing,
+                            y: face.minY + face.height * 0.915)
                     }
-                    ClockComplication(
-                        text: fixtureTime(date, format: "EEE d MMM").uppercased(), layout: layout, alignment: .leading,
-                        y: face.minY + face.height * 0.07, ink: ink)
+                    complication(
+                        fixtureTime(date, format: "EEE d MMM").uppercased(), layout: layout, alignment: .leading,
+                        y: face.minY + face.height * 0.07)
                     hands(layout, hours: hours, minutes: minutes, seconds: seconds)
                 }
             }.frame(width: proxy.size.width, height: proxy.size.height, alignment: .topLeading)
         }.accessibilityElement(children: .ignore)
             .accessibilityLabel(fixtureTime(date, format: "h:mm a, EEEE MMMM d"))
+    }
+
+    private func complication(_ text: String, layout: Layout, alignment: Alignment, y: CGFloat) -> some View {
+        ClockComplication(text: text, faceHeight: layout.face.height, ink: ink)
+            .frame(width: layout.face.width - 2 * layout.inset, alignment: alignment)
+            .position(x: layout.face.midX, y: y)
     }
 
     private func numeral(_ text: String, _ layout: Layout, alignment: Alignment, glyphTop: CGFloat) -> some View {
@@ -192,20 +197,16 @@ struct CardinalClockDial: View {
     }
 }
 
-private struct ClockComplication: View {
+struct ClockComplication: View {
     let text: String
-    let layout: CardinalClockDial.Layout
-    let alignment: Alignment
-    let y: CGFloat
+    let faceHeight: CGFloat
     let ink: Color
 
     var body: some View {
         Text(text)
-            .font(.system(size: layout.complicationFontSize, weight: .regular))
+            .font(.system(size: max(17, faceHeight * 0.042), weight: .regular))
             .monospacedDigit()
             .foregroundStyle(ink)
             .fixedSize()
-            .frame(width: layout.face.width - 2 * layout.inset, alignment: alignment)
-            .position(x: layout.face.midX, y: y)
     }
 }
