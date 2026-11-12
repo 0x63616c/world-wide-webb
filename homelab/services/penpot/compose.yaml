@@ -1,278 +1,314 @@
 {
   "name": "penpot",
-  "networks": { "default": { "name": "penpot_default", "ipam": {} } },
-  "services":
-    {
-      "penpot-admin-console":
+  "networks": {
+    "default": {
+      "name": "penpot_default",
+      "ipam": {}
+    }
+  },
+  "services": {
+    "penpot-admin-console": {
+      "command": null,
+      "depends_on": {
+        "penpot-postgres": {
+          "condition": "service_healthy",
+          "required": true
+        }
+      },
+      "entrypoint": null,
+      "environment": {
+        "PENPOT_DATABASE_URI": "postgresql://penpot-postgres/penpot",
+        "PENPOT_DATABASE_USERNAME": "penpot",
+        "PENPOT_FLAGS": "disable-email-verification disable-registration enable-login-with-password enable-mcp disable-telemetry",
+        "PENPOT_INTERNAL_URI": "http://penpot-frontend:8080",
+        "PENPOT_PUBLIC_URI": "https://penpot.worldwidewebb.co"
+      },
+      "image": "penpotapp/admin-console@sha256:9b4cd6d0dc1b7f4cfbfe2a188b2a63989cc2b9886db0905dec545ef189084265",
+      "logging": {
+        "driver": "json-file",
+        "options": {
+          "max-file": "3",
+          "max-size": "10m"
+        }
+      },
+      "mem_limit": "134217728",
+      "networks": {
+        "default": null
+      },
+      "restart": "unless-stopped",
+      "env_file": [
         {
-          "command": null,
-          "depends_on":
-            {
-              "penpot-postgres":
-                { "condition": "service_healthy", "required": true },
-            },
-          "entrypoint": null,
-          "environment":
-            {
-              "PENPOT_DATABASE_URI": "postgresql://penpot-postgres/penpot",
-              "PENPOT_DATABASE_USERNAME": "penpot",
-              "PENPOT_FLAGS": "disable-email-verification disable-registration enable-login-with-password enable-mcp disable-telemetry",
-              "PENPOT_INTERNAL_URI": "http://penpot-frontend:8080",
-              "PENPOT_PUBLIC_URI": "https://penpot.worldwidewebb.co",
-            },
-          "image": "penpotapp/admin-console@sha256:9b4cd6d0dc1b7f4cfbfe2a188b2a63989cc2b9886db0905dec545ef189084265",
-          "logging":
-            {
-              "driver": "json-file",
-              "options": { "max-file": "3", "max-size": "10m" },
-            },
-          "mem_limit": "134217728",
-          "networks": { "default": null },
-          "restart": "unless-stopped",
-          "env_file":
-            [
-              {
-                "path": "${PENPOT_ENV_FILE:?Provision existing Penpot runtime credentials}",
-                "format": "raw",
-              },
-            ],
-        },
-      "penpot-backend":
-        {
-          "command": null,
-          "depends_on":
-            {
-              "penpot-postgres":
-                { "condition": "service_healthy", "required": true },
-              "penpot-valkey":
-                { "condition": "service_healthy", "required": true },
-            },
-          "entrypoint": null,
-          "environment":
-            {
-              "JVM_OPTS": "-Xms128m -Xmx640m",
-              "PENPOT_ADMIN_CONSOLE_URI": "http://penpot-admin-console:3000",
-              "PENPOT_DATABASE_URI": "postgresql://penpot-postgres/penpot",
-              "PENPOT_DATABASE_USERNAME": "penpot",
-              "PENPOT_FLAGS": "disable-email-verification disable-registration enable-login-with-password enable-mcp disable-telemetry",
-              "PENPOT_OBJECTS_STORAGE_BACKEND": "fs",
-              "PENPOT_OBJECTS_STORAGE_FS_DIRECTORY": "/opt/data/assets",
-              "PENPOT_PUBLIC_URI": "https://penpot.worldwidewebb.co",
-              "PENPOT_REDIS_URI": "redis://penpot-valkey/0",
-              "PENPOT_TELEMETRY_ENABLED": "false",
-            },
-          "image": "penpotapp/backend@sha256:121472d0ab4a9bdf450884159bde28805027022a230d14c8f3907c316623aea8",
-          "logging":
-            {
-              "driver": "json-file",
-              "options": { "max-file": "3", "max-size": "10m" },
-            },
-          "mem_limit": "1073741824",
-          "networks": { "default": null },
-          "restart": "unless-stopped",
-          "volumes":
-            [
-              {
-                "type": "volume",
-                "source": "assets",
-                "target": "/opt/data/assets",
-                "volume": {},
-              },
-            ],
-          "env_file":
-            [
-              {
-                "path": "${PENPOT_ENV_FILE:?Provision existing Penpot runtime credentials}",
-                "format": "raw",
-              },
-            ],
-        },
-      "penpot-exporter":
-        {
-          "command": null,
-          "depends_on":
-            {
-              "penpot-valkey":
-                { "condition": "service_healthy", "required": true },
-            },
-          "entrypoint": null,
-          "environment":
-            {
-              "PENPOT_EXPORTER_MAX_CONCURRENT_JOBS": "1",
-              "PENPOT_FLAGS": "disable-email-verification disable-registration enable-login-with-password enable-mcp disable-telemetry",
-              "PENPOT_INTERNAL_URI": "http://penpot-frontend:8080",
-              "PENPOT_PUBLIC_URI": "https://penpot.worldwidewebb.co",
-              "PENPOT_REDIS_URI": "redis://penpot-valkey/0",
-              "PENPOT_WASM_WORKER_POOL_MAX": "1",
-              "PENPOT_WASM_WORKER_POOL_MIN": "0",
-            },
-          "image": "penpotapp/exporter@sha256:85f1d6eff14b49a131b4245dc3000aa738ac48ca103f1d3aa12228d7473544c0",
-          "logging":
-            {
-              "driver": "json-file",
-              "options": { "max-file": "3", "max-size": "10m" },
-            },
-          "mem_limit": "536870912",
-          "networks": { "default": null },
-          "restart": "unless-stopped",
-          "env_file":
-            [
-              {
-                "path": "${PENPOT_ENV_FILE:?Provision existing Penpot runtime credentials}",
-                "format": "raw",
-              },
-            ],
-        },
-      "penpot-frontend":
-        {
-          "command": null,
-          "depends_on":
-            {
-              "penpot-admin-console":
-                { "condition": "service_started", "required": true },
-              "penpot-backend":
-                { "condition": "service_started", "required": true },
-              "penpot-exporter":
-                { "condition": "service_started", "required": true },
-              "penpot-mcp":
-                { "condition": "service_started", "required": true },
-            },
-          "entrypoint": null,
-          "environment":
-            {
-              "PENPOT_ADMIN_CONSOLE_URI": "http://penpot-admin-console:3000",
-              "PENPOT_FLAGS": "disable-email-verification disable-registration enable-login-with-password enable-mcp disable-telemetry",
-              "PENPOT_PUBLIC_URI": "https://penpot.worldwidewebb.co",
-            },
-          "image": "penpotapp/frontend@sha256:80f0baff19a275c5aee54956e9c44cce80cb7c0488bb8f27d92df7fe4f100a78",
-          "logging":
-            {
-              "driver": "json-file",
-              "options": { "max-file": "3", "max-size": "10m" },
-            },
-          "mem_limit": "268435456",
-          "networks": { "default": null },
-          "ports":
-            [
-              {
-                "mode": "ingress",
-                "host_ip": "127.0.0.1",
-                "target": 8080,
-                "published": "9001",
-                "protocol": "tcp",
-              },
-            ],
-          "restart": "unless-stopped",
-          "volumes":
-            [
-              {
-                "type": "volume",
-                "source": "assets",
-                "target": "/opt/data/assets",
-                "volume": {},
-              },
-              {
-                "type": "bind",
-                "source": "${PENPOT_MCP_TEMPLATE:?Set the managed MCP template path}",
-                "target": "/tmp/nginx-mcp-locations.conf.template",
-                "read_only": true,
-                "bind": { "create_host_path": false },
-              },
-            ],
-          "env_file":
-            [
-              {
-                "path": "${PENPOT_ENV_FILE:?Provision existing Penpot runtime credentials}",
-                "format": "raw",
-              },
-            ],
-        },
-      "penpot-mcp":
-        {
-          "command": null,
-          "entrypoint": null,
-          "image": "penpotapp/mcp@sha256:08292a1e3b6e0993a6eae8f6b6f5cdce6aa69023327511400b3dc8dd0f69c8fa",
-          "logging":
-            {
-              "driver": "json-file",
-              "options": { "max-file": "3", "max-size": "10m" },
-            },
-          "mem_limit": "201326592",
-          "networks": { "default": null },
-          "restart": "unless-stopped",
-        },
-      "penpot-postgres":
-        {
-          "command": null,
-          "entrypoint": null,
-          "environment":
-            {
-              "POSTGRES_DB": "penpot",
-              "POSTGRES_INITDB_ARGS": "--data-checksums",
-              "POSTGRES_USER": "penpot",
-            },
-          "healthcheck":
-            {
-              "test": ["CMD-SHELL", "pg_isready -U penpot"],
-              "timeout": "10s",
-              "interval": "2s",
-              "retries": 30,
-            },
-          "image": "postgres@sha256:98fe06b500b5eb29e45bf8c073eb0ca399790ce17b1d586448edc4203627d342",
-          "logging":
-            {
-              "driver": "json-file",
-              "options": { "max-file": "3", "max-size": "10m" },
-            },
-          "mem_limit": "268435456",
-          "networks": { "default": null },
-          "restart": "unless-stopped",
-          "stop_signal": "SIGINT",
-          "volumes":
-            [
-              {
-                "type": "volume",
-                "source": "postgres",
-                "target": "/var/lib/postgresql/data",
-                "volume": {},
-              },
-            ],
-          "env_file":
-            [
-              {
-                "path": "${PENPOT_ENV_FILE:?Provision existing Penpot runtime credentials}",
-                "format": "raw",
-              },
-            ],
-        },
-      "penpot-valkey":
-        {
-          "command": null,
-          "entrypoint": null,
-          "healthcheck":
-            {
-              "test": ["CMD", "valkey-cli", "ping"],
-              "timeout": "3s",
-              "interval": "2s",
-              "retries": 30,
-            },
-          "image": "valkey/valkey@sha256:81db6d39e1bba3b3ff32bd3a1b19a6d69690f94a3954ec131277b9a26b95b3aa",
-          "logging":
-            {
-              "driver": "json-file",
-              "options": { "max-file": "3", "max-size": "10m" },
-            },
-          "mem_limit": "67108864",
-          "networks": { "default": null },
-          "restart": "unless-stopped",
-          "volumes":
-            [{ "type": "volume", "source": "valkey", "target": "/data" }],
-        },
+          "path": "${PENPOT_ENV_FILE:?Provision existing Penpot runtime credentials}",
+          "format": "raw"
+        }
+      ]
     },
-  "volumes":
-    {
-      "assets": { "external": true, "name": "penpot_assets" },
-      "postgres": { "external": true, "name": "penpot_postgres" },
-      "valkey": { "external": true, "name": "penpot_valkey" },
+    "penpot-backend": {
+      "command": null,
+      "depends_on": {
+        "penpot-postgres": {
+          "condition": "service_healthy",
+          "required": true
+        },
+        "penpot-valkey": {
+          "condition": "service_healthy",
+          "required": true
+        }
+      },
+      "entrypoint": null,
+      "environment": {
+        "JVM_OPTS": "-Xms128m -Xmx640m",
+        "PENPOT_ADMIN_CONSOLE_URI": "http://penpot-admin-console:3000",
+        "PENPOT_DATABASE_URI": "postgresql://penpot-postgres/penpot",
+        "PENPOT_DATABASE_USERNAME": "penpot",
+        "PENPOT_FLAGS": "disable-email-verification disable-registration enable-login-with-password enable-mcp disable-telemetry",
+        "PENPOT_OBJECTS_STORAGE_BACKEND": "fs",
+        "PENPOT_OBJECTS_STORAGE_FS_DIRECTORY": "/opt/data/assets",
+        "PENPOT_PUBLIC_URI": "https://penpot.worldwidewebb.co",
+        "PENPOT_REDIS_URI": "redis://penpot-valkey/0",
+        "PENPOT_TELEMETRY_ENABLED": "false"
+      },
+      "image": "penpotapp/backend@sha256:121472d0ab4a9bdf450884159bde28805027022a230d14c8f3907c316623aea8",
+      "logging": {
+        "driver": "json-file",
+        "options": {
+          "max-file": "3",
+          "max-size": "10m"
+        }
+      },
+      "mem_limit": "1073741824",
+      "networks": {
+        "default": null
+      },
+      "restart": "unless-stopped",
+      "volumes": [
+        {
+          "type": "volume",
+          "source": "assets",
+          "target": "/opt/data/assets",
+          "volume": {}
+        }
+      ],
+      "env_file": [
+        {
+          "path": "${PENPOT_ENV_FILE:?Provision existing Penpot runtime credentials}",
+          "format": "raw"
+        }
+      ]
     },
+    "penpot-exporter": {
+      "command": null,
+      "depends_on": {
+        "penpot-valkey": {
+          "condition": "service_healthy",
+          "required": true
+        }
+      },
+      "entrypoint": null,
+      "environment": {
+        "PENPOT_EXPORTER_MAX_CONCURRENT_JOBS": "1",
+        "PENPOT_FLAGS": "disable-email-verification disable-registration enable-login-with-password enable-mcp disable-telemetry",
+        "PENPOT_INTERNAL_URI": "http://penpot-frontend:8080",
+        "PENPOT_PUBLIC_URI": "https://penpot.worldwidewebb.co",
+        "PENPOT_REDIS_URI": "redis://penpot-valkey/0",
+        "PENPOT_WASM_WORKER_POOL_MAX": "1",
+        "PENPOT_WASM_WORKER_POOL_MIN": "0"
+      },
+      "image": "penpotapp/exporter@sha256:85f1d6eff14b49a131b4245dc3000aa738ac48ca103f1d3aa12228d7473544c0",
+      "logging": {
+        "driver": "json-file",
+        "options": {
+          "max-file": "3",
+          "max-size": "10m"
+        }
+      },
+      "mem_limit": "536870912",
+      "networks": {
+        "default": null
+      },
+      "restart": "unless-stopped",
+      "env_file": [
+        {
+          "path": "${PENPOT_ENV_FILE:?Provision existing Penpot runtime credentials}",
+          "format": "raw"
+        }
+      ]
+    },
+    "penpot-frontend": {
+      "command": null,
+      "depends_on": {
+        "penpot-admin-console": {
+          "condition": "service_started",
+          "required": true
+        },
+        "penpot-backend": {
+          "condition": "service_started",
+          "required": true
+        },
+        "penpot-exporter": {
+          "condition": "service_started",
+          "required": true
+        },
+        "penpot-mcp": {
+          "condition": "service_started",
+          "required": true
+        }
+      },
+      "entrypoint": null,
+      "environment": {
+        "PENPOT_ADMIN_CONSOLE_URI": "http://penpot-admin-console:3000",
+        "PENPOT_FLAGS": "disable-email-verification disable-registration enable-login-with-password enable-mcp disable-telemetry",
+        "PENPOT_PUBLIC_URI": "https://penpot.worldwidewebb.co"
+      },
+      "image": "penpotapp/frontend@sha256:80f0baff19a275c5aee54956e9c44cce80cb7c0488bb8f27d92df7fe4f100a78",
+      "logging": {
+        "driver": "json-file",
+        "options": {
+          "max-file": "3",
+          "max-size": "10m"
+        }
+      },
+      "mem_limit": "268435456",
+      "networks": {
+        "default": null
+      },
+      "ports": [
+        {
+          "mode": "ingress",
+          "host_ip": "127.0.0.1",
+          "target": 8080,
+          "published": "9001",
+          "protocol": "tcp"
+        }
+      ],
+      "restart": "unless-stopped",
+      "volumes": [
+        {
+          "type": "volume",
+          "source": "assets",
+          "target": "/opt/data/assets",
+          "volume": {}
+        },
+        {
+          "type": "bind",
+          "source": "${PENPOT_MCP_TEMPLATE:?Set the managed MCP template path}",
+          "target": "/tmp/nginx-mcp-locations.conf.template",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        }
+      ],
+      "env_file": [
+        {
+          "path": "${PENPOT_ENV_FILE:?Provision existing Penpot runtime credentials}",
+          "format": "raw"
+        }
+      ]
+    },
+    "penpot-mcp": {
+      "command": null,
+      "entrypoint": null,
+      "image": "penpotapp/mcp@sha256:08292a1e3b6e0993a6eae8f6b6f5cdce6aa69023327511400b3dc8dd0f69c8fa",
+      "logging": {
+        "driver": "json-file",
+        "options": {
+          "max-file": "3",
+          "max-size": "10m"
+        }
+      },
+      "mem_limit": "201326592",
+      "networks": {
+        "default": null
+      },
+      "restart": "unless-stopped"
+    },
+    "penpot-postgres": {
+      "command": null,
+      "entrypoint": null,
+      "environment": {
+        "POSTGRES_DB": "penpot",
+        "POSTGRES_INITDB_ARGS": "--data-checksums",
+        "POSTGRES_USER": "penpot"
+      },
+      "healthcheck": {
+        "test": ["CMD-SHELL", "pg_isready -U penpot"],
+        "timeout": "10s",
+        "interval": "2s",
+        "retries": 30
+      },
+      "image": "postgres@sha256:98fe06b500b5eb29e45bf8c073eb0ca399790ce17b1d586448edc4203627d342",
+      "logging": {
+        "driver": "json-file",
+        "options": {
+          "max-file": "3",
+          "max-size": "10m"
+        }
+      },
+      "mem_limit": "268435456",
+      "networks": {
+        "default": null
+      },
+      "restart": "unless-stopped",
+      "stop_signal": "SIGINT",
+      "volumes": [
+        {
+          "type": "volume",
+          "source": "postgres",
+          "target": "/var/lib/postgresql/data",
+          "volume": {}
+        }
+      ],
+      "env_file": [
+        {
+          "path": "${PENPOT_ENV_FILE:?Provision existing Penpot runtime credentials}",
+          "format": "raw"
+        }
+      ]
+    },
+    "penpot-valkey": {
+      "command": null,
+      "entrypoint": null,
+      "healthcheck": {
+        "test": ["CMD", "valkey-cli", "ping"],
+        "timeout": "3s",
+        "interval": "2s",
+        "retries": 30
+      },
+      "image": "valkey/valkey@sha256:81db6d39e1bba3b3ff32bd3a1b19a6d69690f94a3954ec131277b9a26b95b3aa",
+      "logging": {
+        "driver": "json-file",
+        "options": {
+          "max-file": "3",
+          "max-size": "10m"
+        }
+      },
+      "mem_limit": "67108864",
+      "networks": {
+        "default": null
+      },
+      "restart": "unless-stopped",
+      "volumes": [
+        {
+          "type": "volume",
+          "source": "valkey",
+          "target": "/data"
+        }
+      ]
+    }
+  },
+  "volumes": {
+    "assets": {
+      "external": true,
+      "name": "penpot_assets"
+    },
+    "postgres": {
+      "external": true,
+      "name": "penpot_postgres"
+    },
+    "valkey": {
+      "external": true,
+      "name": "penpot_valkey"
+    }
+  }
 }

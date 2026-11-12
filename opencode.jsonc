@@ -3,25 +3,25 @@
   "lsp": true,
   "plugin": [
     "@slkiser/opencode-quota",
-    "./.opencode/plugins/secret-redactor.ts",
+    "./.opencode/plugins/secret-redactor.ts"
   ],
   "command": {
     "recap": {
       "description": "Recap the current conversation; pass 'full' for the entire session",
-      "template": "Use the recap skill to recap this conversation. Arguments: $ARGUMENTS",
+      "template": "Use the recap skill to recap this conversation. Arguments: $ARGUMENTS"
     },
     "commit-and-push": {
       "description": "Commit the current work and push the branch",
-      "template": "Use the commit-and-push skill to commit and push the current work. Arguments: $ARGUMENTS",
+      "template": "Use the commit-and-push skill to commit and push the current work. Arguments: $ARGUMENTS"
     },
     "remember": {
       "description": "Save a durable memory globally by default, or locally with --local",
-      "template": "Use the remember skill to save a durable memory. Arguments: $ARGUMENTS",
+      "template": "Use the remember skill to save a durable memory. Arguments: $ARGUMENTS"
     },
     "ticket": {
       "description": "Create or update Beads tickets through the canonical writing-tickets workflow",
-      "template": "Use the writing-tickets skill to create or update Beads tickets immediately. Arguments: $ARGUMENTS",
-    },
+      "template": "Use the writing-tickets skill to create or update Beads tickets immediately. Arguments: $ARGUMENTS"
+    }
   },
   "permission": {
     "read": "allow",
@@ -42,7 +42,7 @@
       "cat .env": "deny",
       "cat .env.*": "deny",
       "cat *.pem": "deny",
-      "cat *.key": "deny",
+      "cat *.key": "deny"
     },
     "task": "allow",
     "external_directory": "allow",
@@ -51,10 +51,10 @@
     "websearch": "allow",
     "skill": "allow",
     "question": "allow",
-    "lsp": "allow",
+    "lsp": "allow"
   },
   "watcher": {
-    "ignore": ["node_modules/**", ".git/**", ".turbo/**", "dist/**"],
+    "ignore": ["node_modules/**", ".git/**", ".turbo/**", "dist/**"]
   },
   "agent": {
     "code-review": {
@@ -69,10 +69,10 @@
         "list": "allow",
         "skill": "allow",
         "edit": "deny",
-        "bash": "deny",
+        "bash": "deny"
       },
-      "prompt": "{file:./.opencode/prompts/code-review.txt}",
-    },
+      "prompt": "{file:./.opencode/prompts/code-review.txt}"
+    }
   },
-  "instructions": ["CLAUDE.md", "README.md"],
+  "instructions": ["CLAUDE.md", "README.md"]
 }

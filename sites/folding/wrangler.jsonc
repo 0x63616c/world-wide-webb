@@ -5,7 +5,7 @@
   "assets": {
     "directory": "./dist",
     "html_handling": "auto-trailing-slash",
-    "not_found_handling": "404-page",
+    "not_found_handling": "404-page"
   },
-  "compatibility_date": "2026-11-07",
+  "compatibility_date": "2026-11-07"
 }

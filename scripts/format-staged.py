@@ -85,8 +85,10 @@ def formatter(path: str, check: bool = False) -> list[str] | None:
         return ["tofu", "fmt", *(["-check"] if check else []), path]
     if suffix in PRETTIER_EXTENSIONS or suffix in PRETTIER_PLUGINS:
         command = [str(PRETTIER)]
-        if file.name == ".swift-format":
+        if file.name == ".swift-format" or path == "homelab/services/penpot/compose.yaml":
             command += ["--parser", "json"]
+        if suffix == ".jsonc":
+            command += ["--trailing-comma", "none"]
         if suffix in PRETTIER_PLUGINS:
             command += ["--plugin", PRETTIER_PLUGINS[suffix]]
         return [*command, "--check" if check else "--write", path]
