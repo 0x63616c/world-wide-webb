@@ -44,6 +44,11 @@ import XCTest
     ]
     var launched = false
     for display in displays {
+      if launched {
+        // End the previous display's modal scene before waiting on the next
+        // full-screen app window. The captured sheets still use native presentation.
+        try show(first, in: app)
+      }
       if display.id.hasPrefix("duo-") {
         try selectPose(display.id == "duo-inner" ? "inner" : "outer", environment: env)
       }
@@ -62,20 +67,7 @@ import XCTest
         XCTWaiter.wait(for: [geometry], timeout: 45), .completed,
         "The app must occupy the selected physical simulator display")
       for scene in scenes where scene.deviceID == nil || scene.deviceID == display.id {
-        var url = URLComponents()
-        url.scheme = "folding-screenshot"
-        url.host = "scene"
-        url.queryItems = [
-          URLQueryItem(name: "scenario", value: scene.id),
-          URLQueryItem(name: "appearance", value: scene.appearance),
-        ]
-        XCUIDevice.shared.system.open(try XCTUnwrap(url.url))
-        XCTAssertTrue(
-          app.windows["folding.screenshot.\(scene.id).\(scene.appearance)"].waitForExistence(
-            timeout: 15),
-          "The running app must acknowledge the configured scene")
-        // Allow native sheet and appearance transitions to finish, as in Tendr's capture.
-        RunLoop.current.run(until: Date().addingTimeInterval(1.5))
+        try show(scene, in: app)
         print("STOREFRONT_SCREEN=\(locale)/\(display.id)/\(scene.id)")
         let matches = XCUIScreen.screens.map { $0.screenshot() }.filter {
           $0.image.cgImage?.width == display.pixelWidth
@@ -90,6 +82,22 @@ import XCTest
       }
     }
     app.terminate()
+  }
+
+  private func show(_ scene: Scene, in app: XCUIApplication) throws {
+    var url = URLComponents()
+    url.scheme = "folding-screenshot"
+    url.host = "scene"
+    url.queryItems = [
+      URLQueryItem(name: "scenario", value: scene.id),
+      URLQueryItem(name: "appearance", value: scene.appearance),
+    ]
+    XCUIDevice.shared.system.open(try XCTUnwrap(url.url))
+    XCTAssertTrue(
+      app.windows["folding.screenshot.\(scene.id).\(scene.appearance)"].waitForExistence(
+        timeout: 15),
+      "The running app must acknowledge the configured scene")
+    RunLoop.current.run(until: Date().addingTimeInterval(1.5))
   }
 
   private func selectPose(_ pose: String, environment: [String: String]) throws {
