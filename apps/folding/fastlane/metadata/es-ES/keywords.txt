@@ -1,1 +1,1 @@
-pliegues,duo,estadísticas,contador,clasificación,widgets
+pliegues,duo,estadísticas,contador,clasificación

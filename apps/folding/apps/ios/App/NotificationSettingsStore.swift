@@ -12,7 +12,10 @@ import UserNotifications
     guard let data = defaults.data(forKey: key),
       let value = try? JSONDecoder().decode(NotificationPreferences.self, from: data)
     else { return NotificationPreferences() }
-    return value
+    var visible = value
+    visible.weeklyResult = .off
+    visible.monthlyResult = .off
+    return visible
   }
 
   func authorization() async -> NotificationAuthorization {
@@ -24,12 +27,12 @@ import UserNotifications
   }
 
   func applyResultPreferences(_ remote: CompetitionResultPreferences) throws {
-    guard let weekly = ResultNotificationChoice(rawValue: remote.weekly),
-      let monthly = ResultNotificationChoice(rawValue: remote.monthly)
+    guard ResultNotificationChoice(rawValue: remote.weekly) != nil,
+      ResultNotificationChoice(rawValue: remote.monthly) != nil
     else { throw CompetitionTransportError.invalidResponse }
     var next = preferences
-    next.weeklyResult = weekly
-    next.monthlyResult = monthly
+    next.weeklyResult = .off
+    next.monthlyResult = .off
     next.badgesEarned = remote.badge_earned ?? false
     defaults.set(try JSONEncoder().encode(next), forKey: key)
   }
@@ -40,11 +43,11 @@ import UserNotifications
   ) async throws -> NotificationPreferences {
     let previous = preferences
     var result = requested
+    result.weeklyResult = .off
+    result.monthlyResult = .off
     let enabling =
       (!previous.dailyLimit && requested.dailyLimit)
       || (!previous.badgesEarned && requested.badgesEarned)
-      || (previous.weeklyResult == .off && requested.weeklyResult != .off)
-      || (previous.monthlyResult == .off && requested.monthlyResult != .off)
     if enabling {
       if await authorization() == .unknown {
         _ = try await center.requestAuthorization(options: [.alert, .sound, .badge])
@@ -52,8 +55,6 @@ import UserNotifications
       if await authorization() != .allowed {
         if !previous.dailyLimit { result.dailyLimit = false }
         if !previous.badgesEarned { result.badgesEarned = false }
-        if previous.weeklyResult == .off { result.weeklyResult = .off }
-        if previous.monthlyResult == .off { result.monthlyResult = .off }
       }
     }
     try await beforePersist?(result)

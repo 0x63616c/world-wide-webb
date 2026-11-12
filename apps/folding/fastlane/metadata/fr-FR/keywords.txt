@@ -1,1 +1,1 @@
-pliage,duo,statistiques,compteur,classement,widgets
+pliage,duo,statistiques,compteur,classement

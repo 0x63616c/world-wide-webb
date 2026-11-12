@@ -133,72 +133,6 @@
         }
       }
     },
-    "action.help": {
-      "comment": "Action UI: Help. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Help"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Hilfe"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Aide"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ayuda"
-          }
-        },
-        "es-419": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ayuda"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ヘルプ"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "도움말"
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ajuda"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "帮助"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "輔助說明"
-          }
-        }
-      }
-    },
     "action.ok": {
       "comment": "Action UI: OK. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
@@ -4027,72 +3961,6 @@
         }
       }
     },
-    "notifications.monthly": {
-      "comment": "Widget, notification preference or optional tip UI. AI translations; native-speaker review pending.",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Monthly result"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Monatsergebnis"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Résultat mensuel"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Resultado mensual"
-          }
-        },
-        "es-419": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Resultado mensual"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "月間結果"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "월간 결과"
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Resultado mensal"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "每月结果"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "每月結果"
-          }
-        }
-      }
-    },
     "notifications.off": {
       "comment": "Widget, notification preference or optional tip UI. AI translations; native-speaker review pending.",
       "extractionState": "manual",
@@ -4353,72 +4221,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "通知"
-          }
-        }
-      }
-    },
-    "notifications.weekly": {
-      "comment": "Widget, notification preference or optional tip UI. AI translations; native-speaker review pending.",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Weekly result"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Wochenergebnis"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Résultat hebdomadaire"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Resultado semanal"
-          }
-        },
-        "es-419": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Resultado semanal"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "週間結果"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "주간 결과"
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Resultado semanal"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "每周结果"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "每週結果"
           }
         }
       }
@@ -6535,72 +6337,6 @@
         }
       }
     },
-    "profile.signInForNotifications": {
-      "comment": "App UI. Keep concise. Non-English copy is an AI draft; native-speaker review remains pending.",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Join to enable result notifications"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Für Ergebnis-Mitteilungen beitreten"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Rejoignez pour activer les notifications de résultats"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Únete para activar las notificaciones de resultados"
-          }
-        },
-        "es-419": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Únete para activar las notificaciones de resultados"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "参加して結果の通知を有効にする"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "참여하여 결과 알림 켜기"
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Participe para ativar notificações de resultados"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "加入以启用结果通知"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "加入以啟用結果通知"
-          }
-        }
-      }
-    },
     "profile.signingIn": {
       "comment": "Competition UI or local notification. AI translations; native-speaker review pending.",
       "extractionState": "manual",
@@ -7653,534 +7389,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "要重置記錄嗎？"
-          }
-        }
-      }
-    },
-    "results.empty": {
-      "comment": "Competition UI or local notification. AI translations; native-speaker review pending.",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No results yet"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Noch keine Ergebnisse"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Aucun résultat pour le moment"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Aún no hay resultados"
-          }
-        },
-        "es-419": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Aún no hay resultados"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "まだ結果がありません"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "아직 결과 없음"
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ainda sem resultados"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "暂无结果"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "尚無結果"
-          }
-        }
-      }
-    },
-    "results.live": {
-      "comment": "Competition state. AI translations; native-speaker review pending.",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Live placement"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Aktuelle Platzierung"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Classement actuel"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Puesto actual"
-          }
-        },
-        "es-419": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Puesto actual"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "現在の順位"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "현재 순위"
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Posição atual"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "当前名次"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "目前名次"
-          }
-        }
-      }
-    },
-    "results.more": {
-      "comment": "Competition UI or local notification. AI translations; native-speaker review pending.",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "More results"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Weitere Ergebnisse"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Plus de résultats"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Más resultados"
-          }
-        },
-        "es-419": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Más resultados"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "さらに表示"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "더 많은 결과"
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mais resultados"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "更多结果"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "更多結果"
-          }
-        }
-      }
-    },
-    "results.participants": {
-      "comment": "Competition UI or local notification. AI translations; native-speaker review pending.",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Participants"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Teilnehmende"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Participants"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Participantes"
-          }
-        },
-        "es-419": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Participantes"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "参加者"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "참가자"
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Participantes"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "参与者"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "參與者"
-          }
-        }
-      }
-    },
-    "results.place": {
-      "comment": "Competition UI or local notification. AI translations; native-speaker review pending.",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Place"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Platz"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Place"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Puesto"
-          }
-        },
-        "es-419": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Puesto"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "順位"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "순위"
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Posição"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "名次"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "名次"
-          }
-        }
-      }
-    },
-    "results.share": {
-      "comment": "Competition UI or local notification. AI translations; native-speaker review pending.",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Share result"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ergebnis teilen"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Partager le résultat"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Compartir resultado"
-          }
-        },
-        "es-419": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Compartir resultado"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "結果を共有"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "결과 공유"
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Compartilhar resultado"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "分享结果"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "分享結果"
-          }
-        }
-      }
-    },
-    "results.title": {
-      "comment": "Competition UI or local notification. AI translations; native-speaker review pending.",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Results"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ergebnisse"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Résultats"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Resultados"
-          }
-        },
-        "es-419": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Resultados"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "結果"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "결과"
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Resultados"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "结果"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "結果"
-          }
-        }
-      }
-    },
-    "results.unavailable": {
-      "comment": "Competition UI or local notification. AI translations; native-speaker review pending.",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Results unavailable"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ergebnisse nicht verfügbar"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Résultats indisponibles"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Resultados no disponibles"
-          }
-        },
-        "es-419": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Resultados no disponibles"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "結果を取得できません"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "결과 이용 불가"
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Resultados indisponíveis"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "结果暂不可用"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "結果暫不可用"
           }
         }
       }
@@ -9505,204 +8713,6 @@
         }
       }
     },
-    "setup.appleGuide": {
-      "comment": "Manual setup guidance; generic trigger description, not an exact OS trigger label. AI translations require review.",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Shortcuts guide"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Kurzbefehle-Handbuch"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Guide Raccourcis"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Guía de Atajos"
-          }
-        },
-        "es-419": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Guía de Atajos"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ショートカットガイド"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "단축어 가이드"
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Manual de Atalhos"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "快捷指令指南"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "捷徑指南"
-          }
-        }
-      }
-    },
-    "setup.chooseClosing": {
-      "comment": "Manual setup guidance; generic trigger description, not an exact OS trigger label. AI translations require review.",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "In the editor, choose an automation for when your Duo closes."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Wähle im Editor eine Automation für das Schließen deines Duo."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Dans l’éditeur, choisissez une automatisation à la fermeture du Duo."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "En el editor, elige una automatización para cuando se cierre tu Duo."
-          }
-        },
-        "es-419": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "En el editor, elige una automatización para cuando se cierre tu Duo."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "エディタでDuoが閉じたときのオートメーションを選びます。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "편집기에서 Duo를 닫을 때 실행할 자동화를 선택하세요."
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No editor, escolha uma automação para quando seu Duo fechar."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "在编辑器中，选择 Duo 关闭时运行的自动化。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "在編輯器中，選擇 Duo 關閉時執行的自動化操作。"
-          }
-        }
-      }
-    },
-    "setup.chooseOpening": {
-      "comment": "Manual setup guidance; generic trigger description, not an exact OS trigger label. AI translations require review.",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "In the editor, choose an automation for when your Duo opens."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Wähle im Editor eine Automation für das Öffnen deines Duo."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Dans l’éditeur, choisissez une automatisation à l’ouverture du Duo."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "En el editor, elige una automatización para cuando se abra tu Duo."
-          }
-        },
-        "es-419": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "En el editor, elige una automatización para cuando se abra tu Duo."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "エディタでDuoが開いたときのオートメーションを選びます。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "편집기에서 Duo를 열 때 실행할 자동화를 선택하세요."
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No editor, escolha uma automação para quando seu Duo abrir."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "在编辑器中，选择 Duo 打开时运行的自动化。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "在編輯器中，選擇 Duo 打開時執行的自動化操作。"
-          }
-        }
-      }
-    },
     "setup.closeDevice": {
       "comment": "Setup UI: Close your Duo. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
@@ -9897,72 +8907,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "準備就緒"
-          }
-        }
-      }
-    },
-    "setup.existingHelp": {
-      "comment": "Manual setup guidance; generic trigger description, not an exact OS trigger label. AI translations require review.",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Edit existing automations to avoid duplicates."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Bearbeite vorhandene Automationen, um Duplikate zu vermeiden."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Modifiez les automatisations existantes pour éviter les doublons."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Edita las automatizaciones existentes para evitar duplicados."
-          }
-        },
-        "es-419": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Edita las automatizaciones existentes para evitar duplicados."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "重複を避けるため既存のオートメーションを編集してください。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "중복을 피하려면 기존 자동화를 편집하세요."
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Edite automações existentes para evitar duplicatas."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "编辑现有自动化以避免重复。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "編輯現有自動化以避免重複。"
           }
         }
       }
@@ -10165,72 +9109,6 @@
         }
       }
     },
-    "setup.lockedHelp": {
-      "comment": "Manual setup guidance; generic trigger description, not an exact OS trigger label. AI translations require review.",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Allow the shortcut to run while locked."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Erlaube die Ausführung des Kurzbefehls im Sperrzustand."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Autorisez le raccourci à s’exécuter lorsque l’appareil est verrouillé."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Permite que el atajo se ejecute con el dispositivo bloqueado."
-          }
-        },
-        "es-419": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Permite que el atajo se ejecute con el dispositivo bloqueado."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ロック中のショートカット実行を許可してください。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "잠긴 상태에서 단축어 실행을 허용하세요."
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Permita a execução do atalho com o dispositivo bloqueado."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "允许快捷指令在锁定时运行。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "允許捷徑在鎖定時執行。"
-          }
-        }
-      }
-    },
     "setup.manualClose": {
       "comment": "Setup or profile UI: Start open. Then close your Duo. Keep concise; preserve Duo and Shortcuts product names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
@@ -10425,72 +9303,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "尚無事件"
-          }
-        }
-      }
-    },
-    "setup.notNow": {
-      "comment": "Setup UI: Not now. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Not now"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Später"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Plus tard"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ahora no"
-          }
-        },
-        "es-419": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ahora no"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "今はしない"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "나중에"
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Agora não"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "暂不"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "稍後再說"
           }
         }
       }
@@ -11426,61 +10238,61 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Every fold counts"
+            "value": "Welcome to Folding"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Jede Faltung zählt"
+            "value": "Willkommen bei Folding"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Chaque pliage compte"
+            "value": "Bienvenue dans Folding"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Cada pliegue cuenta"
+            "value": "Te damos la bienvenida a Folding"
           }
         },
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "Cada pliegue cuenta"
+            "value": "Te damos la bienvenida a Folding"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ひとつひとつの折りたたみを記録"
+            "value": "Foldingへようこそ"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "모든 폴딩을 기록하세요"
+            "value": "Folding에 오신 것을 환영합니다"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Cada dobra conta"
+            "value": "Boas-vindas ao Folding"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "每次折叠都算数"
+            "value": "欢迎使用 Folding"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "每次摺疊都算數"
+            "value": "歡迎使用 Folding"
           }
         }
       }
@@ -11492,61 +10304,61 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Connect Shortcuts, then test both directions."
+            "value": "Close your Duo to begin. Then add and test both Shortcuts automations."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Verbinde Kurzbefehle und teste beide Richtungen."
+            "value": "Schließe dein Duo. Richte dann beide Kurzbefehle-Automationen ein und teste sie."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Connectez Raccourcis, puis testez les deux sens."
+            "value": "Fermez votre Duo. Ajoutez puis testez les deux automatisations Raccourcis."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Conecta Atajos y prueba ambas direcciones."
+            "value": "Cierra tu Duo. Después, añade y prueba las dos automatizaciones de Atajos."
           }
         },
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "Conecta Atajos y prueba ambas direcciones."
+            "value": "Cierra tu Duo. Después, añade y prueba las dos automatizaciones de Atajos."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ショートカットを連携し、開く・閉じるの両方をテストします。"
+            "value": "Duoを閉じて開始します。次に両方のショートカットオートメーションを追加してテストします。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "단축어를 연결한 후 열기와 닫기를 테스트하세요."
+            "value": "Duo를 닫고 시작하세요. 그런 다음 두 단축어 자동화를 추가하고 테스트하세요."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Conecte o Atalhos e teste as duas direções."
+            "value": "Feche o Duo para começar. Depois, adicione e teste as duas automações do Atalhos."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "连接快捷指令，然后测试打开和合上动作。"
+            "value": "先合上 Duo，然后添加并测试两个快捷指令自动化。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "連接捷徑，然後測試打開與闔上動作。"
+            "value": "先闔上 Duo，然後加入並測試兩個捷徑自動化。"
           }
         }
       }
@@ -12475,72 +11287,6 @@
         }
       }
     },
-    "today.editSummary": {
-      "comment": "Today UI: Edit Summary. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Edit Summary"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Übersicht bearbeiten"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Modifier le résumé"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Editar resumen"
-          }
-        },
-        "es-419": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Editar resumen"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "概要を編集"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "요약 편집"
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Editar resumo"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "编辑摘要"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "編輯摘要"
-          }
-        }
-      }
-    },
     "tracking.unavailable": {
       "comment": "Tracking UI: Tracking unavailable. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
@@ -12867,269 +11613,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "需要較新版本"
-          }
-        }
-      }
-    },
-    "widget.metric": {
-      "comment": "Widget, notification preference or optional tip UI. AI translations; native-speaker review pending.",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Metric"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Messwert"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Statistique"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Estadística"
-          }
-        },
-        "es-419": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Estadística"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "指標"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "지표"
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Estatística"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "指标"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "指標"
-          }
-        }
-      }
-    },
-    "widget.open": {
-      "comment": "Widget, notification preference or optional tip UI. AI translations; native-speaker review pending.",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Open Folding"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Folding öffnen"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ouvrir Folding"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Abrir Folding"
-          }
-        },
-        "es-419": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Abrir Folding"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Foldingを開く"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Folding 열기"
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Abrir Folding"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "打开 Folding"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "打開 Folding"
-          }
-        }
-      }
-    },
-    "widget.title": {
-      "comment": "Widget, notification preference or optional tip UI. AI translations; native-speaker review pending.",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Folding"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Folding"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Folding"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Folding"
-          }
-        },
-        "es-419": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Folding"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Folding"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Folding"
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Folding"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Folding"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Folding"
-          }
-        }
-      }
-    },
-    "results.rank": {
-      "comment": "Current live competition rank. Non-English copy needs native QA.",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Rank"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Rang"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Classement"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Puesto"
-          }
-        },
-        "es-419": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Puesto"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "順位"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "순위"
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Posição"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "排名"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "排名"
           }
         }
       }
@@ -16430,6 +14913,666 @@
           "stringUnit": {
             "state": "translated",
             "value": "查詢狀態"
+          }
+        }
+      }
+    },
+    "tab.analytics": {
+      "comment": "Folding app UI. Non-English copy is a draft pending native-speaker review.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Analytics"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Analyse"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Analyses"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Análisis"
+          }
+        },
+        "es-419": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Análisis"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "分析"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "분석"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Análises"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "分析"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "分析"
+          }
+        }
+      }
+    },
+    "action.continue": {
+      "comment": "Folding app UI. Non-English copy is a draft pending native-speaker review.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continue"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Weiter"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continuer"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continuar"
+          }
+        },
+        "es-419": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continuar"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "続ける"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "계속"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continuar"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "继续"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "繼續"
+          }
+        }
+      }
+    },
+    "setup.confirmClosed": {
+      "comment": "Folding app UI. Non-English copy is a draft pending native-speaker review.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "My Duo is closed"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mein Duo ist geschlossen"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mon Duo est fermé"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mi Duo está cerrado"
+          }
+        },
+        "es-419": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mi Duo está cerrado"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Duoを閉じました"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Duo를 닫았습니다"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Meu Duo está fechado"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "我的 Duo 已合上"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "我的 Duo 已闔上"
+          }
+        }
+      }
+    },
+    "profile.account": {
+      "comment": "Folding app UI. Non-English copy is a draft pending native-speaker review.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Account"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Konto"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Compte"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cuenta"
+          }
+        },
+        "es-419": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cuenta"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アカウント"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "계정"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conta"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "账户"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "帳號"
+          }
+        }
+      }
+    },
+    "settings.alerts": {
+      "comment": "Folding app UI. Non-English copy is a draft pending native-speaker review.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alerts"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hinweise"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alertes"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alertas"
+          }
+        },
+        "es-419": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alertas"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通知"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "알림"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alertas"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "提醒"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "提醒"
+          }
+        }
+      }
+    },
+    "settings.icloudFooter": {
+      "comment": "Folding app UI. Non-English copy is a draft pending native-speaker review.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Personal history syncs through iCloud when available."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dein Verlauf wird über iCloud synchronisiert, wenn es verfügbar ist."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre historique personnel se synchronise via iCloud quand il est disponible."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu historial personal se sincroniza con iCloud cuando está disponible."
+          }
+        },
+        "es-419": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu historial personal se sincroniza con iCloud cuando está disponible."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iCloudが利用可能なとき、個人の履歴を同期します。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iCloud를 사용할 수 있으면 개인 기록이 동기화됩니다."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Seu histórico pessoal é sincronizado pelo iCloud quando disponível."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iCloud 可用时会同步个人历史记录。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iCloud 可用時會同步個人歷史記錄。"
+          }
+        }
+      }
+    },
+    "settings.dataFooter": {
+      "comment": "Folding app UI. Non-English copy is a draft pending native-speaker review.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Export saves a copy. Reset deletes history, scores, medals and badges."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Exportieren speichert eine Kopie. Zurücksetzen löscht Verlauf, Punkte, Medaillen und Abzeichen."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Exporter enregistre une copie. Réinitialiser supprime l’historique, les scores, les médailles et les badges."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Exportar guarda una copia. Restablecer elimina el historial, las puntuaciones, las medallas y las insignias."
+          }
+        },
+        "es-419": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Exportar guarda una copia. Restablecer elimina el historial, las puntuaciones, las medallas y las insignias."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "書き出しはコピーを保存します。リセットすると履歴、スコア、メダル、バッジが削除されます。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "내보내기는 사본을 저장합니다. 초기화하면 기록, 점수, 메달, 배지가 삭제됩니다."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Exportar salva uma cópia. Redefinir apaga histórico, pontuações, medalhas e distintivos."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "导出会保存副本。重置会删除历史记录、分数、奖牌和徽章。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "輸出會儲存副本。重設會刪除歷史記錄、分數、獎牌和徽章。"
+          }
+        }
+      }
+    },
+    "setup.lockedHelp": {
+      "comment": "Manual setup guidance; generic trigger description, not an exact OS trigger label. AI translations require review.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Allow the shortcut to run while locked."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Erlaube die Ausführung des Kurzbefehls im Sperrzustand."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Autorisez le raccourci à s’exécuter lorsque l’appareil est verrouillé."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Permite que el atajo se ejecute con el dispositivo bloqueado."
+          }
+        },
+        "es-419": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Permite que el atajo se ejecute con el dispositivo bloqueado."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ロック中のショートカット実行を許可してください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "잠긴 상태에서 단축어 실행을 허용하세요."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Permita a execução do atalho com o dispositivo bloqueado."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "允许快捷指令在锁定时运行。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "允許捷徑在鎖定時執行。"
+          }
+        }
+      }
+    },
+    "setup.existingHelp": {
+      "comment": "Manual setup guidance; generic trigger description, not an exact OS trigger label. AI translations require review.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit existing automations to avoid duplicates."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bearbeite vorhandene Automationen, um Duplikate zu vermeiden."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Modifiez les automatisations existantes pour éviter les doublons."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edita las automatizaciones existentes para evitar duplicados."
+          }
+        },
+        "es-419": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edita las automatizaciones existentes para evitar duplicados."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "重複を避けるため既存のオートメーションを編集してください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "중복을 피하려면 기존 자동화를 편집하세요."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edite automações existentes para evitar duplicatas."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "编辑现有自动化以避免重复。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "編輯現有自動化以避免重複。"
+          }
+        }
+      }
+    },
+    "notifications.resultDisableFailed": {
+      "comment": "Shown when old result alerts could not be disabled on the server. Non-English copy is a draft.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn’t turn off result alerts. Try again later."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ergebnisbenachrichtigungen konnten nicht deaktiviert werden. Später erneut versuchen."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de désactiver les alertes de résultats. Réessayez plus tard."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudieron desactivar las alertas de resultados. Inténtalo más tarde."
+          }
+        },
+        "es-419": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudieron desactivar las alertas de resultados. Inténtalo más tarde."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "結果の通知をオフにできませんでした。後でもう一度お試しください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "결과 알림을 끌 수 없습니다. 나중에 다시 시도하세요."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Não foi possível desativar os alertas de resultados. Tente novamente mais tarde."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法关闭结果提醒。请稍后重试。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法關閉結果提醒。請稍後再試。"
           }
         }
       }

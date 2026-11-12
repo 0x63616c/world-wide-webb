@@ -84,15 +84,14 @@ module FoldingRelease
 
     def self.inspect_binary!(application, record)
       identity = record.data.fetch("archive_configuration").fetch("identity")
-      paths = [[application, identity.fetch("bundle_id"), true]] +
-        Dir.glob(File.join(application, "PlugIns/*.appex")).map { |path| [path, identity.fetch("widget_bundle_id"), false] }
-      raise "Expected exactly one widget extension" unless paths.length == 2
+      raise "Unexpected app extension" unless Dir.glob(File.join(application, "PlugIns/*.appex")).empty?
+      paths = [[application, identity.fetch("bundle_id"), true]]
       paths.each do |path, bundle, main|
         info = plist(File.join(path, "Info.plist"))
         raise "Folding must ship for iPhone only" unless info["UIDeviceFamily"] == [1]
         raise "Binary identity mismatch" unless info["CFBundleIdentifier"] == bundle && info["CFBundleShortVersionString"] == record.data["marketing_version"] && info["CFBundleVersion"] == record.data["build_number"].to_s
         FoldingRelease.run("codesign", "--verify", "--strict", path)
-        entitlements = File.join(record.directory, "#{main ? 'app' : 'widget'}-signed-entitlements.plist")
+        entitlements = File.join(record.directory, "app-signed-entitlements.plist")
         # codesign emits entitlement XML on stdout; no signing secret is included.
         File.write(entitlements, FoldingRelease.run("codesign", "-d", "--entitlements", ":-", path))
         values = plist(entitlements)
@@ -135,7 +134,7 @@ module FoldingRelease
       record.save("signing_attempts" => attempts)
       begin
         context.create_keychain(name: keychain, password: password, default_keychain: false, unlock: true, timeout: 3600, lock_when_sleeps: true)
-        signing = {type: "appstore", readonly: true, app_identifier: [identity.fetch("bundle_id"), identity.fetch("widget_bundle_id")],
+        signing = {type: "appstore", readonly: true, app_identifier: identity.fetch("bundle_id"),
           git_url: ENV.fetch("FOLDING_SIGNING_GIT_URL", "https://github.com/0x63616c/certificates.git"),
           git_branch: ENV.fetch("MATCH_GIT_BRANCH", "folding"),
           api_key: FoldingRelease.api_key, team_id: record.data.fetch("apple_team_id"),
@@ -144,12 +143,11 @@ module FoldingRelease
         signing[:git_private_key] = private_key unless private_key.to_s.strip.empty?
         context.match(**signing)
         app_profile = ENV.fetch("sigh_#{identity.fetch('bundle_id')}_appstore_profile-name")
-        widget_profile = ENV.fetch("sigh_#{identity.fetch('widget_bundle_id')}_appstore_profile-name")
         settings = {
           "MARKETING_VERSION" => record.data.fetch("marketing_version"), "CURRENT_PROJECT_VERSION" => record.data.fetch("build_number").to_s,
           "DEVELOPMENT_TEAM" => record.data.fetch("apple_team_id"), "CODE_SIGN_STYLE" => "Manual", "CODE_SIGN_IDENTITY" => "Apple Distribution",
-          "FOLDING_APP_BUNDLE_ID" => identity.fetch("bundle_id"), "FOLDING_WIDGET_BUNDLE_ID" => identity.fetch("widget_bundle_id"),
-          "FOLDING_APP_PROFILE_SPECIFIER" => app_profile, "FOLDING_WIDGET_PROFILE_SPECIFIER" => widget_profile,
+          "FOLDING_APP_BUNDLE_ID" => identity.fetch("bundle_id"),
+          "FOLDING_APP_PROFILE_SPECIFIER" => app_profile,
           "FOLDING_APP_GROUP_IDENTIFIER" => identity.fetch("app_group"), "FOLDING_CLOUD_CONTAINER_IDENTIFIER" => identity.fetch("cloudkit_container"),
           "FOLDING_SOURCE_COMMIT" => record.data.fetch("commit_sha"),
           "FOLDING_API_ORIGIN" => record.data.fetch("archive_configuration").fetch("api_origin"), "FOLDING_ENVIRONMENT" => record.data.fetch("environment"),
@@ -163,7 +161,7 @@ module FoldingRelease
           output_directory: record.directory, output_name: "Folding.ipa", export_method: "app-store",
           export_team_id: record.data.fetch("apple_team_id"), skip_profile_detection: true,
           export_options: {signingStyle: "manual", signingCertificate: "Apple Distribution",
-            provisioningProfiles: {identity.fetch("bundle_id") => app_profile, identity.fetch("widget_bundle_id") => widget_profile}},
+            provisioningProfiles: {identity.fetch("bundle_id") => app_profile}},
           xcargs: settings.map { |key, value| Shellwords.escape("#{key}=#{value}") }.join(" "),
           include_symbols: true, xcodebuild_formatter: "")
         apps = Dir.glob(File.join(archive, "Products/Applications/*.app"))

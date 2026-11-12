@@ -1,1 +1,1 @@
-dobras,duo,estatísticas,contador,ranking,widgets
+dobras,duo,estatísticas,contador,ranking

@@ -180,10 +180,18 @@ class StorefrontBuildAttachmentTest < Minitest::Test
 end
 
 class ArchiveDeviceFamilyTest < Minitest::Test
-  def test_accidental_ipad_support_stops_before_signing_inspection_or_publication
+  def test_retired_widget_extension_stops_publication
     Dir.mktmpdir do |directory|
       FileUtils.mkdir_p(File.join(directory, "PlugIns/Widgets.appex"))
-      record = Struct.new(:data).new({"archive_configuration" => {"identity" => {"bundle_id" => "fixture", "widget_bundle_id" => "fixture.widget"}}})
+      record = Struct.new(:data).new({"archive_configuration" => {"identity" => {"bundle_id" => "fixture"}}})
+      error = assert_raises(RuntimeError) { FoldingRelease::Operations.inspect_binary!(directory, record) }
+      assert_includes error.message, "Unexpected app extension"
+    end
+  end
+
+  def test_accidental_ipad_support_stops_before_signing_inspection_or_publication
+    Dir.mktmpdir do |directory|
+      record = Struct.new(:data).new({"archive_configuration" => {"identity" => {"bundle_id" => "fixture"}}})
       FoldingRelease::Operations.stub(:plist, {"UIDeviceFamily" => [1, 2]}) do
         FoldingRelease.stub(:run, ->(*) { flunk "Wrong device family must stop publication" }) do
           error = assert_raises(RuntimeError) { FoldingRelease::Operations.inspect_binary!(directory, record) }

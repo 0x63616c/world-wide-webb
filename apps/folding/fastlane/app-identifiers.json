@@ -4,7 +4,6 @@
     "name": "Folding",
     "sku": "folding-ios",
     "bundle_id": "app.getfolding.Folding",
-    "widget_bundle_id": "app.getfolding.Folding.Widgets",
     "app_group": "group.app.getfolding.Folding",
     "cloudkit_container": "iCloud.app.getfolding.Folding",
     "primary_locale": "en-US",

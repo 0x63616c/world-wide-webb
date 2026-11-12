@@ -53,7 +53,7 @@ public struct PartitionTransition: Sendable {
   fileprivate let epoch: UUID
 }
 
-/// A durable cross-process fence shared by the app, intents and widget readers.
+/// A durable cross-process fence shared by the app and intents.
 /// The app owns transitions; consumers may only open a journal using the active lease.
 public struct AccountPartitionRouter: Sendable {
   private let directory: URL

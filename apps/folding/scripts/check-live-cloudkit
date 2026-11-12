@@ -36,7 +36,6 @@ def main() -> int:
     settings = {
         "DEVELOPMENT_TEAM": release["apple_team_id"],
         "FOLDING_APP_BUNDLE_ID": identity["bundle_id"],
-        "FOLDING_WIDGET_BUNDLE_ID": identity["widget_bundle_id"],
         "FOLDING_APP_GROUP_IDENTIFIER": identity["app_group"],
         "FOLDING_CLOUD_CONTAINER_IDENTIFIER": identity["cloudkit_container"],
         "FOLDING_API_ORIGIN": (

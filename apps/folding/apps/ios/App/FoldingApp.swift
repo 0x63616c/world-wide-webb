@@ -49,7 +49,6 @@ import SwiftUI
         if phase == .active { await updatePolicy.refresh() }
       }
     }
-    .onOpenURL { controller.presentation.openWidgetURL($0) }
     .task { controller.attachPushDelegate(pushDelegate) }
     .task { TipStore.shared.start() }
     .task { await controller.recordLifecycle(scenePhase) }

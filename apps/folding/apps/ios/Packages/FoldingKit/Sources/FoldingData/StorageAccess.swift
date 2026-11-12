@@ -2,7 +2,7 @@ import Foundation
 import Synchronization
 
 /// The app supplies a short background assertion before shared storage acquires any lock.
-/// Kept independent of UIKit so widget extensions and command-line probes can use the data layer.
+/// Kept independent of UIKit so command-line probes can use the data layer.
 public enum StorageAccess {
   public typealias Begin = @Sendable () throws -> StorageAccessLease
   // A bare closure in generic inout storage gains call frames on every read

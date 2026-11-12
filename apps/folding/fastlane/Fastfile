@@ -61,7 +61,7 @@ platform :ios do
     end
   end
 
-  desc "Idempotently register production app and widget bundle IDs"
+  desc "Idempotently register the production app bundle ID"
   lane :register_bundles do
     begin
       result = FoldingAppleAccount.register_bundles
@@ -192,7 +192,6 @@ platform :ios do
     settings = {
       "DEVELOPMENT_TEAM" => FoldingRelease::CONFIG.fetch("apple_team_id"),
       "FOLDING_APP_BUNDLE_ID" => identity.fetch("bundle_id"),
-      "FOLDING_WIDGET_BUNDLE_ID" => identity.fetch("widget_bundle_id"),
       "FOLDING_APP_GROUP_IDENTIFIER" => identity.fetch("app_group"),
       "FOLDING_CLOUD_CONTAINER_IDENTIFIER" => identity.fetch("cloudkit_container"),
       "FOLDING_API_ORIGIN" => config.fetch("api_origin"), "FOLDING_ENVIRONMENT" => environment,

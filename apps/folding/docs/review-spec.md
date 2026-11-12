@@ -20,7 +20,7 @@ This is the single document to review. It combines requirements already agreed w
 
 A free, beautifully native iPhone Duo app that quietly records folding activity, makes personal habits interesting, and offers optional friendly competition. Everything works without payment. Tips support development.
 
-The experience has four tabs: **Today**, **History**, **Leaderboard**, and **Settings**. People can finish setup and then rely on widgets, returning when they want detail.
+The experience has four tabs: **Analytics**, **History**, **Leaderboard**, and **Settings**. Analytics leads with all-time totals; History provides dated detail.
 
 Ship all core capabilities described here in v1. Do not add social feeds, messaging, subscriptions, import, Android support, or a separate iPad/Mac app. No haptic-engine background tracking. The owner selected **Folding** as the final product name. App Store registration is pending; initial public searches found no exact app-name match. Proposed subtitle: **Fold Stats & Leaderboards**. The owner purchased **getfolding.app** and selected **0x63616c/folding** as the private project repository.
 
@@ -58,44 +58,46 @@ V1 offers **Equivalent travel**, a secondary optional statistic rather than a cl
 - A short info sheet says: “A playful full-swing equivalent based on your recorded folds, not measured movement.” Partial folds receive the same equivalent.
 - This is never described as physical hinge wear, actual phone-edge distance, or measured travel, and never determines rankings.
 
-This keeps the fun distance idea without introducing an unreliable background sensor dependency. It can be disabled in the summary.
+This keeps the fun distance idea without introducing an unreliable background sensor dependency. It remains in export and is not a home card.
 
 ## 3. Guided setup
 
-1. Show the opening automation and its exact Folding action, **Log Duo Opened**. Open Shortcuts, then let the user confirm they added it. Returning from Shortcuts alone does not start a test.
+1. Show **Welcome to Folding** with the device closed. Require a closed hinge posture, or an explicit closed confirmation when hinge state is unavailable. Then show the opening automation and its exact Folding action, **Log Duo Opened**. Open Shortcuts, then let the user confirm they added it. Returning from Shortcuts alone does not start a test.
 2. Prompt the physical opening and confirm the event. Start checking automatically when a known hinge posture shows the Duo is ready. If hinge state is unavailable or setup resumes at this step, offer a single **Start test** action with the starting posture shown.
 3. Repeat for the closing automation, using **Log Duo Closed**.
-4. Show a brief success state and the Today screen.
+4. Show a brief success state and the Analytics screen.
 
 Do not ask for competition login or notification permission before tracking works. If iCloud is unavailable, explain that local tracking works and sync can resume later.
 
-Preserve setup progress across app switches. The user should not watch a countdown. A manual test action is a fallback for unavailable hinge state or resumed setup. While checking, show which movement to make and that the app is waiting for Shortcuts. Failed tests offer Retry and a Shortcuts handoff. Returning users can run setup again from Settings without erasing data or creating duplicate automations unnecessarily.
+Preserve setup progress across app switches. The user should not watch a countdown. A manual test action is a fallback for unavailable hinge state or resumed setup. While checking, show which movement to make and that the app is waiting for Shortcuts. Failed tests offer Retry and a Shortcuts handoff. Returning users can run setup again from Settings without erasing data or creating duplicate automations unnecessarily. They can cancel a rerun from the bottom of the flow; first-time setup stays required.
 
 Status shows “Setup tested,” individual open/close test results, and last received event. Do not imply direct knowledge of an automation's enabled state. No events for a while does not trigger an alarming failure message.
 
 Use native motion and a simple animated device illustration. Respect Reduce Motion and make all steps understandable without animation. Verify actual Shortcuts labels and handoff destinations per supported language/OS.
 
-## 4. Today, History, and widgets
+## 4. Analytics and History
 
-### Today
+### Analytics
 
-Default order: today's folds; time unfolded; seven-day trend. A compact setup/sync status appears only when helpful. An Edit Summary sheet allows selection and reordering of opens, closes, cycles, lifetime folds, equivalent travel, and competition rank. Competition cards are absent until the user joins.
+The home tab is Analytics. Show a fixed list: all-time folds, time unfolded, opens,
+closes, completed cycles, today's folds, and a seven-day trend. There is no summary
+editor, visibility setting, card reorder action, or pull-to-refresh gesture. On the
+wide Duo canvas, give the chart its own half-width column and place compact cards in
+a two-column grid beside it. A compact setup/sync status appears only when useful.
 
 ### History
 
-Offer day, week, month, and all-time ranges, an accessible chart, and session details. The chart supplies the selected-bin breakdown without repeating every zero-value bin as a list row. Label interrupted sessions clearly. Use two columns for chart and sessions on the wider Duo canvas. No streak pressure or notification barrage.
-
-### Widgets
-
-Ship small and medium Home Screen widgets and rectangular/circular Lock Screen widgets. Supported choices are today's folds, time unfolded, weekly trend where space permits, and daily threshold progress. Use appropriate layouts for each family rather than squeezing every metric into every size.
-
-Each widget has its own metric selection. Use black tint in light mode and white tint in dark mode where system rendering allows, and respect the system's tinted/monochrome appearance. Tapping opens the relevant app destination. Updates are best-effort within WidgetKit limits, not guaranteed live fold-by-fold refreshes.
+Offer day, week, month, and all-time ranges, an accessible chart, and session details.
+The chart supplies the selected-bin breakdown without repeating every zero-value bin
+as a list row. Label interrupted sessions clearly. On the wider Duo canvas, the
+chart and session panels should fill the same visible height; sessions scroll within
+their panel. No streak pressure or notification barrage.
 
 ### Appearance
 
 System appearance is the default; Light and Dark overrides are available. Use white tint in dark mode and black tint in light mode, with no tint setting. Use native typography, controls, navigation, sheets, and chart interactions; Liquid Glass belongs on appropriate system surfaces rather than every card.
 
-Layouts adapt deliberately between outer and inner displays: small count cards pair in two columns, charts expand, and History places chart and sessions side by side when space allows. Equivalent travel defaults to the device's usual unit, with metres/feet override in Settings. Support Dynamic Type, VoiceOver, increased contrast, Reduce Motion, and non-color status cues.
+Layouts adapt deliberately between outer and inner displays: small count cards pair in two columns, charts expand, and History places chart and sessions side by side when space allows. Support Dynamic Type, VoiceOver, increased contrast, Reduce Motion, and non-color status cues.
 
 ### Minimal UI copy — mandatory review criterion
 
@@ -129,7 +131,7 @@ Let users crop and preview their own avatar. Accept bounded raster uploads, vali
 
 Validate display names server-side on creation and changes. Normalize Unicode for abuse detection, check whole words and common obfuscations against a versioned multilingual profanity/slur policy, and rate-limit changes. Avoid naive substring matching that rejects innocent names. Reject clear violations with “Choose another name”; publish all other valid names immediately. Do not create a human approval queue or hold signup pending review. Administrators can remove abusive public names or ban accounts afterward.
 
-Overlay tasteful gold, silver, and bronze crowns on top-ranked avatars for the selected period. Crowns are app-rendered rank markers, never baked into uploaded images. Preserve rank text/accessibility labels rather than relying only on color. Allow an optional native share-sheet card of the user's own placement, avatar, crown, score, and period. Show a preview; never share automatically. Current placements are identified by period/date, and finalized result cards use the recorded result.
+Overlay tasteful gold, silver, and bronze crowns on top-ranked avatars for the selected period. Crowns are app-rendered rank markers, never baked into uploaded images. Preserve rank text/accessibility labels rather than relying only on color. Do not offer result-sharing controls in the app.
 
 ### Periods and ranking
 
@@ -141,7 +143,7 @@ Overlay tasteful gold, silver, and bronze crowns on top-ranked avatars for the s
 - Show a compact podium, ranked list, and a pinned “You” position.
 - New users can join mid-period; label their join date rather than prorating scores.
 
-Allow 24 hours after a weekly/monthly period ends for valid late uploads. Attribute events to periods by validated event time; require durable server receipt before the cutoff. During that window results are provisional. Finalization includes only submissions received before the cutoff and approved by finalization; quarantined submissions remain excluded. Later arrivals or approvals can still enter personal history and all-time competition, subject to validation, but never automatically reopen finalized periods. Historical changes require an explicit audited correction. Then send finalized results.
+Allow 24 hours after a weekly/monthly period ends for valid late uploads. Attribute events to periods by validated event time; require durable server receipt before the cutoff. During that window results are provisional. Finalization includes only submissions received before the cutoff and approved by finalization; quarantined submissions remain excluded. Later arrivals or approvals can still enter personal history and all-time competition, subject to validation, but never automatically reopen finalized periods. Historical changes require an explicit audited correction. Keep finalized results in the backend without showing result notifications in the app.
 
 ### Competition comparisons
 
@@ -149,7 +151,7 @@ Owner decision, November 8: do not display percentile or “More folds than X%�
 
 ### Historical results
 
-Your Results lives in the Leaderboard tab and shows finalized weekly/monthly rank, score, participant count, and medals, with period navigation. Store finalized snapshots rather than recomputing them from live totals. Show provisional status before finalization.
+Store finalized weekly/monthly snapshots in the backend rather than recomputing them from live totals. Do not show historical results in the app. Leaderboard opens at All Time.
 
 On reset, leaving competition, or account deletion, remove that person's public scores and their own result history, remove public identity references from historical entries and cached share data, and cancel queued result notifications. A reset may retain the current profile for future participation, but must remove its association with erased results. Leaving/deletion also removes avatar assets and cached derivatives. Preserve other users' already-earned results; anonymize/remove affected public entries rather than silently rerank historical awards. Confirmed cheating can trigger an explicit, audited period correction and medal reissue. Never send duplicate original award notifications after a correction.
 
@@ -163,21 +165,13 @@ Use eligible verified competition history since joining/current reset, including
 
 ## 7. Notifications, daily limit, and reviews
 
-All notification categories begin off. Ask for system permission when the user enables their first category. Settings offers:
-
-- Daily limit reached: On / Off.
-- Weekly result: Off / All results / Podium only.
-- Monthly result: Off / All results / Podium only.
-
-Send at most one result notification per participant per period; Podium only filters to finalized medal-winning results. Daily limits are reminders; logging continues. Send at most one threshold alert per home-timezone day. Editing the threshold or timezone does not produce another alert for the same already-alerted day. Check a newly lowered threshold on the next real event, not immediately in Settings.
-
-Competition notifications follow finalization and are delivered at the next 09:00 in the user's home timezone. Recheck current opt-in preferences and account state before sending. Provide the results in-app regardless of push delivery. Daily threshold alerts happen when crossed and respect system Focus behavior.
+All notification categories begin off. Ask for system permission when the user enables the first category. Settings offers daily limit and badge alerts; weekly/monthly result alerts are retired. Existing result alert choices are turned off on account restore. Daily limits are reminders; logging continues. Send at most one threshold alert per home-timezone day. Editing the threshold or timezone does not produce another alert for the same already-alerted day. Check a newly lowered threshold on the next real event, not immediately in Settings. Daily threshold alerts respect system Focus behavior.
 
 Use Apple's standard review request after setup is complete and three separate days of recorded use, when the user next views a completed summary. No additional seven-day wait applies. Allow at least 30 days between request attempts, including attempts where the system does not display a prompt. Avoid setup, error, reset, and purchase flows. Do not ask a satisfaction question first. Let the system govern whether the prompt appears.
 
 ## 8. Reset, privacy, and account deletion
 
-**Reset history** clears personal events, sessions, public scores, own historical placements, and medals. Keep appearance, widgets, notification choices, and the daily threshold. Keep the competition identity and opt-in choice so future valid folds start again from zero. Explain this in a concise confirmation sheet.
+**Reset history** clears personal events, sessions, public scores, own historical placements, and medals. Keep appearance, remaining notification choices, and the daily threshold. Keep the competition identity and opt-in choice so future valid folds start again from zero. Explain this in a concise confirmation sheet.
 
 A reset creates a new data generation so stale queued events cannot restore erased totals. Persist a small reset marker independently of event cleanup. Order markers by a logical revision (one greater than the highest known revision), then a unique reset ID as a deterministic tie-breaker; do not depend on device wall clocks. iCloud clients and the backend converge on the greatest marker. A later winning marker invalidates older-generation events and competition totals even if they were already synchronized. Never relabel events into a different generation.
 
@@ -195,7 +189,7 @@ App Attest verifies installation/request integrity; it does not certify physical
 
 Do not trust a client-supplied “verified fold” flag or submitted total. Rate-limit network requests separately from physical-event plausibility. Batch uploads after offline time are expected. Quarantine suspicious event patterns for review; do not automatically permanently ban someone for a single anomaly. Define and tune numeric thresholds using measured legitimate device behavior during implementation.
 
-Intents durably queue events in the shared store before completing. Attempt verified uploads from supported execution contexts, retry with backoff, and drain the queue on app activation. Show a compact pending count when useful; widgets are not a guaranteed upload scheduler. Prove the attested upload route, including locked/background execution and users who rarely open the app, in the first device spike. If routine background delivery cannot be achieved, resolve the impact on the 24-hour cutoff before shipping competition; do not silently promise weekly credit for locally queued events.
+Intents durably queue events in the shared store before completing. Attempt verified uploads from supported execution contexts, retry with backoff, and drain the queue on app activation. Show a compact pending count when useful. Prove the attested upload route, including locked/background execution and users who rarely open the app, in the first device spike. If routine background delivery cannot be achieved, resolve the impact on the 24-hour cutoff before shipping competition; do not silently promise weekly credit for locally queued events.
 
 Attestation outages leave local tracking intact and public submissions pending. Never silently bypass verification in production. Simulators use isolated development fixtures only.
 
@@ -209,7 +203,7 @@ Use simple Rust-rendered HTML tables and forms with a small stylesheet; no SPA o
 
 ## 10. Technical direction
 
-Use SwiftUI, Swift Charts, WidgetKit, App Intents, AuthenticationServices, StoreKit, UserNotifications, and DeviceCheck/App Attest. Use a shared App Group store for app/intent/widget access.
+Use SwiftUI, Swift Charts, App Intents, AuthenticationServices, StoreKit, UserNotifications, and DeviceCheck/App Attest. Use a shared App Group store for app/intent access.
 
 Selected persistence: a transactional system SQLite3 App Group journal with immutable event IDs/reset generations, plus a private Core Data/CloudKit replication mirror. [ADR 0002](adr/0002-atomic-tracking-storage.md) specifies the cross-process atomicity and asynchronous reconciliation. Treat sync as eventual; do not make foreground UI depend on a network round trip. Validate the multi-process store and CloudKit constraints in an early implementation spike.
 
@@ -235,7 +229,7 @@ All functions are free. Offer three consumable tip products targeting US $0.99, 
 
 Use the private `0x63616c/folding` monorepo. The [architecture plan](architecture.md) defines the initial modules and the [delivery plan](delivery-plan.md) defines execution through submission. Application directories below will be created with their first implementation:
 
-- `apps/ios/`: Swift app, widgets, shared code, resources, and tests.
+- `apps/ios/`: Swift app, shared code, resources, and tests.
 - `backend/`: Cargo workspace with domain and Worker crates; admin HTML templates/assets live with the Worker.
 - `backend/migrations/`: ordered D1 schema migrations.
 - `contracts/`: versioned API schemas and cross-language fixtures.
@@ -273,7 +267,7 @@ Apple enrollment, agreements, credentials, and review itself are external depend
 
 ## 13. Quality bar and delivery order
 
-An independent agent reviews rendered screens and recorded flows against this spec: both displays, navigation, animations, localization, accessibility, widgets, empty/error/offline states, and setup. Fix actionable findings and re-review before release. Snapshot tests complement this review; they do not replace visual judgment.
+An independent agent reviews rendered screens and recorded flows against this spec: both displays, navigation, animations, localization, accessibility, empty/error/offline states, and setup. Fix actionable findings and re-review before release. Snapshot tests complement this review; they do not replace visual judgment.
 
 One execution agent performs all implementation; subagents are limited to independent review. Use the [delivery plan's larger batches and three validation checkpoints](delivery-plan.md#delivery-rules). Build continuously within a batch; run expensive checks at its completion or for a specific new risk, while preserving all release acceptance requirements.
 
@@ -281,7 +275,7 @@ Implementation order after spec review:
 
 1. Establish the native shell, basic CI, Fastlane build/signing lanes, and a screenshot smoke capture. Add persistence, intent logging, physical-device trigger tests, and the attested upload spike.
 2. Deliver guided setup, personal statistics, sync, reset/export, and themes.
-3. Add widgets and complete localized flows.
+3. Complete localized flows.
 4. Deliver competition, security, historical results, notifications, and administration.
 5. Add tips and review timing; complete CI coverage, localized screenshot generation, and release/listing automation on the foundation established in step one.
 6. Run independent UI review, device/beta checks, and the release rehearsal.
@@ -305,8 +299,7 @@ The owner explicitly resumed app implementation and internal TestFlight shipping
 leaving Penpot proposals outside this work. This update supersedes older UI
 details: use SF Rounded, consistent rounded cards and equal stat insets; remove
 Equivalent travel from visible UI/preferences. The main Time unfolded value
-includes the active bounded session and ticks in the foreground. Today cards
-support persisted drag-and-drop ordering and a native accessible editor.
+includes the active bounded session and ticks in the foreground. Analytics cards use a fixed order and cannot be hidden or reordered.
 
 History navigation stops at the first recorded period. Its session area scrolls
 within a bounded height. Month scrubbing shows the full localized month/day in
@@ -317,16 +310,15 @@ durable offline retry. Published historical result versions remain immutable
 and retain the existing correction policy.
 
 Only successful Shortcuts checks use a small green tick. Notification switches
-use monochrome contrast. Competition result notification choices require joining;
-local daily-limit alerts remain independent. Authenticated unjoined users can
+use monochrome contrast. Local daily-limit alerts remain independent. Authenticated unjoined users can
 continue name/photo review without another Apple grant. The tip jar thanks indie
 developer supporters and celebrates verified purchases, respecting Reduce Motion.
 Broader App Store and physical-device acceptance remain deferred.
 
-Owner decision, November 8: leaving competition is not a separate action. Users who want to stop participation delete their competition account; personal tracking remains separate. Remove the Leave UI, transport, polling state and server handler. The leaderboard uses This Week / This Month / All Time, shows a shimmering podium placeholder and a loading list while fetching results (static placeholders with Reduce Motion), hiding previous people and scores immediately when the period changes, and Your Results includes live All Time totals/rank rather than a fabricated finalized award.
+Owner decision, November 8: leaving competition is not a separate action. Users who want to stop participation delete their competition account; personal tracking remains separate. Remove the Leave UI, transport, polling state and server handler. The leaderboard uses This Week / This Month / All Time, shows a shimmering podium placeholder and a loading list while fetching results (static placeholders with Reduce Motion), hiding previous people and scores immediately when the period changes, and opens at All Time. Historical results stay in backend storage only.
 
 ## Owner compatibility decision — November 8, 2026
 
 The owner explicitly selected a whole-app required-update screen once a confirmed remotely configured minimum build exceeds the installed build. This supersedes earlier guidance that a release handshake never disables private UI. Unknown/unreachable policy alone must not block offline use; a known requirement remains cached. Saved history/background observations must not be erased or terminally rejected. Policy rollback and a supported new installation can recover access. See [client compatibility](technical/client-compatibility.md), #56 and the separate offline cold-start caveat #57. This is not provider/device acceptance.
 
-Owner decision, November 8: remove all crown artwork from leaderboard avatars, result views and share cards. Keep the larger centered winner, static silver/bronze podium rings, and gold-only shimmer/particles with a Reduce Motion fallback.
+Owner decision, November 8: remove all crown artwork from leaderboard avatars. Keep the larger centered winner, static silver/bronze podium rings, and gold-only shimmer/particles with a Reduce Motion fallback.
