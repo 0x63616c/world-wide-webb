@@ -21,7 +21,10 @@ for name in ["AppIcon", "AppIcon-Dark", "AppIcon-Tinted"] {
       bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue)
   else { fatalError("Cannot create icon canvas") }
   context.interpolationQuality = .high
-  context.draw(image, in: CGRect(x: 0, y: 0, width: 1024, height: 1024))
+  context.setFillColor(CGColor(gray: 0, alpha: 1))
+  context.fill(CGRect(x: 0, y: 0, width: 1024, height: 1024))
+  // The selected mark has slightly more black space below it; lower it by 5 px.
+  context.draw(image, in: CGRect(x: 0, y: -5, width: 1024, height: 1024))
   guard let rendered = context.makeImage() else { fatalError("Cannot render icon") }
   let encoded = NSMutableData()
   guard
