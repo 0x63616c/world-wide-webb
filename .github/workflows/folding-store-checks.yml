@@ -53,6 +53,8 @@ jobs:
             apps/folding/build/store-assets/**/assets/native-control/application.log
             apps/folding/build/store-assets/**/assets/native-control/host-stage.txt
             apps/folding/build/store-assets/**/assets/native-control/host-hierarchy.txt
+            apps/folding/build/store-assets/**/assets/results/*.xcresult
+            apps/folding/build/store-assets/**/assets/logs
           if-no-files-found: ignore
           retention-days: 7
       - uses: actions/upload-artifact@v4

@@ -65,4 +65,21 @@ class NativeScreenshotsTest < Minitest::Test
     rows = height.times.map { |y| "\0".b + [y % 256, 120, 220, alpha].pack('CCCC') * width }.join
     File.binwrite(path, "\x89PNG\r\n\x1a\n".b + chunk('IHDR', [width, height, 8, 6, 0, 0, 0].pack('NNCCCCC')) + chunk('IDAT', Zlib.deflate(rows)) + chunk('IEND', ''))
   end
+
+  def test_configured_scenes_resolve_actual_navigation_titles_for_every_locale
+    scenes = FoldingRelease::Assets::PLAN.fetch('scenarios') + FoldingRelease::Assets::PLAN.fetch('review_scenarios')
+    FoldingRelease::Assets::LOCALES.each do |locale|
+      localized = FoldingRelease::Assets.localized_scenes(scenes, locale)
+      assert_equal scenes.map { |scene| scene.fetch('id') }, localized.map { |scene| scene.fetch('id') }
+      assert localized.all? { |scene| !scene.fetch('title').strip.empty? }
+    end
+    first = FoldingRelease::Assets.localized_scenes(scenes, {'app_locale' => 'en'}).first
+    assert_equal 'Today', first.fetch('title')
+  end
+
+  def test_missing_localized_title_fails_before_capture
+    assert_raises(KeyError) do
+      FoldingRelease::Assets.localized_scenes([{'title_key' => 'missing.capture.title'}], {'app_locale' => 'en'})
+    end
+  end
 end

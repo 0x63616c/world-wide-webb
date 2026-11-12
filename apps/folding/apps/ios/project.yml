@@ -159,7 +159,6 @@ targets:
         FOLDING_CLOUD_CONTAINER_IDENTIFIER: ''
         FOLDING_API_ORIGIN: ''
         FOLDING_ENVIRONMENT: ''
-        ENABLE_TESTABILITY: YES
         SWIFT_OPTIMIZATION_LEVEL: '-O'
     dependencies:
       - package: FoldingKit

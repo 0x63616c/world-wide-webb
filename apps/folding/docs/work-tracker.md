@@ -739,3 +739,14 @@ capture app/UI-runner build pass. Next: self-review, source-bound remote capture
 comparison with the running native app, green required CI and the ordinary release flow.
 The reason for the flat rail remains unproven until this native comparison; no production
 glass styling has been changed. Existing provider/device deferrals remain deferred.
+
+
+Native capture follow-up: #1041 merged as `fde68020e4024abbf645d1bd378af3e34c5b5388`.
+Main CI passed and build 27 is Apple VALID/in Folding Internal. Capture run 43156792971
+successfully launched the app at the native inner geometry, then failed because the
+custom UIWindow accessibility identifier was absent from XCTest. Replace that probe
+with the actual localized navigation title from the app's existing string catalog,
+remove the artificial window metadata, and retain the UI-test xcresult/logs on failure.
+No App Store submission has been made; build 27 and its receipt remain preserved.
+The screenshot app also drops the obsolete internal-testability setting: its new
+UI runner uses public screen/navigation APIs and no longer imports the app module.
