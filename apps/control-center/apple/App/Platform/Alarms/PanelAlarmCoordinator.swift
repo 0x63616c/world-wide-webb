@@ -51,17 +51,33 @@ public actor PanelAlarmCoordinator {
     private func request(method: String, body: Data? = nil, key: String? = nil, action: Bool = false) async throws
         -> Data
     {
-        let endpoint = serverURL.appendingPathComponent(action ? "api/v1/alarms/action" : "api/v1/alarms")
-        var request = URLRequest(url: endpoint, timeoutInterval: 12)
-        request.httpMethod = method
-        request.httpBody = body
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue(key, forHTTPHeaderField: "Idempotency-Key")
-        let (data, response) = try await session.data(for: request)
-        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
-            throw PanelAlarmError.server((response as? HTTPURLResponse)?.statusCode ?? 0)
+        let started = ProcessInfo.processInfo.systemUptime
+        var status: Int?
+        var outcome = "ok"
+        defer {
+            let elapsed = Int((ProcessInfo.processInfo.systemUptime - started) * 1000)
+            PanelEventLog.shared.record(
+                category: "network", action: "\(method).alarms",
+                outcome: outcome == "ok" && elapsed >= 1000 ? "slow" : outcome,
+                status: status, durationMs: elapsed)
         }
-        return data
+        do {
+            let endpoint = serverURL.appendingPathComponent(action ? "api/v1/alarms/action" : "api/v1/alarms")
+            var request = URLRequest(url: endpoint, timeoutInterval: 12)
+            request.httpMethod = method
+            request.httpBody = body
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.setValue(key, forHTTPHeaderField: "Idempotency-Key")
+            let (data, response) = try await session.data(for: request)
+            status = (response as? HTTPURLResponse)?.statusCode
+            guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+                throw PanelAlarmError.server((response as? HTTPURLResponse)?.statusCode ?? 0)
+            }
+            return data
+        } catch {
+            outcome = error is CancellationError ? "cancelled" : (status == nil ? "transport_error" : "http_error")
+            throw error
+        }
     }
 
     public func create(at: Date, label: String) async throws {

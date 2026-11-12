@@ -53,13 +53,15 @@ public struct PanelAPIClient: Sendable {
     private let configuration: PanelConfiguration?
     private let transport: any PanelTransport
     private let commandLog: PanelCommandLog
+    private let eventLog: PanelEventLog
     public init(
         configuration: PanelConfiguration?, transport: any PanelTransport = PanelAPIClient.defaultTransport,
-        commandLog: PanelCommandLog = .shared
+        commandLog: PanelCommandLog = .shared, eventLog: PanelEventLog = .shared
     ) {
         self.configuration = configuration
         self.transport = transport
         self.commandLog = commandLog
+        self.eventLog = eventLog
     }
     public func get<Output: Decodable & Sendable>(_ path: String, as: Output.Type) async throws -> Output {
         try await perform(path, method: "GET", input: nil, as: Output.self)
@@ -97,51 +99,83 @@ public struct PanelAPIClient: Sendable {
         return c
     }
     public func photoData(collection: String, path: String) async throws -> Data {
-        let c = try configured()
-        let prefix = "/media/booth-photos/"
-        let path = path.hasPrefix(prefix) ? String(path.dropFirst(prefix.count)) : path
-        guard collection == "booth-photos", !path.isEmpty, !path.contains(".."), !path.contains("%"),
-            !path.hasPrefix("/"), !path.contains(":"),
-            path.allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber || "-_./".contains($0)) })
-        else {
-            throw PanelAPIError.transport("Invalid photo path.")
+        let started = ProcessInfo.processInfo.systemUptime
+        var status: Int?
+        var outcome = "ok"
+        defer {
+            let elapsed = Int((ProcessInfo.processInfo.systemUptime - started) * 1000)
+            eventLog.record(
+                category: "network", action: "GET.booth_photo",
+                outcome: outcome == "ok" && elapsed >= 1000 ? "slow" : outcome,
+                status: status, durationMs: elapsed)
         }
-        var request = URLRequest(
-            url: c.baseURL.appendingPathComponent("media/booth-photos/" + path),
-            timeoutInterval: c.requestTimeout)
-        let (data, response) = try await transport.send(request)
-        try Task.checkCancellation()
-        guard response.statusCode == 200 else { throw PanelAPIError.http(status: response.statusCode) }
-        guard response.mimeType?.hasPrefix("image/") == true, data.count <= 20 * 1024 * 1024 else {
-            throw PanelAPIError.decoding("Invalid photo response.")
+        do {
+            let c = try configured()
+            let prefix = "/media/booth-photos/"
+            let path = path.hasPrefix(prefix) ? String(path.dropFirst(prefix.count)) : path
+            guard collection == "booth-photos", !path.isEmpty, !path.contains(".."), !path.contains("%"),
+                !path.hasPrefix("/"), !path.contains(":"),
+                path.allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber || "-_./".contains($0)) })
+            else {
+                throw PanelAPIError.transport("Invalid photo path.")
+            }
+            let request = URLRequest(
+                url: c.baseURL.appendingPathComponent("media/booth-photos/" + path),
+                timeoutInterval: c.requestTimeout)
+            let (data, response) = try await transport.send(request)
+            status = response.statusCode
+            try Task.checkCancellation()
+            guard response.statusCode == 200 else { throw PanelAPIError.http(status: response.statusCode) }
+            guard response.mimeType?.hasPrefix("image/") == true, data.count <= 20 * 1024 * 1024 else {
+                throw PanelAPIError.decoding("Invalid photo response.")
+            }
+            return data
+        } catch {
+            outcome = Self.diagnosticOutcome(for: error)
+            throw error
         }
-        return data
     }
     public func uploadBoothPhoto(jpeg: Data, capturedAt: Date) async throws {
-        let milliseconds = capturedAt.timeIntervalSince1970 * 1000
-        guard jpeg.count >= 3, jpeg.starts(with: [0xff, 0xd8, 0xff]), jpeg.count <= 4 * 1024 * 1024,
-            milliseconds.isFinite, milliseconds > 0, milliseconds < Double(Int64.max)
-        else {
-            throw PanelAPIError.transport("Invalid photo.")
+        let started = ProcessInfo.processInfo.systemUptime
+        var status: Int?
+        var outcome = "ok"
+        defer {
+            let elapsed = Int((ProcessInfo.processInfo.systemUptime - started) * 1000)
+            eventLog.record(
+                category: "network", action: "POST.booth_photo",
+                outcome: outcome == "ok" && elapsed >= 1000 ? "slow" : outcome,
+                status: status, durationMs: elapsed)
         }
-        let c = try configured()
-        var request = URLRequest(
-            url: c.baseURL.appendingPathComponent("media/booth-photo"), timeoutInterval: c.requestTimeout)
-        request.httpMethod = "POST"
-        request.httpBody = jpeg
-        request.setValue("image/jpeg", forHTTPHeaderField: "Content-Type")
-        request.setValue("photo", forHTTPHeaderField: "x-mode")
-        request.setValue(String(Int64(milliseconds)), forHTTPHeaderField: "x-captured-at")
-        let (data, response) = try await transport.send(request)
-        try Task.checkCancellation()
-        guard response.statusCode == 201 else { throw PanelAPIError.http(status: response.statusCode) }
-        struct Receipt: Decodable {
-            let id: String
-            let path: String
+        do {
+            let milliseconds = capturedAt.timeIntervalSince1970 * 1000
+            guard jpeg.count >= 3, jpeg.starts(with: [0xff, 0xd8, 0xff]), jpeg.count <= 4 * 1024 * 1024,
+                milliseconds.isFinite, milliseconds > 0, milliseconds < Double(Int64.max)
+            else {
+                throw PanelAPIError.transport("Invalid photo.")
+            }
+            let c = try configured()
+            var request = URLRequest(
+                url: c.baseURL.appendingPathComponent("media/booth-photo"), timeoutInterval: c.requestTimeout)
+            request.httpMethod = "POST"
+            request.httpBody = jpeg
+            request.setValue("image/jpeg", forHTTPHeaderField: "Content-Type")
+            request.setValue("photo", forHTTPHeaderField: "x-mode")
+            request.setValue(String(Int64(milliseconds)), forHTTPHeaderField: "x-captured-at")
+            let (data, response) = try await transport.send(request)
+            status = response.statusCode
+            try Task.checkCancellation()
+            guard response.statusCode == 201 else { throw PanelAPIError.http(status: response.statusCode) }
+            struct Receipt: Decodable {
+                let id: String
+                let path: String
+            }
+            guard let receipt = try? JSONDecoder().decode(Receipt.self, from: data), !receipt.id.isEmpty,
+                !receipt.path.isEmpty
+            else { throw PanelAPIError.decoding("Photo save wasn’t confirmed.") }
+        } catch {
+            outcome = Self.diagnosticOutcome(for: error)
+            throw error
         }
-        guard let receipt = try? JSONDecoder().decode(Receipt.self, from: data), !receipt.id.isEmpty,
-            !receipt.path.isEmpty
-        else { throw PanelAPIError.decoding("Photo save wasn’t confirmed.") }
     }
     private func encode<Input: Encodable>(_ input: Input) throws -> Data {
         do { return try JSONEncoder().encode(input) } catch {
@@ -151,16 +185,26 @@ public struct PanelAPIClient: Sendable {
     private func perform<Output: Decodable & Sendable>(
         _ path: String, method: String, input: Data?, as: Output.Type
     ) async throws -> Output {
-        let started = Date()
+        let started = ProcessInfo.processInfo.systemUptime
         var status: Int?
         var failure: String?
+        var outcome = "ok"
         defer {
-            if method != "GET" && path != "diagnostics" {
+            if path != "diagnostics" && path != "diagnostics/events" {
+                // Resource category only: paths and query values may contain private IDs.
+                let resource = path.split(separator: "/").first.map(String.init) ?? "unknown"
+                let elapsed = Int((ProcessInfo.processInfo.systemUptime - started) * 1000)
+                eventLog.record(
+                    category: "network", action: "\(method).\(resource)",
+                    outcome: outcome == "ok" && elapsed >= 1000 ? "slow" : outcome,
+                    status: status, durationMs: elapsed)
+            }
+            if method != "GET" && path != "diagnostics" && path != "diagnostics/events" {
                 // Only the resource category is logged, never identifiers or credentials.
                 commandLog.record(
                     control: path.split(separator: "/").first.map(String.init) ?? "command",
                     input: input, status: status, error: failure,
-                    latencyMs: Int(Date().timeIntervalSince(started) * 1000))
+                    latencyMs: Int((ProcessInfo.processInfo.systemUptime - started) * 1000))
             }
         }
         do {
@@ -227,7 +271,18 @@ public struct PanelAPIClient: Sendable {
             }
         } catch {
             failure = error is CancellationError ? "cancelled" : "request failed"
+            outcome = Self.diagnosticOutcome(for: error)
             throw error
+        }
+    }
+    private static func diagnosticOutcome(for error: Error) -> String {
+        switch error {
+        case is CancellationError: "cancelled"
+        case PanelAPIError.notConfigured: "not_configured"
+        case PanelAPIError.transport: "transport_error"
+        case PanelAPIError.decoding: "decoding_error"
+        case PanelAPIError.http, PanelAPIError.server: "http_error"
+        default: "error"
         }
     }
     private static func code(_ status: Int) -> String {

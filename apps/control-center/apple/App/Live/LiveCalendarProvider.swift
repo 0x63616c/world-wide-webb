@@ -33,6 +33,7 @@ import PanelKit
             return
         }
         refreshing = true
+        let started = ProcessInfo.processInfo.systemUptime
         let generation = generation
         defer {
             refreshing = false
@@ -66,8 +67,13 @@ import PanelKit
             events = records.map { project($0, now: now, calendar: calendar) }
             referenceDate = now
             availability = .live
+            let elapsed = Int((ProcessInfo.processInfo.systemUptime - started) * 1000)
+            if elapsed >= 1000 { PanelEventLog.shared.record(category: "platform", action: "calendar.refresh", outcome: "slow", durationMs: elapsed) }
         } catch {
             guard generation == self.generation else { return }
+            let outcome = error is CancellationError ? "cancelled" : "error"
+            PanelEventLog.shared.record(category: "platform", action: "calendar.refresh", outcome: outcome,
+                                        durationMs: Int((ProcessInfo.processInfo.systemUptime - started) * 1000))
             clear()
             if case CalendarAPIError.accessDenied = error {
                 availability = .unavailable("Calendar access is off: allow in Settings")

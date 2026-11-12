@@ -106,43 +106,75 @@ struct PanelSettingsPage: View {
     private enum Page: String, CaseIterable, Identifiable {
         case display = "Display"
         case security = "Security"
+        case diagnostics = "Diagnostics"
         var id: String { rawValue }
-        var symbol: String { self == .display ? "display" : "lock.shield" }
+        var symbol: String {
+            switch self {
+            case .display: "display"
+            case .security: "lock.shield"
+            case .diagnostics: "waveform.path.ecg"
+            }
+        }
     }
     @State private var selection: Page? = .display
     var body: some View {
         NavigationSplitView(columnVisibility: .constant(.all)) {
             List(Page.allCases, selection: $selection) { page in
                 Label(page.rawValue, systemImage: page.symbol).tag(page)
-            }.navigationTitle("Settings")
-                .toolbar(removing: .sidebarToggle)
-                .navigationSplitViewColumnWidth(min: 260, ideal: 300, max: 340)
+            }
+            .scrollContentBackground(.hidden)
+            .background(Color.black)
+            .toolbarBackground(Color.black, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
+            .navigationTitle("Settings")
+            .toolbar(removing: .sidebarToggle)
+            .navigationSplitViewColumnWidth(min: 260, ideal: 300, max: 340)
         } detail: {
             NavigationStack {
-                Form {
-                    if selection == .security {
-                        PanelConnectionSettings()
-                        Section("Panel PIN") {
-                            if let api = integration?.panelPIN {
-                                NavigationLink {
-                                    PanelPINChangePage(api: api)
-                                } label: {
-                                    Label("Change PIN", systemImage: "key.fill")
-                                }.accessibilityIdentifier("settings-change-pin")
-                            } else {
-                                Label("Connect to your panel server to change the PIN", systemImage: "wifi.slash")
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
+                Group {
+                    if selection == .diagnostics {
+                        PanelDiagnosticsView(
+                            store: (integration as? PanelHomePresentation)?.store, close: {}, embedded: true)
                     } else {
-                        PanelDisplaySettings()
+                        Form {
+                            if selection == .security {
+                                PanelConnectionSettings()
+                                Section("Panel PIN") {
+                                    if let api = integration?.panelPIN {
+                                        NavigationLink {
+                                            PanelPINChangePage(api: api)
+                                        } label: {
+                                            Label("Change PIN", systemImage: "key.fill")
+                                        }.accessibilityIdentifier("settings-change-pin")
+                                    } else {
+                                        Label(
+                                            "Connect to your panel server to change the PIN", systemImage: "wifi.slash"
+                                        )
+                                        .foregroundStyle(.secondary)
+                                    }
+                                }
+                            } else {
+                                PanelDisplaySettings()
+                            }
+                        }.formStyle(.grouped)
                     }
-                }.formStyle(.grouped)
-                    .navigationTitle(selection?.rawValue ?? "Display")
+                }
+                .navigationTitle(selection?.rawValue ?? "Display")
             }.id(selection)
         }
         .overlay(alignment: .topTrailing) {
             PanelAppBackButton(back: back).padding(.horizontal, 24).padding(.top, 16)
+        }
+        .onChange(of: selection) { _, page in
+            if let page {
+                PanelEventLog.shared.record(
+                    category: "navigation", action: "settings.\(page.rawValue.lowercased()).open")
+            }
+        }
+        .task {
+            #if DEBUG
+                if ProcessInfo.processInfo.arguments.contains("-previewDiagnostics") { selection = .diagnostics }
+            #endif
         }
         .tint(.blue).preferredColorScheme(.dark)
     }

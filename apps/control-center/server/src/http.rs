@@ -78,6 +78,10 @@ pub fn router(state: AppState) -> Router {
             get(diagnostics::list).post(diagnostics::submit),
         )
         .route("/api/v1/diagnostics/status", get(diagnostics::status))
+        .route(
+            "/api/v1/diagnostics/events",
+            get(diagnostics::events).post(diagnostics::submit_events),
+        )
         .route("/api/v1/settings/pin/verify", post(settings::verify))
         .route(
             "/api/v1/settings/pin",

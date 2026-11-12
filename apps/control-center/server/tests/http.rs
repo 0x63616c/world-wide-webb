@@ -1131,6 +1131,69 @@ async fn diagnostics_accept_only_redacted_bounded_support_evidence() {
 }
 
 #[tokio::test]
+async fn diagnostic_events_are_validated_deduplicated_and_bounded_per_device() {
+    let (dir, app, db) = fixture().await;
+    let device = "f39229d6-7c80-4f75-ab7b-ec9395535395";
+    let event = json!({"id":"52befca6-0a8c-4f9a-a514-23ab01cc5fd9","time":"2026-11-12T12:00:00Z","category":"network","action":"GET.lights","outcome":"http_error","status":503,"durationMs":1200});
+    let submission = json!({"deviceId":device,"deviceLabel":"Kitchen","build":"177","gitSHA":"abcdef0","events":[event]});
+    for _ in 0..2 {
+        assert_eq!(
+            call(
+                &app,
+                "POST",
+                "/api/v1/diagnostics/events",
+                submission.clone()
+            )
+            .await
+            .0,
+            StatusCode::OK
+        );
+    }
+    let fresh = http::router(AppState::new(db.clone(), dir.path().join("media")));
+    let path = format!("/api/v1/diagnostics/events?deviceId={device}");
+    let listed = call(&fresh, "GET", &path, Value::Null).await.1;
+    assert_eq!(listed.as_array().unwrap().len(), 1);
+    let uppercase_path = format!(
+        "/api/v1/diagnostics/events?deviceId={}",
+        device.to_uppercase()
+    );
+    assert_eq!(
+        call(&fresh, "GET", &uppercase_path, Value::Null)
+            .await
+            .1
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+    assert_eq!(listed[0]["event"]["status"], 503);
+    let mut bad = submission.clone();
+    bad["events"][0]["action"] = json!("GET.private-room-id?token=secret");
+    assert_eq!(
+        call(&app, "POST", "/api/v1/diagnostics/events", bad)
+            .await
+            .0,
+        StatusCode::BAD_REQUEST
+    );
+    sqlx::query("INSERT INTO diagnostic_event(device_id,event_id,received_at,data_json,bytes) VALUES(?,?,?,?,?)")
+        .bind(device).bind("synthetic-oversized").bind("2026-11-12T12:00:00Z")
+        .bind("x".repeat(2_000_001)).bind(2_000_001_i64).execute(&db).await.unwrap();
+    assert_eq!(
+        call(&app, "POST", "/api/v1/diagnostics/events", submission)
+            .await
+            .0,
+        StatusCode::OK
+    );
+    let bytes: i64 =
+        sqlx::query_scalar("SELECT coalesce(sum(bytes),0) FROM diagnostic_event WHERE device_id=?")
+            .bind(device)
+            .fetch_one(&db)
+            .await
+            .unwrap();
+    assert!(bytes <= 2_000_000);
+}
+
+#[tokio::test]
 async fn release_publication_still_requires_the_automation_credential() {
     let (_, app, _) = fixture().await;
     let request = Request::builder()

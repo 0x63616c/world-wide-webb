@@ -1,5 +1,6 @@
 import PanelKit
 import SwiftUI
+import UIKit
 
 // Install the delegate before notification responses can arrive on cold launch.
 final class PanelAppDelegate: NSObject, UIApplicationDelegate {
@@ -7,6 +8,7 @@ final class PanelAppDelegate: NSObject, UIApplicationDelegate {
         _ application: UIApplication,
         didFinishLaunchingWithOptions options: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
+        PanelEventLog.shared.record(category: "lifecycle", action: "app.launch")
         PanelTimerAlerts.shared.activate()
         return true
     }
@@ -202,12 +204,53 @@ struct PanelRoot: View {
             navigation.openNativeAlarms()
         }
         .onChange(of: scenePhase, initial: true) { _, phase in
+            let action: String
+            switch phase {
+            case .active: action = "scene.active"
+            case .inactive: action = "scene.inactive"
+            case .background: action = "scene.background"
+            @unknown default: action = "scene.unknown"
+            }
+            PanelEventLog.shared.record(category: "lifecycle", action: action)
             if phase == .active { session.activate() } else { store.stop() }
         }
         .task(id: scenePhase) {
             guard scenePhase == .active else { return }
             let providers = HomeTile.panelProviders.subtracting([.alarms])
             await store.run(modules: providers)
+        }
+        .task(id: scenePhase) {
+            guard scenePhase == .active else { return }
+            #if DEBUG
+                if ProcessInfo.processInfo.arguments.contains("-hybridFixtures") { return }
+            #endif
+            while !Task.isCancelled {
+                await uploadDiagnosticEvents()
+                do { try await Task.sleep(for: .seconds(60)) } catch { return }
+            }
+        }
+        .task(id: scenePhase) {
+            guard scenePhase == .active else { return }
+            #if DEBUG
+                if ProcessInfo.processInfo.arguments.contains("-hybridFixtures") { return }
+            #endif
+            let monitor = Task.detached(priority: .utility) {
+                while !Task.isCancelled {
+                    do { try await Task.sleep(for: .seconds(2)) } catch { return }
+                    let sent = ProcessInfo.processInfo.systemUptime
+                    await MainActor.run {
+                        let delay = Int((ProcessInfo.processInfo.systemUptime - sent) * 1000)
+                        if delay >= 400 && UIApplication.shared.applicationState == .active {
+                            PanelEventLog.shared.record(
+                                category: "performance", action: "main_thread_delay", outcome: "slow", durationMs: delay)
+                        }
+                    }
+                }
+            }
+            defer { monitor.cancel() }
+            while !Task.isCancelled {
+                do { try await Task.sleep(for: .seconds(3600)) } catch { return }
+            }
         }
         .task(id: scenePhase) {
             guard scenePhase == .active else { return }
@@ -263,6 +306,47 @@ struct PanelRoot: View {
         .onDisappear {
             session.stop()
             store.stop()
+        }
+    }
+
+    @MainActor private func uploadDiagnosticEvents() async {
+        let entries = PanelEventLog.shared.snapshot()
+        let key = "panel.diagnostics.lastUploadedEventID"
+        let lastID = UserDefaults.standard.string(forKey: key)
+        let pending: [PanelEventLog.Entry]
+        if let index = entries.firstIndex(where: { $0.id.uuidString == lastID }) {
+            pending = Array(entries.dropFirst(index + 1))
+        } else {
+            pending = entries
+        }
+        struct Receipt: Decodable, Sendable { let accepted: Bool }
+        for start in stride(from: 0, to: pending.count, by: 50) {
+            let batch = Array(pending[start..<min(start + 50, pending.count)])
+            let label = String(UserDefaults.standard.string(forKey: "panel.diagnostics.deviceLabel")?
+                .filter { character in character.unicodeScalars.allSatisfy { !CharacterSet.controlCharacters.contains($0) } }
+                .prefix(32) ?? "")
+            let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "dev"
+            let rawSHA = Bundle.main.object(forInfoDictionaryKey: "PanelGitSHA") as? String ?? "dev"
+            let gitSHA = rawSHA.isEmpty || rawSHA.hasPrefix("$(") ? "dev" : rawSHA
+            do {
+                let receipt = try await store.diagnosticsClient.post(
+                    "diagnostics/events",
+                    input: PanelEventBatch(deviceId: PanelDeviceIdentity.id, deviceLabel: label,
+                                           build: build, gitSHA: gitSHA, entries: batch),
+                    as: Receipt.self)
+                guard receipt.accepted else { return }
+                UserDefaults.standard.set(batch.last?.id.uuidString, forKey: key)
+                UserDefaults.standard.set(Date().ISO8601Format(), forKey: "panel.diagnostics.lastUpload")
+            } catch {
+                let status: Int?
+                switch error {
+                case PanelAPIError.http(let code): status = code
+                case PanelAPIError.server(_, _, let code): status = code
+                default: status = nil
+                }
+                PanelEventLog.shared.record(category: "diagnostics", action: "upload", outcome: "error", status: status)
+                return
+            }
         }
     }
 
