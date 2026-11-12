@@ -676,3 +676,12 @@ Worker publication because of the old source-approval gate. This follow-up must
 pass checks and deliver the combined source before TestFlight is claimed complete.
 App Store submission is requested after TestFlight verification; screenshot approval
 and physical-device acceptance retain their existing requirements/deferrals.
+
+PR #1036 merged as `933c119230eac19261d7f3e5609a9bfdd57bd5a7` after all
+checks passed. Production CI passed and delivery run 43132130930 published the
+Worker and immutable receipt. Independent health/capability and provider-binding
+readbacks confirm that source and absence of feature-toggle bindings. The release
+then archived build 24, but Apple rejected its 1.0.0 upload with errors 90062/90186:
+1.0.0 is approved and its pre-release train is closed. Preserve that immutable
+attempt. Bump app.yml to 1.0.1 and reserve a new build through ordinary delivery;
+no backend rebuild/redeployment is required for the version-only change.
