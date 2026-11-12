@@ -17,9 +17,10 @@ import XCTest
   struct Scene: Decodable {
     let id: String
     let appearance: String
+    let title: String
     let deviceID: String?
     enum CodingKeys: String, CodingKey {
-      case id, appearance
+      case id, appearance, title
       case deviceID = "device_id"
     }
   }
@@ -93,10 +94,21 @@ import XCTest
       URLQueryItem(name: "appearance", value: scene.appearance),
     ]
     XCUIDevice.shared.system.open(try XCTUnwrap(url.url))
-    XCTAssertTrue(
-      app.windows["folding.screenshot.\(scene.id).\(scene.appearance)"].waitForExistence(
-        timeout: 15),
-      "The running app must acknowledge the configured scene")
+    guard app.navigationBars[scene.title].waitForExistence(timeout: 15) else {
+      let hierarchy = app.debugDescription
+      let diagnostic = XCTAttachment(string: hierarchy)
+      diagnostic.name = "Native capture readiness hierarchy"
+      diagnostic.lifetime = .keepAlways
+      add(diagnostic)
+      for (index, screen) in XCUIScreen.screens.enumerated() {
+        let screenshot = XCTAttachment(screenshot: screen.screenshot())
+        screenshot.name = "Native capture readiness screen \(index)"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+      }
+      XCTFail("Expected visible navigation title \(scene.title) for \(scene.id).\n\(hierarchy)")
+      throw NSError(domain: "FoldingCapture", code: 2)
+    }
     RunLoop.current.run(until: Date().addingTimeInterval(1.5))
   }
 

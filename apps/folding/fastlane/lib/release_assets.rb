@@ -41,6 +41,16 @@ module FoldingRelease
       FoldingRelease.atomic_json(File.join(record.directory, "assets/metadata-manifest.json"), manifest)
     end
 
+    def self.localized_scenes(scenes, locale)
+      strings = FoldingRelease.read_json(File.join(ROOT, "apps/ios/App/Localizable.xcstrings")).fetch("strings")
+      scenes.map do |scene|
+        title = strings.fetch(scene.fetch("title_key")).fetch("localizations")
+          .fetch(locale.fetch("app_locale")).fetch("stringUnit").fetch("value")
+        raise "Capture scene title is empty" if title.strip.empty?
+        scene.merge("title" => title)
+      end
+    end
+
     def self.capture(context, record, review_only: false)
       record.verify_identity!
       FoldingRelease.clean_commit!
@@ -72,12 +82,12 @@ module FoldingRelease
             next if review_only && locale.fetch("storefront_locale") != "en-US"
             scenes = review_only ? [] : PLAN.fetch("scenarios")
             reviews = PLAN.fetch("review_scenarios").select { |scene| group.any? { |display| display["id"] == scene["device_id"] } && scene["storefront_locale"] == locale["storefront_locale"] }
-            scenes = scenes + reviews.map { |scene| {"id" => scene.fetch("id"), "appearance" => "light", "device_id" => scene.fetch("device_id")} }
+            scenes = scenes + reviews.map { |scene| {"id" => scene.fetch("id"), "appearance" => "light", "device_id" => scene.fetch("device_id"), "title_key" => scene.fetch("title_key")} }
             export = File.join(output, "raw", group.first.fetch("id"), locale.fetch("storefront_locale"))
             result = File.join(output, "results", "#{group.first.fetch('id')}-#{locale.fetch('storefront_locale')}.xcresult")
             environment = {
               "TEST_RUNNER_FOLDING_CAPTURE_DISPLAYS" => JSON.generate(group.reverse),
-              "TEST_RUNNER_FOLDING_CAPTURE_SCENES" => JSON.generate(scenes),
+              "TEST_RUNNER_FOLDING_CAPTURE_SCENES" => JSON.generate(localized_scenes(scenes, locale)),
               "TEST_RUNNER_FOLDING_CAPTURE_LOCALE" => locale.fetch("app_locale"),
               "TEST_RUNNER_FOLDING_CAPTURE_REGION" => locale.fetch("test_region"),
               "TEST_RUNNER_DUO_HOST_CONTROL_DIR" => controller ? native_directory : nil

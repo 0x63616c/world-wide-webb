@@ -45,7 +45,6 @@ import struct FoldingData.SetupProgress
       }
       .environment(\.locale, Locale(identifier: fixture.locale))
       .environment(\.timeZone, TimeZone(secondsFromGMT: 0)!)
-      .accessibilityIdentifier("folding.screenshot.ready")
       .id(fixture.captureIdentity)
       .onOpenURL { url in
         // This URL exists only in the simulator fixture target. Changing scenes
@@ -63,20 +62,7 @@ import struct FoldingData.SetupProgress
           ])
         } catch { fatalError("Invalid screenshot scene: \(error)") }
       }
-      .task(id: fixture.captureIdentity) {
-        // An accessibility-only acknowledgment; never change window geometry,
-        // safe areas, materials or system appearance to produce a screenshot.
-        for _ in 0..<100 {
-          if let window = UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene })
-            .flatMap(\.windows).first(where: \.isKeyWindow)
-          {
-            window.accessibilityIdentifier = fixture.captureIdentity
-            return
-          }
-          try? await Task.sleep(for: .milliseconds(50))
-        }
-        fatalError("Screenshot app has no real key window")
-      }
+
     }
   }
 }

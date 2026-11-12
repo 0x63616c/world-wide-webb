@@ -39,27 +39,32 @@
     {
       "id": "today",
       "order": 1,
-      "appearance": "dark"
+      "appearance": "dark",
+      "title_key": "tab.today"
     },
     {
       "id": "history",
       "order": 2,
-      "appearance": "light"
+      "appearance": "light",
+      "title_key": "tab.history"
     },
     {
       "id": "patterns",
       "order": 3,
-      "appearance": "dark"
+      "appearance": "dark",
+      "title_key": "patterns.title"
     },
     {
       "id": "leaderboard",
       "order": 4,
-      "appearance": "light"
+      "appearance": "light",
+      "title_key": "tab.leaderboard"
     },
     {
       "id": "milestones",
       "order": 5,
-      "appearance": "dark"
+      "appearance": "dark",
+      "title_key": "milestones.title"
     }
   ],
   "apple_size_specification": "https://developer.apple.com/help/app-store-connect/reference/app-information/screenshot-specifications",
@@ -72,7 +77,8 @@
       "device_id": "duo-outer",
       "app_locale": "en",
       "storefront_locale": "en-US",
-      "purpose": "in_app_purchase_review"
+      "purpose": "in_app_purchase_review",
+      "title_key": "tips.title"
     }
   ],
   "capture_method": "simulator_screen_xctest"
