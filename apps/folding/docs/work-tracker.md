@@ -714,3 +714,6 @@ the screenshot app/tests without booting a device. Its budget increases to 20 mi
 to accommodate both schemes (the diagnostic screenshot build alone took 469 seconds).
 This changes screenshot composition/build verification, not production app behavior.
 Remote capture, the intermittent startup failure and App Store submission remain open.
+The store-check artifact now retains raw captures, reviewer image/map and metadata
+alongside composed screenshots/manifests, so successful captures can be validated and
+sealed by the existing release handler instead of requiring a second capture.

@@ -61,6 +61,10 @@ jobs:
           name: folding-store-checks-${{ github.sha }}-${{ github.run_attempt }}
           path: |
             apps/folding/build/store-assets/**/assets/screenshots
+            apps/folding/build/store-assets/**/assets/raw
+            apps/folding/build/store-assets/**/assets/review
+            apps/folding/build/store-assets/**/assets/metadata
+            apps/folding/build/store-assets/**/assets/tip-review-screenshots.json
             apps/folding/build/store-assets/**/assets/*manifest.json
           if-no-files-found: error
           retention-days: 30
