@@ -75,7 +75,7 @@ struct PanelProfileSelector: ViewModifier {
                     delete: { pin in try await remove(target.profile, pin: pin) }
                 )
                 .preferredColorScheme(.dark)
-                .frame(idealWidth: 420)
+                .frame(idealWidth: 420, idealHeight: 450)
                 .presentationSizing(.fitted)
             }
             .onChange(of: isAvailable) { _, available in
@@ -201,6 +201,8 @@ struct PanelProfileSelector: ViewModifier {
                 .labelStyle(.titleAndIcon)
                 .font(.caption)
                 .buttonStyle(.plain)
+                .frame(minWidth: side, minHeight: 44)
+                .contentShape(.rect)
                 .accessibilityLabel("Edit \(user.name)")
         }
     }
@@ -265,6 +267,7 @@ private struct ProfileEditorSheet: View {
                     profile: profile, pin: authorizedPIN, cancel: { dismiss() }, save: save, delete: delete
                 )
                 .padding(28)
+                .fixedSize(horizontal: false, vertical: true)
             } else {
                 VStack(spacing: 0) {
                     ViewThatFits(in: .vertical) {
@@ -339,6 +342,12 @@ private struct EditPanelProfile: View {
             Text(profile == nil ? "Add User" : "Edit Profile")
                 .font(.title2.bold())
                 .frame(maxWidth: .infinity)
+                .overlay(alignment: .trailing) {
+                    Button("Close", systemImage: "xmark", action: cancel)
+                        .labelStyle(.iconOnly)
+                        .buttonStyle(.glass)
+                        .accessibilityLabel("Close")
+                }
                 .accessibilityAddTraits(.isHeader)
 
             PhotosPicker(selection: $selection, matching: .images) {
@@ -379,8 +388,6 @@ private struct EditPanelProfile: View {
             Divider()
             GlassEffectContainer(spacing: 12) {
                 HStack(spacing: 12) {
-                    Button("Cancel", role: .cancel, action: cancel)
-                        .buttonStyle(.glass)
                     if profile != nil {
                         Button("Delete", role: .destructive) { confirmingDelete = true }
                             .buttonStyle(.glass)
