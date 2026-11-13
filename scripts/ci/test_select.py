@@ -137,6 +137,11 @@ class SelectionTests(unittest.TestCase):
         self.assertEqual(result["verify"], ["homelab.cli", "homelab.config"])
         self.assertEqual(result["delivery_candidates"], ["homelab.cli"])
 
+    def test_root_flake_bridge_selects_host_promotion(self):
+        result = selection.select(["flake.nix", "flake.lock"], CONFIG)
+        self.assertEqual(result["verify"], ["homelab.config"])
+        self.assertEqual(result["delivery_candidates"], ["homelab.config"])
+
     def test_host_automation_and_app_pin_have_separate_delivery_authority(self):
         tooling = selection.select(["scripts/homelab/promote_control_center.py"], CONFIG)
         self.assertEqual(tooling["verify"], ["homelab.config"])
