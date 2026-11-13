@@ -44,7 +44,7 @@ def source_configuration(source):
 
 
 def source_manifest(source):
-    return source_document(source, "homelab.json")
+    return source_document(source, "projects/homelab/homelab.json")
 
 
 def load_selection(run_id):

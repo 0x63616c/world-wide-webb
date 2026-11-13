@@ -6,7 +6,7 @@ on:
     branches: [main]
 defaults:
   run:
-    working-directory: apps/control-center
+    working-directory: projects/control-center
 permissions:
   contents: read
   actions: read
@@ -23,7 +23,7 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: ci-selection
-          path: apps/control-center
+          path: projects/control-center
           run-id: ${{ github.event.workflow_run.id }}
           github-token: ${{ github.token }}
       - id: selection
@@ -70,10 +70,10 @@ jobs:
         with:
           ruby-version: "3.4"
           bundler-cache: true
-          working-directory: apps/control-center/apple
+          working-directory: projects/control-center/apple
       - name: Build and upload tested native revision
         if: steps.receipt.outputs.uploaded != 'true'
-        working-directory: apps/control-center/apple
+        working-directory: projects/control-center/apple
         env:
           PANEL_SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
         run: bundle exec fastlane release_native
@@ -90,7 +90,7 @@ jobs:
         if: steps.receipt.outputs.uploaded != 'true'
         with:
           name: panel-testflight-${{ github.event.workflow_run.head_sha }}
-          path: apps/control-center/testflight-receipt.json
+          path: projects/control-center/testflight-receipt.json
           retention-days: 90
       - uses: tailscale/github-action@v4
         with:

@@ -7,12 +7,12 @@ its code and user experience; shared tooling selects checks and delivery work.
 
 | Product | What lives here | Start here |
 | --- | --- | --- |
-| Tendr | iPhone health journal and public website | [App](apps/tendr/README.md) · [Site](sites/README.md) |
-| Folding | iPhone folding tracker, Rust Worker and website | [App](apps/folding/README.md) · [Backend](apps/folding/backend/README.md) |
-| Callkeep | macOS recording and transcription app | [App](apps/callkeep/README.md) |
-| Control Center | iPad/iPhone home controls and private Rust service | [Product](apps/control-center/README.md) · [Source map](apps/control-center/CODEBASE_OVERVIEW.md) |
-| Golink for Safari | Safari client for the tailnet Golink service | [Extension](apps/golink-safari/README.md) · [Service](homelab/docs/golink.md) |
-| Homelab | Mac configuration, services, runners and setup CLI | [Hosts](homelab/README.md) · [CLI](homelab/cli/README.md) |
+| Tendr | iPhone health journal and public website | [App](projects/tendr/README.md) · [Site](sites/README.md) |
+| Folding | iPhone folding tracker, Rust Worker and website | [App](projects/folding/README.md) · [Backend](projects/folding/backend/README.md) |
+| Callkeep | macOS recording and transcription app | [App](projects/callkeep/README.md) |
+| Control Center | iPad/iPhone home controls and private Rust service | [Product](projects/control-center/README.md) · [Source map](projects/control-center/CODEBASE_OVERVIEW.md) |
+| Golink for Safari | Safari client for the tailnet Golink service | [Extension](projects/golink-safari/README.md) · [Service](projects/homelab/docs/golink.md) |
+| Homelab | Mac configuration, services, runners and setup CLI | [Hosts](projects/homelab/README.md) · [CLI](projects/homelab/cli/README.md) |
 
 The [source map](CODEBASE_OVERVIEW.md) covers the shared directories and ownership
 boundaries. Product READMEs give the commands and deeper docs for their own areas.
@@ -58,12 +58,12 @@ documentation and tests alone do not request an app release.
 | Change | Delivery path |
 | --- | --- |
 | Tendr or Folding app | Selected main changes reach internal TestFlight; a matching product tag submits the processed build to App Review. [App Store guide](docs/RELEASE.md#how-app-store-releases-work) |
-| Folding Worker | Tested backend changes deploy through Folding's product handler. [Operations](apps/folding/fastlane/RELEASE.md) |
-| Callkeep | Selected main changes publish a signed, notarized release and update its Homebrew cask. [Product release](apps/callkeep/README.md#release-automation) |
-| Control Center | Native and service publishers are separate; host activation follows Homelab promotion. [Product](apps/control-center/README.md) |
+| Folding Worker | Tested backend changes deploy through Folding's product handler. [Operations](projects/folding/fastlane/RELEASE.md) |
+| Callkeep | Selected main changes publish a signed, notarized release and update its Homebrew cask. [Product release](projects/callkeep/README.md#release-automation) |
+| Control Center | Native and service publishers are separate; host activation follows Homelab promotion. [Product](projects/control-center/README.md) |
 | Websites | Tendr and Folding publish independently. [Site ownership](sites/README.md) |
-| Homelab | Authoring `main` and deployment `deploy/homelab` are separate. [Updates](homelab/docs/updates.md) |
-| Golink for Safari | No automatic app publication. [Build and install](apps/golink-safari/README.md#build-and-install) |
+| Homelab | Authoring `main` and deployment `deploy/homelab` are separate. [Updates](projects/homelab/docs/updates.md) |
+| Golink for Safari | No automatic app publication. [Build and install](projects/golink-safari/README.md#build-and-install) |
 
 ## Guides
 

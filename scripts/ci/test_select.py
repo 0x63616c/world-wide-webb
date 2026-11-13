@@ -15,27 +15,27 @@ CONFIG = json.loads(selection.CONFIG.read_text())
 
 class SelectionTests(unittest.TestCase):
     def test_tendr_publication_inputs_do_not_ship_folding(self):
-        for path in ["sites/tendr/index.html", "sites/tendr.wrangler.jsonc", "scripts/publish-site.sh"]:
+        for path in ["projects/tendr/site/index.html", "projects/tendr/site.wrangler.jsonc", "scripts/publish-site.sh"]:
             result = selection.select([path], CONFIG)
             self.assertIn("sites.pages", result["verify"])
             self.assertEqual(result["delivery_candidates"], ["sites.pages"])
         result = selection.select(["scripts/test-publish-site.py"], CONFIG)
         self.assertIn("sites.pages", result["verify"])
         self.assertEqual(result["delivery_candidates"], [])
-        result = selection.select(["sites/folding/index.html"], CONFIG)
+        result = selection.select(["projects/folding/site/index.html"], CONFIG)
         self.assertNotIn("sites.pages", result["verify"])
 
     def test_retired_app_deletions_do_not_select_unrelated_products(self):
-        result = selection.select(["apps/airmiles/app.yml", "apps/airmiles/App/AirMilesApp.swift"], CONFIG)
+        result = selection.select(["projects/airmiles/app.yml", "projects/airmiles/App/AirMilesApp.swift"], CONFIG)
         for key in ("verify", "checks", "previews", "delivery_candidates", "unmapped"):
             self.assertEqual(result[key], [])
         self.assertNotIn("airmiles.native", CONFIG["units"])
-        mixed = selection.select(["apps/airmiles/app.yml", "apps/folding/apps/ios/App/FoldingScreens.swift"], CONFIG)
+        mixed = selection.select(["projects/airmiles/app.yml", "projects/folding/apps/ios/App/FoldingScreens.swift"], CONFIG)
         self.assertEqual(mixed["verify"], ["folding.native"])
         self.assertEqual(mixed["delivery_candidates"], ["folding.native"])
 
     def test_safari_extension_isolated_from_apps_and_homelab_delivery(self):
-        for path in ["apps/golink-safari/Extension/redirect.js", ".github/workflows/golink-safari-ci.yml"]:
+        for path in ["projects/golink-safari/Extension/redirect.js", ".github/workflows/golink-safari-ci.yml"]:
             with self.subTest(path=path):
                 result = selection.select([path], CONFIG)
                 self.assertEqual(result["verify"], ["golink.safari"])
@@ -44,11 +44,11 @@ class SelectionTests(unittest.TestCase):
 
     def test_test_only_changes_verify_their_product_without_delivery(self):
         paths = [
-            "apps/tendr/Tests/ImportTests.swift",
-            "apps/folding/apps/ios/Packages/FoldingKit/Tests/SyncTests.swift",
-            "apps/folding/backend/crates/worker/tests/runtime.rs",
-            "apps/callkeep/Tests/RecorderTests.swift",
-            "apps/control-center/server/tests/health.rs",
+            "projects/tendr/Tests/ImportTests.swift",
+            "projects/folding/apps/ios/Packages/FoldingKit/Tests/SyncTests.swift",
+            "projects/folding/backend/crates/worker/tests/runtime.rs",
+            "projects/callkeep/Tests/RecorderTests.swift",
+            "projects/control-center/server/tests/health.rs",
             "infra/cloudflare/home/tests/routing.tftest.hcl",
         ]
         for path in paths:
@@ -61,16 +61,16 @@ class SelectionTests(unittest.TestCase):
         result = selection.select(["scripts/distribution/homelab.py"], CONFIG)
         self.assertEqual(result["verify"], ["callkeep.native", "homelab.cli", "homelab.config"])
         self.assertEqual(result["delivery_candidates"], ["homelab.cli"])
-        result = selection.select(["homelab/cli/README.md"], CONFIG)
+        result = selection.select(["projects/homelab/cli/README.md"], CONFIG)
         self.assertEqual(result["delivery_candidates"], [])
 
     def test_folding_store_capture_inputs_keep_a_source_bound_beta(self):
         for path in [
-            "apps/folding/apps/ios/Screenshots/FoldingScreenshotApp.swift",
-            "apps/folding/apps/ios/StorefrontTests/StorefrontCaptureTests.swift",
-            "apps/folding/fastlane/screenshot-plan.json",
-            "apps/folding/fastlane/lib/release_assets.rb",
-            "apps/folding/fastlane/scripts/opaque-screen.swift",
+            "projects/folding/apps/ios/Screenshots/FoldingScreenshotApp.swift",
+            "projects/folding/apps/ios/StorefrontTests/StorefrontCaptureTests.swift",
+            "projects/folding/fastlane/screenshot-plan.json",
+            "projects/folding/fastlane/lib/release_assets.rb",
+            "projects/folding/fastlane/scripts/opaque-screen.swift",
         ]:
             with self.subTest(path=path):
                 result = selection.select([path], CONFIG)
@@ -78,18 +78,18 @@ class SelectionTests(unittest.TestCase):
                 self.assertEqual(result["delivery_candidates"], ["folding.native"])
 
     def test_native_change_only_releases_its_product(self):
-        result = selection.select(["apps/folding/apps/ios/App/FoldingScreens.swift"], CONFIG)
+        result = selection.select(["projects/folding/apps/ios/App/FoldingScreens.swift"], CONFIG)
         self.assertEqual(result["verify"], ["folding.native"])
         self.assertEqual(result["delivery_candidates"], ["folding.native"])
 
     def test_contracts_verify_clients_without_unproven_delivery(self):
-        result = selection.select(["apps/folding/contracts/api.json"], CONFIG)
+        result = selection.select(["projects/folding/contracts/api.json"], CONFIG)
         self.assertEqual(result["verify"], ["folding.backend", "folding.contracts", "folding.native"])
         self.assertEqual(result["delivery_candidates"], [])
 
     def test_worker_embedded_resources_are_delivery_inputs(self):
         for suffix in ["templates/admin.html", "policies/names-v1.json", "roots/apple.der", "build.rs"]:
-            result = selection.select(["apps/folding/backend/crates/worker/" + suffix], CONFIG)
+            result = selection.select(["projects/folding/backend/crates/worker/" + suffix], CONFIG)
             self.assertEqual(result["delivery_candidates"], ["folding.backend"])
 
     def test_tooling_verifies_but_does_not_ship(self):
@@ -110,16 +110,16 @@ class SelectionTests(unittest.TestCase):
                 self.assertEqual(result["delivery_candidates"], ["homelab.config"])
 
     def test_docs_do_not_activate_hosts_or_ship_apps(self):
-        result = selection.select(["README.md", "homelab/docs/current-state.md", ".agents/skills/new/SKILL.md"], CONFIG)
+        result = selection.select(["README.md", "projects/homelab/docs/current-state.md", ".agents/skills/new/SKILL.md"], CONFIG)
         self.assertEqual(result["verify"], [])
         self.assertEqual(result["delivery_candidates"], [])
 
     def test_listing_markdown_is_not_treated_as_documentation(self):
-        result = selection.select(["apps/tendr/fastlane/metadata/review.md"], CONFIG)
+        result = selection.select(["projects/tendr/fastlane/metadata/review.md"], CONFIG)
         self.assertEqual(result["delivery_candidates"], ["tendr.native"])
 
     def test_cli_change_verifies_host_without_activating_it(self):
-        result = selection.select(["homelab/cli/src/lib.rs"], CONFIG)
+        result = selection.select(["projects/homelab/cli/src/lib.rs"], CONFIG)
         self.assertEqual(result["verify"], ["homelab.cli", "homelab.config"])
         self.assertEqual(result["delivery_candidates"], ["homelab.cli"])
 
@@ -127,7 +127,7 @@ class SelectionTests(unittest.TestCase):
         tooling = selection.select(["scripts/homelab/promote_control_center.py"], CONFIG)
         self.assertEqual(tooling["verify"], ["homelab.config"])
         self.assertEqual(tooling["delivery_candidates"], [])
-        pin = selection.select(["homelab/services/control-center/release.json"], CONFIG)
+        pin = selection.select(["projects/homelab/services/control-center/release.json"], CONFIG)
         self.assertEqual(pin["verify"], ["homelab.config"])
         self.assertEqual(pin["delivery_candidates"], ["homelab.config"])
 
@@ -136,7 +136,7 @@ class SelectionTests(unittest.TestCase):
         self.assertEqual(set(result["verify"]), {"credentials.home", "control-center.server", "cloudflare.home"})
         self.assertEqual(result["delivery_candidates"], [])
         self.assertEqual(selection.select([".sops.yaml"], CONFIG)["delivery_candidates"], [])
-        host = selection.select(["secrets/homelab-mac-mini.sops.yaml"], CONFIG)
+        host = selection.select(["projects/homelab/secrets/homelab-mac-mini.sops.yaml"], CONFIG)
         self.assertEqual(host["verify"], ["homelab.config"])
         self.assertEqual(host["delivery_candidates"], ["homelab.config"])
 
@@ -161,13 +161,13 @@ class SelectionTests(unittest.TestCase):
             git("init", "-q")
             git("config", "user.name", "Test")
             git("config", "user.email", "test@example.invalid")
-            (repo / "apps/tendr/Still").mkdir(parents=True)
-            (repo / "apps/tendr/Still/old.swift").write_text("let a = 1\n")
+            (repo / "projects/tendr/Still").mkdir(parents=True)
+            (repo / "projects/tendr/Still/old.swift").write_text("let a = 1\n")
             git("add", ".")
             git("commit", "-qm", "base")
             base = git("rev-parse", "HEAD")
-            (repo / "apps/callkeep/Sources").mkdir(parents=True)
-            (repo / "apps/tendr/Still/old.swift").rename(repo / "apps/callkeep/Sources/new.swift")
+            (repo / "projects/callkeep/Sources").mkdir(parents=True)
+            (repo / "projects/tendr/Still/old.swift").rename(repo / "projects/callkeep/Sources/new.swift")
             git("add", ".")
             git("commit", "-qm", "move")
             paths = selection.changed_paths(base, git("rev-parse", "HEAD"), "push", repo)

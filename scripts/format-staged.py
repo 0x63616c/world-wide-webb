@@ -25,11 +25,11 @@ SKIP_PARTS = {
     "migrations",
 }
 SKIP_PREFIXES = (
-    "apps/folding/backend/crates/worker/templates/",
-    "apps/folding/cloudkit/schemas/production/v1/bootstrap-receipt.json",
-    "apps/callkeep/Scripts/validate-provisioning.py",
-    "homelab/runner/images/linux/build-image.py",
-    "homelab/cli/schema/homelab-v3.schema.json",
+    "projects/folding/backend/crates/worker/templates/",
+    "projects/folding/cloudkit/schemas/production/v1/bootstrap-receipt.json",
+    "projects/callkeep/Scripts/validate-provisioning.py",
+    "projects/homelab/runner/images/linux/build-image.py",
+    "projects/homelab/cli/schema/homelab-v3.schema.json",
 )
 PRETTIER_EXTENSIONS = {".css", ".html", ".js", ".json", ".jsonc", ".mjs", ".ts", ".yaml", ".yml"}
 PRETTIER_PLUGINS = {".sh": "prettier-plugin-sh", ".sql": "prettier-plugin-sql", ".toml": "prettier-plugin-toml"}
@@ -65,7 +65,7 @@ def formatter(path: str, check: bool = False) -> list[str] | None:
         prefix = ["xcrun", "swift-format"] if shutil.which("xcrun") else ["swift", "format"]
         return [*prefix, "format", *([] if check else ["--in-place"]), path]
     if suffix == ".rs":
-        toolchain = "1.99.0" if path.startswith("homelab/") else "1.99.1"
+        toolchain = "1.99.0" if path.startswith("projects/homelab/") else "1.99.1"
         return [
             "rustup",
             "run",
@@ -88,7 +88,7 @@ def formatter(path: str, check: bool = False) -> list[str] | None:
         return ["tofu", "fmt", *(["-check"] if check else []), path]
     if suffix in PRETTIER_EXTENSIONS or suffix in PRETTIER_PLUGINS:
         command = [str(PRETTIER)]
-        if file.name == ".swift-format" or path == "homelab/services/penpot/compose.yaml":
+        if file.name == ".swift-format" or path == "projects/homelab/services/penpot/compose.yaml":
             command += ["--parser", "json"]
         if suffix == ".jsonc":
             command += ["--trailing-comma", "none"]
@@ -139,7 +139,7 @@ def main() -> int:
             if result.stdout != source.read_bytes():
                 print(f"Needs formatting: {path}", file=sys.stderr)
                 return 1
-        if path.endswith(".swift") and path.startswith(("apps/control-center/apple/", "apps/folding/apps/ios/")):
+        if path.endswith(".swift") and path.startswith(("projects/control-center/apple/", "projects/folding/apps/ios/")):
             lint = [*command[:2], "lint", "--strict", path]
             result = subprocess.run(lint, cwd=ROOT, check=False)
             if result.returncode:

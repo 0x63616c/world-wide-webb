@@ -37,7 +37,7 @@ while (($#)); do
 done
 [[ -z "$(git status --porcelain)" ]] || fail "Commit or stash your changes first"
 [[ "$slug" =~ ^[a-z][a-z0-9-]*$ ]] || fail "Invalid app slug"
-[[ ! -e "apps/$slug" ]] || fail "apps/$slug already exists"
+[[ ! -e "projects/$slug" ]] || fail "projects/$slug already exists"
 
 url="${IMPORT_URL:-https://github.com/$repo.git}"
 if [[ -z "${IMPORT_URL:-}" ]] && command -v gh > /dev/null && gh auth status > /dev/null 2>&1; then url=$(gh repo view "$repo" --json url --jq .url).git; fi
@@ -48,24 +48,24 @@ if git filter-repo --version > /dev/null 2>&1; then
   work=$(mktemp -d)
   trap 'rm -rf "$work"' EXIT
   git clone --quiet --branch "$branch" "$url" "$work/repo"
-  git -C "$work/repo" filter-repo --quiet --force --to-subdirectory-filter "apps/$slug"
+  git -C "$work/repo" filter-repo --quiet --force --to-subdirectory-filter "projects/$slug"
   git fetch --quiet "$work/repo" "$branch"
-  git merge --quiet --allow-unrelated-histories --no-edit -m "Import $repo into apps/$slug with history [skip ci]" FETCH_HEAD
+  git merge --quiet --allow-unrelated-histories --no-edit -m "Import $repo into projects/$slug with history [skip ci]" FETCH_HEAD
 else
   echo "git-filter-repo not found; importing with git subtree (history kept, paths not rewritten)."
-  git subtree add --prefix "apps/$slug" "$url" "$branch" -m "Import $repo into apps/$slug with history [skip ci]"
+  git subtree add --prefix "projects/$slug" "$url" "$branch" -m "Import $repo into projects/$slug with history [skip ci]"
 fi
 
 if ((${#moves[@]})); then
   for move in "${moves[@]}"; do
-    from="apps/$slug/${move%%=*}"
+    from="projects/$slug/${move%%=*}"
     to="${move#*=}"
     [[ -e "$from" ]] || fail "--move: $from does not exist"
     mkdir -p "$(dirname "$to")"
     git mv "$from" "$to"
     echo "Moved $from to $to"
   done
-  git commit --quiet -m "Move parts of $repo out of apps/$slug [skip ci]"
+  git commit --quiet -m "Move parts of $repo out of projects/$slug [skip ci]"
 fi
 
-echo "Imported $repo into apps/$slug. Next steps for wiring it into the monorepo: docs/legacy-apps/IMPORT.md."
+echo "Imported $repo into projects/$slug. Next steps for wiring it into the monorepo: docs/legacy-apps/IMPORT.md."

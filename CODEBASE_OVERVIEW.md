@@ -6,12 +6,12 @@ release details. Shared code owns selection and common entrypoints.
 
 | Area | Owner and entry point |
 | --- | --- |
-| `apps/tendr` | iOS app, local `RDesign`, screenshots and listing. [README](apps/tendr/README.md) |
-| `apps/folding` | iOS app, contracts, CloudKit, Rust Worker and product Fastlane. [README](apps/folding/README.md) |
-| `apps/callkeep` | macOS app, transcription packages and notarized release. [README](apps/callkeep/README.md) |
-| `apps/control-center` | Native client, Rust/SQLite server and deployment. Read its [source map](apps/control-center/CODEBASE_OVERVIEW.md) and [instructions](apps/control-center/AGENTS.md). |
-| `apps/golink-safari` | Safari extension and native container; the server lives in Homelab. [README](apps/golink-safari/README.md) |
-| `homelab` | Mac configuration, services, disposable runners and setup CLI. [README](homelab/README.md) |
+| `projects/tendr` | iOS app, local `RDesign`, screenshots and listing. [README](projects/tendr/README.md) |
+| `projects/folding` | iOS app, contracts, CloudKit, Rust Worker and product Fastlane. [README](projects/folding/README.md) |
+| `projects/callkeep` | macOS app, transcription packages and notarized release. [README](projects/callkeep/README.md) |
+| `projects/control-center` | Native client, Rust/SQLite server and deployment. Read its [source map](projects/control-center/CODEBASE_OVERVIEW.md) and [instructions](projects/control-center/AGENTS.md). |
+| `projects/golink-safari` | Safari extension and native container; the server lives in Homelab. [README](projects/golink-safari/README.md) |
+| `projects/homelab` | Mac configuration, services, disposable runners and setup CLI. [README](projects/homelab/README.md) |
 | `sites` | Tendr and Folding public sites with independent publication. [README](sites/README.md) |
 | `infra/cloudflare` | Retained home and Folding OpenTofu state roots. |
 | `scripts/ci` and `.github` | Repository selection, verification and product delivery workflows. [Policy](scripts/ci/units.json) |

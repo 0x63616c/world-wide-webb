@@ -52,12 +52,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 26.13.0
-      - run: node sites/folding/build.mjs
+      - run: node projects/folding/site/build.mjs
       - uses: actions/upload-artifact@v4
         with:
           name: folding-public-sites-${{ github.sha }}
           path: |
-            sites/folding/dist
+            projects/folding/site/dist
           retention-days: 14
           if-no-files-found: error
   gate:
@@ -109,7 +109,7 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: folding-public-sites-${{ github.sha }}
-          path: sites/folding/dist
+          path: projects/folding/site/dist
       - name: Publish production assets
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.FOLDING_DEPLOY_TOKEN }}
@@ -118,8 +118,8 @@ jobs:
           set -euo pipefail
           test -n "$CLOUDFLARE_API_TOKEN"
           test -n "$CLOUDFLARE_ACCOUNT_ID"
-          wrangler_version=$(node -p "require('./apps/folding/backend/package.json').devDependencies.wrangler")
-          npx --yes "wrangler@$wrangler_version" deploy --config sites/folding/wrangler.jsonc
+          wrangler_version=$(node -p "require('./projects/folding/backend/package.json').devDependencies.wrangler")
+          npx --yes "wrangler@$wrangler_version" deploy --config projects/folding/site/wrangler.jsonc
 
   tendr-publication:
     name: Publish Tendr website
@@ -149,8 +149,8 @@ jobs:
         id: current
         run: |
           git fetch --quiet --no-tags origin main
-          if git diff --quiet "$GITHUB_SHA" origin/main -- sites/tendr sites/.pages \
-            sites/tendr.wrangler.jsonc sites/tendr-tools.json scripts/build-site.sh scripts/publish-site.sh; then
+          if git diff --quiet "$GITHUB_SHA" origin/main -- projects/tendr/site sites/.pages \
+            projects/tendr/site.wrangler.jsonc projects/tendr/site-tool-versions.json scripts/build-site.sh scripts/publish-site.sh; then
             echo 'publish=true' >> "$GITHUB_OUTPUT"
           else
             echo 'A newer Tendr site source supersedes this publication.'

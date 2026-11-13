@@ -23,9 +23,9 @@ while IFS= read -r build_setting; do
 done <<< "$screenshot_settings"
 # Generated projects are absent in a fresh checkout (for example Air Miles).
 # Prepare before simulator boot so missing inputs fail without consuming boot time.
-if [[ -f "apps/$app/project.yml" ]]; then
+if [[ -f "projects/$app/project.yml" ]]; then
   command -v xcodegen > /dev/null || HOMEBREW_NO_AUTO_UPDATE=1 brew install xcodegen
-  (cd "apps/$app" && xcodegen generate --quiet)
+  (cd "projects/$app" && xcodegen generate --quiet)
 fi
 device_type=com.apple.CoreSimulator.SimDeviceType.iPhone-18-Pro-Max
 derived=build/screenshots/$app/DerivedData

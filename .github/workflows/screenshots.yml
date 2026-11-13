@@ -64,8 +64,8 @@ jobs:
       - name: Check App Store dimensions
         if: inputs.device != 'duo'
         run: |
-          expected=$(ruby -rjson -e 'puts JSON.parse(File.read(ARGV[0]))["shots"].size' "apps/$APP/screenshots.json")
-          python3 - "apps/$APP/fastlane/screenshots/en-US" "$expected" <<'PY'
+          expected=$(ruby -rjson -e 'puts JSON.parse(File.read(ARGV[0]))["shots"].size' "projects/$APP/screenshots.json")
+          python3 - "projects/$APP/fastlane/screenshots/en-US" "$expected" <<'PY'
           import pathlib, struct, sys
           shots = sorted(pathlib.Path(sys.argv[1]).glob("*.png"))
           if len(shots) != int(sys.argv[2]):
@@ -81,13 +81,13 @@ jobs:
           {
             echo "### $APP App Store screenshots"
             echo
-            for png in "apps/$APP/fastlane/screenshots/en-US"/*.png; do echo "- \`$(basename "$png")\`"; done
+            for png in "projects/$APP/fastlane/screenshots/en-US"/*.png; do echo "- \`$(basename "$png")\`"; done
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Generate capture project
         run: |
-          if [[ -f "apps/$APP/project.yml" ]]; then
+          if [[ -f "projects/$APP/project.yml" ]]; then
             brew list xcodegen >/dev/null 2>&1 || brew install xcodegen
-            (cd "apps/$APP" && xcodegen generate --quiet)
+            (cd "projects/$APP" && xcodegen generate --quiet)
           fi
       - name: Capture configured Duo screens in one app session
         if: inputs.device != 'phone'
@@ -97,12 +97,12 @@ jobs:
           source "$RUNNER_TEMP/screenshot-python/bin/activate"
           python3 -m pip install -r scripts/requirements-screenshots.txt
           scripts/ci/apple-desktop.sh scripts/capture-duo-screenshots.sh "$APP"
-          python3 scripts/stage-duo-screenshots.py "apps/$APP/screenshots.json" \
-            "build/duo-screenshots/$APP/raw" "apps/$APP/fastlane/screenshots/en-US"
+          python3 scripts/stage-duo-screenshots.py "projects/$APP/screenshots.json" \
+            "build/duo-screenshots/$APP/raw" "projects/$APP/fastlane/screenshots/en-US"
       - uses: actions/upload-artifact@v4
         with:
           name: app-store-screenshots-${{ inputs.app }}
-          path: apps/${{ inputs.app }}/fastlane/screenshots/en-US/*.png
+          path: projects/${{ inputs.app }}/fastlane/screenshots/en-US/*.png
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
         if: inputs.device != 'duo'

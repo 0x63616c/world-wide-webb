@@ -49,7 +49,7 @@ def ignored(path):
         path.endswith(".md")
         or "docs" in parts
         or Path(path).name in {"screenshots.json", "README.md", "AGENTS.md"}
-        or (len(parts) > 2 and parts[0] == "apps" and parts[2] == "fastlane")
+        or (len(parts) > 2 and parts[0] == "projects" and parts[2] in {"fastlane", "site"})
     )
 
 
@@ -76,11 +76,11 @@ def main():
     config_paths = (
         [
             ROOT / path
-            for path in git("ls-tree", "-r", "--name-only", head, "apps").decode().splitlines()
+            for path in git("ls-tree", "-r", "--name-only", head, "projects").decode().splitlines()
             if len(Path(path).parts) == 3 and path.endswith("/app.yml")
         ]
         if args.head
-        else sorted(ROOT.glob("apps/*/app.yml"))
+        else sorted(ROOT.glob("projects/*/app.yml"))
     )
     for config_path in config_paths:
         config = yaml.safe_load(
@@ -109,7 +109,7 @@ def main():
         # Adding impact declarations does not change a binary. Other app.yml edits
         # (version, signing, scheme, etc.) retain their existing shipping behavior.
         for app in configs:
-            path = f"apps/{app}/app.yml"
+            path = f"projects/{app}/app.yml"
             if path not in files:
                 continue
             try:
@@ -173,7 +173,7 @@ def main():
         if args.only and not config.get(args.only):
             continue
         patterns = [
-            f"apps/{app}/**",
+            f"projects/{app}/**",
             *config.get("paths", []),
             *(f"packages/{package}/**" for package in config.get("uses", [])),
         ]
@@ -189,7 +189,7 @@ def main():
         ):
             apps.append(app)
     verify = args.intent == "verify"
-    rdesign = any(path.startswith(("apps/tendr/Packages/RDesign/", "packages/RDesign/")) for path in files)
+    rdesign = any(path.startswith(("projects/tendr/Packages/RDesign/", "packages/RDesign/")) for path in files)
     legacy_rdesign = any(path.startswith("packages/RDesign/") for path in files)
     template = "templates" in verification_units or any(path.startswith("templates/") for path in files)
     print(

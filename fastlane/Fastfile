@@ -21,7 +21,7 @@ BETA_FEEDBACK_EMAIL = ENV["ASC_BETA_FEEDBACK_EMAIL"]
 def r_app(options)
   slug = (options[:app] || ENV["APP"]).to_s
   apps =
-    Dir[File.join(REPO_ROOT, "apps", "*", "app.yml")]
+    Dir[File.join(REPO_ROOT, "projects", "*", "app.yml")]
       .map { |path| File.basename(File.dirname(path)) }
       .sort
   if slug.empty?
@@ -32,7 +32,7 @@ def r_app(options)
   unless apps.include?(slug)
     UI.user_error!("Unknown app '#{slug}'. Apps: #{apps.join(", ")}")
   end
-  dir = File.join(REPO_ROOT, "apps", slug)
+  dir = File.join(REPO_ROOT, "projects", slug)
   config = YAML.safe_load_file(File.join(dir, "app.yml"))
   unless config.fetch("delivery_handler", "standard_ios") == "standard_ios"
     UI.user_error!(

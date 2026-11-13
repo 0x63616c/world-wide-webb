@@ -45,7 +45,7 @@ commands. `scripts/dev doctor` reports a missing PyYAML dependency.
 Prefix these commands with `mise exec --` if your shell has not activated mise.
 
 The product README supplies narrower commands and required toolchains. For example,
-Tendr package tests run with `swift test --package-path apps/tendr`; Folding's
+Tendr package tests run with `swift test --package-path projects/tendr`; Folding's
 backend and native checks are separate. Run the affected checks while iterating,
 then the relevant integration and required CI checks for the completed change.
 Documentation-only edits need link and documentation checks, not app builds.

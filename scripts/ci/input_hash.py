@@ -27,10 +27,10 @@ def input_hash(unit_name, source, repository=ROOT, configuration=None):
     )
     entries = [entry.split("\t", 1) for entry in paths if entry]
     # Preserve pre-import Folding release readers while normalizing source paths.
-    legacy = unit_name.startswith("folding.") and not any(path.startswith("apps/folding/") for _, path in entries)
+    legacy = unit_name.startswith("folding.") and not any(path.startswith("projects/folding/") for _, path in entries)
     files = []
     for metadata, path in entries:
-        normalized = "apps/folding/" + path if legacy else path
+        normalized = "projects/folding/" + path if legacy else path
         if (
             not selection.documentation(normalized)
             and selection.matches(normalized, unit.get("delivery_paths", unit["paths"]))

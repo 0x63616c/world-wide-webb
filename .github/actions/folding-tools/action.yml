@@ -13,8 +13,8 @@ runs:
       run: |
         python3 - <<'PYTHON' >> "$GITHUB_OUTPUT"
         import json
-        pins = json.load(open("apps/folding/tool-versions.json"))
-        pins.update(json.load(open("apps/folding/backend/tool-versions.json")))
+        pins = json.load(open("projects/folding/tool-versions.json"))
+        pins.update(json.load(open("projects/folding/backend/tool-versions.json")))
         for key, value in pins.items():
             if isinstance(value, str):
                 print(f"{key}={value}")
@@ -24,7 +24,7 @@ runs:
         python-version: ${{ steps.pins.outputs.python }}
     - if: inputs.target == 'contracts'
       shell: bash
-      working-directory: apps/folding
+      working-directory: projects/folding
       run: |
         python3 -m venv .venv/contracts
         .venv/contracts/bin/python -m pip install -r scripts/requirements-contracts.txt
@@ -49,15 +49,15 @@ runs:
         if ! worker-build --version 2>/dev/null | grep -Fq "$WORKER_BUILD_VERSION"; then
           cargo +"$RUST_VERSION" install worker-build --version "$WORKER_BUILD_VERSION" --locked
         fi
-        cd apps/folding/backend
+        cd projects/folding/backend
         bun install --frozen-lockfile
     - if: inputs.target == 'backend'
       name: Prepare pinned WebAssembly helpers
       shell: bash
       working-directory: ${{ github.workspace }}
       run: |
-        python3 apps/folding/scripts/test-worker-tools.py
-        python3 apps/folding/scripts/prepare-worker-tools.py --root "$RUNNER_TEMP/folding-worker-tools" --output "$GITHUB_ENV"
+        python3 projects/folding/scripts/test-worker-tools.py
+        python3 projects/folding/scripts/prepare-worker-tools.py --root "$RUNNER_TEMP/folding-worker-tools" --output "$GITHUB_ENV"
     - if: inputs.target == 'apple' || inputs.target == 'deploy' || inputs.target == 'release'
       name: Use UTF-8 for release metadata
       shell: bash
@@ -73,10 +73,10 @@ runs:
       with:
         ruby-version: ${{ steps.pins.outputs.ruby }}
         bundler: ${{ steps.pins.outputs.bundler }}
-        working-directory: apps/folding
+        working-directory: projects/folding
     - if: inputs.target == 'apple' || inputs.target == 'deploy' || inputs.target == 'release'
       shell: bash
-      working-directory: apps/folding
+      working-directory: projects/folding
       env:
         RUBY_VERSION: ${{ steps.pins.outputs.ruby }}
         BUNDLER_VERSION: ${{ steps.pins.outputs.bundler }}
@@ -87,12 +87,12 @@ runs:
         BUNDLE_FROZEN=true bundle install
     - if: inputs.target == 'deploy'
       shell: bash
-      working-directory: apps/folding/backend
+      working-directory: projects/folding/backend
       run: bun install --frozen-lockfile
     - if: inputs.target == 'apple'
       name: Install the Apple project generator
       shell: bash
-      working-directory: apps/folding
+      working-directory: projects/folding
       run: |
         brew list xcodegen >/dev/null 2>&1 || brew install xcodegen
         # The environment check below rejects a different product-pinned version.

@@ -12,8 +12,8 @@ configuration. No extra cloud state service is required.
 
 Run `bash tools/check infra` for formatting, validation, mocked routes and the isolated encryption/locking/
 recovery proof. Production import and recovery-key provisioning are separate required cutover steps; source
-validation alone does not transfer ownership. See `apps/control-center/docs/runbooks/native-rust-cutover.md` from the repo root.
-`apps/control-center/tools/infra_apply.py` is the tested-main entry point after bootstrap. Enable its workflow only after imports,
+validation alone does not transfer ownership. See `projects/control-center/docs/runbooks/native-rust-cutover.md` from the repo root.
+`projects/control-center/tools/infra_apply.py` is the tested-main entry point after bootstrap. Enable its workflow only after imports,
 private recovery verification and retained-service plan review. No native-device service tokens are needed. Retire obsolete app-only tokens after verifying they have no
 other consumers. Preserve independent service identities and the shared tunnel.
 

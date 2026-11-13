@@ -16,15 +16,15 @@ with tempfile.TemporaryDirectory(prefix="publish-site-") as directory:
     for script in ["build-site.sh", "publish-site.sh"]:
         shutil.copy2(ROOT / "scripts" / script, root / "scripts" / script)
     (root / "sites").mkdir()
-    for name in ["tendr-tools.json", "tendr.wrangler.jsonc"]:
-        shutil.copy2(ROOT / "sites" / name, root / "sites" / name)
     (root / "sites/.pages").write_text("tendr\n")
-    (root / "sites/tendr/privacy").mkdir(parents=True)
-    (root / "sites/tendr/support").mkdir()
+    (root / "projects/tendr/site/privacy").mkdir(parents=True)
+    (root / "projects/tendr/site/support").mkdir()
+    for name in ["site-tool-versions.json", "site.wrangler.jsonc"]:
+        shutil.copy2(ROOT / "projects/tendr" / name, root / "projects/tendr" / name)
     for path in ["index.html", "privacy/index.html", "support/index.html"]:
-        (root / "sites/tendr" / path).write_text(path)
-    (root / "sites/folding").mkdir()
-    (root / "sites/folding/worker.js").write_text("must never publish")
+        (root / "projects/tendr/site" / path).write_text(path)
+    (root / "projects/folding/site").mkdir(parents=True)
+    (root / "projects/folding/site/worker.js").write_text("must never publish")
     (root / "sites/README.md").write_text("private instructions")
     artifact = base / "verified"
     subprocess.run(["bash", "scripts/build-site.sh", str(artifact)], cwd=root, check=True)
@@ -61,10 +61,10 @@ with tempfile.TemporaryDirectory(prefix="publish-site-") as directory:
     assert publish().returncode == 0
     args = json.loads(invocation.read_text())
     assert args == [
-        "wrangler@" + json.loads((root / "sites/tendr-tools.json").read_text())["wrangler"],
+        "wrangler@" + json.loads((root / "projects/tendr/site-tool-versions.json").read_text())["wrangler"],
         "deploy",
         "--config",
-        str(root / "sites/tendr.wrangler.jsonc"),
+        str(root / "projects/tendr/site.wrangler.jsonc"),
         "--assets",
         str(artifact / "tendr"),
     ]
@@ -78,13 +78,13 @@ with tempfile.TemporaryDirectory(prefix="publish-site-") as directory:
     (artifact / "private.yaml").unlink()
     (artifact / "tendr/privacy/index.html").unlink()
     assert publish().returncode != 0 and not invocation.exists()
-    (root / "sites/tendr/README.md").write_text("private")
+    (root / "projects/tendr/site/README.md").write_text("private")
     result = subprocess.run(
         ["bash", "scripts/build-site.sh", str(base / "unsafe")], cwd=root, capture_output=True, text=True
     )
     assert result.returncode != 0 and "nonpublic" in result.stderr
-    (root / "sites/tendr/README.md").unlink()
-    (root / "sites/tendr/private.txt").symlink_to(root / "sites/README.md")
+    (root / "projects/tendr/site/README.md").unlink()
+    (root / "projects/tendr/site/private.txt").symlink_to(root / "sites/README.md")
     result = subprocess.run(
         ["bash", "scripts/build-site.sh", str(base / "symlink")], cwd=root, capture_output=True, text=True
     )

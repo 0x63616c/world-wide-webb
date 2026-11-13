@@ -1,4 +1,11 @@
-# Local developer tools. Product lockfiles and CI pins still define release builds.
+# Shared developer tools. Product lockfiles and Xcode remain the release inputs.
+min_version = "2026.11.2"
+monorepo_root = true
+
+[monorepo]
+config_roots = ["projects/*"]
+lockfile = true
+
 [tools]
 bun = "1.4.4"
 node = "26.13.0"

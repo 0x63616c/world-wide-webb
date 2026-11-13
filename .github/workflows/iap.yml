@@ -53,6 +53,6 @@ jobs:
           app=$INPUT_APP
           if [[ -z "$app" ]]; then
             candidate=$(cut -d/ -f2 <<< "$GITHUB_REF_NAME")
-            [[ -f "apps/$candidate/app.yml" ]] && app=$candidate || app=tendr
+            [[ -f "projects/$candidate/app.yml" ]] && app=$candidate || app=tendr
           fi
           bundle exec fastlane ios tip_iaps app:"$app"

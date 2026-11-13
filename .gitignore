@@ -106,4 +106,4 @@ ci-selection.json
 *.tfvars
 *.tfvars.json
 backend.hcl
-/sites/folding/dist/
+/projects/folding/site/dist/

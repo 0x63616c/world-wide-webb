@@ -75,7 +75,7 @@ def formula(version, checksum):
         raise ValueError("Expected a CLI version and archive SHA-256")
     return rf'''class Homelab < Formula
   desc "Guided Mac setup from your Git configuration"
-  homepage "https://github.com/{publish.REPOSITORY}/tree/main/homelab/cli"
+  homepage "https://github.com/{publish.REPOSITORY}/tree/main/projects/homelab/cli"
   url "https://github.com/{publish.REPOSITORY}/releases/download/homelab%2Fv{version}/homelab-{version}.tar.gz"
   sha256 "{checksum}"
   version "{version}"
@@ -146,14 +146,14 @@ def main():
             path.write_text(rendered)
         print("Verified public CLI archive checksum and payload.")
         return
-    version = tomllib.loads((prepare.ROOT / "homelab/cli/Cargo.toml").read_text())["package"]["version"]
+    version = tomllib.loads((prepare.ROOT / "projects/homelab/cli/Cargo.toml").read_text())["package"]["version"]
     payload = args.output / "payload"
     unpack(args.artifact / "homelab-prebuilt.tar.gz", args.artifact / "SHA256SUMS", payload)
     for binary in ("homelab", "homelab-host", "hl"):
         expected = "homelab-host" if binary == "homelab-host" else "homelab"
         if prepare.run(str(payload / "bin" / binary), "--version") != f"{expected} {version}":
             raise ValueError("The prebuilt CLI and helper versions do not agree")
-    tag = f"homelab/v{version}"
+    tag = f"projects/homelab/v{version}"
     existing = publish.remote_commit(publish.REMOTE, tag)
     if existing and existing != source:
         raise ValueError("CLI version already belongs to another source; bump Cargo.toml before releasing")

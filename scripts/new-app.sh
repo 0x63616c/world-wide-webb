@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Scaffolds a new -r app from templates/new-app.
 #   scripts/new-app.sh <Name> <bundle-suffix> [--backend cloudflare]
-#   scripts/new-app.sh Samplr samplr      → apps/samplr, bundle ID com.calumwebb.samplr, sites/samplr
+#   scripts/new-app.sh Samplr samplr      → projects/samplr, bundle ID com.calumwebb.samplr, sites/samplr
 #
 # Creates the XcodeGen project (native SwiftUI, launch screen, placeholder icon, Home and Settings with
 # privacy and support links, a screenshot UI test), apps/<app>/app.yml for fastlane and CI,
@@ -25,9 +25,9 @@ backend=${4:-none}
 name="$(printf '%s' "${raw:0:1}" | tr '[:lower:]' '[:upper:]')${raw:1}"
 slug=$(printf '%s' "$raw" | tr '[:upper:]' '[:lower:]')
 bundle="com.calumwebb.$suffix"
-dest="apps/$slug"
+dest="projects/$slug"
 [[ ! -e "$dest" ]] || fail "$dest already exists"
-[[ ! -e "sites/$slug" ]] || fail "sites/$slug already exists"
+[[ ! -e "$dest/site" ]] || fail "${dest}/site already exists"
 # Standard delivery requires an explicit unit; unknown paths authorize verification only.
 python3 - "$slug" << 'PYTHON'
 import json, sys
@@ -45,9 +45,9 @@ if [[ "$backend" == cloudflare ]]; then
     cp -R "templates/cloudflare-backend/$item" "$dest/backend/$item"
   done
 fi
-cp -R templates/new-app/site "sites/$slug"
+cp -R templates/new-app/site "$dest/site"
 printf '%s\n' "$slug" >> sites/.pages
-find "$dest" "sites/$slug" -type f \( -name '*.swift' -o -name '*.yml' -o -name '*.json' -o -name '*.txt' -o -name '*.md' -o -name '*.html' -o -name '*.plist' -o -name '*.ts' -o -name '*.jsonc' \) -print0 \
+find "$dest" "$dest/site" -type f \( -name '*.swift' -o -name '*.yml' -o -name '*.json' -o -name '*.txt' -o -name '*.md' -o -name '*.html' -o -name '*.plist' -o -name '*.ts' -o -name '*.jsonc' \) -print0 \
   | while IFS= read -r -d '' file; do
     sed -i.bak \
       -e "s#__NAME__#$name#g" -e "s#__SLUG__#$slug#g" -e "s#__BUNDLE_ID__#$bundle#g" \
@@ -67,7 +67,7 @@ from pathlib import Path
 slug = sys.argv[1]
 path = Path('scripts/ci/units.json')
 config = json.loads(path.read_text())
-prefix = 'apps/' + slug + '/'
+prefix = 'projects/' + slug + '/'
 config['units'][slug + '.native'] = {
     'paths': [prefix + '**'],
     'delivery': 'testflight',
@@ -92,7 +92,7 @@ else
 fi
 
 cat << EOF
-Created $name ($bundle) in $dest and sites/$slug. $generated
+Created $name ($bundle) in $dest and ${dest}/site. $generated
 
 Done for you: native SwiftUI, launch screen, placeholder icon, Settings with privacy and support links,
 screenshot UI test, app.yml (fastlane + CI), metadata skeleton, screenshots.json and site pages.
@@ -104,7 +104,7 @@ Remaining setup (the agent can complete supported account/API steps):
   3. Create the "Owner Preview" internal TestFlight group for the app (or change testflight_group).
   4. Replace the placeholder icon and launch glyph in $dest/App/Assets.xcassets.
   5. Write the listing in $dest/fastlane/metadata, the screenshot headlines in
-     $dest/screenshots.json, and review sites/$slug/privacy before publishing (scripts/publish-site.sh).
+     $dest/screenshots.json, and review ${dest}/site/privacy before publishing (scripts/publish-site.sh).
   6. Commit and push: CI builds the app; TestFlight uploads start once testflight is true.
 EOF
 

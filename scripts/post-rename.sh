@@ -14,14 +14,14 @@ old="https://0x63616c.github.io/tendr/"
 new="https://0x63616c.github.io/$repo/tendr/"
 
 # Tendr's original URLs had no app folder: /tendr/privacy/ becomes /apps/tendr/privacy/.
-files=$(grep -rl --exclude-dir=.git -F "$old" apps/tendr || true)
+files=$(grep -rl --exclude-dir=.git -F "$old" projects/tendr || true)
 for file in $files; do
   sed -i.bak "s#${old}#${new}#g" "$file" && rm -f "$file.bak"
   echo "Updated $file"
 done
 # Other apps were created under the old repository name: /tendr/<app>/ becomes /apps/<app>/.
 for dir in apps/*/; do
-  [[ "$dir" == apps/tendr/ ]] && continue
+  [[ "$dir" == projects/tendr/ ]] && continue
   files=$(grep -rl --exclude-dir=.git -F "$old" "$dir" || true)
   for file in $files; do
     sed -i.bak "s#${old}#https://0x63616c.github.io/$repo/#g" "$file" && rm -f "$file.bak"

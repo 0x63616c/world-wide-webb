@@ -59,7 +59,7 @@ jobs:
       actions: read
     defaults:
       run:
-        working-directory: apps/callkeep
+        working-directory: projects/callkeep
     env:
       DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
       CALLKEEP_SOURCE_CI_RUN_URL:

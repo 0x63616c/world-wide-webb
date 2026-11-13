@@ -111,8 +111,8 @@ class ReleaseTests(unittest.TestCase):
             scripts, binaries = root / "scripts", root / "bin"
             scripts.mkdir()
             binaries.mkdir()
-            (root / "apps/tendr").mkdir(parents=True)
-            (root / "apps/tendr/project.yml").write_text("fixture project spec\n")
+            (root / "projects/tendr").mkdir(parents=True)
+            (root / "projects/tendr/project.yml").write_text("fixture project spec\n")
             for name in ("capture-screenshots.sh", "boot-simulator.sh", "screenshot-build-settings.py"):
                 shutil.copy2(ROOT / "scripts" / name, scripts / name)
             tool = binaries / "tool"
@@ -154,7 +154,7 @@ elif name == "xcodebuild":
                 timeout=15,
             )
             self.assertEqual(result.returncode, 42, result.stdout + result.stderr)
-            self.assertEqual((root / "generated-project").read_text(), str((root / "apps/tendr").resolve()))
+            self.assertEqual((root / "generated-project").read_text(), str((root / "projects/tendr").resolve()))
             arguments = json.loads(record.read_text())
             self.assertIn("MARKETING_VERSION=1.1.1", arguments)
             self.assertIn("CURRENT_PROJECT_VERSION=1", arguments)

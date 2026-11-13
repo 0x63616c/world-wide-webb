@@ -7,7 +7,7 @@ import re
 import subprocess
 from pathlib import Path
 
-FLAKE = "./homelab"
+FLAKE = "projects/homelab"
 
 
 def service_only(paths):

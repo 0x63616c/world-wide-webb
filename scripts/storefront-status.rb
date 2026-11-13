@@ -116,7 +116,7 @@ end
 if $PROGRAM_NAME == __FILE__
   require "spaceship"
   config =
-    YAML.safe_load_file(File.expand_path("../apps/tendr/app.yml", __dir__))
+    YAML.safe_load_file(File.expand_path("../projects/tendr/app.yml", __dir__))
   Spaceship::ConnectAPI.auth(
     key_id: ENV.fetch("ASC_KEY_ID"),
     issuer_id: ENV.fetch("ASC_ISSUER_ID"),

@@ -1,4 +1,4 @@
 #!/usr/bin/env bash
 set -euo pipefail
 root=$(cd "$(dirname "$0")/.." && pwd)
-exec bash "$root/apps/control-center/tools/check" "$@"
+exec bash "$root/projects/control-center/tools/check" "$@"

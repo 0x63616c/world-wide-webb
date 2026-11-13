@@ -32,7 +32,7 @@ jobs:
         with:
           bun-version: 1.4.4
       - run: brew list xcodegen >/dev/null 2>&1 || brew install xcodegen
-      - run: scripts/ci/apple-desktop.sh bash apps/golink-safari/Scripts/check.sh
+      - run: scripts/ci/apple-desktop.sh bash projects/golink-safari/Scripts/check.sh
   gate:
     name: Golink Safari checks
     needs:

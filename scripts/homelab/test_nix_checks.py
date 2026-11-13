@@ -10,12 +10,12 @@ from check_nix import service_only
 
 class NixScopeTests(unittest.TestCase):
     def test_service_only_builds_hosts_while_shared_inputs_keep_full_checks(self):
-        self.assertTrue(service_only(["homelab/services/beszel/config.yml"]))
+        self.assertTrue(service_only(["projects/homelab/services/beszel/config.yml"]))
         for paths in [
             [],
-            ["homelab/modules/operations.nix"],
-            ["homelab/services/beszel/config.yml", "homelab/flake.lock"],
-            ["homelab/cli/src/lib.rs"],
+            ["projects/homelab/modules/operations.nix"],
+            ["projects/homelab/services/beszel/config.yml", "projects/homelab/flake.lock"],
+            ["projects/homelab/cli/src/lib.rs"],
         ]:
             self.assertFalse(service_only(paths))
 
@@ -38,7 +38,7 @@ class NixScopeTests(unittest.TestCase):
                 replies = [json.dumps(outputs)]
                 if service:
                     argv += ["--base", "a" * 40, "--head", "b" * 40]
-                    replies.insert(0, "homelab/services/example/release.json\0")
+                    replies.insert(0, "projects/homelab/services/example/release.json\0")
                 with (
                     patch("sys.argv", argv),
                     patch.object(check_nix.subprocess, "run") as run,
@@ -51,12 +51,12 @@ class NixScopeTests(unittest.TestCase):
                 self.assertEqual(json.loads(roots.read_text()), sorted(expected))
                 commands = [call.args[0] for call in run.call_args_list]
                 self.assertEqual(commands[0][:3], ["nix", "flake", "check"])
-                self.assertIn("./homelab", commands[0])
+                self.assertIn("projects/homelab", commands[0])
                 if service:
                     self.assertIn("--no-build", commands[0])
-                    self.assertIn("./homelab#checks.aarch64-darwin.mac-mini", commands[1])
-                    self.assertIn("./homelab#checks.aarch64-darwin.macbook", commands[1])
-                    self.assertIn("./homelab#checks.aarch64-darwin.deployment-inputs", commands[1])
+                    self.assertIn("projects/homelab#checks.aarch64-darwin.mac-mini", commands[1])
+                    self.assertIn("projects/homelab#checks.aarch64-darwin.macbook", commands[1])
+                    self.assertIn("projects/homelab#checks.aarch64-darwin.deployment-inputs", commands[1])
                 else:
                     self.assertNotIn("--no-build", commands[0])
                     self.assertEqual(len(commands), 1)

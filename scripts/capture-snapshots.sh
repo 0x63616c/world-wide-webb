@@ -14,9 +14,9 @@ name=$(ruby scripts/app-config.rb "$app" name)
 out=${2:-build/snapshots/$app}
 derived=build/snapshots-derived/$app
 
-if [[ -f "apps/$app/project.yml" ]]; then
+if [[ -f "projects/$app/project.yml" ]]; then
   command -v xcodegen > /dev/null || brew install xcodegen
-  (cd "apps/$app" && xcodegen generate --quiet)
+  (cd "projects/$app" && xcodegen generate --quiet)
 fi
 
 # Match the validated Xcode 27.2 runner image; Duo uses its device-specific runtime.

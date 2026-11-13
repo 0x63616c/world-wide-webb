@@ -30,10 +30,10 @@ class DispatchTests(unittest.TestCase):
     def test_docs_and_unrelated_products_do_not_run(self):
         self.assertEqual(dispatch(["docs/example.md"], CONFIGURATION)["products"], [])
         self.assertEqual(
-            dispatch(["apps/folding/apps/ios/App/FoldingScreens.swift"], CONFIGURATION)["products"], ["folding"]
+            dispatch(["projects/folding/apps/ios/App/FoldingScreens.swift"], CONFIGURATION)["products"], ["folding"]
         )
         self.assertEqual(
-            dispatch(["apps/folding/backend/tests/runtime.test.mjs"], CONFIGURATION)["products"], ["folding"]
+            dispatch(["projects/folding/backend/tests/runtime.test.mjs"], CONFIGURATION)["products"], ["folding"]
         )
         self.assertEqual(dispatch(["scripts/ci/test_select.py"], CONFIGURATION)["products"], [])
 
@@ -43,10 +43,10 @@ class DispatchTests(unittest.TestCase):
 
     def test_security_follows_languages_not_products(self):
         self.assertEqual(
-            dispatch(["apps/golink-safari/Extension/redirect.js"], CONFIGURATION)["security_languages"], []
+            dispatch(["projects/golink-safari/Extension/redirect.js"], CONFIGURATION)["security_languages"], []
         )
         self.assertEqual(
-            dispatch(["apps/folding/backend/crates/worker/src/lib.rs"], CONFIGURATION)["security_languages"], ["rust"]
+            dispatch(["projects/folding/backend/crates/worker/src/lib.rs"], CONFIGURATION)["security_languages"], ["rust"]
         )
 
     def test_required_gate_rejects_failed_selected_or_unexpected_skips(self):

@@ -12,7 +12,7 @@ import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-SCENARIOS = {"backup-test": "homelab/tests/test_backup.py", "service": "homelab/services/control-center/release.json"}
+SCENARIOS = {"backup-test": "projects/homelab/tests/test_backup.py", "service": "projects/homelab/services/control-center/release.json"}
 
 
 def plan(repository, path):
@@ -32,28 +32,28 @@ def plan(repository, path):
 def commands(check, repository, path):
     if check == "homelab.operations":
         return [
-            ["python3", "-m", "unittest", "discover", "-s", folder] for folder in ("homelab/tests", "scripts/homelab")
-        ] + [["bash", "-n", "homelab/bootstrap.sh"]]
+            ["python3", "-m", "unittest", "discover", "-s", folder] for folder in ("projects/homelab/tests", "scripts/homelab")
+        ] + [["bash", "-n", "projects/homelab/bootstrap.sh"]]
     if check == "homelab.linux":
         return [
-            ["cargo", command, "--locked", "--manifest-path", "homelab/runner/Cargo.toml", *extra]
+            ["cargo", command, "--locked", "--manifest-path", "projects/homelab/runner/Cargo.toml", *extra]
             for command, extra in [("test", []), ("clippy", ["--all-targets", "--", "-D", "warnings"])]
         ]
     if check == "homelab.host":
         return [
-            ["cargo", "fmt", "--manifest-path", "homelab/host/Cargo.toml", "--check"],
+            ["cargo", "fmt", "--manifest-path", "projects/homelab/host/Cargo.toml", "--check"],
             [
                 "cargo",
                 "clippy",
                 "--locked",
                 "--manifest-path",
-                "homelab/host/Cargo.toml",
+                "projects/homelab/host/Cargo.toml",
                 "--all-targets",
                 "--",
                 "-D",
                 "warnings",
             ],
-            ["cargo", "test", "--locked", "--manifest-path", "homelab/host/Cargo.toml"],
+            ["cargo", "test", "--locked", "--manifest-path", "projects/homelab/host/Cargo.toml"],
         ]
     if check == "homelab.darwin":
         # Call the actual source-owned Nix selection handler. A no-op fixture
@@ -89,7 +89,7 @@ def commands(check, repository, path):
                 "cargo",
                 "fmt",
                 "--manifest-path",
-                "homelab/host/Cargo.toml",
+                "projects/homelab/host/Cargo.toml",
                 "--check",
             ],
             [
@@ -100,7 +100,7 @@ def commands(check, repository, path):
                 "cargo",
                 "clippy",
                 "--manifest-path",
-                "homelab/host/Cargo.toml",
+                "projects/homelab/host/Cargo.toml",
                 "--locked",
                 "--all-targets",
                 "--",

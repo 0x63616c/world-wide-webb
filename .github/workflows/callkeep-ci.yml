@@ -37,8 +37,8 @@ jobs:
         with:
           persist-credentials: false
       - run: |
-          python3 apps/callkeep/Scripts/test-release.py
-          python3 apps/callkeep/Scripts/test-release-notes.py
+          python3 projects/callkeep/Scripts/test-release.py
+          python3 projects/callkeep/Scripts/test-release-notes.py
           python3 -m unittest discover -s scripts/distribution -p 'test*.py'
   native:
     name: Callkeep native
@@ -50,7 +50,7 @@ jobs:
       DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
     defaults:
       run:
-        working-directory: apps/callkeep
+        working-directory: projects/callkeep
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:

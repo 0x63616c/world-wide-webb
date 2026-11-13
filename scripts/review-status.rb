@@ -8,14 +8,14 @@ require "json"
 APP = ARGV.first || ENV["APP"] || abort("usage: review-status.rb <app>")
 abort("Invalid app slug") unless APP.match?(/\A[a-z][a-z0-9-]*\z/)
 CONFIG =
-  YAML.safe_load(File.read(File.expand_path("../apps/#{APP}/app.yml", __dir__)))
+  YAML.safe_load(File.read(File.expand_path("../projects/#{APP}/app.yml", __dir__)))
 APP_ID =
   if APP == "folding"
     JSON
       .parse(
         File.read(
           File.expand_path(
-            "../apps/folding/fastlane/app-identifiers.json",
+            "../projects/folding/fastlane/app-identifiers.json",
             __dir__
           )
         )
@@ -26,7 +26,7 @@ APP_ID =
     CONFIG["apple_id"].to_s
   end
 if APP_ID.empty?
-  abort("Set apple_id in apps/#{APP}/app.yml before checking review status")
+  abort("Set apple_id in projects/#{APP}/app.yml before checking review status")
 end
 
 Spaceship::ConnectAPI.auth(
@@ -38,7 +38,7 @@ asc = Spaceship::ConnectAPI.client.tunes_request_client
 
 response =
   asc.get(
-    "v1/apps/#{APP_ID}/appStoreVersions",
+    "v1/projects/#{APP_ID}/appStoreVersions",
     { "filter[platform]" => "IOS", "include" => "build", "limit" => 50 }
   ).body
 builds =
@@ -151,7 +151,7 @@ def inventory_all(asc, path)
   end
   rows
 end
-inventory_all(asc, "v1/apps/#{APP_ID}/inAppPurchasesV2").each do |product|
+inventory_all(asc, "v1/projects/#{APP_ID}/inAppPurchasesV2").each do |product|
   puts "PRODUCT: #{product.dig("attributes", "productId")} #{product.dig("attributes", "state")} id=#{product["id"]}"
   %w[
     inAppPurchaseLocalizations
@@ -181,7 +181,7 @@ inventory_all(asc, "v1/apps/#{APP_ID}/inAppPurchasesV2").each do |product|
     end
   end
 end
-groups = inventory_all(asc, "v1/apps/#{APP_ID}/subscriptionGroups")
+groups = inventory_all(asc, "v1/projects/#{APP_ID}/subscriptionGroups")
 puts "SUBSCRIPTION_GROUPS: #{groups.length}"
 groups.each do |group|
   inventory_all(

@@ -1,6 +1,6 @@
 # Agent instructions
 
-Read `CODEBASE_OVERVIEW.md`, then the product README/local instructions for the area being changed.
+Read `CODEBASE_OVERVIEW.md`, then `projects/<product>/README.md` and the relevant runbook.
 Repository consolidation is complete; `docs/plans/monorepo-migration-progress.md` records ownership.
 Develop migrated products here, never in deleted source repositories or `github-archive` snapshots.
 Tendr’s replacement Cloudflare hosting is tracked separately in #1007.
