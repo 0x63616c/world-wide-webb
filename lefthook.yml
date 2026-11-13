@@ -7,7 +7,7 @@ pre-commit:
     no-personal-email:
       run: bash scripts/check-no-personal-email.sh {staged_files}
     no-plaintext-secrets:
-      glob: 'secrets/*.yaml'
+      glob: "secrets/*.yaml"
       run: bash scripts/check-sops-encrypted.sh {staged_files}
     gitleaks:
       run: gitleaks git --staged --redact --no-banner -c .gitleaks.toml
