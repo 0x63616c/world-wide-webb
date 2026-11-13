@@ -1,5 +1,6 @@
 > Historical reference from before the native/Rust reset. Current operations and source locations are
 > defined by `CODEBASE_OVERVIEW.md` and `docs/runbooks/native-rust-cutover.md` at the repository root.
+> Mentions of `MINI_DEPLOY_ENABLED` below are archival; that repository variable is retired.
 
 # Mac mini migration
 
@@ -34,11 +35,12 @@ app and infra source contain no Signal references. Local GitHub runners remain:
 Voxelite still depends on self-hosted rendering and release jobs.
 
 PR #882 merged as `11bae6356377b7f937cd9a59be93bdb52129f9bd` after all
-required checks passed. `MINI_DEPLOY_ENABLED=true` now permits main-triggered
-rehearsal releases. The mini still uses the restored rehearsal database with
-`WORKER_CYCLES=off`; production ownership has not moved. Its GHCR login and
-vault-backed deployment SSH access have been verified. The first main CI run
-is `41651565297`; release success remains to be verified.
+required checks passed. Historical note: a `MINI_DEPLOY_ENABLED` repository
+variable once gated rehearsal releases; that switch is retired and host
+activation now follows Homelab promotion. At the time, the mini still used the
+restored rehearsal database with `WORKER_CYCLES=off`; production ownership had
+not moved. Its GHCR login and vault-backed deployment SSH access were verified.
+The first main CI run is `41651565297`.
 
 ## HA cutover evidence (2026-11-03)
 

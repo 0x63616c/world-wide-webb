@@ -90,14 +90,8 @@ def main():
             values = config.get(key, [])
             if not isinstance(values, list) or not all(isinstance(v, str) and v for v in values):
                 parser.error(f"{config_path}: {key} must be a list of nonempty strings")
-        for package in config.get("uses", []):
-            package_exists = (
-                bool(git("ls-tree", "-d", "--name-only", head, f"packages/{package}"))
-                if args.head
-                else (ROOT / "packages" / package).is_dir()
-            )
-            if not package_exists or "/" in package or package in {".", ".."}:
-                parser.error(f"{config_path}: unknown package {package}")
+        if config.get("uses"):
+            parser.error(f"{config_path}: root packages/ are retired; keep shared code under the product and leave uses empty")
         for pattern in config.get("paths", []):
             if pattern.startswith("/") or ".." in pattern.split("/"):
                 parser.error(f"{config_path}: paths must be repo-relative globs")
@@ -175,7 +169,6 @@ def main():
         patterns = [
             f"projects/{app}/**",
             *config.get("paths", []),
-            *(f"packages/{package}/**" for package in config.get("uses", [])),
         ]
         direct = any(fnmatch.fnmatchcase(path, pattern) for path in files for pattern in patterns)
         if args.intent == "preview" and not (
@@ -189,7 +182,7 @@ def main():
         ):
             apps.append(app)
     verify = args.intent == "verify"
-    rdesign = any(path.startswith(("projects/tendr/Packages/RDesign/", "packages/RDesign/")) for path in files)
+    rdesign = any(path.startswith("projects/tendr/Packages/RDesign/") for path in files)
     print(
         json.dumps(
             {

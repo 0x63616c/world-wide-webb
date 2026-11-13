@@ -15,7 +15,7 @@ node projects/folding/site/build.mjs
 
 `sites/.pages` lists approved static roots. The builder rejects unexpected files and symlinks;
 Folding's Worker source, tooling, configuration and documentation stay outside that artifact.
-New-app scaffolding registers a static root; registration does not provision hosting.
+Add a product to `.pages` only when it has a public site; that does not provision hosting.
 
 ## Tendr publication
 

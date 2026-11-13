@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
-# Imports an existing app repository into apps/<slug> with its full history (docs/legacy-apps/IMPORT.md).
+# Imports an existing app repository into projects/<slug> with its full history (docs/legacy-apps/IMPORT.md).
 #   scripts/import-app.sh <owner/repo> <slug> [--branch main] [--move <path>=<dest>]...
 #   scripts/import-app.sh 0x63616c/tendr tendr
 #   scripts/import-app.sh owner/repo samplr --move admin=web/samplr-admin
 #
 # With git-filter-repo installed (brew install git-filter-repo) the imported history is rewritten
-# into apps/<slug>/, so `git log -- apps/<slug>/<file>` reaches the original first commit. Without
-# it, git subtree adds the history unchanged under one merge commit. --move relocates a folder
-# after the import (paths are relative to the imported repository), keeping its history via git mv.
-# Run on a clean working tree; it commits the import (with [skip ci]).
+# into projects/<slug>/, so `git log -- projects/<slug>/<file>` reaches the original first commit.
+# Without it, git subtree adds the history unchanged under one merge commit. --move relocates a
+# folder after the import (paths are relative to the imported repository), keeping its history via
+# git mv. Run on a clean working tree; it commits the import (with [skip ci]).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 

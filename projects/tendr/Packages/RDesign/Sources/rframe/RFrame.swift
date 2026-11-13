@@ -2,7 +2,7 @@
 // The palette and type match RDesign: the icon's ink and paper, the graphite accent, SF Pro
 // headlines and the tracked uppercase eyebrow. Black, white and graphite only.
 //
-//   swift run --package-path packages/RDesign -c release rframe \
+//   swift run --package-path projects/tendr/Packages/RDesign -c release rframe \
 //     projects/tendr/screenshots.json build/screenshots/raw projects/tendr/fastlane/screenshots/en-US build/screenshots/overview.png
 #if os(macOS)
   import AppKit

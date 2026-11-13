@@ -18,14 +18,12 @@ with tempfile.TemporaryDirectory(prefix="affected-") as directory:
     git("config", "user.name", "Calum")
     git("config", "user.email", "6991398+0x63616c@users.noreply.github.com")
     (root / "scripts").mkdir()
-    for script in ["affected", "changed-apps.sh", "app-config.rb"]:
+    for script in ["affected", "app-config.rb"]:
         shutil.copy2(ROOT / "scripts" / script, root / "scripts" / script)
-    (root / "packages/RDesign").mkdir(parents=True)
-    (root / "packages/RDesign/code.swift").write_text("// Shared\n")
     for app in ["tendr", "samplr"]:
         path = root / "projects" / app
         path.mkdir(parents=True)
-        (path / "app.yml").write_text(f"testflight: true\nuses: {'[RDesign]' if app == 'tendr' else '[]'}\npaths: []\n")
+        (path / "app.yml").write_text("testflight: true\nuses: []\npaths: []\n")
         (path / "code.swift").write_text(f"// {app}\n")
     git("add", ".")
     git("commit", "-qm", "Fixture")
@@ -66,8 +64,6 @@ with tempfile.TemporaryDirectory(prefix="affected-") as directory:
     expect(base, ["tendr"], ["tendr"], rdesign=True)
     base = change("projects/samplr/code.swift")
     expect(base, ["samplr"], ["samplr"])
-    base = change("packages/RDesign/code.swift")
-    expect(base, ["tendr"], ["tendr"], True)
     for path in [
         "fastlane/Fastfile",
         "fastlane/Appfile",
@@ -106,12 +102,12 @@ with tempfile.TemporaryDirectory(prefix="affected-") as directory:
     # Products with a custom delivery handler never enter the standard iOS matrix.
     expect(change("projects/folding/app.yml", "testflight: true\ndelivery_handler: folding\nuses: []\npaths: []\n"))
     expect(change("projects/folding/apps/ios/App/Screen.swift"))
-    # Unknown packages must fail rather than silently lose dependency coverage.
-    change("projects/samplr/app.yml", "uses: [Missing]\n")
+    # Non-empty uses must fail; root packages/ are retired.
+    change("projects/samplr/app.yml", "uses: [RDesign]\n")
     result = subprocess.run(
         ["scripts/affected", "HEAD", "--intent", "verify"], cwd=root, text=True, capture_output=True
     )
-    assert result.returncode != 0 and "unknown package" in result.stderr
+    assert result.returncode != 0 and "uses empty" in result.stderr
     change("projects/samplr/app.yml", "uses: []\n")
     # Main without a remote base compares its previous commit; branches fail clearly.
     git("checkout", "-q", "main")
