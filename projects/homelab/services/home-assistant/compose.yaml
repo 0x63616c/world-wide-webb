@@ -46,7 +46,8 @@ services:
     volumes:
       - ha_config:/config
     stop_grace_period: 120s
-    mem_limit: 1g
+    # 2 GiB leaves 1 GiB of the HA guest for Linux, Docker and provisioning.
+    mem_limit: 2g
     healthcheck:
       test:
         [

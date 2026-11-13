@@ -14,6 +14,13 @@ CONFIG = json.loads(selection.CONFIG.read_text())
 
 
 class SelectionTests(unittest.TestCase):
+    def test_vacuum_inventory_selects_both_consumers(self):
+        result = selection.select(["projects/control-center/server/config/vacuum.json"], CONFIG)
+        self.assertIn("homelab.config", result["verify"])
+        self.assertIn("control-center.server", result["verify"])
+        self.assertIn("control-center.server", result["delivery_candidates"])
+        self.assertIn("homelab.config", result["delivery_candidates"])
+
     def test_tendr_publication_inputs_do_not_ship_folding(self):
         for path in ["projects/tendr/site/index.html", "projects/tendr/site.wrangler.jsonc", "scripts/publish-site.sh"]:
             result = selection.select([path], CONFIG)

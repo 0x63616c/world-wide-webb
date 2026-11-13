@@ -42,3 +42,9 @@ For the green clock/launcher rendering regression, capture the selected native d
 `xcrun simctl io <device> screenshot --display=<id> /tmp/canvas.png`, then run
 `bash tools/test_canvas_layout.sh /tmp/canvas.png`. It rejects the shifted right/bottom
 black strips independently of the app's reported frame. Keep captures outside Git.
+
+The Controls page includes a Vacuum section backed by `/api/v1/vacuum` and the
+existing Home Assistant REST client. Entity IDs and confirmed room segments have
+one source in `server/config/vacuum.json`, also consumed by HA provisioning.
+Room buttons stay hidden until that inventory is confirmed. See the
+[HA runbook](../homelab/docs/home-assistant.md) for Dreame setup and deployment.

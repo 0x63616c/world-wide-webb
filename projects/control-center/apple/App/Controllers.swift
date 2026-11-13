@@ -49,6 +49,7 @@ struct ControllerHost: View {
     }
 }
 struct ControlsController: View {
+    @Environment(\.homeIntegration) private var integration
     let store: any HomeDataSource
     var fanIsOn: Bool? = nil
     var body: some View {
@@ -82,6 +83,9 @@ struct ControlsController: View {
                             }.frame(maxWidth: .infinity).padding(32)
                                 .background(.white.opacity(0.045), in: .rect(cornerRadius: 32))
                         }.frame(minHeight: max(0, geometry.size.height - 160), alignment: .center)
+                    if let api = integration?.vacuumAPI {
+                        VacuumControls(api: api)
+                    }
                 }.padding(geometry.size.width < 700 ? 20 : 44).frame(minHeight: geometry.size.height, alignment: .top)
             }
         }.background(Color.black)

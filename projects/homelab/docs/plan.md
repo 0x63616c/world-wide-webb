@@ -192,11 +192,21 @@ after return. Tune allocations/concurrency where justified. If capacity cannot
 be established, stop and revise the hardware/resource plan with Calum; leaving
 services permanently on the MacBook does not satisfy this plan.
 
-Known incompatible defaults: `modules/containers.nix` allocates 6 GiB for the
-services VM and `modules/homeassistant.nix` allocates 2 GiB for HA, leaving no
-RAM budget for macOS on the 8 GiB mini. Change and validate those allocations
-before proceeding. If HA memory needs adjustment, expose an explicit host
-setting rather than silently changing the shared default for every host.
+The Mini explicitly allocates 4 GiB to the services VM and now 3 GiB to HA
+(the shared HA default also becomes 3 GiB). HA's container limit is 2 GiB,
+leaving 1 GiB within that guest for Linux/Docker and provisioning. Combined guest
+allocations leave only 1 GiB nominally for macOS on this 8 GiB Mini; validate
+memory pressure under real load after deployment. This is desired state, not a
+new live capacity measurement. See the [HA runbook](home-assistant.md) for the
+normal stateful resize/restart and backup gates.
+
+Dreame L50 Ultra work: pinned assets, non-destructive volume provisioning,
+shared assumed entity/room inventory, YAML Vacuum dashboard and gated schedules
+are implemented alongside modest Control Center controls. Next: normal checked
+deployment, then the owner's one-time Dreamehome US setup and real entity/room
+confirmation. Keep scheduling off until times are chosen. Local checks and
+platform limitations are recorded in the change summary; no live acceptance is
+claimed.
 
 Take consistent backups using the current live formats. Store a verified
 recovery copy off both Macs, on the encrypted NAS, plus the active/rehearsal

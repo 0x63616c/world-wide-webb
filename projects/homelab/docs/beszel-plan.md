@@ -40,7 +40,8 @@ Compose reuses the rebuilt Mini's tunnel, service reconciliation and backup path
 
 - Mini is rebuilt: macOS 27.2, 8 GiB RAM, about 155 GiB available storage.
   Live Git revision: `676d6621bc1f3fa451595f87f1894be15b5b46fb`.
-- It already has a 4 GiB services VM and separate 2 GiB HA VM. Container inventory
+- It already has a 4 GiB services VM and separate HA VM (2 GiB at inspection; desired sizing is now 3 GiB,
+  with a 2 GiB HA container limit; see [HA](home-assistant.md)). Container inventory
   showed the current application services running; Bambuddy, Hindsight, Penpot
   and HA responded to read-only HTTP probes.
 - Native memory-pressure query reported 54% free and about 162 MiB swap used.
