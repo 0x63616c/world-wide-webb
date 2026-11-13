@@ -56,4 +56,4 @@ jobs:
           test -n "$KNOWN_HOSTS"
           printf '%s\n' "$SSH_KEY" > "$key"
           printf '%s\n' "$KNOWN_HOSTS" > "$hosts"
-          python3 homelab/scripts/operations-canary.py
+          python3 projects/homelab/scripts/operations-canary.py

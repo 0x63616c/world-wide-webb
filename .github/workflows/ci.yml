@@ -55,7 +55,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - *id001
-      - run: bash apps/control-center/tools/install_ci_linters.sh
+      - run: bash projects/control-center/tools/install_ci_linters.sh
       - run: |-
           actionlint
           python3 -m compileall -q scripts/ci
@@ -95,7 +95,7 @@ jobs:
       - run: brew install nixfmt
       - run: |-
           python3 -m venv "$RUNNER_TEMP/format-venv"
-          "$RUNNER_TEMP/format-venv/bin/pip" install "ruff==$(python3 -c 'import json; print(json.load(open("apps/control-center/tools/versions.json"))["ruff"])')"
+          "$RUNNER_TEMP/format-venv/bin/pip" install "ruff==$(python3 -c 'import json; print(json.load(open("projects/control-center/tools/versions.json"))["ruff"])')"
           echo "$RUNNER_TEMP/format-venv/bin" >> "$GITHUB_PATH"
       - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
         with:

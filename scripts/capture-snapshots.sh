@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Renders an app's component galleries (its snapshot_test in apps/<app>/app.yml) to PNG on a fresh
+# Renders an app's component galleries (its snapshot_test in projects/<app>/app.yml) to PNG on a fresh
 # iPhone 17 simulator. Regenerates XcodeGen projects first so new test files are picked up.
 # Usage: scripts/capture-snapshots.sh <app> [output-dir] [only-testing id]
 # Writes <output-dir>/<gallery>.png and <gallery>-<variant>.png; defaults to build/snapshots/<app>.
@@ -14,9 +14,9 @@ name=$(ruby scripts/app-config.rb "$app" name)
 out=${2:-build/snapshots/$app}
 derived=build/snapshots-derived/$app
 
-if [[ -f "apps/$app/project.yml" ]]; then
+if [[ -f "projects/$app/project.yml" ]]; then
   command -v xcodegen > /dev/null || brew install xcodegen
-  (cd "apps/$app" && xcodegen generate --quiet)
+  (cd "projects/$app" && xcodegen generate --quiet)
 fi
 
 # Match the validated Xcode 27.2 runner image; Duo uses its device-specific runtime.

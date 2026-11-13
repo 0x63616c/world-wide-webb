@@ -7,11 +7,11 @@ import re
 import subprocess
 from pathlib import Path
 
-FLAKE = "./homelab"
+FLAKE = "./projects/homelab"
 
 
 def service_only(paths):
-    return bool(paths) and all(p.startswith("homelab/services/") for p in paths)
+    return bool(paths) and all(p.startswith("projects/homelab/services/") for p in paths)
 
 
 def main():

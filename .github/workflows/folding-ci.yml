@@ -5,7 +5,7 @@ permissions:
   contents: read
 defaults:
   run:
-    working-directory: apps/folding
+    working-directory: projects/folding
 jobs:
   selection:
     name: Folding selection
@@ -86,7 +86,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: folding-worker-${{ github.sha }}
-          path: apps/folding/backend/crates/worker/build
+          path: projects/folding/backend/crates/worker/build
           retention-days: 14
           if-no-files-found: error
       - name: Database policy and migration source fences
@@ -108,13 +108,13 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: |-
-            apps/folding/apps/ios/Packages/FoldingKit/.build
-            apps/folding/.build
+            projects/folding/apps/ios/Packages/FoldingKit/.build
+            projects/folding/.build
           key:
-            folding-host-${{ runner.os }}-${{ hashFiles('apps/folding/**/Package.swift', 'apps/folding/**/Package.resolved')
+            folding-host-${{ runner.os }}-${{ hashFiles('projects/folding/**/Package.swift', 'projects/folding/**/Package.resolved')
             }}-${{ github.sha }}
           restore-keys:
-            folding-host-${{ runner.os }}-${{ hashFiles('apps/folding/**/Package.swift', 'apps/folding/**/Package.resolved')
+            folding-host-${{ runner.os }}-${{ hashFiles('projects/folding/**/Package.swift', 'projects/folding/**/Package.resolved')
             }}-
       - run: swift test --package-path apps/ios/Packages/FoldingKit
       - name: Host presentation tests

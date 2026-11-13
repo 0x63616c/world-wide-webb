@@ -16,9 +16,9 @@ verified.
 | Folding website | Site publisher is gated by `FOLDING_SITE_DELIVERY_ENABLED`. | Its own tested artifact and Cloudflare configuration are used. |
 | Golink for Safari | Product CI verifies builds and behavior. | No automatic app publication. |
 
-[Callkeep](../apps/callkeep/README.md#release-automation),
-[Control Center](../apps/control-center/README.md),
-[Homelab](../homelab/docs/releases.md) and [sites](../sites/README.md) retain their
+[Callkeep](../projects/callkeep/README.md#release-automation),
+[Control Center](../projects/control-center/README.md),
+[Homelab](../projects/homelab/docs/releases.md) and [sites](../sites/README.md) retain their
 product-specific commands and recovery steps.
 
 ## How App Store releases work
@@ -27,7 +27,7 @@ Tendr and Folding share the event selector, exact-source beta receipt validation
 per-app publisher lock and review-state rules. Tendr uses the root Fastlane bundle;
 Folding keeps its own immutable archive, Worker prerequisites and Fastlane bundle.
 
-1. Set the new marketing version in `apps/<app>/app.yml` before merging the app
+1. Set the new marketing version in `projects/<app>/app.yml` before merging the app
    change. Several TestFlight builds may share that version; each has a different
    build number.
 2. Merge to `main`. Wait for successful exact-source CI, internal TestFlight
@@ -54,7 +54,7 @@ git push origin tendr/v1.2.3
 The shared `release.yml` workflow calls `testflight.yml` and the product delivery
 handler. Each processed beta has an `ios-beta-<app>-<source>` receipt retained for
 90 days; Folding also keeps its durable private archive and build ledger. See
-[Folding operations](../apps/folding/fastlane/RELEASE.md) for its release details.
+[Folding operations](../projects/folding/fastlane/RELEASE.md) for its release details.
 
 ### If Apple already has a version
 

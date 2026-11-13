@@ -115,9 +115,9 @@ jobs:
       - name: Generate app project
         run: |
           export GITHUB_SHA="$SOURCE_SHA"
-          if [[ -f "apps/$APP/project.yml" ]]; then
+          if [[ -f "projects/$APP/project.yml" ]]; then
             brew list xcodegen >/dev/null 2>&1 || brew install xcodegen
-            (cd "apps/$APP" && xcodegen generate --quiet)
+            (cd "projects/$APP" && xcodegen generate --quiet)
           fi
       - name: Test, upload, and distribute to the app's TestFlight group
         if: inputs.channel == 'beta'
@@ -146,8 +146,8 @@ jobs:
           scripts/ci/apple-desktop.sh scripts/capture-screenshots.sh "$APP"
           scripts/frame-screenshots.sh "$APP"
           scripts/ci/apple-desktop.sh scripts/capture-duo-screenshots.sh "$APP"
-          python3 scripts/stage-duo-screenshots.py "apps/$APP/screenshots.json" \
-            "build/duo-screenshots/$APP/raw" "apps/$APP/fastlane/screenshots/en-US"
+          python3 scripts/stage-duo-screenshots.py "projects/$APP/screenshots.json" \
+            "build/duo-screenshots/$APP/raw" "projects/$APP/fastlane/screenshots/en-US"
       - name: Upload listing, verify Apple received images, and submit app with purchases
         if: inputs.channel == 'store' && env.RELEASE_SKIP != 'true'
         env:
@@ -190,7 +190,7 @@ jobs:
           path: |
             build/release-state.json
             build/review-status.txt
-            apps/tendr/fastlane/screenshots/en-US/*.png
+            projects/tendr/fastlane/screenshots/en-US/*.png
             build/duo-screenshots/tendr/raw/diagnostics
             build/screenshots/tendr/*.xcresult
             build/screenshots/tendr/raw

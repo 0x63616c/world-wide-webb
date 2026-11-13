@@ -34,7 +34,7 @@ jobs:
       LC_ALL: en_US.UTF-8
     defaults:
       run:
-        working-directory: apps/folding
+        working-directory: projects/folding
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
@@ -48,28 +48,28 @@ jobs:
         with:
           name: folding-store-native-capture-failure-${{ github.run_attempt }}
           path: |
-            apps/folding/build/store-assets/**/assets/native-control/build.log
-            apps/folding/build/store-assets/**/assets/native-control/controller.log
-            apps/folding/build/store-assets/**/assets/native-control/application.log
-            apps/folding/build/store-assets/**/assets/native-control/host-stage.txt
-            apps/folding/build/store-assets/**/assets/native-control/host-hierarchy.txt
-            apps/folding/build/store-assets/**/assets/native-control/capture.log
-            apps/folding/build/store-assets/**/assets/native-control/plan.json
-            apps/folding/build/store-assets/**/assets/native-control/simctl-capabilities.txt
-            apps/folding/build/store-assets/**/assets/raw/native-displays
-            apps/folding/build/store-assets/**/assets/results/*.xcresult
-            apps/folding/build/store-assets/**/assets/logs
+            projects/folding/build/store-assets/**/assets/native-control/build.log
+            projects/folding/build/store-assets/**/assets/native-control/controller.log
+            projects/folding/build/store-assets/**/assets/native-control/application.log
+            projects/folding/build/store-assets/**/assets/native-control/host-stage.txt
+            projects/folding/build/store-assets/**/assets/native-control/host-hierarchy.txt
+            projects/folding/build/store-assets/**/assets/native-control/capture.log
+            projects/folding/build/store-assets/**/assets/native-control/plan.json
+            projects/folding/build/store-assets/**/assets/native-control/simctl-capabilities.txt
+            projects/folding/build/store-assets/**/assets/raw/native-displays
+            projects/folding/build/store-assets/**/assets/results/*.xcresult
+            projects/folding/build/store-assets/**/assets/logs
           if-no-files-found: ignore
           retention-days: 7
       - uses: actions/upload-artifact@v4
         with:
           name: folding-store-checks-${{ github.sha }}-${{ github.run_attempt }}
           path: |
-            apps/folding/build/store-assets/**/assets/screenshots
-            apps/folding/build/store-assets/**/assets/raw
-            apps/folding/build/store-assets/**/assets/review
-            apps/folding/build/store-assets/**/assets/metadata
-            apps/folding/build/store-assets/**/assets/tip-review-screenshots.json
-            apps/folding/build/store-assets/**/assets/*manifest.json
+            projects/folding/build/store-assets/**/assets/screenshots
+            projects/folding/build/store-assets/**/assets/raw
+            projects/folding/build/store-assets/**/assets/review
+            projects/folding/build/store-assets/**/assets/metadata
+            projects/folding/build/store-assets/**/assets/tip-review-screenshots.json
+            projects/folding/build/store-assets/**/assets/*manifest.json
           if-no-files-found: error
           retention-days: 30

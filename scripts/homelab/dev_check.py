@@ -35,7 +35,17 @@ def main():
     with tempfile.NamedTemporaryFile(prefix="homelab-check-", suffix=".log", delete=False, mode="w+") as log:
         os.fchmod(log.fileno(), 0o600)
         for pattern in patterns:
-            command = [sys.executable, "-m", "unittest", "discover", "-s", "homelab/tests", "-p", pattern, "-v"]
+            command = [
+                sys.executable,
+                "-m",
+                "unittest",
+                "discover",
+                "-s",
+                "projects/homelab/tests",
+                "-p",
+                pattern,
+                "-v",
+            ]
             result = subprocess.run(command, cwd=ROOT, stdout=log, stderr=log, check=False)
             if result.returncode:
                 log.flush()

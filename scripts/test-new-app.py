@@ -27,7 +27,7 @@ def main():
             root / "templates",
             ignore=shutil.ignore_patterns("node_modules", ".wrangler", "*.xcodeproj"),
         )
-        (root / "apps").mkdir()
+        (root / "projects").mkdir()
         (root / "sites").mkdir()
         (root / "sites/.pages").write_text("")
         (root / "sites/index.html").write_text(
@@ -51,9 +51,9 @@ def main():
             assert (result.returncode == 0) == success, result.stdout + result.stderr
 
         scaffold("Plainr", "plainr")
-        assert not (root / "apps/plainr/backend").exists()
+        assert not (root / "projects/plainr/backend").exists()
         scaffold("Samplr", "samplr", "--backend", "cloudflare")
-        backend = root / "apps/samplr/backend"
+        backend = root / "projects/samplr/backend"
         config = json.loads((backend / "wrangler.jsonc").read_text())
         assert config["env"]["staging"]["name"] == "samplr-api-staging"
         assert config["env"]["production"]["name"] == "samplr-api-production"
@@ -61,24 +61,24 @@ def main():
         assert not (backend / "node_modules").exists()
         assert not (backend / ".wrangler").exists()
         assert (backend / "bun.lock").read_bytes() == (ROOT / "templates/cloudflare-backend/bun.lock").read_bytes()
-        assert "testflight: false" in (root / "apps/samplr/app.yml").read_text()
-        for path in (root / "apps/samplr").rglob("*"):
+        assert "testflight: false" in (root / "projects/samplr/app.yml").read_text()
+        for path in (root / "projects/samplr").rglob("*"):
             if path.is_file():
                 assert b"__SLUG__" not in path.read_bytes(), path
         scaffold("Samplr", "samplr", "--backend", "cloudflare", success=False)
         scaffold("Invalidr", "invalidr", "--backend", "unknown", success=False)
-        assert not (root / "apps/invalidr").exists()
+        assert not (root / "projects/invalidr").exists()
         units = json.loads((root / "scripts/ci/units.json").read_text())["units"]
         assert set(units) == {"plainr.native", "samplr.native"}
         spec = importlib.util.spec_from_file_location("unit_selection", ROOT / "scripts/ci/select_units.py")
         selection = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(selection)
         configuration = {"version": 1, "units": units}
-        assert selection.select(["apps/samplr/App/App.swift"], configuration)["delivery_candidates"] == [
+        assert selection.select(["projects/samplr/App/App.swift"], configuration)["delivery_candidates"] == [
             "samplr.native"
         ]
-        assert selection.select(["apps/samplr/backend/src/index.ts"], configuration)["delivery_candidates"] == []
-        assert selection.select(["apps/samplr/UITests/Test.swift"], configuration)["delivery_candidates"] == []
+        assert selection.select(["projects/samplr/backend/src/index.ts"], configuration)["delivery_candidates"] == []
+        assert selection.select(["projects/samplr/UITests/Test.swift"], configuration)["delivery_candidates"] == []
         assert (root / "sites/.pages").read_text().splitlines() == ["plainr", "samplr"]
         if args.backend_check:
             spec = importlib.util.spec_from_file_location("backends", ROOT / "scripts/check-app-backends.py")

@@ -181,7 +181,7 @@ end
 unless listing[:force] && listing[:run_precheck_before_submit] == false
   raise "metadata lane must run unattended"
 end
-tendr = File.expand_path("../apps/tendr", __dir__)
+tendr = File.expand_path("../projects/tendr", __dir__)
 unless listing[:metadata_path] == "#{tendr}/fastlane/metadata" &&
          listing[:screenshots_path] == "#{tendr}/fastlane/screenshots" &&
          listing[:overwrite_screenshots]
@@ -328,7 +328,7 @@ check.fail_tests = false
 ENV["GITHUB_ACTIONS"] = "true"
 ENV.delete("R_PROFILE_UUID")
 
-Dir[File.expand_path("../apps/tendr/fastlane/metadata", __dir__)]
+Dir[File.expand_path("../projects/tendr/fastlane/metadata", __dir__)]
   .sort
   .each do |metadata|
   limits = {

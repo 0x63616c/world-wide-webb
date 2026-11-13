@@ -104,7 +104,7 @@ jobs:
         run: |
           command -v shellcheck >/dev/null || { sudo apt-get update && sudo apt-get install -y shellcheck; }
           shopt -s nullglob
-          scripts=(scripts/*.sh apps/*/scripts/*.sh)
+          scripts=(scripts/*.sh projects/*/scripts/*.sh)
           shellcheck "${scripts[@]}"
   rdesign:
     needs: changes
@@ -116,9 +116,9 @@ jobs:
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
       - name: RDesign tests (macOS)
-        run: swift test --package-path apps/tendr/Packages/RDesign
+        run: swift test --package-path projects/tendr/Packages/RDesign
       - name: rframe builds
-        run: swift build --package-path apps/tendr/Packages/RDesign -c release --product rframe
+        run: swift build --package-path projects/tendr/Packages/RDesign -c release --product rframe
   app:
     needs: changes
     if: needs.changes.outputs.apps != '[]'
@@ -141,17 +141,17 @@ jobs:
       - name: Core tests
         run: |
           if [[ "$(ruby scripts/app-config.rb "$APP" swift_package 2>/dev/null)" == "true" ]]; then
-            swift test --package-path "apps/$APP"
+            swift test --package-path "projects/$APP"
           else
             echo "$APP has no Swift package tests"
           fi
       - name: Project is generated from project.yml
         run: |
           brew list xcodegen >/dev/null 2>&1 || brew install xcodegen
-          if [[ -f "apps/$APP/project.yml" ]]; then (cd "apps/$APP" && xcodegen generate --quiet); fi
-          if ! git diff --quiet -- "apps/$APP"; then
-            git diff --stat -- "apps/$APP"
-            echo "::warning::apps/$APP's Xcode project differs from project.yml; run 'xcodegen generate' in apps/$APP and commit"
+          if [[ -f "projects/$APP/project.yml" ]]; then (cd "projects/$APP" && xcodegen generate --quiet); fi
+          if ! git diff --quiet -- "projects/$APP"; then
+            git diff --stat -- "projects/$APP"
+            echo "::warning::projects/$APP's Xcode project differs from project.yml; run 'xcodegen generate' in projects/$APP and commit"
           fi
       - name: Build for the simulator
         timeout-minutes: 20
@@ -174,7 +174,7 @@ jobs:
       - name: Build it for the simulator
         timeout-minutes: 20
         run:
-          xcodebuild -project apps/samplr/Samplr.xcodeproj -scheme Samplr -destination 'generic/platform=iOS Simulator' -sdk
+          xcodebuild -project projects/samplr/Samplr.xcodeproj -scheme Samplr -destination 'generic/platform=iOS Simulator' -sdk
           iphonesimulator -configuration Debug CODE_SIGNING_ALLOWED=NO build -quiet
   gate:
     name: Standard iOS checks

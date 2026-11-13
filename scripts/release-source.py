@@ -21,14 +21,20 @@ def current(app, source, latest):
     # Divergent/rewritten main must never publish an abandoned source.
     if subprocess.run(["git", "merge-base", "--is-ancestor", source, latest], cwd=ROOT, check=False).returncode != 0:
         return False
-    config = yaml.safe_load(git("show", f"{latest}:apps/{app}/app.yml"))
+    config = yaml.safe_load(git("show", f"{latest}:projects/{app}/app.yml"))
     if config.get("testflight") is not True:
         return False
     affected = json.loads(
         subprocess.check_output(["scripts/affected", source, "--head", latest, "--intent", "ship"], cwd=ROOT, text=True)
     )
     listing = git(
-        "diff", "--name-only", source, latest, "--", f"apps/{app}/fastlane/metadata", f"apps/{app}/screenshots.json"
+        "diff",
+        "--name-only",
+        source,
+        latest,
+        "--",
+        f"projects/{app}/fastlane/metadata",
+        f"projects/{app}/screenshots.json",
     )
     return app not in affected["apps"] and not listing
 

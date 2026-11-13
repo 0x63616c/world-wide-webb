@@ -11,9 +11,11 @@ require_relative "release-policy"
 APP = ARGV.first || ENV["APP"] || abort("usage: submit-review.rb <app>")
 abort("Invalid app slug") unless APP.match?(/\A[a-z][a-z0-9-]*\z/)
 CONFIG =
-  YAML.safe_load(File.read(File.expand_path("../apps/#{APP}/app.yml", __dir__)))
+  YAML.safe_load(
+    File.read(File.expand_path("../projects/#{APP}/app.yml", __dir__))
+  )
 APP_ID = CONFIG["apple_id"].to_s
-abort("Set apple_id in apps/#{APP}/app.yml") if APP_ID.empty?
+abort("Set apple_id in projects/#{APP}/app.yml") if APP_ID.empty?
 TARGET =
   (ENV["VERSION"].to_s.empty? ? CONFIG.fetch("version") : ENV["VERSION"]).to_s
 BUILD_NUMBER = ReleaseBuild.number!(ENV["BUILD_NUMBER"])
@@ -37,7 +39,7 @@ build = ReleaseBuild.find!(asc, APP_ID, TARGET, BUILD_NUMBER)
 
 def versions(asc)
   asc.get(
-    "v1/apps/#{APP_ID}/appStoreVersions",
+    "v1/projects/#{APP_ID}/appStoreVersions",
     { "filter[platform]" => "IOS", "limit" => 50 }
   ).body[
     "data"

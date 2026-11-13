@@ -1,25 +1,38 @@
 {
   "version": 1,
-  "retired_paths": ["apps/airmiles/**"],
+  "retired_paths": [
+    "projects/airmiles/**",
+    "apps/**",
+    "homelab/**",
+    "homelab.json",
+    "bootstrap/**",
+    "infra/cloudflare/folding/**",
+    "secrets/homelab-*.sops.yaml"
+  ],
   "shared_verify": [],
   "units": {
     "golink.safari": {
-      "paths": ["apps/golink-safari/**"],
+      "paths": ["projects/golink-safari/**"],
       "delivery": null
     },
     "tendr.native": {
-      "paths": ["scripts/ci/with-match-signing.sh", "apps/tendr/**"],
+      "paths": ["scripts/ci/with-match-signing.sh", "projects/tendr/**"],
+      "exclude": [
+        "projects/tendr/site/**",
+        "projects/tendr/site.wrangler.jsonc",
+        "projects/tendr/site-tool-versions.json"
+      ],
       "delivery": "testflight",
       "delivery_paths": [
-        "apps/tendr/Still/**",
-        "apps/tendr/Packages/RDesign/Sources/**",
-        "apps/tendr/Packages/RDesign/Package.swift",
-        "apps/tendr/project.yml",
-        "apps/tendr/Package.swift",
-        "apps/tendr/app.yml",
-        "apps/tendr/fastlane/metadata/**",
-        "apps/tendr/screenshots.json",
-        "apps/tendr/Tendr.storekit"
+        "projects/tendr/Still/**",
+        "projects/tendr/Packages/RDesign/Sources/**",
+        "projects/tendr/Packages/RDesign/Package.swift",
+        "projects/tendr/project.yml",
+        "projects/tendr/Package.swift",
+        "projects/tendr/app.yml",
+        "projects/tendr/fastlane/metadata/**",
+        "projects/tendr/screenshots.json",
+        "projects/tendr/Tendr.storekit"
       ],
       "delivery_exclude": [
         "**/Tests/**",
@@ -34,29 +47,29 @@
     },
     "folding.native": {
       "paths": [
-        "apps/folding/apps/ios/**",
-        "apps/folding/cloudkit/**",
-        "apps/folding/fastlane/**",
-        "apps/folding/app.yml",
-        "apps/folding/Package.swift",
-        "apps/folding/HostTests/**"
+        "projects/folding/apps/ios/**",
+        "projects/folding/cloudkit/**",
+        "projects/folding/fastlane/**",
+        "projects/folding/app.yml",
+        "projects/folding/Package.swift",
+        "projects/folding/HostTests/**"
       ],
       "delivery": "testflight",
       "delivery_paths": [
-        "apps/folding/apps/ios/App/**",
-        "apps/folding/apps/ios/Widgets/**",
-        "apps/folding/apps/ios/Branding/**",
-        "apps/folding/apps/ios/Config/**",
-        "apps/folding/apps/ios/Packages/FoldingKit/Sources/**",
-        "apps/folding/apps/ios/Packages/FoldingKit/Package.swift",
-        "apps/folding/apps/ios/project.yml",
-        "apps/folding/cloudkit/**",
-        "apps/folding/app.yml",
-        "apps/folding/apps/ios/Screenshots/**",
-        "apps/folding/apps/ios/StorefrontTests/**",
-        "apps/folding/fastlane/screenshot-plan.json",
-        "apps/folding/fastlane/lib/release_assets.rb",
-        "apps/folding/fastlane/scripts/opaque-screen.swift"
+        "projects/folding/apps/ios/App/**",
+        "projects/folding/apps/ios/Widgets/**",
+        "projects/folding/apps/ios/Branding/**",
+        "projects/folding/apps/ios/Config/**",
+        "projects/folding/apps/ios/Packages/FoldingKit/Sources/**",
+        "projects/folding/apps/ios/Packages/FoldingKit/Package.swift",
+        "projects/folding/apps/ios/project.yml",
+        "projects/folding/cloudkit/**",
+        "projects/folding/app.yml",
+        "projects/folding/apps/ios/Screenshots/**",
+        "projects/folding/apps/ios/StorefrontTests/**",
+        "projects/folding/fastlane/screenshot-plan.json",
+        "projects/folding/fastlane/lib/release_assets.rb",
+        "projects/folding/fastlane/scripts/opaque-screen.swift"
       ],
       "delivery_exclude": [
         "**/Tests/**",
@@ -69,15 +82,15 @@
       ]
     },
     "folding.backend": {
-      "paths": ["apps/folding/backend/**"],
+      "paths": ["projects/folding/backend/**"],
       "delivery": "worker",
       "delivery_paths": [
-        "apps/folding/backend/crates/**",
-        "apps/folding/backend/Cargo.toml",
-        "apps/folding/backend/Cargo.lock",
-        "apps/folding/backend/migrations/**",
-        "apps/folding/backend/tool-versions.json",
-        "apps/folding/backend/rust-toolchain.toml"
+        "projects/folding/backend/crates/**",
+        "projects/folding/backend/Cargo.toml",
+        "projects/folding/backend/Cargo.lock",
+        "projects/folding/backend/migrations/**",
+        "projects/folding/backend/tool-versions.json",
+        "projects/folding/backend/rust-toolchain.toml"
       ],
       "delivery_exclude": [
         "**/Tests/**",
@@ -91,48 +104,48 @@
       ]
     },
     "folding.contracts": {
-      "paths": ["apps/folding/contracts/**"],
+      "paths": ["projects/folding/contracts/**"],
       "verify_dependents": ["folding.native", "folding.backend"],
       "delivery": null
     },
     "folding.tooling": {
       "paths": [
-        "apps/folding/scripts/**",
-        "apps/folding/.github/**",
-        "apps/folding/Makefile",
-        "apps/folding/justfile",
-        "apps/folding/package.json",
-        "apps/folding/bun.lock",
-        "apps/folding/rust-toolchain.toml",
-        "apps/folding/tool-versions.json",
-        "apps/folding/Gemfile",
-        "apps/folding/Gemfile.lock",
-        "apps/folding/mise.toml",
-        "apps/folding/design/**",
-        "apps/folding/.cursor/**",
-        "apps/folding/.githooks/**",
-        "apps/folding/.editorconfig",
-        "apps/folding/.gitignore",
-        "apps/folding/app.yml"
+        "projects/folding/scripts/**",
+        "projects/folding/.github/**",
+        "projects/folding/Makefile",
+        "projects/folding/justfile",
+        "projects/folding/package.json",
+        "projects/folding/bun.lock",
+        "projects/folding/rust-toolchain.toml",
+        "projects/folding/tool-versions.json",
+        "projects/folding/mise.toml",
+        "projects/folding/Gemfile",
+        "projects/folding/Gemfile.lock",
+        "projects/folding/design/**",
+        "projects/folding/.cursor/**",
+        "projects/folding/.githooks/**",
+        "projects/folding/.editorconfig",
+        "projects/folding/.gitignore",
+        "projects/folding/app.yml"
       ],
       "delivery": null
     },
     "callkeep.native": {
       "paths": [
         "scripts/ci/with-match-signing.sh",
-        "apps/callkeep/**",
+        "projects/callkeep/**",
         "scripts/distribution/**"
       ],
       "delivery": "homebrew",
       "delivery_paths": [
-        "apps/callkeep/Sources/**",
-        "apps/callkeep/Resources/**",
-        "apps/callkeep/Packages/*/Sources/**",
-        "apps/callkeep/Packages/*/Package.swift",
-        "apps/callkeep/Packages/*/Package.resolved",
-        "apps/callkeep/project.yml",
-        "apps/callkeep/Scripts/release.py",
-        "apps/callkeep/Scripts/homebrew-cask.py"
+        "projects/callkeep/Sources/**",
+        "projects/callkeep/Resources/**",
+        "projects/callkeep/Packages/*/Sources/**",
+        "projects/callkeep/Packages/*/Package.swift",
+        "projects/callkeep/Packages/*/Package.resolved",
+        "projects/callkeep/project.yml",
+        "projects/callkeep/Scripts/release.py",
+        "projects/callkeep/Scripts/homebrew-cask.py"
       ],
       "delivery_exclude": [
         "**/Tests/**",
@@ -146,13 +159,13 @@
       ]
     },
     "control-center.native": {
-      "paths": ["apps/control-center/apple/**"],
+      "paths": ["projects/control-center/apple/**"],
       "delivery": "testflight",
       "delivery_paths": [
-        "apps/control-center/apple/App/**",
-        "apps/control-center/apple/Packages/*/Sources/**",
-        "apps/control-center/apple/Packages/*/Package.swift",
-        "apps/control-center/apple/project.yml"
+        "projects/control-center/apple/App/**",
+        "projects/control-center/apple/Packages/*/Sources/**",
+        "projects/control-center/apple/Packages/*/Package.swift",
+        "projects/control-center/apple/project.yml"
       ],
       "delivery_exclude": [
         "**/Tests/**",
@@ -167,21 +180,21 @@
     },
     "control-center.server": {
       "paths": [
-        "apps/control-center/server/**",
-        "apps/control-center/Cargo.*",
-        "apps/control-center/rust-toolchain.toml",
-        "apps/control-center/Dockerfile",
-        "apps/control-center/.dockerignore",
-        "apps/control-center/deploy/**"
+        "projects/control-center/server/**",
+        "projects/control-center/Cargo.*",
+        "projects/control-center/rust-toolchain.toml",
+        "projects/control-center/Dockerfile",
+        "projects/control-center/.dockerignore",
+        "projects/control-center/deploy/**"
       ],
       "delivery": "container",
       "delivery_paths": [
-        "apps/control-center/server/src/**",
-        "apps/control-center/server/migrations/**",
-        "apps/control-center/Cargo.*",
-        "apps/control-center/Dockerfile",
-        "apps/control-center/.dockerignore",
-        "apps/control-center/deploy/mini/**"
+        "projects/control-center/server/src/**",
+        "projects/control-center/server/migrations/**",
+        "projects/control-center/Cargo.*",
+        "projects/control-center/Dockerfile",
+        "projects/control-center/.dockerignore",
+        "projects/control-center/deploy/mini/**"
       ],
       "delivery_exclude": [
         "**/Tests/**",
@@ -195,30 +208,30 @@
       ]
     },
     "control-center.contracts": {
-      "paths": ["apps/control-center/contracts/**"],
+      "paths": ["projects/control-center/contracts/**"],
       "verify_dependents": ["control-center.native", "control-center.server"],
       "delivery": null
     },
     "control-center.tooling": {
       "paths": [
-        "apps/control-center/tools/**",
-        "apps/control-center/scripts/**",
-        "apps/control-center/deny.toml",
-        "apps/control-center/.swift-format",
-        "apps/control-center/Cargo.toml",
-        "apps/control-center/.gitignore",
-        "apps/control-center/rust-toolchain.toml",
-        "apps/control-center/app.yml"
+        "projects/control-center/tools/**",
+        "projects/control-center/scripts/**",
+        "projects/control-center/deny.toml",
+        "projects/control-center/.swift-format",
+        "projects/control-center/Cargo.toml",
+        "projects/control-center/.gitignore",
+        "projects/control-center/rust-toolchain.toml",
+        "projects/control-center/app.yml"
       ],
       "delivery": null,
       "exclude": [
-        "apps/control-center/tools/infra_apply.py",
-        "apps/control-center/tools/test_infra_apply.py",
-        "apps/control-center/tools/test_state_backend.py"
+        "projects/control-center/tools/infra_apply.py",
+        "projects/control-center/tools/test_infra_apply.py",
+        "projects/control-center/tools/test_state_backend.py"
       ]
     },
     "sites.folding": {
-      "paths": ["sites/folding/**"],
+      "paths": ["projects/folding/site/**"],
       "delivery": "site",
       "delivery_exclude": [
         "**/Tests/**",
@@ -234,15 +247,15 @@
     "cloudflare.home": {
       "paths": [
         "infra/cloudflare/home/**",
-        "apps/control-center/tools/infra_apply.py",
-        "apps/control-center/tools/test_infra_apply.py",
-        "apps/control-center/tools/test_state_backend.py"
+        "projects/control-center/tools/infra_apply.py",
+        "projects/control-center/tools/test_infra_apply.py",
+        "projects/control-center/tools/test_state_backend.py"
       ],
       "delivery": "infra",
       "delivery_paths": [
         "infra/cloudflare/home/*.tf",
         "infra/cloudflare/home/.terraform.lock.hcl",
-        "apps/control-center/tools/infra_apply.py"
+        "projects/control-center/tools/infra_apply.py"
       ],
       "delivery_exclude": [
         "**/Tests/**",
@@ -256,11 +269,11 @@
       ]
     },
     "cloudflare.folding": {
-      "paths": ["infra/cloudflare/folding/**"],
+      "paths": ["projects/folding/infra/cloudflare/**"],
       "delivery": "infra",
       "delivery_paths": [
-        "infra/cloudflare/folding/**/*.tf",
-        "infra/cloudflare/folding/**/.terraform.lock.hcl"
+        "projects/folding/infra/cloudflare/**/*.tf",
+        "projects/folding/infra/cloudflare/**/.terraform.lock.hcl"
       ],
       "delivery_exclude": [
         "**/Tests/**",
@@ -275,16 +288,16 @@
     },
     "homelab.config": {
       "paths": [
-        "homelab/**",
-        "homelab.json",
-        "flake.nix",
-        "flake.lock",
+        "projects/homelab/**",
+        "projects/homelab/homelab.json",
+        "projects/homelab/flake.nix",
+        "projects/homelab/flake.lock",
         ".sops.yaml",
-        "secrets/*.sops.yaml",
-        "bootstrap/**",
+        "projects/homelab/secrets/*.sops.yaml",
+        "projects/homelab/bootstrap/**",
         "scripts/homelab/**"
       ],
-      "exclude": ["homelab/cli/**"],
+      "exclude": ["projects/homelab/cli/**"],
       "delivery": "host-promotion",
       "delivery_exclude": [
         "**/Tests/**",
@@ -297,14 +310,14 @@
         "**/StorefrontTests/**",
         ".sops.yaml",
         "scripts/homelab/**",
-        "homelab/process/Cargo.lock"
+        "projects/homelab/process/Cargo.lock"
       ]
     },
     "homelab.cli": {
       "paths": [
-        "homelab/cli/**",
+        "projects/homelab/cli/**",
         "scripts/distribution/**",
-        "homelab/process/**"
+        "projects/homelab/process/**"
       ],
       "verify_dependents": ["homelab.config"],
       "delivery": "homebrew",
@@ -319,14 +332,14 @@
         "**/StorefrontTests/**"
       ],
       "delivery_paths": [
-        "homelab/cli/src/**",
-        "homelab/cli/Cargo.toml",
-        "homelab/cli/Cargo.lock",
-        "homelab/cli/build.rs",
-        "homelab/cli/schema/**",
+        "projects/homelab/cli/src/**",
+        "projects/homelab/cli/Cargo.toml",
+        "projects/homelab/cli/Cargo.lock",
+        "projects/homelab/cli/build.rs",
+        "projects/homelab/cli/schema/**",
         "scripts/distribution/homelab.py",
-        "homelab/process/Cargo.toml",
-        "homelab/process/src/**"
+        "projects/homelab/process/Cargo.toml",
+        "projects/homelab/process/src/**"
       ]
     },
     "templates": {
@@ -340,6 +353,9 @@
     },
     "sites.pages": {
       "paths": [
+        "projects/tendr/site/**",
+        "projects/tendr/site.wrangler.jsonc",
+        "projects/tendr/site-tool-versions.json",
         "sites/**",
         "scripts/build-site.sh",
         "scripts/publish-site.sh",
@@ -356,8 +372,11 @@
         "**/ScreenshotTests/**",
         "**/StorefrontTests/**"
       ],
-      "exclude": ["sites/folding/**"],
+      "exclude": ["projects/folding/site/**"],
       "delivery_paths": [
+        "projects/tendr/site/**",
+        "projects/tendr/site.wrangler.jsonc",
+        "projects/tendr/site-tool-versions.json",
         "sites/**",
         "scripts/build-site.sh",
         "scripts/publish-site.sh"
@@ -377,11 +396,12 @@
         "templates/**",
         "Gemfile",
         "Gemfile.lock",
-        "mise.toml",
         "lefthook.yml",
         ".prettierrc.json",
         "package.json",
         "bun.lock",
+        "mise.toml",
+        "mise.lock",
         "renovate.json",
         "ruff.toml",
         ".gitleaks.toml",
@@ -448,57 +468,56 @@
     "homelab.operations": {
       "units": ["homelab.config"],
       "paths": [
-        "homelab/**",
-        "homelab.json",
-        "flake.*",
-        "bootstrap/**",
+        "projects/homelab/**",
+        "projects/homelab/homelab.json",
+        "projects/homelab/flake.*",
+        "projects/homelab/bootstrap/**",
         ".sops.yaml",
-        "secrets/*.sops.yaml",
+        "projects/homelab/secrets/*.sops.yaml",
         "scripts/homelab/**"
       ],
       "exclude": [
-        "homelab/cli/**",
-        "homelab/host/**",
-        "homelab/process/**",
-        "homelab/runner/src/**",
-        "homelab/runner/Cargo.*",
-        "homelab/runner/tests/**"
+        "projects/homelab/cli/**",
+        "projects/homelab/host/**",
+        "projects/homelab/process/**",
+        "projects/homelab/runner/src/**",
+        "projects/homelab/runner/Cargo.*",
+        "projects/homelab/runner/tests/**"
       ]
     },
     "homelab.linux": {
       "units": ["homelab.config"],
       "paths": [
-        "homelab/runner/**",
-        "homelab/packages/runner.nix",
-        "flake.lock",
-        "homelab/flake.lock"
+        "projects/homelab/runner/**",
+        "projects/homelab/packages/runner.nix",
+        "projects/homelab/flake.lock"
       ]
     },
     "homelab.darwin": {
       "units": ["homelab.config"],
       "paths": [
-        "homelab/**",
-        "homelab.json",
-        "flake.*",
-        "bootstrap/**",
-        "secrets/*.sops.yaml",
+        "projects/homelab/**",
+        "projects/homelab/homelab.json",
+        "projects/homelab/flake.*",
+        "projects/homelab/bootstrap/**",
+        "projects/homelab/secrets/*.sops.yaml",
         "scripts/homelab/check_nix.py"
       ],
       "exclude": [
-        "homelab/tests/**",
-        "homelab/cli/tests/**",
-        "homelab/runner/tests/**",
-        "homelab/host/tests/**",
-        "homelab/cli/examples/**",
-        "homelab/cli/docs/**",
-        "homelab/process/tests/**"
+        "projects/homelab/tests/**",
+        "projects/homelab/cli/tests/**",
+        "projects/homelab/runner/tests/**",
+        "projects/homelab/host/tests/**",
+        "projects/homelab/cli/examples/**",
+        "projects/homelab/cli/docs/**",
+        "projects/homelab/process/tests/**"
       ]
     },
     "homelab.cli": {
       "units": ["homelab.cli"],
       "paths": [
-        "homelab/cli/**",
-        "homelab/process/**",
+        "projects/homelab/cli/**",
+        "projects/homelab/process/**",
         "scripts/distribution/**"
       ]
     },
@@ -510,17 +529,17 @@
         "credentials.home"
       ],
       "paths": [
-        "apps/control-center/server/**",
-        "apps/control-center/Cargo.*",
-        "apps/control-center/rust-toolchain.toml",
-        "apps/control-center/deny.toml",
-        "apps/control-center/contracts/**",
+        "projects/control-center/server/**",
+        "projects/control-center/Cargo.*",
+        "projects/control-center/rust-toolchain.toml",
+        "projects/control-center/deny.toml",
+        "projects/control-center/contracts/**",
         "secrets/vault.yaml"
       ],
       "exclude": [
-        "apps/control-center/tools/infra_apply.py",
-        "apps/control-center/tools/test_infra_apply.py",
-        "apps/control-center/tools/test_state_backend.py"
+        "projects/control-center/tools/infra_apply.py",
+        "projects/control-center/tools/test_infra_apply.py",
+        "projects/control-center/tools/test_state_backend.py"
       ]
     },
     "control-center.ops": {
@@ -530,9 +549,9 @@
         "control-center.native"
       ],
       "paths": [
-        "apps/control-center/deploy/**",
-        "apps/control-center/tools/**",
-        "apps/control-center/scripts/**"
+        "projects/control-center/deploy/**",
+        "projects/control-center/tools/**",
+        "projects/control-center/scripts/**"
       ]
     },
     "control-center.contract": {
@@ -543,12 +562,12 @@
         "control-center.tooling"
       ],
       "paths": [
-        "apps/control-center/server/**",
-        "apps/control-center/Cargo.*",
-        "apps/control-center/rust-toolchain.toml",
-        "apps/control-center/contracts/**",
-        "apps/control-center/apple/Packages/PanelKit/**",
-        "apps/control-center/tools/test_native_api.py"
+        "projects/control-center/server/**",
+        "projects/control-center/Cargo.*",
+        "projects/control-center/rust-toolchain.toml",
+        "projects/control-center/contracts/**",
+        "projects/control-center/apple/Packages/PanelKit/**",
+        "projects/control-center/tools/test_native_api.py"
       ]
     },
     "control-center.apple": {
@@ -558,14 +577,14 @@
         "control-center.contracts"
       ],
       "paths": [
-        "apps/control-center/apple/**",
-        "apps/control-center/.swift-format",
-        "apps/control-center/contracts/**"
+        "projects/control-center/apple/**",
+        "projects/control-center/.swift-format",
+        "projects/control-center/contracts/**"
       ],
       "exclude": [
-        "apps/control-center/tools/infra_apply.py",
-        "apps/control-center/tools/test_infra_apply.py",
-        "apps/control-center/tools/test_state_backend.py"
+        "projects/control-center/tools/infra_apply.py",
+        "projects/control-center/tools/test_infra_apply.py",
+        "projects/control-center/tools/test_state_backend.py"
       ]
     },
     "control-center.image": {
@@ -575,30 +594,29 @@
         "credentials.home"
       ],
       "paths": [
-        "apps/control-center/server/**",
-        "apps/control-center/Cargo.*",
-        "apps/control-center/rust-toolchain.toml",
-        "apps/control-center/Dockerfile",
-        "apps/control-center/.dockerignore",
-        "apps/control-center/deploy/mini/compose.yaml",
-        "apps/control-center/tools/test_container.py",
+        "projects/control-center/server/**",
+        "projects/control-center/Cargo.*",
+        "projects/control-center/rust-toolchain.toml",
+        "projects/control-center/Dockerfile",
+        "projects/control-center/.dockerignore",
+        "projects/control-center/deploy/mini/compose.yaml",
+        "projects/control-center/tools/test_container.py",
         "secrets/vault.yaml",
-        "apps/control-center/deploy/mini/**"
+        "projects/control-center/deploy/mini/**"
       ],
       "exclude": [
-        "apps/control-center/server/tests/**",
-        "apps/control-center/deploy/mini/test_*",
-        "apps/control-center/deploy/mini/penpot_*"
+        "projects/control-center/server/tests/**",
+        "projects/control-center/deploy/mini/test_*",
+        "projects/control-center/deploy/mini/penpot_*"
       ]
     },
     "homelab.host": {
       "units": ["homelab.config"],
       "paths": [
-        "homelab/host/**",
-        "homelab/process/**",
-        "homelab/packages/host.nix",
-        "flake.lock",
-        "homelab/flake.lock"
+        "projects/homelab/host/**",
+        "projects/homelab/process/**",
+        "projects/homelab/packages/host.nix",
+        "projects/homelab/flake.lock"
       ]
     }
   }

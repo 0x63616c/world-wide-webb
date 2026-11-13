@@ -13,7 +13,7 @@ diff -qr "$staging" "$prepared" > /dev/null || {
   echo 'Prepared site differs from verified source' >&2
   exit 1
 }
-version=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["wrangler"])' "$root/sites/tendr-tools.json")
+version=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["wrangler"])' "$root/projects/tendr/site-tool-versions.json")
 export CLOUDFLARE_LOAD_DEV_VARS_FROM_DOT_ENV=false WRANGLER_SEND_METRICS=false
-bunx "wrangler@$version" deploy --config "$root/sites/tendr.wrangler.jsonc" --assets "$prepared/tendr"
+bunx "wrangler@$version" deploy --config "$root/projects/tendr/site.wrangler.jsonc" --assets "$prepared/tendr"
 echo 'Published Tendr assets; canonical URL: https://tendr.worldwidewebb.co/'

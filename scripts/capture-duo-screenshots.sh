@@ -223,7 +223,7 @@ xcodebuild build-for-testing -project "$project" -scheme "$scheme" \
 # Keep both appearances and both poses in the same XCTest/app session.
 # Group by appearance to avoid repeated appearance switches; staging owns gallery order.
 shots=$(
-  python3 - "apps/$app/screenshots.json" "${appearances[@]}" << 'PYSHOTS'
+  python3 - "projects/$app/screenshots.json" "${appearances[@]}" << 'PYSHOTS'
 import json, sys
 shots = json.load(open(sys.argv[1]))["duo_shots"]
 selected = [shot for appearance in sys.argv[2:] for shot in shots if shot["appearance"] == appearance]

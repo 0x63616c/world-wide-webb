@@ -1,12 +1,14 @@
 # Agent instructions
 
-Read `CODEBASE_OVERVIEW.md`, then the product README/local instructions for the area being changed.
+Read `CODEBASE_OVERVIEW.md`, then `projects/<product>/README.md` and the relevant runbook.
 Repository consolidation is complete; `docs/plans/monorepo-migration-progress.md` records ownership.
 Develop migrated products here, never in deleted source repositories or `github-archive` snapshots.
 Tendr’s replacement Cloudflare hosting is tracked separately in #1007.
 
-For Mini deployment, boot recovery or private-image pulls, read `homelab/AGENTS.md` before
-changing credentials; it records the existing Comin, SOPS and registry-auth setup.
+For Mini deployment, boot recovery or private-image pulls, read
+`projects/homelab/docs/current-state.md`, `projects/homelab/docs/releases.md` and
+`projects/homelab/docs/secrets.md` before changing credentials. They record the
+existing Comin, SOPS and registry-auth setup.
 
 ## Working
 

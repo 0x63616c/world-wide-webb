@@ -7,7 +7,7 @@ name: Control Center checks
         default: false
 defaults:
   run:
-    working-directory: apps/control-center
+    working-directory: projects/control-center
 permissions:
   contents: read
 jobs:
@@ -32,7 +32,7 @@ jobs:
           sparse-checkout: |
             .github/actions/select
             scripts/ci
-            apps/control-center/tools
+            projects/control-center/tools
           persist-credentials: true
       - id: select
         env:
@@ -46,7 +46,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: ci-selection
-          path: apps/control-center/ci-selection.json
+          path: projects/control-center/ci-selection.json
           retention-days: 7
   typecheck:
     needs: changes
@@ -80,12 +80,12 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            apps/control-center/target
+            projects/control-center/target
           key:
-            rust-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('apps/control-center/rust-toolchain.toml', 'apps/control-center/Cargo.lock')
+            rust-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('projects/control-center/rust-toolchain.toml', 'projects/control-center/Cargo.lock')
             }}-check-${{ github.sha }}
           restore-keys:
-            rust-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('apps/control-center/rust-toolchain.toml', 'apps/control-center/Cargo.lock')
+            rust-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('projects/control-center/rust-toolchain.toml', 'projects/control-center/Cargo.lock')
             }}-check-
       - if: needs.changes.outputs.rust == 'true'
         run: cargo clippy --locked --workspace --all-targets -- -D warnings
@@ -114,12 +114,12 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            apps/control-center/target
+            projects/control-center/target
           key:
-            rust-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('apps/control-center/rust-toolchain.toml', 'apps/control-center/Cargo.lock')
+            rust-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('projects/control-center/rust-toolchain.toml', 'projects/control-center/Cargo.lock')
             }}-test-${{ github.sha }}
           restore-keys:
-            rust-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('apps/control-center/rust-toolchain.toml', 'apps/control-center/Cargo.lock')
+            rust-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('projects/control-center/rust-toolchain.toml', 'projects/control-center/Cargo.lock')
             }}-test-
       - run: cargo test --locked --workspace
       - run: bash tools/check dependencies
@@ -157,26 +157,26 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: |
-            apps/control-center/apple/Packages/PanelKit/.build
+            projects/control-center/apple/Packages/PanelKit/.build
             ${{ runner.temp }}/apple-derived
           key:
-            apple-${{ runner.os }}-${{ runner.arch }}-${{ steps.xcode.outputs.cache-key }}-${{ hashFiles('apps/control-center/apple/project.yml',
-            'apps/control-center/apple/**/Package.resolved') }}-${{ github.sha }}
+            apple-${{ runner.os }}-${{ runner.arch }}-${{ steps.xcode.outputs.cache-key }}-${{ hashFiles('projects/control-center/apple/project.yml',
+            'projects/control-center/apple/**/Package.resolved') }}-${{ github.sha }}
           restore-keys:
-            apple-${{ runner.os }}-${{ runner.arch }}-${{ steps.xcode.outputs.cache-key }}-${{ hashFiles('apps/control-center/apple/project.yml',
-            'apps/control-center/apple/**/Package.resolved') }}-
+            apple-${{ runner.os }}-${{ runner.arch }}-${{ steps.xcode.outputs.cache-key }}-${{ hashFiles('projects/control-center/apple/project.yml',
+            'projects/control-center/apple/**/Package.resolved') }}-
       - uses: actions/cache@v4
         if: needs.changes.outputs.contract == 'true'
         with:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            apps/control-center/target
+            projects/control-center/target
           key:
-            rust-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('apps/control-center/rust-toolchain.toml', 'apps/control-center/Cargo.lock')
+            rust-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('projects/control-center/rust-toolchain.toml', 'projects/control-center/Cargo.lock')
             }}-native-contract-${{ github.sha }}
           restore-keys:
-            rust-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('apps/control-center/rust-toolchain.toml', 'apps/control-center/Cargo.lock')
+            rust-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('projects/control-center/rust-toolchain.toml', 'projects/control-center/Cargo.lock')
             }}-native-contract-
       - run: bash tools/check apple
       - name: Exercise actual Swift and Rust contract
@@ -193,7 +193,7 @@ jobs:
         if: always() && steps.apple-cache.outputs.cache-hit != 'true'
         with:
           path: |
-            apps/control-center/apple/Packages/PanelKit/.build
+            projects/control-center/apple/Packages/PanelKit/.build
             ${{ runner.temp }}/apple-derived
           key: ${{ steps.apple-cache.outputs.cache-primary-key }}
       - uses: actions/upload-artifact@v4
@@ -216,11 +216,11 @@ jobs:
         with:
           path: ${{ runner.temp }}/docker-cargo
           key:
-            docker-cargo-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('apps/control-center/rust-toolchain.toml',
-            'apps/control-center/Cargo.lock') }}-${{ github.sha }}
+            docker-cargo-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('projects/control-center/rust-toolchain.toml',
+            'projects/control-center/Cargo.lock') }}-${{ github.sha }}
           restore-keys:
-            docker-cargo-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('apps/control-center/rust-toolchain.toml',
-            'apps/control-center/Cargo.lock') }}-
+            docker-cargo-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('projects/control-center/rust-toolchain.toml',
+            'projects/control-center/Cargo.lock') }}-
       - name: Reuse Cargo cache mount across disposable builders
         uses: reproducible-containers/buildkit-cache-dance@4b2444fec0c0fb9dbf175a96c094720a692ef810
         with:
@@ -229,7 +229,7 @@ jobs:
           scratch-dir: ${{ runner.temp }}/cargo-cache-transfer
       - uses: docker/build-push-action@v7
         with:
-          context: apps/control-center
+          context: projects/control-center
           load: true
           tags: www-server:check
           build-args: BUILD_HASH=${{ github.sha }}
@@ -256,7 +256,7 @@ jobs:
         if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.publish_image == 'true'
         with:
           name: ci-image
-          path: apps/control-center/ci-image.json
+          path: projects/control-center/ci-image.json
           retention-days: 7
   infra:
     env:

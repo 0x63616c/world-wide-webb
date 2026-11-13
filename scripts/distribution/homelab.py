@@ -75,7 +75,7 @@ def formula(version, checksum):
         raise ValueError("Expected a CLI version and archive SHA-256")
     return rf'''class Homelab < Formula
   desc "Guided Mac setup from your Git configuration"
-  homepage "https://github.com/{publish.REPOSITORY}/tree/main/homelab/cli"
+  homepage "https://github.com/{publish.REPOSITORY}/tree/main/projects/homelab/cli"
   url "https://github.com/{publish.REPOSITORY}/releases/download/homelab%2Fv{version}/homelab-{version}.tar.gz"
   sha256 "{checksum}"
   version "{version}"
@@ -146,7 +146,7 @@ def main():
             path.write_text(rendered)
         print("Verified public CLI archive checksum and payload.")
         return
-    version = tomllib.loads((prepare.ROOT / "homelab/cli/Cargo.toml").read_text())["package"]["version"]
+    version = tomllib.loads((prepare.ROOT / "projects/homelab/cli/Cargo.toml").read_text())["package"]["version"]
     payload = args.output / "payload"
     unpack(args.artifact / "homelab-prebuilt.tar.gz", args.artifact / "SHA256SUMS", payload)
     for binary in ("homelab", "homelab-host", "hl"):

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Frames an app's raw captures for the App Store with RDesign's rframe (macOS only), using the
-# frame list in apps/<app>/screenshots.json.
+# frame list in projects/<app>/screenshots.json.
 # Usage: scripts/frame-screenshots.sh <app> [raw-dir] [output-dir] [overview.png]
 set -euo pipefail
 cd "$(dirname "$0")/.."

@@ -41,9 +41,9 @@ jobs:
         with:
           python-version: 3.15.2
       - run: python3 -m pip install PyYAML==6.0.3
-      - run: python3 -m unittest discover -s homelab/tests
+      - run: python3 -m unittest discover -s projects/homelab/tests
       - run: python3 -m unittest discover -s scripts/homelab
-      - run: bash -n homelab/bootstrap.sh
+      - run: bash -n projects/homelab/bootstrap.sh
   linux:
     name: Homelab Linux controller
     needs: selection
@@ -52,7 +52,7 @@ jobs:
     timeout-minutes: 20
     defaults:
       run:
-        working-directory: homelab/runner
+        working-directory: projects/homelab/runner
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
@@ -66,12 +66,12 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            homelab/runner/target
+            projects/homelab/runner/target
           key:
-            homelab-runner-${{ runner.os }}-${{ runner.arch }}-1.99.0-${{ hashFiles('homelab/runner/Cargo.lock') }}-${{ github.sha
+            homelab-runner-${{ runner.os }}-${{ runner.arch }}-1.99.0-${{ hashFiles('projects/homelab/runner/Cargo.lock') }}-${{ github.sha
             }}
           restore-keys:
-            homelab-runner-${{ runner.os }}-${{ runner.arch }}-1.99.0-${{ hashFiles('homelab/runner/Cargo.lock')
+            homelab-runner-${{ runner.os }}-${{ runner.arch }}-1.99.0-${{ hashFiles('projects/homelab/runner/Cargo.lock')
             }}-
       - run: cargo test --locked
       - run: cargo clippy --locked --all-targets -- -D warnings
@@ -98,14 +98,17 @@ jobs:
         with:
           path: ${{ runner.temp }}/homelab-nix-cache
           key:
-            homelab-nix-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('homelab/flake.lock', 'scripts/ci/nix-cache.pub') }}-${{
+            homelab-nix-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('projects/homelab/flake.lock', 'scripts/ci/nix-cache.pub') }}-${{
             github.sha }}
           restore-keys:
-            homelab-nix-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('homelab/flake.lock', 'scripts/ci/nix-cache.pub')
+            homelab-nix-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('projects/homelab/flake.lock', 'scripts/ci/nix-cache.pub')
             }}-
       - name: Restore signed Nix outputs within two minutes
         if: contains(fromJSON(needs.selection.outputs.checks), 'homelab.darwin')
         run: python3 scripts/ci/nix_cache.py restore "$RUNNER_TEMP/homelab-nix-cache"
+      - name: Verify previous Comin flake path during migration
+        if: contains(fromJSON(needs.selection.outputs.checks), 'homelab.darwin')
+        run: nix flake check ./homelab --no-update-lock-file --no-build
       - name: Build and test both configurations without activation
         if: contains(fromJSON(needs.selection.outputs.checks), 'homelab.darwin')
         env:
@@ -123,16 +126,16 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            homelab/host/target
+            projects/homelab/host/target
           key:
-            homelab-host-${{ runner.os }}-${{ runner.arch }}-1.99.0-${{ hashFiles('homelab/host/Cargo.lock') }}-${{ github.sha
+            homelab-host-${{ runner.os }}-${{ runner.arch }}-1.99.0-${{ hashFiles('projects/homelab/host/Cargo.lock') }}-${{ github.sha
             }}
-          restore-keys: homelab-host-${{ runner.os }}-${{ runner.arch }}-1.99.0-${{ hashFiles('homelab/host/Cargo.lock') }}-
+          restore-keys: homelab-host-${{ runner.os }}-${{ runner.arch }}-1.99.0-${{ hashFiles('projects/homelab/host/Cargo.lock') }}-
       - name: Check affected host operations
         if: contains(fromJSON(needs.selection.outputs.checks), 'homelab.host')
         run: |
-          cargo clippy --manifest-path homelab/host/Cargo.toml --locked --all-targets -- -D warnings
-          cargo test --manifest-path homelab/host/Cargo.toml --locked
+          cargo clippy --manifest-path projects/homelab/host/Cargo.toml --locked --all-targets -- -D warnings
+          cargo test --manifest-path projects/homelab/host/Cargo.toml --locked
       - name: Export selected signed outputs within two minutes
         id: nix-export
         if:
@@ -163,7 +166,7 @@ jobs:
     timeout-minutes: 35
     defaults:
       run:
-        working-directory: homelab/cli
+        working-directory: projects/homelab/cli
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
@@ -177,12 +180,12 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            homelab/cli/target
+            projects/homelab/cli/target
           key:
-            homelab-cli-${{ runner.os }}-${{ runner.arch }}-1.99.0-${{ hashFiles('homelab/cli/Cargo.lock') }}-${{ github.sha
+            homelab-cli-${{ runner.os }}-${{ runner.arch }}-1.99.0-${{ hashFiles('projects/homelab/cli/Cargo.lock') }}-${{ github.sha
             }}
           restore-keys: |
-            homelab-cli-${{ runner.os }}-${{ runner.arch }}-1.99.0-${{ hashFiles('homelab/cli/Cargo.lock') }}-
+            homelab-cli-${{ runner.os }}-${{ runner.arch }}-1.99.0-${{ hashFiles('projects/homelab/cli/Cargo.lock') }}-
             homelab-cli-${{ runner.os }}-${{ runner.arch }}-1.99.0-
       - run: brew install age sops shellcheck
       - run: |
@@ -211,8 +214,8 @@ jobs:
         with:
           name: homelab-cli-${{ github.sha }}
           path: |
-            homelab/cli/build/homelab-prebuilt.tar.gz
-            homelab/cli/build/SHA256SUMS
+            projects/homelab/cli/build/homelab-prebuilt.tar.gz
+            projects/homelab/cli/build/SHA256SUMS
           retention-days: 14
           if-no-files-found: error
   gate:

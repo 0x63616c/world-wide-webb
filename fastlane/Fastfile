@@ -17,11 +17,11 @@ default_platform(:ios)
 REPO_ROOT = File.expand_path("..", __dir__)
 BETA_FEEDBACK_EMAIL = ENV["ASC_BETA_FEEDBACK_EMAIL"]
 
-# Every lane takes app:<name> (or APP=<name>) and reads apps/<name>/app.yml.
+# Every lane takes app:<name> (or APP=<name>) and reads projects/<name>/app.yml.
 def r_app(options)
   slug = (options[:app] || ENV["APP"]).to_s
   apps =
-    Dir[File.join(REPO_ROOT, "apps", "*", "app.yml")]
+    Dir[File.join(REPO_ROOT, "projects", "*", "app.yml")]
       .map { |path| File.basename(File.dirname(path)) }
       .sort
   if slug.empty?
@@ -32,11 +32,11 @@ def r_app(options)
   unless apps.include?(slug)
     UI.user_error!("Unknown app '#{slug}'. Apps: #{apps.join(", ")}")
   end
-  dir = File.join(REPO_ROOT, "apps", slug)
+  dir = File.join(REPO_ROOT, "projects", slug)
   config = YAML.safe_load_file(File.join(dir, "app.yml"))
   unless config.fetch("delivery_handler", "standard_ios") == "standard_ios"
     UI.user_error!(
-      "#{slug} uses its #{config["delivery_handler"]} delivery handler; see apps/#{slug}/README.md"
+      "#{slug} uses its #{config["delivery_handler"]} delivery handler; see projects/#{slug}/README.md"
     )
   end
   config.merge(
@@ -817,7 +817,7 @@ platform :ios do
     wanted = {}
     none.each { |key| wanted[key] = "NONE" if current.key?(key) }
     no.each { |key| wanted[key] = false if current.key?(key) }
-    # Per-app answers that differ from "none" (apps/<app>/app.yml age_rating).
+    # Per-app answers that differ from "none" (projects/<app>/app.yml age_rating).
     (config["age_rating"] || {}).each { |key, value| wanted[key] = value }
     UI.message("Setting age rating answers: #{wanted.to_json}")
     updated =
@@ -871,7 +871,7 @@ platform :ios do
     config = r_app(options)
     if config["tips"].to_a.empty?
       UI.user_error!(
-        "#{config["name"]} has no tips in apps/#{config["slug"]}/app.yml"
+        "#{config["name"]} has no tips in projects/#{config["slug"]}/app.yml"
       )
     end
     app = app_store_app(config)

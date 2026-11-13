@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Captures an app's raw App Store screenshots (its screenshot_test in apps/<app>/app.yml, or the key
+# Captures an app's raw App Store screenshots (its screenshot_test in projects/<app>/app.yml, or the key
 # named by SCREENSHOT_TEST_KEY, e.g. pr_screenshot_test) on a
 # fresh iPhone 18 Pro Max simulator (6.9", 1320x2868) with a 9:41 status bar.
 # Usage: scripts/capture-screenshots.sh <app> [output-dir] [appearance...]
@@ -23,9 +23,9 @@ while IFS= read -r build_setting; do
 done <<< "$screenshot_settings"
 # Generated projects are absent in a fresh checkout (for example Air Miles).
 # Prepare before simulator boot so missing inputs fail without consuming boot time.
-if [[ -f "apps/$app/project.yml" ]]; then
+if [[ -f "projects/$app/project.yml" ]]; then
   command -v xcodegen > /dev/null || HOMEBREW_NO_AUTO_UPDATE=1 brew install xcodegen
-  (cd "apps/$app" && xcodegen generate --quiet)
+  (cd "projects/$app" && xcodegen generate --quiet)
 fi
 device_type=com.apple.CoreSimulator.SimDeviceType.iPhone-18-Pro-Max
 derived=build/screenshots/$app/DerivedData

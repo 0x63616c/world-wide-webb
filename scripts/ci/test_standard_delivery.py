@@ -36,14 +36,14 @@ class StandardDeliveryTests(unittest.TestCase):
                 target = repo / name
                 target.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(ROOT / name, target)
-            write("apps/tendr/app.yml", "testflight: true\ndelivery_handler: standard_ios\nuses: []\npaths: []\n")
-            write("apps/tendr/Still/Screen.swift", "screen")
+            write("projects/tendr/app.yml", "testflight: true\ndelivery_handler: standard_ios\nuses: []\npaths: []\n")
+            write("projects/tendr/Still/Screen.swift", "screen")
             base = commit()
             for name, expected in [
-                ("apps/tendr/Tests/ImportTests.swift", []),
-                ("apps/tendr/Packages/RDesign/Tests/PaletteTests.swift", []),
-                ("apps/tendr/Still/Screen.swift", ["tendr"]),
-                ("apps/tendr/Packages/RDesign/Sources/Palette.swift", ["tendr"]),
+                ("projects/tendr/Tests/ImportTests.swift", []),
+                ("projects/tendr/Packages/RDesign/Tests/PaletteTests.swift", []),
+                ("projects/tendr/Still/Screen.swift", ["tendr"]),
+                ("projects/tendr/Packages/RDesign/Sources/Palette.swift", ["tendr"]),
             ]:
                 write(name, "changed")
                 source = commit()

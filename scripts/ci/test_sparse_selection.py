@@ -36,15 +36,15 @@ class SparseSelectionTests(unittest.TestCase):
                 ".github/actions/select/action.yml",
                 "scripts/ci/select_units.py",
                 "scripts/ci/units.json",
-                "apps/control-center/tools/ci_changes.py",
+                "projects/control-center/tools/ci_changes.py",
             ):
                 target = repo / name
                 target.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(ROOT / name, target)
             for name in (
-                "apps/folding/apps/ios/App/Fixture.swift",
-                "homelab/modules/fixture.nix",
-                "apps/control-center/server/src/main.rs",
+                "projects/folding/apps/ios/App/Fixture.swift",
+                "projects/homelab/modules/fixture.nix",
+                "projects/control-center/server/src/main.rs",
             ):
                 target = repo / name
                 target.parent.mkdir(parents=True, exist_ok=True)
@@ -52,17 +52,17 @@ class SparseSelectionTests(unittest.TestCase):
             git("add", ".")
             git("commit", "-qm", "Fixture base")
             base = git("rev-parse", "HEAD")
-            (repo / "apps/callkeep/Sources").mkdir(parents=True)
-            git("mv", "apps/folding/apps/ios/App/Fixture.swift", "apps/callkeep/Sources/Moved.swift")
-            git("rm", "homelab/modules/fixture.nix")
-            (repo / "apps/control-center/server/src/main.rs").write_text("changed\n")
+            (repo / "projects/callkeep/Sources").mkdir(parents=True)
+            git("mv", "projects/folding/apps/ios/App/Fixture.swift", "projects/callkeep/Sources/Moved.swift")
+            git("rm", "projects/homelab/modules/fixture.nix")
+            (repo / "projects/control-center/server/src/main.rs").write_text("changed\n")
             git("add", ".")
             git("commit", "-qm", "Move, delete and edit across products")
             head = git("rev-parse", "HEAD")
 
             def run_selector(control_center=False):
                 if control_center:
-                    cwd = repo / "apps/control-center"
+                    cwd = repo / "projects/control-center"
                     subprocess.run(
                         [sys.executable, "tools/ci_changes.py", base, head],
                         cwd=cwd,
@@ -113,6 +113,6 @@ class SparseSelectionTests(unittest.TestCase):
                     self.assertEqual(options["fetch-depth"], 0)
                     self.assertNotIn("filter", options, "An explicit filter overrides checkout sparse input")
                     git("sparse-checkout", "set", *options["sparse-checkout"].splitlines())
-                    self.assertFalse((repo / "apps/callkeep/Sources/Moved.swift").exists())
-                    self.assertFalse((repo / "apps/control-center/server/src/main.rs").exists())
+                    self.assertFalse((repo / "projects/callkeep/Sources/Moved.swift").exists())
+                    self.assertFalse((repo / "projects/control-center/server/src/main.rs").exists())
                     self.assertEqual(run_selector(control_center), full_control_center if control_center else full)

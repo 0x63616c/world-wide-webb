@@ -22,7 +22,7 @@ def selected(apps):
         not isinstance(app, str) or not re.fullmatch(r"[a-z][a-z0-9-]*", app) for app in apps
     ):
         raise ValueError("Expected an array of app folder names")
-    return sorted(set(app for app in apps if (ROOT / "apps" / app / "backend/wrangler.jsonc").is_file()))
+    return sorted(set(app for app in apps if (ROOT / "projects" / app / "backend/wrangler.jsonc").is_file()))
 
 
 def smoke(backend):
@@ -87,7 +87,7 @@ def main():
         print(json.dumps(apps))
         return
     for app in apps:
-        check(ROOT / "apps" / app / "backend")
+        check(ROOT / "projects" / app / "backend")
     if args.template:
         subprocess.run(["python3", str(ROOT / "scripts/test-new-app.py"), "--backend-check"], check=True)
 

@@ -20,7 +20,7 @@ else
     ENV["INPUT_BUILD"]
 end
 abort("Invalid app slug") unless app.match?(/\A[a-z][a-z0-9-]*\z/)
-path = File.expand_path("../apps/#{app}/app.yml", __dir__)
+path = File.expand_path("../projects/#{app}/app.yml", __dir__)
 abort("Unknown app #{app}") unless File.file?(path)
 version = YAML.safe_load_file(path).fetch("version").to_s if version.empty?
 abort("Invalid release version") unless version.match?(/\A\d+\.\d+(?:\.\d+)?\z/)

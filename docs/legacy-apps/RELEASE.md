@@ -67,11 +67,11 @@ bundle exec fastlane ios metadata app:tendr
 bundle exec fastlane ios review_status app:tendr
 ```
 
-Tendr’s optional tips are configured in `apps/tendr/app.yml`, `Tendr.storekit`, and `Still/Features/Journal/Tips.swift`. Keep product IDs aligned. `tip_iaps app:tendr` updates consumable records and review screenshots without submitting. RDesign’s `RTipJar` unlocks no features.
+Tendr’s optional tips are configured in `projects/tendr/app.yml`, `Tendr.storekit`, and `Still/Features/Journal/Tips.swift`. Keep product IDs aligned. `tip_iaps app:tendr` updates consumable records and review screenshots without submitting. RDesign’s `RTipJar` unlocks no features.
 
 After an uncertain upload, check App Store Connect before retrying. Confirm processing, the correct internal group and tester availability. For an already processed build use `distribute_existing`, which uploads no new binary. Native builds, Apple signing, App Store Connect calls and live Actions execution cannot be validated by Linux tests.
 
-Historical Tendr release evidence remains in [apps/tendr/docs/RELEASE.md](../apps/tendr/docs/RELEASE.md); its old root paths are historical. App-local legacy release scripts are retained only for recovery, not automatic delivery. The root lane is the current release authority.
+Historical Tendr release evidence remains in [projects/tendr/docs/RELEASE.md](../../projects/tendr/docs/RELEASE.md); its old root paths are historical. App-local legacy release scripts are retained only for recovery, not automatic delivery. The root lane is the current release authority.
 
 ## Retiring discontinued apps
 

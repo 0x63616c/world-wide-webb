@@ -32,16 +32,16 @@ def copy_public(path, destination):
         raise SystemExit('Unexpected nonpublic input in a published static site')
 
 for name in names:
-    if not re.fullmatch(r'[a-z][a-z0-9-]*', name) or not (source / name / 'index.html').is_file():
+    if not re.fullmatch(r'[a-z][a-z0-9-]*', name) or not (Path("projects") / name / "site" / "index.html").is_file():
         raise SystemExit('Invalid public static site root')
-    copy_public(source / name, out / name)
+    copy_public(Path("projects") / name / "site", out / name)
 if (source / 'index.html').is_file():
     copy_public(source / 'index.html', out / 'index.html')
 if (source / '.legacy-root').exists():
     legacy = (source / '.legacy-root').read_text().strip()
     if legacy not in names:
         raise SystemExit('Legacy root must name an explicitly public site')
-    for path in (source / legacy).iterdir():
+    for path in (Path("projects") / legacy / "site").iterdir():
         copy_public(path, out / path.name)
 (out / '.nojekyll').touch()
 PYTHON

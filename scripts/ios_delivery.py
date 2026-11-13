@@ -34,7 +34,7 @@ def tag_target(ref, source):
     if git("rev-parse", f"{ref}^{{commit}}") != source or git("merge-base", source, "origin/main") != source:
         raise ValueError("Release tag must name this exact commit on main")
     app, version = match.groups()
-    config = yaml.safe_load(git("show", f"{source}:apps/{app}/app.yml"))
+    config = yaml.safe_load(git("show", f"{source}:projects/{app}/app.yml"))
     if str(config["version"]) != version:
         raise ValueError("Release tag must match the app.yml version of the tested binary")
     return app, version

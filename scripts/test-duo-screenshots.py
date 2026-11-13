@@ -177,7 +177,7 @@ name = pathlib.Path(sys.argv[0]).name
 args = sys.argv[1:]
 mode = os.environ["MOCK_DUO_MODE"]
 if name == "ruby":
-    print({"project_path":"apps/tendr/Still.xcodeproj", "scheme":"Still", "duo_screenshot_test":"StillUITests/DuoScreenshotTests/testMainScreens", "name":"Tendr"}[args[-1]])
+    print({"project_path":"projects/tendr/Still.xcodeproj", "scheme":"Still", "duo_screenshot_test":"StillUITests/DuoScreenshotTests/testMainScreens", "name":"Tendr"}[args[-1]])
 elif name == "xcrun":
     args = args[1:]
     with open(os.environ["MOCK_SIMCTL_LOG"], "a") as log:
@@ -425,8 +425,8 @@ class DuoCapabilitiesTests(unittest.TestCase):
                 "screenshot-build-settings.py",
             ]:
                 shutil.copy2(ROOT / "scripts" / name, scripts / name)
-            (root / "apps/tendr").mkdir(parents=True)
-            shutil.copy2(ROOT / "apps/tendr/screenshots.json", root / "apps/tendr/screenshots.json")
+            (root / "projects/tendr").mkdir(parents=True)
+            shutil.copy2(ROOT / "projects/tendr/screenshots.json", root / "projects/tendr/screenshots.json")
             commands = root / "bin"
             commands.mkdir()
             tool = commands / "mock-tool"
@@ -540,7 +540,7 @@ class DuoCapabilitiesTests(unittest.TestCase):
             )
             self.assertEqual(len(list(output.glob("*.png"))), len(poses) * 5 + 1)
             for pose in poses:
-                for shot in json.loads((ROOT / "apps/tendr/screenshots.json").read_text())["duo_shots"]:
+                for shot in json.loads((ROOT / "projects/tendr/screenshots.json").read_text())["duo_shots"]:
                     self.assertTrue((output / f"{pose}-{shot['appearance']}-{shot['screen']}.png").is_file())
             self.assertEqual((root / "created-device").read_text(), override or "mock.duo")
             if expected_mode == "default":

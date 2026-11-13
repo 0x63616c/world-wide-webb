@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       app:
-        description: "App folder under apps/ (for example tendr)"
+        description: "Project folder under projects/ (for example tendr)"
         type: string
         default: tendr
 
@@ -40,4 +40,4 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           FOLDING_PRODUCTION_WORKER_CONFIG: ${{ secrets.FOLDING_PRODUCTION_WORKER_CONFIG }}
           FOLDING_RELEASE_POLICY_TOKEN: ${{ secrets.FOLDING_RELEASE_POLICY_TOKEN }}
-        run: bundle exec ruby apps/folding/scripts/continuous-delivery.rb receipt
+        run: bundle exec ruby projects/folding/scripts/continuous-delivery.rb receipt

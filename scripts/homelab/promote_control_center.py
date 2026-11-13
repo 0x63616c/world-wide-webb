@@ -16,9 +16,11 @@ import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-MANIFEST = "homelab/services/control-center/release.json"
+MANIFEST = "projects/homelab/services/control-center/release.json"
 REMOTE = "git@github.com:0x63616c/world-wide-webb.git"
-SPEC = importlib.util.spec_from_file_location("app_release", ROOT / "homelab/scripts/promote-control-center.py")
+SPEC = importlib.util.spec_from_file_location(
+    "app_release", ROOT / "projects/homelab/scripts/promote-control-center.py"
+)
 release = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(release)
 

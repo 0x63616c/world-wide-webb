@@ -1,2 +1,2 @@
 team_id("X9E4HG27NK")
-# Bundle IDs are per app: apps/<app>/app.yml (pass app:<name> to every lane).
+# Bundle IDs are per app: projects/<app>/app.yml (pass app:<name> to every lane).
