@@ -5,6 +5,9 @@ Repository consolidation is complete; `docs/plans/monorepo-migration-progress.md
 Develop migrated products here, never in deleted source repositories or `github-archive` snapshots.
 Tendr’s replacement Cloudflare hosting is tracked separately in #1007.
 
+For Mini deployment, boot recovery or private-image pulls, read `homelab/AGENTS.md` before
+changing credentials; it records the existing Comin, SOPS and registry-auth setup.
+
 ## Working
 
 Use `wtp add -b codex/<task> origin/main` before edits; use absolute worktree paths.
