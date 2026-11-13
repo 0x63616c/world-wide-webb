@@ -496,11 +496,8 @@ pub fn fetch_revision(repository: &str, revision: &str) -> Result<Workspace, Err
     if !valid_repository(repository) || !valid_revision(revision) {
         return Err(Error::InvalidRepository);
     }
-    let manifest: Manifest = serde_json::from_slice(&api(
-        &format!("repos/{repository}/contents/projects/homelab/homelab.json?ref={revision}"),
-        true,
-    )?)
-    .map_err(|_| Error::InvalidManifest)?;
+    let bytes = revision_manifest(repository, revision, |path| api(path, true))?;
+    let manifest: Manifest = serde_json::from_slice(&bytes).map_err(|_| Error::InvalidManifest)?;
     manifest.validate()?;
     if manifest
         .deployment
@@ -514,6 +511,47 @@ pub fn fetch_revision(repository: &str, revision: &str) -> Result<Workspace, Err
         revision: revision.into(),
         manifest,
     })
+}
+
+fn revision_manifest(
+    repository: &str,
+    revision: &str,
+    mut read: impl FnMut(&str) -> Result<Vec<u8>, Error>,
+) -> Result<Vec<u8>, Error> {
+    let current =
+        format!("repos/{repository}/contents/projects/homelab/homelab.json?ref={revision}");
+    let legacy = format!("repos/{repository}/contents/homelab.json?ref={revision}");
+    read(&current).or_else(|_| read(&legacy))
+}
+
+#[cfg(test)]
+mod revision_manifest_tests {
+    use super::*;
+
+    #[test]
+    fn old_approved_revision_uses_root_manifest_after_project_path_is_absent() {
+        let revision = "a".repeat(40);
+        let mut paths = Vec::new();
+        let bytes = revision_manifest("example/config", &revision, |path| {
+            paths.push(path.to_owned());
+            if path.contains("/projects/homelab/") {
+                Err(Error::Fetch)
+            } else {
+                Ok(b"old approved manifest".to_vec())
+            }
+        })
+        .unwrap();
+        assert_eq!(bytes, b"old approved manifest");
+        assert_eq!(
+            paths,
+            [
+                format!(
+                    "repos/example/config/contents/projects/homelab/homelab.json?ref={revision}"
+                ),
+                format!("repos/example/config/contents/homelab.json?ref={revision}"),
+            ]
+        );
+    }
 }
 fn binding(path: &Path) -> Result<Option<Binding>, Error> {
     let file = match OpenOptions::new()

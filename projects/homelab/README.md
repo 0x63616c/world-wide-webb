@@ -13,6 +13,8 @@ The Nix flake and lockfile live at `projects/homelab/flake.nix` and
 (`bootstrap/installer.json`) and encrypted host files (`secrets/`) live beside it.
 The CLI reads the project paths for new setup and retains approved old revisions for recovery. Comin is
 configured to read the `projects/homelab` subdirectory of the promoted repository.
+Existing hosts use the temporary [old-path bridge](docs/updates.md) for their
+first update to this layout.
 
 From the repository root:
 

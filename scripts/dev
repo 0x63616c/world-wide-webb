@@ -112,7 +112,7 @@ case "$command_name" in
         if [[ "$package_tests" == true ]]; then
           swift test --package-path "projects/$app"
         fi
-        (cd "projects/$app" && xcodegen generate --quiet)
+        (cd "projects/$app" && mise exec -- xcodegen generate --quiet)
         exec xcodebuild -project "$project" -scheme "$scheme" \
           -destination 'generic/platform=iOS Simulator' \
           -derivedDataPath "$root/build/local/$app" CODE_SIGNING_ALLOWED=NO build
