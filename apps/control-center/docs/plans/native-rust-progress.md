@@ -115,4 +115,4 @@ The Dog Walker launcher, client integration and server API are removed. A forwar
 
 ## Shared profiles follow-up
 
-Profiles now use a dedicated SQLite table and typed REST API. The app reads the server list when the launcher opens, keeps its active selection per device, and supports PIN-verified add, edit and delete. Local profile records are intentionally not imported. The profile API enforces the PIN on mutations; the app does not rely on its unlock sheet alone. Delivery evidence belongs to this change's PR and its required checks.
+Profiles now use a dedicated SQLite table and typed REST API. The app reads the server list when the launcher opens, keeps its active selection per device, and supports PIN-verified add, edit and delete. Local profile records are intentionally not imported. The profile API enforces the PIN on mutations; the app does not rely on its unlock sheet alone. The profile PIN sheet sizes independently of the compact editor so its full keypad remains visible. Delivery evidence belongs to the profile PRs and their required checks.
