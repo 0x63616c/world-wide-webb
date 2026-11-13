@@ -62,9 +62,18 @@ class PlannerTests(unittest.TestCase):
         new["inputs"]["shared"]["safety"] = "b" * 64
         self.assertEqual(plan_deployment(old, new)["backup"], old["services"])
 
-    def test_invalid_or_removed_assignment_fails_before_actions(self):
+    def test_penpot_retirement_is_explicit_and_does_not_back_up_its_data(self):
         old, new = generation(), generation()
         new["services"].remove("penpot")
+        del new["inputs"]["services"]["penpot"]
+        plan = plan_deployment(old, new)
+        self.assertEqual(plan["retire"], ["penpot"])
+        self.assertEqual(plan["backup"], [])
+        self.assertEqual(plan["reconcile"], [])
+
+    def test_other_removals_and_invalid_inputs_fail_before_actions(self):
+        old, new = generation(), generation()
+        new["services"].remove("control-center")
         with self.assertRaisesRegex(ValueError, "removal"):
             plan_deployment(old, new)
         new = generation()

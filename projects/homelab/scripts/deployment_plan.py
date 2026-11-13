@@ -46,7 +46,10 @@ def plan_deployment(previous, candidate):
     old, new = assigned(previous), assigned(candidate)
     if not previous.get("host") or previous.get("host") != candidate.get("host"):
         raise ValueError("Candidate host differs from the running host")
-    if set(old) - set(new):
+    retired = [service for service in old if service not in new]
+    # Owner-approved Penpot retirement drops its data; other removals still need
+    # their own stopped-source workflow and recovery decision.
+    if retired and retired != ["penpot"]:
         raise ValueError("Service removal needs an explicit source-stopped retirement workflow")
     before, after = descriptors(previous), descriptors(candidate)
     reasons = {}
@@ -86,6 +89,7 @@ def plan_deployment(previous, candidate):
     return {
         "format": 1,
         "backup": backup,
+        "retire": retired,
         "reconcile": changed,
         "health": health,
         "recovery": ("off-host" if off_host else "local") if backup else "none",

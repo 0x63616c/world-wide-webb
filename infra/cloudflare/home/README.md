@@ -3,7 +3,7 @@
 OpenTofu manages retained DNS, Access applications/policies and shared tunnel ingress. Provider and tool
 versions are pinned. The tunnel has prevent_destroy; automatic apply rejects deletion of retained resources.
 The native app/API hostnames, Access applications and service policy retire at the coordinated cutover.
-Native clients connect privately over Tailscale; Cloudflare retains only HA, Hindsight, Penpot, Beszel, Bambuddy and DSM.
+Native clients connect privately over Tailscale; Cloudflare retains only HA, Hindsight, Beszel, Bambuddy and DSM.
 
 State and plans use enforced built-in AES-GCM encryption. The local backend runs on the mini over SSH,
 using its native exclusive state lock. Production state, variables, credentials and recovery evidence are

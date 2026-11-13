@@ -1,6 +1,7 @@
 import contextlib
 import hashlib
 import importlib.util
+import io
 import json
 import os
 import subprocess
@@ -50,6 +51,71 @@ class StatefulActivationTests(unittest.TestCase):
         self.assertEqual(receipt["phase"], "verified")
         self.assertFalse((self.root / "transaction").exists())
         self.assertEqual(json.loads((self.root / "last-success.json").read_text())["candidate"], str(self.new))
+
+    def test_penpot_retirement_precedes_activation_and_keeps_failure_journal(self):
+        old = {"host": "example", "services": ["penpot"], "backupsEnabled": True}
+        new = {"host": "example", "services": [], "backupsEnabled": True}
+        (self.old / "etc/homelab/deployment.json").write_text(json.dumps(old))
+        (self.new / "etc/homelab/deployment.json").write_text(json.dumps(new))
+        events = []
+
+        def retire(services):
+            self.assertEqual(services, ["penpot"])
+            events.append("retire")
+            raise RuntimeError("retirement failed")
+
+        with self.assertRaisesRegex(RuntimeError, "retirement failed"):
+            activation.transaction(
+                self.new,
+                self.old,
+                self.root,
+                7,
+                lambda *_: events.append("backup"),
+                lambda *_: events.append("activation"),
+                lambda *_: events.append("reconcile"),
+                retire=retire,
+            )
+        self.assertEqual(events, ["retire"])
+        self.assertEqual(json.loads((self.root / "transaction").read_text())["phase"], "retire")
+
+    def test_penpot_retirement_removes_only_its_verified_resources(self):
+        calls = []
+        listings = iter(
+            [
+                "penpot-penpot-backend-1\npenpot-penpot-postgres-1",
+                "",
+                "penpot_assets\npenpot_postgres\nother_volume",
+                "penpot_default\nother_network",
+            ]
+        )
+
+        def docker(command, **kwargs):
+            self.assertTrue(kwargs["check"])
+            args = command[3:]
+            calls.append(args)
+            if args[0] in ("ps", "volume", "network") and args[-2:] == ["--format", "{{.Names}}"]:
+                return subprocess.CompletedProcess(command, 0, next(listings))
+            if args[0] in ("volume", "network") and args[1] == "ls":
+                return subprocess.CompletedProcess(command, 0, next(listings))
+            return subprocess.CompletedProcess(command, 0, "")
+
+        with patch.object(activation.subprocess, "run", side_effect=docker):
+            activation.retire_penpot(io.StringIO())
+        self.assertIn(["rm", "-f", "penpot-penpot-backend-1"], calls)
+        self.assertIn(["rm", "-f", "penpot-penpot-postgres-1"], calls)
+        self.assertIn(["volume", "rm", "penpot_assets"], calls)
+        self.assertIn(["volume", "rm", "penpot_postgres"], calls)
+        self.assertNotIn(["volume", "rm", "other_volume"], calls)
+        self.assertIn(["network", "rm", "penpot_default"], calls)
+
+    def test_penpot_retirement_rejects_unexpected_project_container_before_removal(self):
+        def docker(command, **kwargs):
+            return subprocess.CompletedProcess(command, 0, "penpot-unexpected-1\n")
+
+        with patch.object(activation.subprocess, "run", side_effect=docker) as run:
+            with self.assertRaisesRegex(RuntimeError, "unexpected containers"):
+                activation.retire_penpot(io.StringIO())
+        self.assertEqual(run.call_count, 1)
 
     def test_backup_activation_and_health_failures_retain_barrier_and_never_rollback(self):
         for phase, events in [

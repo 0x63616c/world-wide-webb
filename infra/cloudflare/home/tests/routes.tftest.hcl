@@ -9,7 +9,7 @@ variables {
 run "retained_routes_are_gated" {
   command = plan
   assert {
-    condition     = toset(keys(cloudflare_dns_record.home)) == toset(["ha", "hindsight", "bambuddy", "dsm", "penpot", "beszel"])
+    condition     = toset(keys(cloudflare_dns_record.home)) == toset(["ha", "hindsight", "bambuddy", "dsm", "beszel"])
     error_message = "Only retained independent homelab services may be published."
   }
   assert {
