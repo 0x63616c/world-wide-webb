@@ -80,7 +80,6 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--apps", default="[]")
     parser.add_argument("--list", action="store_true")
-    parser.add_argument("--template", action="store_true")
     args = parser.parse_args()
     apps = selected(json.loads(args.apps))
     if args.list:
@@ -88,8 +87,6 @@ def main():
         return
     for app in apps:
         check(ROOT / "projects" / app / "backend")
-    if args.template:
-        subprocess.run(["python3", str(ROOT / "scripts/test-new-app.py"), "--backend-check"], check=True)
 
 
 if __name__ == "__main__":

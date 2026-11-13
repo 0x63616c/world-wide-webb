@@ -110,7 +110,7 @@ Foundation and personal persistence are in progress. Reducer, journal and local 
 
 - Private GitHub repo and 14 task issues across six milestones created.
 - Folding 1Password vault created; project connections saved. Secret values stay outside Git.
-- Local toolchain observed: Xcode 27.2 (27B52), Swift 6.4.2, Rust 1.99.1, Node 26.13.0, Ruby 3.3.13.
+- Local toolchain observed: Xcode 27.2 (27B52), Swift 6.4.2, Rust 1.99.1, Node 26.13.0, Ruby 3.4.12.
 - iOS 27.2 iPhone Duo simulator is installed; build/capture checks pending.
 - Cloudflare support forwarding applied through OpenTofu; rule/verified destination and public MX/SPF verified. End-to-end inbox delivery remains pending.
 

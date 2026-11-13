@@ -30,10 +30,9 @@ scripts/check
 scripts/check-backend
 ```
 
-Run `mise install` in this directory first; its local configuration selects
-the Ruby version required by Folding's release bundle. Use `mise exec --` for
-commands when mise is not activated in your shell. Xcode and the Duo simulator
-remain separate installed dependencies.
+Run `mise install` from the repository root for the shared Ruby/Bun/Node pins used
+by Folding's release bundle. Use `mise exec --` when mise is not activated in your
+shell. Xcode and the Duo simulator remain separate installed dependencies.
 
 `scripts/check` covers contracts, personal core, localization and formatting;
 `scripts/check-backend` covers the Worker. Use `scripts/format` for owned Swift

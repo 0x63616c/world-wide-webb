@@ -18,14 +18,12 @@ with tempfile.TemporaryDirectory(prefix="affected-") as directory:
     git("config", "user.name", "Calum")
     git("config", "user.email", "6991398+0x63616c@users.noreply.github.com")
     (root / "scripts").mkdir()
-    for script in ["affected", "changed-apps.sh", "app-config.rb"]:
+    for script in ["affected", "app-config.rb"]:
         shutil.copy2(ROOT / "scripts" / script, root / "scripts" / script)
-    (root / "packages/RDesign").mkdir(parents=True)
-    (root / "packages/RDesign/code.swift").write_text("// Shared\n")
     for app in ["tendr", "samplr"]:
         path = root / "projects" / app
         path.mkdir(parents=True)
-        (path / "app.yml").write_text(f"testflight: true\nuses: {'[RDesign]' if app == 'tendr' else '[]'}\npaths: []\n")
+        (path / "app.yml").write_text("testflight: true\nuses: []\npaths: []\n")
         (path / "code.swift").write_text(f"// {app}\n")
     git("add", ".")
     git("commit", "-qm", "Fixture")
@@ -35,14 +33,13 @@ with tempfile.TemporaryDirectory(prefix="affected-") as directory:
     def selected(base, intent):
         return json.loads(subprocess.check_output(["scripts/affected", base, "--intent", intent], cwd=root, text=True))
 
-    def expect(base, verify=(), ship=(), rdesign=False, template=False, tooling=False):
+    def expect(base, verify=(), ship=(), rdesign=False, tooling=False):
         for intent, apps in [("verify", verify), ("ship", ship)]:
             actual = selected(base, intent)
             expected = {
                 "apps": list(apps),
                 "tooling": intent == "verify" and tooling,
                 "rdesign": intent == "verify" and rdesign,
-                "template": intent == "verify" and template,
             }
             assert actual == expected, (base, intent, actual, expected)
 
@@ -67,8 +64,6 @@ with tempfile.TemporaryDirectory(prefix="affected-") as directory:
     expect(base, ["tendr"], ["tendr"], rdesign=True)
     base = change("projects/samplr/code.swift")
     expect(base, ["samplr"], ["samplr"])
-    base = change("packages/RDesign/code.swift")
-    expect(base, ["tendr"], ["tendr"], True, True)
     for path in [
         "fastlane/Fastfile",
         "fastlane/Appfile",
@@ -77,7 +72,7 @@ with tempfile.TemporaryDirectory(prefix="affected-") as directory:
         ".github/workflows/ci.yml",
         "scripts/build.sh",
     ]:
-        expect(change(path), ["samplr", "tendr"], rdesign=True, template=True, tooling=True)
+        expect(change(path), ["samplr", "tendr"], rdesign=True, tooling=True)
     for path in [
         "README.md",
         "AGENTS.md",
@@ -92,7 +87,6 @@ with tempfile.TemporaryDirectory(prefix="affected-") as directory:
     ]:
         expect(change(path))
     expect(change("projects/tendr/site/privacy/index.html"))
-    expect(change("templates/new-app/Example.swift"), template=True)
     expect(change("projects/design-fixture/design.png"))
     # A move must affect both sides even if Git would identify it as a rename.
     base = git("rev-parse", "HEAD")
@@ -108,12 +102,12 @@ with tempfile.TemporaryDirectory(prefix="affected-") as directory:
     # Products with a custom delivery handler never enter the standard iOS matrix.
     expect(change("projects/folding/app.yml", "testflight: true\ndelivery_handler: folding\nuses: []\npaths: []\n"))
     expect(change("projects/folding/apps/ios/App/Screen.swift"))
-    # Unknown packages must fail rather than silently lose dependency coverage.
-    change("projects/samplr/app.yml", "uses: [Missing]\n")
+    # Non-empty uses must fail; root packages/ are retired.
+    change("projects/samplr/app.yml", "uses: [RDesign]\n")
     result = subprocess.run(
         ["scripts/affected", "HEAD", "--intent", "verify"], cwd=root, text=True, capture_output=True
     )
-    assert result.returncode != 0 and "unknown package" in result.stderr
+    assert result.returncode != 0 and "uses empty" in result.stderr
     change("projects/samplr/app.yml", "uses: []\n")
     # Main without a remote base compares its previous commit; branches fail clearly.
     git("checkout", "-q", "main")
@@ -128,11 +122,11 @@ with tempfile.TemporaryDirectory(prefix="affected-") as directory:
     git("rm", "-qr", "projects/samplr")
     git("commit", "-qm", "Remove synthetic app")
     expect(base)
-    expect(change("scripts/build.sh"), ["tendr"], rdesign=True, template=True, tooling=True)
+    expect(change("scripts/build.sh"), ["tendr"], rdesign=True, tooling=True)
     forced = json.loads(
         subprocess.check_output(["scripts/affected", "HEAD", "--intent", "verify", "--force"], cwd=root, text=True)
     )
-    assert forced == {"apps": ["tendr"], "tooling": True, "rdesign": True, "template": True}
+    assert forced == {"apps": ["tendr"], "tooling": True, "rdesign": True}
     rejected = subprocess.run(
         ["scripts/affected", "HEAD", "--intent", "ship", "--force"], cwd=root, capture_output=True, text=True
     )

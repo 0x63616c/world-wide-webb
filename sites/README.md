@@ -15,7 +15,7 @@ node projects/folding/site/build.mjs
 
 `sites/.pages` lists approved static roots. The builder rejects unexpected files and symlinks;
 Folding's Worker source, tooling, configuration and documentation stay outside that artifact.
-New-app scaffolding registers a static root; registration does not provision hosting.
+Add a product to `.pages` only when it has a public site; that does not provision hosting.
 
 ## Tendr publication
 
@@ -46,6 +46,6 @@ new hosting cannot repair links embedded in previously installed builds.
 
 ## Folding publication
 
-`FOLDING_SITE_DELIVERY_ENABLED` controls Folding publication. Its publisher retains its own
-`FOLDING_DEPLOY_TOKEN`, Wrangler configuration/version and tested artifact. OpenTofu retains
-Folding's DNS/resource ownership. Tendr publication does not deploy Folding or its API.
+Folding publication uses its own `FOLDING_DEPLOY_TOKEN`, Wrangler configuration/version and
+tested artifact after successful selection on main. OpenTofu retains Folding's DNS/resource
+ownership. Tendr publication does not deploy Folding or its API.

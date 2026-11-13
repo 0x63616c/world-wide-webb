@@ -14,8 +14,4 @@ class MisePinsTests(unittest.TestCase):
         for name in ("bun", "node", "python", "xcodegen", "opentofu"):
             self.assertEqual(shared[name], folding[name])
         self.assertEqual(shared["opentofu"], (ROOT / ".opentofu-version").read_text().strip())
-
-    def test_folding_ruby_matches_release_pin(self):
-        local = tomllib.loads((ROOT / "projects/folding/mise.toml").read_text())["tools"]
-        folding = json.loads((ROOT / "projects/folding/tool-versions.json").read_text())
-        self.assertEqual(local["ruby"], folding["ruby"])
+        self.assertEqual(shared["ruby"], folding["ruby"])

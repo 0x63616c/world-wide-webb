@@ -13,7 +13,7 @@ verified.
 | Homelab CLI | Selected Homelab CI builds release archives. | `homelab/vVERSION` updates its Homebrew formula. |
 | Control Center | Native TestFlight and immutable server image use separate publishers. | Server promotion proposes a digest for Homelab; `deploy/homelab` activates checked host state. |
 | Tendr website | Selected site changes publish to Cloudflare. | The public `/`, `/privacy/` and `/support/` pages are checked after deployment. |
-| Folding website | Site publisher is gated by `FOLDING_SITE_DELIVERY_ENABLED`. | Its own tested artifact and Cloudflare configuration are used. |
+| Folding website | Selected site changes publish to Cloudflare. | Its own tested artifact and Cloudflare configuration are used. |
 | Golink for Safari | Product CI verifies builds and behavior. | No automatic app publication. |
 
 [Callkeep](../projects/callkeep/README.md#release-automation),
@@ -96,10 +96,10 @@ uploads a binary nor requests review. Check live page URLs before uploading them
 Callkeep's public ZIP and symbols are verified before its separate `homebrew-tap`
 cask changes. The Homelab CLI formula also downloads WWW release archives.
 Control Center's native beta, server image and host activation have separate
-owners; a service image is not a deployed host revision. Host promotion depends
-on `HOMELAB_DELIVERY_ENABLED`. Home Cloudflare infrastructure applies require
-`OPEN_TOFU_DEPLOY_ENABLED` and the retained encrypted state. Tendr and Folding
-websites publish independently; site changes do not ship app binaries.
+owners; a service image is not a deployed host revision. Host promotion follows
+successful Homelab CI into `deploy/homelab`. Home Cloudflare infrastructure apply
+uses successful main CI selection and the retained encrypted state. Tendr and
+Folding websites publish independently; site changes do not ship app binaries.
 
 Use product-scoped credentials and existing private signing storage. Keep secret
 values and release evidence out of source. An upload is not proof of a processed

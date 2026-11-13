@@ -87,9 +87,9 @@ jobs:
     needs:
       - selection
       - gate
-    if:
-      (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main' && vars.FOLDING_SITE_DELIVERY_ENABLED
-      == 'true' && (github.event_name == 'workflow_dispatch' || contains(fromJSON(needs.selection.outputs.delivery), 'sites.folding'))
+    if: >-
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main' &&
+      (github.event_name == 'workflow_dispatch' || contains(fromJSON(needs.selection.outputs.delivery), 'sites.folding'))
     runs-on: ubuntu-24.04-arm
     environment: production
     timeout-minutes: 10

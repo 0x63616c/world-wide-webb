@@ -16,10 +16,10 @@ release details. Shared code owns selection and common entrypoints.
 | `infra/cloudflare/home` | Retained shared OpenTofu state; Folding's state root lives in its project. |
 | `secrets` | Retained encrypted shared vault; host ciphertext lives in `projects/homelab/secrets`. |
 | `scripts/ci` and `.github` | Repository selection, verification and product delivery workflows. [Policy](scripts/ci/units.json) |
-| `scripts`, `fastlane`, `templates`, `tools` | Local entrypoints, standard iOS delivery and new-app scaffold. [Development](docs/DEVELOPMENT.md) |
+| `scripts`, `fastlane`, `tools` | Local entrypoints and standard iOS delivery. [Development](docs/DEVELOPMENT.md) |
 | `docs` | Shared developer, release and historical migration records. |
 | `.agents/skills` | Vendored guidance and its [source record](.agents/skills/SOURCES.md). |
-| `.codex`, `.config` | Shared agent and repository tool configuration. |
+| `.codex` | Shared agent and repository tool configuration. |
 
 The old root `apps`, `homelab` and `bootstrap` content now lives in `projects`.
 Root `flake.nix` and `homelab/flake.nix` temporarily bridge existing Comin

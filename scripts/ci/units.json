@@ -2,11 +2,16 @@
   "version": 1,
   "retired_paths": [
     "projects/airmiles/**",
+    ".config/aseprite/**",
     "apps/**",
     "homelab/**",
     "homelab.json",
     "bootstrap/**",
     "infra/cloudflare/folding/**",
+    "opencode.jsonc",
+    "projects/folding/mise.toml",
+    "templates/**",
+    "tui.json",
     "secrets/homelab-*.sops.yaml"
   ],
   "shared_verify": [],
@@ -118,7 +123,6 @@
         "projects/folding/bun.lock",
         "projects/folding/rust-toolchain.toml",
         "projects/folding/tool-versions.json",
-        "projects/folding/mise.toml",
         "projects/folding/Gemfile",
         "projects/folding/Gemfile.lock",
         "projects/folding/design/**",
@@ -344,15 +348,6 @@
         "projects/homelab/process/src/**"
       ]
     },
-    "templates": {
-      "paths": [
-        "templates/**",
-        "scripts/new-app.sh",
-        "scripts/check-app-backends.py",
-        "scripts/test-new-app.py"
-      ],
-      "delivery": null
-    },
     "sites.pages": {
       "paths": [
         "projects/tendr/site/**",
@@ -395,7 +390,6 @@
         ".github/**",
         "tools/**",
         "fastlane/**",
-        "templates/**",
         "Gemfile",
         "Gemfile.lock",
         "lefthook.yml",
@@ -410,11 +404,7 @@
         ".wtp.yml",
         ".gitignore",
         ".opentofu-version",
-        ".claude/**",
-        ".codex/**",
-        "opencode.jsonc",
-        "tui.json",
-        ".config/**"
+        ".codex/**"
       ],
       "delivery": null,
       "exclude": ["scripts/homelab/**", "scripts/distribution/**"]

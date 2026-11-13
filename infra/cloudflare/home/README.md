@@ -23,9 +23,9 @@ the pinned `HOMELAB_OPS_KNOWN_HOSTS` variable. It reuses the existing `tag:homel
 authorization. The dedicated operations public key is declared for the mini in `homelab.json`;
 the private key is a GitHub Actions secret, not a human administrator key.
 
-`OPEN_TOFU_DEPLOY_ENABLED` enables automatic application only when home infrastructure inputs
-change. A manual run explicitly reconciles the configuration from its supplied successful main
-CI run, even if that run selected no infrastructure changes. Both paths retain encrypted state,
+Automatic application runs on main after successful CI when home infrastructure inputs change.
+A manual run explicitly reconciles the configuration from its supplied successful main CI run,
+even if that run selected no infrastructure changes. Both paths retain encrypted state,
 OpenTofu locking, the saved-plan deletion guard and local encrypted before-copies. This workflow
 does not deploy app code, activate Nix generations or replace the existing state backend.
 

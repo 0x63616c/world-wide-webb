@@ -37,14 +37,25 @@ retain runtimes required by actual product tools.
 
 - Build the smallest complete solution for the current requirement. Do not build for hypothetical
   future apps, deployments or operators.
-- Make permanent product features work by default. Add enablement/verification flags, optional
-  bindings or configurable behavior only for a concrete requirement. Report failures instead of
-  silently disabling expected features.
+- Do not keep shared product scaffolds (`templates/`, `new-app` trees, scaffold-only CI). When a
+  new app is needed, copy a living `projects/<app>/` and wire identity through existing
+  `app.yml` / CI units; root fastlane and selection stay the shared delivery path.
+- Make permanent product features work by default. Do not gate shipping on migration-era
+  `*_DELIVERY_ENABLED` / `*_DEPLOY_ENABLED`-style repository variables; selection, successful CI
+  and environment protections are enough. Keep real product capability flags (for example APNS
+  or hardware acceptance). Add other enablement/verification flags, optional bindings or
+  configurable behavior only for a concrete requirement. Report failures instead of silently
+  disabling expected features.
 - Prefer direct, product-specific code. Add an abstraction only when it removes actual duplication
   or complexity; do not add a wrapper, state machine or framework merely for possible reuse.
 - Keep one source of truth and one owner for each process. Extend existing tooling before adding
   another selector, launcher or configuration layer. Remove obsolete paths and temporary migration
   machinery as their replacements take over.
+- Prefer one shared toolchain pin. Root `mise.toml` owns common CLIs; do not add per-project mise
+  overrides without a locked product reason, and prefer removing that reason. Rust stays on each
+  product's `rust-toolchain.toml`.
+- Codex is the agent surface here (`.codex`, `AGENTS.md`). Do not add OpenCode, Claude-Code, or
+  similar repo agent configs.
 - Verify proportionately: run relevant existing checks and one or two representative core flows for
   the completed batch. Reuse valid passing evidence. Expand testing for changed behavior, real failures
   or concrete unresolved risks; do not routinely add exhaustive matrices, repeated broad suites,

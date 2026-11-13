@@ -1,1 +1,0 @@
-__NAME__ is a calm, private app. Replace this description before the first release.

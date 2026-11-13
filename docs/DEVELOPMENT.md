@@ -21,15 +21,13 @@ Read the root `AGENTS.md` and product README before changing that area.
 
 Root `mise.toml` and `mise.lock` pin Bun, Node, Python, uv, Ruby, XcodeGen and
 OpenTofu for local work. `scripts/dev setup <project>` installs them and creates
-the Python environment from `scripts/requirements.txt`.
-Folding's `mise.toml` selects its release Ruby version when working in that
-directory. Product lockfiles and CI pins remain the release authority; the
-mise pin check prevents common local versions drifting from them. Xcode and
-simulator runtimes are installed separately; Rust toolchain files keep their
-product-specific targets and components. The Homelab Nix flake lives under
-`projects/homelab/` and is not replaced by mise. Put `.venv/bin` on `PATH` for
-`scripts/dev affected` and shared CI selector tests; `scripts/dev doctor` reports
-a missing PyYAML dependency.
+the Python environment from `scripts/requirements.txt`. Product lockfiles and CI
+pins remain the release authority; the mise pin check prevents common local
+versions drifting from them. Xcode and simulator runtimes are installed
+separately; Rust toolchain files keep their product-specific targets and
+components. The Homelab Nix flake lives under `projects/homelab/` and is not
+replaced by mise. Put `.venv/bin` on `PATH` for `scripts/dev affected` and shared
+CI selector tests; `scripts/dev doctor` reports a missing PyYAML dependency.
 
 ## Choose a local check
 
@@ -78,5 +76,5 @@ handlers own external writes; do not run multiple publishers for the same target
 - OpenTofu owns durable Cloudflare resources; Wrangler owns Worker code/assets.
   Homelab host promotion is distinct from authoring changes on `main`.
 
-The [new-app guide](NEW-APP.md) covers scaffolding. Historical migration evidence
-lives under `docs/plans/`; use current product runbooks for active operations.
+The [new-app guide](NEW-APP.md) covers copying a living app. Historical migration
+evidence lives under `docs/plans/`; use current product runbooks for active operations.

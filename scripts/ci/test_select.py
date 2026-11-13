@@ -100,7 +100,7 @@ class SelectionTests(unittest.TestCase):
         self.assertEqual(result["delivery_candidates"], [])
         for path, owner in [
             ("mise.lock", "repo.tooling"),
-            ("projects/folding/mise.toml", "folding.tooling"),
+            ("mise.toml", "repo.tooling"),
         ]:
             with self.subTest(path=path):
                 result = selection.select([path], CONFIG)

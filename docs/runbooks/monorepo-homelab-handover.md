@@ -1,9 +1,8 @@
 # Homelab source handover
 
-Status: local preparation. `HOMELAB_DELIVERY_ENABLED` remains off. Source relocation,
-configuration evaluation and local transaction tests do not prove an installed host handover.
-Read the migration tracker before operating. Preserve existing host identities, approved journals,
-keys, databases/media, Serve routes and original source checkouts.
+Status: historical. Source authority and `deploy/homelab` promotion now run from this
+repository; do not treat this runbook as a live enablement checklist. Preserve existing host
+identities, approved journals, keys, databases/media and Serve routes when operating hosts.
 
 ## Source and transaction contract
 

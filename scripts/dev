@@ -9,7 +9,6 @@ usage() {
 Usage: scripts/dev <command>
   list                         List projects
   setup <project>              Install the project's declared tools and dependencies
-  new <Name> <bundle-suffix> [--backend cloudflare]   Create an independent app
   check <project>              Run the project's local checks
   homelab [planner|activation|backup|all]...  Run focused local homelab tests
   affected <base> [options]    Resolve affected apps (verification by default)
@@ -56,10 +55,6 @@ case "$command_name" in
   homelab)
     [[ -x .venv/bin/python ]] || fail 'run scripts/dev setup homelab first'
     exec .venv/bin/python scripts/homelab/dev_check.py "$@"
-    ;;
-  new)
-    (($# == 2 || $# == 4)) || fail 'new needs <Name> <bundle-suffix> [--backend cloudflare]'
-    exec bash scripts/new-app.sh "$@"
     ;;
   affected)
     (($# > 0)) || fail 'affected needs a base revision'

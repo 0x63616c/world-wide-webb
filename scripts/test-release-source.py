@@ -27,10 +27,10 @@ class SourceTest(unittest.TestCase):
         (self.root / "scripts/affected").chmod(0o755)
         self.write(
             "projects/tendr/app.yml",
-            "testflight: true\napp_store_automatic: true\nuses: [RDesign]\npaths: ['shared/tendr/**']\n",
+            "testflight: true\napp_store_automatic: true\nuses: []\npaths: ['shared/tendr/**']\n",
         )
         self.write("projects/samplr/app.yml", "testflight: true\nuses: []\n")
-        self.write("packages/RDesign/view.swift", "// fixture\n")
+        self.write("projects/tendr/Packages/RDesign/view.swift", "// fixture\n")
         self.base = self.commit()
 
     def git(self, *args):
@@ -49,7 +49,7 @@ class SourceTest(unittest.TestCase):
     def test_app_dependency_extra_path_and_listing_supersede(self):
         for path in [
             "projects/tendr/view.swift",
-            "packages/RDesign/view.swift",
+            "projects/tendr/Packages/RDesign/view.swift",
             "shared/tendr/code.swift",
             "projects/tendr/fastlane/metadata/en-US/description.txt",
             "projects/tendr/screenshots.json",
@@ -68,8 +68,11 @@ class SourceTest(unittest.TestCase):
         self.assertTrue(release.current("tendr", latest, latest))
 
     def test_incoming_configuration_is_used_without_changing_checkout(self):
-        self.write("projects/tendr/app.yml", "testflight: true\napp_store_automatic: true\nuses: [NewPackage]\n")
-        self.write("packages/NewPackage/view.swift")
+        self.write(
+            "projects/tendr/app.yml",
+            "testflight: true\napp_store_automatic: true\nuses: []\npaths: ['shared/tendr-extra/**']\n",
+        )
+        self.write("shared/tendr-extra/view.swift")
         latest = self.commit()
         self.git("checkout", "-q", self.base)
         self.assertFalse(release.current("tendr", self.base, latest))

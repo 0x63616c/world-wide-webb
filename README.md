@@ -71,7 +71,7 @@ documentation and tests alone do not request an app release.
 
 - [Development](docs/DEVELOPMENT.md): worktrees, local checks, CI and ownership.
 - [Releases](docs/RELEASE.md): product channels, App Store review and publication.
-- [New app](docs/NEW-APP.md): scaffold, build and distribution setup.
+- [New app](docs/NEW-APP.md): copy a living app, then wire identity and delivery.
 - [Agent instructions](AGENTS.md): repository rules for automated work.
 
 The five repositories consolidated into this one were archived and deleted. Their

@@ -24,14 +24,14 @@ boundary before any untrusted job code can start.
 
 ## Staging probe
 
-`Homelab operations canary` runs only on main after `HOMELAB_OPERATIONS_CANARY_ENABLED` is enabled.
-Its source job requires successful exact-source main Homelab CI, including every named host check;
-a full explicit main CI dispatch is accepted when an app-only push skipped those checks. The
-canary's checkout, workflow SHA and checked CI source must match. This does not authorize a host apply.
+`Homelab operations canary` runs on main via manual dispatch. Its source job requires successful
+exact-source main Homelab CI, including every named host check; a full explicit main CI dispatch
+is accepted when an app-only push skipped those checks. The canary's checkout, workflow SHA and
+checked CI source must match. This does not authorize a host apply.
 
-Before enabling, prepare an OAuth client restricted to `tag:homelab-operations`, an SSH identity
-scoped to the mini, and the independently verified mini host key. Store the client ID/secret and
-private SSH key as `HOMELAB_OPS_TS_CLIENT_ID`, `HOMELAB_OPS_TS_CLIENT_SECRET` and
+Prepare an OAuth client restricted to `tag:homelab-operations`, an SSH identity scoped to the
+mini, and the independently verified mini host key. Store the client ID/secret and private SSH
+key as `HOMELAB_OPS_TS_CLIENT_ID`, `HOMELAB_OPS_TS_CLIENT_SECRET` and
 `HOMELAB_OPS_SSH_PRIVATE_KEY`; `HOMELAB_OPS_KNOWN_HOSTS` contains the public peer pin. Back up
 required identities in the approved secret store. Inspect the actual Tailnet policy: allow the
 required mini SSH endpoint and deny other home peers/services. Do not infer policy from a label.
