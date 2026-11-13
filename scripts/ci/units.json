@@ -1,6 +1,14 @@
 {
   "version": 1,
-  "retired_paths": ["projects/airmiles/**"],
+  "retired_paths": [
+    "projects/airmiles/**",
+    "apps/**",
+    "homelab/**",
+    "homelab.json",
+    "bootstrap/**",
+    "infra/cloudflare/folding/**",
+    "secrets/homelab-*.sops.yaml"
+  ],
   "shared_verify": [],
   "units": {
     "golink.safari": {

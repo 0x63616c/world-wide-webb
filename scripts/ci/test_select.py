@@ -107,6 +107,20 @@ class SelectionTests(unittest.TestCase):
                 self.assertIn(owner, result["verify"])
                 self.assertEqual(result["delivery_candidates"], [])
 
+    def test_moved_project_paths_select_new_owner_without_unknown_legacy_paths(self):
+        result = selection.select(
+            [
+                "apps/tendr/Still/App.swift",
+                "projects/tendr/Still/App.swift",
+                "homelab/flake.nix",
+                "projects/homelab/flake.nix",
+            ],
+            CONFIG,
+        )
+        self.assertEqual(result["unmapped"], [])
+        self.assertIn("tendr.native", result["verify"])
+        self.assertIn("homelab.config", result["verify"])
+
     def test_docs_do_not_activate_hosts_or_ship_apps(self):
         result = selection.select(
             ["README.md", "projects/homelab/docs/current-state.md", ".agents/skills/new/SKILL.md"], CONFIG
