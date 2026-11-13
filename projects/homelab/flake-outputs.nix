@@ -142,7 +142,7 @@ in
       assert
         original.inputs.services.control-center.configuration
         != worker.inputs.services.control-center.configuration;
-      assert original.inputs.services.penpot == worker.inputs.services.penpot;
+      assert original.inputs.services.hindsight == worker.inputs.services.hindsight;
       pkgs.runCommand "homelab-deployment-inputs-check" { } ''touch "$out"'';
     beszel-agent = self.packages.${system}.beszel-agent;
     rex = self.packages.${system}.rex;
