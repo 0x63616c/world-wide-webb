@@ -12,6 +12,7 @@ let
       "tart"
       "softnet"
       "rex"
+      "claude-code"
     ];
   pkgs = import nixpkgs {
     inherit system;
@@ -67,6 +68,7 @@ in
     homelab-runner = import ./packages/runner.nix { inherit pkgs; };
     beszel-agent = import ./packages/beszel-agent.nix { inherit pkgs; };
     rex = import ./packages/rex.nix { inherit pkgs; };
+    claude-code = import ./packages/claude-code.nix { inherit pkgs; };
   };
   devShells.${system}.default = pkgs.mkShellNoCC {
     packages = with pkgs; [
@@ -97,7 +99,7 @@ in
       in
       assert coding.uid == 502 && coding.gid == 20;
       assert coding.home == "/Users/coding" && coding.createHome;
-      assert coding.shell == "/bin/zsh" && !coding.isHidden;
+      assert coding.shell == pkgs.zsh && !coding.isHidden;
       assert builtins.elem "coding" book.users.knownUsers;
       assert book.homelab.sshUsers.coding == book.homelab.authorizedKeys;
       assert pkgs.lib.hasInfix "AllowUsers admin coding" book.services.openssh.extraConfig;
@@ -144,6 +146,7 @@ in
       pkgs.runCommand "homelab-deployment-inputs-check" { } ''touch "$out"'';
     beszel-agent = self.packages.${system}.beszel-agent;
     rex = self.packages.${system}.rex;
+    claude-code = self.packages.${system}.claude-code;
     beszel-agent-settings =
       let
         options = self.darwinConfigurations.homelab-macbook.options.homelab.monitoring.agent;

@@ -1,5 +1,8 @@
 { config, lib, ... }: {
-  imports = [ ../modules/rex.nix ];
+  imports = [
+    ../modules/rex.nix
+    ../modules/coding.nix
+  ];
   networking.hostName = "homelab-macbook";
   users.knownUsers = [ "coding" ];
   users.users.coding = {
@@ -9,7 +12,6 @@
     home = "/Users/coding";
     createHome = true;
     isHidden = false;
-    shell = "/bin/zsh";
   };
   homelab.sshUsers.coding = config.homelab.authorizedKeys;
   # Remote Login's PAM access list is separate from OpenSSH's AllowUsers.

@@ -62,3 +62,5 @@ service data stay outside generated images and Git plaintext.
 
 Historical plans and migration receipts remain under `docs/`; use current code,
 runbooks and live readback for operational decisions.
+
+The MacBook’s coding tools and dotfiles ownership are described in [coding setup](docs/coding.md).
