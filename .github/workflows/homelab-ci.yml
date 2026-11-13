@@ -98,10 +98,10 @@ jobs:
         with:
           path: ${{ runner.temp }}/homelab-nix-cache
           key:
-            homelab-nix-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.lock', 'scripts/ci/nix-cache.pub') }}-${{
+            homelab-nix-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('homelab/flake.lock', 'scripts/ci/nix-cache.pub') }}-${{
             github.sha }}
           restore-keys:
-            homelab-nix-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.lock', 'scripts/ci/nix-cache.pub')
+            homelab-nix-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('homelab/flake.lock', 'scripts/ci/nix-cache.pub')
             }}-
       - name: Restore signed Nix outputs within two minutes
         if: contains(fromJSON(needs.selection.outputs.checks), 'homelab.darwin')

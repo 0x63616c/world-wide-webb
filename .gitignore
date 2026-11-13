@@ -37,11 +37,9 @@ Thumbs.db
 
 # IDE
 .idea/
+.venv/
 *.swp
 *.swo
-
-# Claude Code
-.claude/settings.local.json
 
 # OpenCode local quota state
 opencode-quota/*
@@ -55,11 +53,7 @@ coverage/
 *.tsbuildinfo
 
 # ship workflow scratch + build worktrees
-.claude/worktrees/
 .claire/
-
-# Runtime scheduler lock , ephemeral, never commit
-.claude/scheduled_tasks.lock
 
 # Worktrees
 .worktrees/

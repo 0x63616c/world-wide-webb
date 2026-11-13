@@ -107,6 +107,7 @@
         "apps/folding/tool-versions.json",
         "apps/folding/Gemfile",
         "apps/folding/Gemfile.lock",
+        "apps/folding/mise.toml",
         "apps/folding/design/**",
         "apps/folding/.cursor/**",
         "apps/folding/.githooks/**",
@@ -376,6 +377,7 @@
         "templates/**",
         "Gemfile",
         "Gemfile.lock",
+        "mise.toml",
         "lefthook.yml",
         ".prettierrc.json",
         "package.json",
@@ -468,7 +470,8 @@
       "paths": [
         "homelab/runner/**",
         "homelab/packages/runner.nix",
-        "flake.lock"
+        "flake.lock",
+        "homelab/flake.lock"
       ]
     },
     "homelab.darwin": {
@@ -594,7 +597,8 @@
         "homelab/host/**",
         "homelab/process/**",
         "homelab/packages/host.nix",
-        "flake.lock"
+        "flake.lock",
+        "homelab/flake.lock"
       ]
     }
   }

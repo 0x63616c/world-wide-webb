@@ -52,9 +52,11 @@ Release capture uses one app session for the five configured shots on each Duo d
 
 ## Monorepo
 
-Run app-local build/test commands above from `apps/tendr`. Shared release, CI and Pages commands run from the repository root; see [root README](../../README.md) and [release guide](../../docs/RELEASE.md). Affected main merges automatically deliver internal TestFlight builds after successful CI.
-Tag the tested commit `tendr/vX.Y.Z` to submit that existing build to App Review; see the root
-release guide. Tendr owns its UI package in `Packages/RDesign`; other apps keep their own design systems.
+Run app-local build/test commands above from `apps/tendr`. Shared release, CI and
+Pages commands run from the repository root; see [root README](../../README.md).
+See [How App Store releases work](../../docs/RELEASE.md#how-app-store-releases-work)
+for the shared merge, TestFlight, tag and review process. Tendr owns its UI package
+in `Packages/RDesign`; other apps keep their own design systems.
 
 ## Privacy and storage
 
@@ -63,7 +65,3 @@ The health journal is stored in the app's Application Support directory using at
 ## Contributing
 
 Keep changes focused on a user journey. Add a failing regression test before changing calculation or persistence behaviour, and include actual simulator screenshots for UI changes. Never commit personal health data, signing credentials or provisioning profiles. Use synthetic fixtures in screenshots.
-
-## License
-
-MIT. See [LICENSE](LICENSE).

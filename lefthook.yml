@@ -1,7 +1,7 @@
 pre-commit:
   commands:
     format-and-syntax:
-      run: python3 scripts/format-staged.py && bash tools/check --staged
+      run: bash tools/check --staged
     no-home-address:
       run: bash scripts/check-no-home-address.sh {staged_files}
     no-personal-email:
@@ -9,8 +9,5 @@ pre-commit:
     no-plaintext-secrets:
       glob: "secrets/*.yaml"
       run: bash scripts/check-sops-encrypted.sh {staged_files}
-    worktree-guard:
-      glob: ".claude/hooks/guard-worktree-only*.sh"
-      run: bash .claude/hooks/guard-worktree-only.test.sh
     gitleaks:
       run: gitleaks git --staged --redact --no-banner -c .gitleaks.toml

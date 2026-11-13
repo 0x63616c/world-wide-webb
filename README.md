@@ -1,37 +1,39 @@
 # World Wide Webb
 
-Independent apps, websites and homelab operations in one repository.
+Apps, websites and homelab software developed in one repository. Each product owns
+its code and user experience; shared tooling selects checks and delivery work.
 
-Repository consolidation is complete. Apps, homelab configuration, Cloudflare infrastructure
-and delivery tooling live here. WWW is currently public; `dotfiles`, `homebrew-tap` and private
-`github-archive` remain separate. The [migration record](docs/plans/monorepo-migration-progress.md)
-records completed handovers and the deleted source repositories.
+## Find a product
 
-## Products
+| Product | What lives here | Start here |
+| --- | --- | --- |
+| Tendr | iPhone health journal and public website | [App](apps/tendr/README.md) · [Site](sites/README.md) |
+| Folding | iPhone folding tracker, Rust Worker and website | [App](apps/folding/README.md) · [Backend](apps/folding/backend/README.md) |
+| Callkeep | macOS recording and transcription app | [App](apps/callkeep/README.md) |
+| Control Center | iPad/iPhone home controls and private Rust service | [Product](apps/control-center/README.md) · [Source map](apps/control-center/CODEBASE_OVERVIEW.md) |
+| Golink for Safari | Safari client for the tailnet Golink service | [Extension](apps/golink-safari/README.md) · [Service](homelab/docs/golink.md) |
+| Homelab | Mac configuration, services, runners and setup CLI | [Hosts](homelab/README.md) · [CLI](homelab/cli/README.md) |
 
-- [Tendr](apps/tendr/README.md): native dose and health journal; owns `Packages/RDesign`.
-- [Folding](apps/folding/README.md): native app, Rust Worker and product-owned delivery tools.
-- [Callkeep](apps/callkeep/README.md): native Mac recording and transcription.
-- [Control Center](apps/control-center/README.md): native home controls and private Rust/SQLite service.
-- [Golink Safari](apps/golink-safari/README.md): Safari address-bar shortcuts for the tailnet Golink service.
-
-`sites/` contains public website sources. `infra/cloudflare/` contains retained infrastructure.
-[Homelab](homelab/README.md) contains host configuration, runners, services and the CLI.
-Root enrollment files preserve the installer contract; both Macs follow WWW.
-App components stay with their own products; shared tooling standardizes checks and delivery.
+The [source map](CODEBASE_OVERVIEW.md) covers the shared directories and ownership
+boundaries. Product READMEs give the commands and deeper docs for their own areas.
 
 ## Work locally
 
-Create a worktree with `wtp add -b codex/<task> origin/main`. Use the product README for setup.
+Create a worktree from the current main branch, then enter it:
 
 ```sh
-swift test --package-path apps/tendr
-bash apps/control-center/tools/check ops
-python3 -m unittest discover -s scripts/ci -p 'test_*.py'
+wtp add -b codex/my-change origin/main
+cd "$(wtp cd codex/my-change)"
+mise install
+mise exec -- scripts/dev apps
+mise exec -- scripts/dev check tendr
 ```
 
-Tendr uses the root locked Ruby/Fastlane bundle. Folding keeps its own release bundle and
-existing internal layout. Root `tools/check` and `tools/setup` preserve Control Center entrypoints.
+`wtp add` runs the repository's setup and installs Lefthook's local checks.
+`mise.toml` pins common local tools; `mise exec` uses them without shell activation.
+The product may require its own toolchain or runtime; start with its README. Use
+`scripts/dev check <app>` for the product's local handler and
+`scripts/dev homelab` for focused host checks. These commands do not publish.
 
 Install the tracked Git hooks with `lefthook install` in each checkout and the locked
 Prettier plugins with `bun install --frozen-lockfile`. The hook formats staged maintained
@@ -47,16 +49,30 @@ findings are deferred to a focused security change. A push remains an explicit a
 
 [Development](docs/DEVELOPMENT.md), [new apps](docs/NEW-APP.md) and [releases](docs/RELEASE.md)
 describe the shared lifecycle and current handler boundaries.
+## How changes ship
 
-## Delivery and migration
+The [CI selection policy](scripts/ci/units.json) separates verification from
+delivery. Successful main CI can start delivery only for selected product inputs;
+documentation and tests alone do not request an app release.
 
-The [completion record](docs/plans/monorepo-remaining-work-2026-11-09.md) documents retained
-archives and separate follow-ups. Tendr’s website, privacy and support pages publish to
-[https://tendr.worldwidewebb.co/](https://tendr.worldwidewebb.co/) through the separate site handler.
-The selection policy in `scripts/ci/units.json` separates verification from delivery candidates;
-selection alone never authorizes publication. Use each product’s release instructions and
-channel flags; documentation changes do not request a product release.
+| Change | Delivery path |
+| --- | --- |
+| Tendr or Folding app | Selected main changes reach internal TestFlight; a matching product tag submits the processed build to App Review. [App Store guide](docs/RELEASE.md#how-app-store-releases-work) |
+| Folding Worker | Tested backend changes deploy through Folding's product handler. [Operations](apps/folding/fastlane/RELEASE.md) |
+| Callkeep | Selected main changes publish a signed, notarized release and update its Homebrew cask. [Product release](apps/callkeep/README.md#release-automation) |
+| Control Center | Native and service publishers are separate; host activation follows Homelab promotion. [Product](apps/control-center/README.md) |
+| Websites | Tendr and Folding publish independently. [Site ownership](sites/README.md) |
+| Homelab | Authoring `main` and deployment `deploy/homelab` are separate. [Updates](homelab/docs/updates.md) |
+| Golink for Safari | No automatic app publication. [Build and install](apps/golink-safari/README.md#build-and-install) |
 
-The old `apps`, `folding`, `callkeep`, `homelab` and `homelab-cli` repositories were snapshotted
-into private `github-archive` and deleted. Old local checkouts are historical; develop here.
-Preserve active worktrees, signing storage and the agreed excluded projects/data.
+## Guides
+
+- [Development](docs/DEVELOPMENT.md): worktrees, local checks, CI and ownership.
+- [Releases](docs/RELEASE.md): product channels, App Store review and publication.
+- [New app](docs/NEW-APP.md): scaffold, build and distribution setup.
+- [Agent instructions](AGENTS.md): repository rules for automated work.
+
+The five repositories consolidated into this one were archived and deleted. Their
+old checkouts are historical; active development and publication happen here. The
+[migration completion record](docs/plans/monorepo-remaining-work-2026-11-09.md)
+keeps the archive details and follow-ups without making them part of the daily workflow.

@@ -1,6 +1,6 @@
 # Repository migration completion
 
-Updated November 10, 2026. This completion record supersedes the former remaining-work plan
+Updated November 12, 2026. This completion record supersedes the former remaining-work plan
 and historical migration acceptance checklists.
 
 ## Completed
@@ -41,10 +41,14 @@ projects remain separate. No repository deletion or migration of those sources i
 
 ## Separate follow-ups
 
-- [#1007](https://github.com/0x63616c/world-wide-webb/issues/1007): move Tendr’s static pages to
-  Cloudflare and update app/App Store URLs. The owner explicitly accepted interim loss of the
-  old GitHub Pages URLs when deleting `apps`. Existing installed links cannot be redirected
-  through a replacement Cloudflare hostname alone.
+Tendr's [#1007](https://github.com/0x63616c/world-wide-webb/issues/1007)
+website move and app/listing URL update completed in
+[#1015](https://github.com/0x63616c/world-wide-webb/pull/1015).
+Existing installed links to the deleted GitHub Pages host still require an app
+update; a replacement Cloudflare hostname cannot redirect that old host.
+
+Open follow-ups:
+
 - [#970](https://github.com/0x63616c/world-wide-webb/issues/970): backup/deployment design.
 - [#965](https://github.com/0x63616c/world-wide-webb/issues/965): service-scoped updates.
 - [#967](https://github.com/0x63616c/world-wide-webb/issues/967): encrypted signing-file review.

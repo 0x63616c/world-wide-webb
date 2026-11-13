@@ -1,172 +1,65 @@
 # Homelab
 
-Desired configuration for the MacBook and Mac mini, colocated with the setup CLI in
-[`cli`](cli/README.md). Both Macs follow WWW’s `deploy/homelab` ref after successful
-Homelab CI/promotion. The [migration record](../docs/plans/monorepo-migration-progress.md)
-records the completed source handover; the old homelab repositories were deleted.
+The MacBook and Mac mini are configured from this repository. Host modules,
+services, disposable runners and the setup CLI live under `homelab/`. Checked
+changes move from authoring `main` to `deploy/homelab`; Comin follows that
+promotion branch. Read [current state](docs/current-state.md) before a live
+host or service change.
 
-Use repository-root `flake.nix`, `flake.lock`, `homelab.json`, `bootstrap/installer.json`
-and host ciphertext in `secrets/` for enrollment. These are regular compatibility files.
-`flake-outputs.nix` owns the implementation. The CLI and private host tools build from
-filtered local sources; unrelated app files are excluded from those package inputs.
+## Source and checks
 
-From the monorepo root:
+The Nix flake and lockfile live at `homelab/flake.nix` and
+`homelab/flake.lock`. The host manifest (`../homelab.json`), installer pin
+(`../bootstrap/installer.json`) and encrypted host files (`../secrets/`) stay at
+the repository root because enrollment and recovery use those paths. Comin is
+configured to read the `homelab` subdirectory of the promoted repository.
+
+From the repository root:
 
 ```sh
-nix flake check --no-update-lock-file --print-build-logs
-nix develop --command python3 -m unittest discover -s homelab/tests
+nix flake check ./homelab --no-update-lock-file --print-build-logs
+nix develop ./homelab --command python3 -m unittest discover -s homelab/tests
 cargo test --locked --manifest-path homelab/cli/Cargo.toml
 cargo test --locked --manifest-path homelab/host/Cargo.toml
 cargo test --locked --manifest-path homelab/runner/Cargo.toml
 ```
 
-These checks do not activate a host. `Homelab CI` selects configuration/controller/operations
-checks for host changes and CLI checks for CLI changes. CLI changes also verify host compatibility.
-CLI publication produces public WWW release archives and updates the separate Homebrew tap.
-Host promotion and app-image promotion retain their own checked handlers.
+These checks do not activate a host. `scripts/dev homelab <area>` runs focused
+local checks. CI selects configuration, host, runner and CLI checks separately.
+The [setup CLI](cli/README.md) builds from filtered local Nix sources; unrelated
+apps are not included in its package input.
 
-## Start here
+## Enrollment and updates
 
-Install the public [homelab CLI](cli/README.md) with `brew install 0x63616c/tap/homelab`,
-open `homelab`, and attach **`0x63616c/world-wide-webb`** when asked.
+Install the public CLI with `brew install 0x63616c/tap/homelab`, run `homelab`
+and attach `0x63616c/world-wide-webb`. It reads `homelab.json`, prepares
+per-host encrypted configuration and verifies the approved install after reboot.
+See [setup](docs/setup.md) for prerequisites and recovery.
 
-1. On the target Mac, create its administrator and enable Remote Login.
-2. Attach this repository in the CLI, select its Git-defined Mac and confirm the address.
-3. Review **Begin setup**; follow the live checklist as the wizard prepares enrollment.
-4. It publishes encrypted configuration to `main`, installs that exact commit,
-   reboots and verifies the Mac. Required or existing PRs still wait for review.
+After enrollment, Comin checks `deploy/homelab` every 30 seconds with a read-only
+Git deploy key. Homelab CI and the promotion workflow control that ref;
+`HOMELAB_DELIVERY_ENABLED` controls host promotion. The existing stateful
+transaction owns backup, activation, reconciliation and health. A main merge
+alone is not a host activation. See [updates](docs/updates.md) and
+[releases](docs/releases.md).
 
-Use the current [WWW CLI release](https://github.com/0x63616c/world-wide-webb/releases?q=homelab)
-for the live checklist and direct-publication flow. Begin setup authorizes direct
-publication when GitHub rules permit it; the CLI never force-pushes or bypasses
-required PR review. Version 0.3.2 uses PR-based enrollment.
-
-`homelab.json` supplies the host list and administrator accounts. The CLI asks only
-for a new host’s connection address, defaulting to `<host>.local`. Saved aliases,
-SSH identities and setup state are reused; local connection settings are not a
-second desired-host inventory. Resuming approved setup uses its saved exact Git
-revision even if `main` changes or removes the host. Use **Edit address** to correct
-a saved connection without recreating its setup.
-
-The CLI ships its bootstrap helper. Your personal laptop needs neither Nix nor a local
-bootstrap build. Nix is installed and runs on the target only after approval.
-See the short [setup guide](docs/setup.md).
-
-## Architecture
-
-```mermaid
-flowchart TB
-  Public[Public homelab-cli: tool and installer] --> Laptop[Personal laptop]
-  Vault[1Password: credentials and recovery] --> Laptop
-  Config[Private homelab: manifest, Nix, encrypted secrets] --> Laptop
-  Laptop -->|Reviewed SSH setup| Book[MacBook: first migration destination]
-  Laptop -->|Later approved rebuild| Mini[Mac mini: current production]
-  Config -->|Exact approved commit| Book
-  Config -->|Exact approved commit| Mini
-  App[world-wide-webb: app and Cloudflare ownership] --> Images[Pinned application images]
-  Images --> Book
-  Book --> Backup[Verified recovery copies]
-```
-
-| Component | Responsibility |
+| Host | Current role |
 | --- | --- |
-| Public CLI | Guided setup, SSH, credential adapters, portable bootstrap |
-| This repository | Desired host state, services, encrypted secrets, private health/restore checks |
-| `homelab.json` | Host facts shared by the CLI and Nix; no duplicate host lists |
-| 1Password | Operator credentials and recovery keys; never installed on nodes |
-| SOPS + age | Encrypted Git secrets; each node gets only its own key |
-| Comin | Pull and apply CI-promoted `deploy/homelab` changes after enrollment |
-| launchd | Start services at boot, including Comin |
+| `homelab-macbook` | Disposable macOS and Linux runner guests; non-admin `coding` account. |
+| `homelab-mac-mini` | Production application services, including Control Center and monitoring. |
 
-## Hosts
+The runner controller admits four jobs in total and at most two macOS guests.
+Jobs run in disposable guests; the host keeps the GitHub App key. See
+[runner validation](docs/research/runner-validation.md) and
+[Linux runners](docs/linux-runners.md). Host identities, encrypted secrets and
+service data stay outside generated images and Git plaintext.
 
-| Host | Hardware | Administrator | Intended first role |
-| --- | --- | --- | --- |
-| `homelab-macbook` | M2 Pro, 12 cores, 32 GB, about 500 GB | `admin` | Disposable CI guests; application migration later |
-| `homelab-mac-mini` | M2, 8 GB | `calum` | Keep production running until verified cutover |
+## Operations
 
-The MacBook also declares a non-admin `coding` account (UID 502, staff group),
-with `/Users/coding` and a zsh shell. After deployment, connect with
-`ssh coding@homelab-macbook.local` using the same approved SSH key as `admin`.
-SSH remains key-only. Agent tools and provider logins are configured separately.
-Activation refuses an existing UID collision or administrator membership.
-The account joins macOS's Remote Login access group when that restriction exists.
+- [Current state](docs/current-state.md), [operations](docs/operations.md) and [secrets](docs/secrets.md)
+- [Service updates](docs/updates.md), [backup and recovery](docs/restore-rehearsal.md)
+- [Golink](docs/golink.md), [monitoring](docs/beszel-plan.md) and [Control Center deployment](docs/releases.md)
+- [Setup CLI](cli/README.md) and [configuration contract](cli/docs/configuration.md)
 
-## What a merge does
-
-After a Mac completes enrollment, Comin checks `deploy/homelab` every 30 seconds and applies
-changes automatically. The interval is declared as `poller.period = 30` in
-[`modules/updates.nix`](modules/updates.nix). Review and
-test before merging; the node uses a read-only deploy key and needs no Actions token.
-The wizard holds its approved commit through setup and reboot, then verifies the
-handover to Comin. See [how updates work](docs/updates.md).
-
-The MacBook has completed enrollment. Application services remain disabled;
-the [runner validation record](docs/research/runner-validation.md) covers execution,
-recovery, isolation and unattended startup proofs and their limits.
-See [VM evidence](docs/vm-validation.md) for the separate setup, reboot and Comin
-tests and their limits.
-Private Actions workflows are manual-only until self-hosted runners are ready;
-routine validation runs in the disposable Mac VM without paid private CI minutes.
-
-## GitHub runners
-
-```mermaid
-flowchart LR
-  Git[Private Nix configuration] -->|Comin| Host[MacBook: launchd controller]
-  GitHub[Allowlisted GitHub jobs] --> Host
-  Host -->|One job at a time| Guest[Fresh Tart macOS VM]
-  Guest -->|Result| GitHub
-  Host -->|After completion or cancellation| Cleanup[Delete VM and runner registration]
-```
-
-The controller runs as `_runner`. It supports four shared job slots with at most
-two macOS guests; Linux ARM64 can use all four when macOS work is not waiting.
-Linux image promotion and rollout are described in [Linux runners](docs/linux-runners.md).
-Jobs run inside fresh VMs with a pinned GitHub runner SDK. Softnet blocks access
-to the host, LAN and tailnet. No idle VM is kept running. The GitHub App key stays on the host; only a short-lived JIT
-registration is passed into each guest.
-
-Repository access, image digest, resources and storage floors live in
-[`hosts/homelab-macbook.nix`](hosts/homelab-macbook.nix). Start with
-`world-wide-webb`; add further installed repositories to the same allowlist.
-Updates hold new admission and wait for cleanup before replacing the service.
-Runner and VM names include the physical host and a unique attempt ID, for example
-`homelab-macbook-job-43dba142054549308342c9486695204d`. The guest hostname matches.
-Controller logs record that name and the actual assigned GitHub job URL; the
-private `last-attempt.json` retains both resource names and job IDs after cleanup.
-See the [controller plan](docs/runner-controller-plan.md) and
-[validation evidence](docs/research/runner-validation.md).
-
-## Monitoring
-
-Beszel runs in the Mini's existing services VM; native non-admin agents report
-physical Mac metrics over Tailscale. Open `https://beszel.worldwidewebb.co` through
-Cloudflare Access and use the **Homelab Beszel** login in the homelab 1Password vault.
-Accounts and all three system entries (Mini, MacBook and HomeTB NAS) are
-provisioned automatically. The Synology NAS runs its own Beszel Agent package;
-its agent listens on localhost for Tailscale's userspace forwarding and monitors
-`/volume1` as `NAS Storage`. Keep its existing `HomeTB NAS` name, Tailscale IP
-`100.100.180.12` and port `45876` in `homelab/services/beszel/config.yml` so
-deployments retain the system instead of removing a dashboard-only entry.
-The reconciler fills the inventory owner from the existing private `USER_EMAIL`;
-the committed template contains no personal login email.
-
-The hub's public key lives in `lib/beszel-hub.pub`; its private identity and history
-stay in the backed-up data volume. System names, addresses and ports are stable
-identities: changing them in Beszel's inventory can delete the old history.
-See [the setup and recovery plan](docs/beszel-plan.md).
-
-## Find the details
-
-- [Setup and adding a host](docs/setup.md)
-- [CLI separation plan](docs/cli-extraction-plan.md)
-- [Disposable VM validation](docs/vm-validation.md)
-- [Current-state research](docs/current-state.md)
-- [Migration plan](docs/plan.md) · [Implementation status](docs/implementation-status.md)
-- [Golink setup and recovery](docs/golink.md)
-- [Secrets](docs/secrets.md) · [Updates](docs/updates.md) · [Operations](docs/operations.md)
-- [Application ownership](docs/releases.md) · [Recovery rehearsal](docs/restore-rehearsal.md)
-
-`world-wide-webb` keeps application source and current Cloudflare management.
-Only the tunnel process transfers at an explicitly reviewed service cutover.
+Historical plans and migration receipts remain under `docs/`; use current code,
+runbooks and live readback for operational decisions.

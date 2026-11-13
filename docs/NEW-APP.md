@@ -1,44 +1,44 @@
 # Start an independent app
 
-From the repository root:
+Use the shared scaffold when a new iOS product needs its own source, tests,
+listing and website placeholder. From the repository root:
+
+Run `mise install` once in the worktree, then use `mise exec --` for local
+commands if mise is not activated in your shell.
 
 ```sh
 scripts/dev new Samplr samplr
-# Add a backend when the product needs one:
+# Only when the product needs a backend:
 scripts/dev new Cloudr cloudr --backend cloudflare
 ```
 
-The display name determines the lowercase folder; the suffix creates `com.calumwebb.samplr`.
-The current scaffold creates a standalone SwiftUI/XcodeGen app with local components, Home and
-Settings, a launch glyph/icon, a synthetic screenshot test, app.yml, listing/frame configuration
-and public privacy/support page placeholders. It registers the static website in `sites/.pages`
-and registers an explicit native CI/delivery unit, then generates the Xcode project when
-XcodeGen is installed. Backend-only inputs do not select a native release. TestFlight starts disabled.
+The display name becomes a lowercase app folder; the suffix forms the bundle ID
+(`com.calumwebb.samplr` in the first example). The scaffold creates an app-local
+SwiftUI/XcodeGen project, starter screens, a synthetic screenshot test, `app.yml`,
+listing configuration and privacy/support page placeholders. It registers the app
+with CI selection and `sites/.pages`. It generates the Xcode project if XcodeGen
+is installed. TestFlight starts disabled.
 
-Implement the primary journey and replace placeholders. Review the app's actual data collection,
-privacy/support copy, accessibility and offline/error behavior. Preserve independent styling.
-Core tests, fixtures and hosted smoke tests belong with the app; add a backend only when the app
-needs one. Use `scripts/dev apps` to list products and `scripts/dev check <folder>` to run their local
-handler. `scripts/dev doctor` checks shared command availability without opening account sessions.
-The optional Cloudflare preset adds an app-local TypeScript Worker, pinned Wrangler/Bun lockfile,
-separate staging/production configuration, health/version route and route tests. No shared UI or
-backend component library is introduced. `scripts/dev check <folder>` also runs its frozen install,
-tests and both environment dry-run bundles; Linux CI additionally starts workerd and checks health.
-Only selected standard apps with a backend enter that check; the template is verified when changed.
-See the generated backend README for resource ownership, authentication and first delivery.
+The optional Cloudflare preset adds an app-local TypeScript Worker, a Bun lockfile,
+staging/production configuration and health tests. Its generated backend README
+explains resources and first delivery. A backend is not needed for an offline app.
 
-The agent performs supported account/API setup using the existing authorized credentials and
-handlers. The scaffold itself does not provision resources, publish a Worker or register Apple
-records. Automatic production backend promotion/account onboarding remain acceptance work.
+## Turn the scaffold into a product
 
-Before automatic distribution, the agent should register/verify the bundle and capabilities,
-resolve the App Store Connect record and internal group, configure signing, fill in the actual
-numeric `apple_id`, and validate listing URLs/locales/export compliance. Use authorized APIs and
-existing Fastlane handlers where supported. Ask the owner only for required account/2FA/legal
-facts or a purchase; never invent those facts. Prove a signed, processed internal beta before
-enabling its automatic channel. The existing `testflight` flag and explicit product selection
-control delivery; a new manifest alone does not publish an app.
+1. Replace the starter screens and public page placeholders with the real user
+   journey, data handling, support details and accessibility behavior.
+2. Keep components, domain tests, fixtures and screenshots with the app. Run
+   `scripts/dev check <folder>`; it checks the declared package and unsigned
+   simulator build. For a backend, it also runs its frozen install, tests and
+   environment bundles.
+3. Verify the app's own site and release metadata. New app registration selects
+   checks; it does not create Apple records, provision Cloudflare resources or
+   publish a release.
+4. Before enabling automatic TestFlight, establish bundle IDs and capabilities,
+   App Store Connect app/group, signing, a real `apple_id`, listing URLs and a
+   signed processed internal beta. Set the app's `testflight` flag only after that
+   path works. Use the [release guide](RELEASE.md) for channel behavior.
 
-Run the standard checks and a simulator build. The template CI job builds a throwaway scaffold
-on the homelab Mac profile; its result is not evidence that a new product's signing or account
-setup is complete. See [development](DEVELOPMENT.md), [releases](RELEASE.md) and the product README.
+Use [development](DEVELOPMENT.md) for worktrees and local checks. A template CI
+build proves the scaffold compiles; it does not establish signing or account setup
+for a new product.

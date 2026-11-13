@@ -1,6 +1,12 @@
 # Folding release operations
 
-This is implemented orchestration, not live release acceptance. Run through the primary agent's existing credential session or a trusted release runner. Never put key values on command lines or in repository files. Monorepo workflows are prepared locally. Automatic delivery stays off until credentials, ledger and live runner/provider acceptance pass.
+For the current automatic main/TestFlight and tagged App Store flow, start with
+[How App Store releases work](../../../docs/RELEASE.md#how-app-store-releases-work).
+This document describes Folding's product-owned archive, backend and recovery
+details. Run manual release lanes through the primary agent's existing credential
+session or a trusted release runner. Never put key values on command lines or in
+repository files. Some historical acceptance notes below predate automatic delivery;
+keep remaining product acceptance deferrals distinct from the live delivery path.
 
 ## Inputs and identity
 
@@ -67,17 +73,21 @@ Each locale includes ten Duo images (five scenes across both displays) and five 
 - A failed attempt retains the last stable state and attempt marker. Read Apple before retrying upload/submission. Automatic internal-beta recovery may allocate a new audited reservation after an interrupted compile. It never cancels Apple review, revokes a certificate or rebuilds a sealed candidate.
 - Keep signing recovery assets in 1Password/match and retain private release artifacts for the lifetime of the distributed version. Do not upload arbitrary workspaces or raw logs.
 
-## Remaining integration acceptance
+## Current acceptance boundary
 
-Current-source native capture/visual review, draft listing upload/readback and Apple privacy/age/review setup are recorded in the November 8 preparation evidence. These do not establish a signed production 1.0 archive/profile match, full backend capability acceptance, full release rehearsal, final submission/readback or GitHub release workflow activation. Earlier internal TestFlight distribution is separately evidenced and is not the new App Store candidate. Run those in the final validation/release phase. The app now validates the full registered runtime configuration and refuses development storage in Release. Signed archive/entitlement and live account behavior still need final integration evidence.
+Automatic main delivery and tagged App Store promotion are active. Current build,
+submission and screenshot outcomes belong in the source-bound workflow and Apple
+receipts. The owner-approved physical-device and provider checks remain tracked
+separately in [F13](../docs/work-tracker.md); do not infer they passed from a
+processed beta or App Store submission.
 
 Tip review assets are included in the sealed asset archive and have their own manifest/map hashes in the release record. The single native Tip jar PNG maps to all three consumables, remains outside the storefront image directory and is never captioned or replaced with a simulated Apple checkout. `tip_review_screenshots` captures just that reviewer scene without credentials; `setup_tip_review_assets [tag:folding/build-N]` explicitly associates verified images with Apple products and records association IDs when using a release tag. See [tip packaging](TIPS.md#reproducible-review-image-packaging). Final visual review remains required for the full matrix and this reviewer image.
 
-## Local checks while CI is deferred
+## Manual release evidence checks
 
 Run `bundle exec fastlane ios local_check name:contracts` (or `domain-storage`, `backend`, `simulator`, `localization`, `screenshots`) from a clean commit. The lane executes repository-defined commands, records exit status and output hashes, and rejects source changes during the run. Add its returned JSON entry to `required_checks`. Preserve the evidence JSON and its adjacent logs together. Local evidence is trusted operator evidence, not a GitHub attestation; hashing detects subsequent changes, not a dishonest operator. Logs must contain only unprivileged test output.
 
-For `final-review`, use `kind: review`, `name: final-review`, the source commit, `conclusion: success`, `evidence_path` and `evidence_sha256`. The referenced JSON must identify `reviewer`, `state: approved`, the same `commit_sha`, and an empty `findings` array after fixes. Keep the existing `final_review` summary in the enclosing release evidence. Screenshot capture does not replace visual review. Future CI jobs must first be explicitly mapped in `CheckEvidence::CI_JOBS`.
+For `final-review`, use `kind: review`, `name: final-review`, the source commit, `conclusion: success`, `evidence_path` and `evidence_sha256`. The referenced JSON must identify `reviewer`, `state: approved`, the same `commit_sha`, and an empty `findings` array after fixes. Keep the existing `final_review` summary in the enclosing release evidence. Screenshot capture does not replace visual review. CI jobs must be explicitly mapped in `CheckEvidence::CI_JOBS`.
 
 `bundle exec ruby fastlane/tests/coding_regressions_test.rb` verifies release recovery, asset sealing and evidence/submission guards without Apple credentials.
 

@@ -13,6 +13,14 @@ struct Fixture {
     request: Request,
     tools: Tools,
 }
+
+#[test]
+fn nested_flake_builds_from_homelab_directory() {
+    let fixture = Fixture::new(true);
+    fixture.flag("nested-flake");
+    fixture.run().unwrap();
+    assert!(fixture.events().contains(&"build".into()));
+}
 impl Fixture {
     fn new(existing_nix: bool) -> Self {
         let directory = tempfile::tempdir().unwrap();

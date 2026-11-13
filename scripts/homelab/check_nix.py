@@ -7,6 +7,8 @@ import re
 import subprocess
 from pathlib import Path
 
+FLAKE = "./homelab"
+
 
 def service_only(paths):
     return bool(paths) and all(p.startswith("homelab/services/") for p in paths)
@@ -27,7 +29,7 @@ def main():
             .strip("\0")
             .split("\0")
         )
-    command = ["nix", "flake", "check", "--no-update-lock-file", "--print-build-logs"]
+    command = ["nix", "flake", "check", FLAKE, "--no-update-lock-file", "--print-build-logs"]
     if service_only(paths):
         subprocess.run([*command, "--no-build"], check=True)
         subprocess.run(
@@ -37,9 +39,9 @@ def main():
                 "--no-update-lock-file",
                 "--print-build-logs",
                 "--no-link",
-                ".#checks.aarch64-darwin.mac-mini",
-                ".#checks.aarch64-darwin.macbook",
-                ".#checks.aarch64-darwin.deployment-inputs",
+                f"{FLAKE}#checks.aarch64-darwin.mac-mini",
+                f"{FLAKE}#checks.aarch64-darwin.macbook",
+                f"{FLAKE}#checks.aarch64-darwin.deployment-inputs",
             ],
             check=True,
         )
@@ -53,7 +55,7 @@ def main():
                     "eval",
                     "--no-update-lock-file",
                     "--json",
-                    ".#checks.aarch64-darwin",
+                    f"{FLAKE}#checks.aarch64-darwin",
                     "--apply",
                     "checks: builtins.mapAttrs (name: value: value.outPath) checks",
                 ],

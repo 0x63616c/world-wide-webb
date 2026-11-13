@@ -4,8 +4,8 @@ For host, runner, service or recovery changes, read `README.md`, `docs/current-s
 and the relevant operations/runbook before changing ownership. The migration tracker at
 `../docs/plans/monorepo-migration-progress.md` records which source currently controls live hosts.
 
-Root `homelab.json`, `flake.lock`, `bootstrap/installer.json`, `.sops.yaml` and host ciphertext
-are canonical regular files required by enrollment guards. Preserve approved setup receipts,
+`flake.nix` and `flake.lock` live here; root `homelab.json`, `bootstrap/installer.json`,
+`.sops.yaml` and host ciphertext remain canonical regular enrollment files. Preserve approved setup receipts,
 journals, host identities, age recovery material and exact revisions during repository rebind.
 
 Build the CLI and host tools from their filtered local Nix source sets. Keep package inputs

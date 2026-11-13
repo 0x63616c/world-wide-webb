@@ -836,7 +836,13 @@ fn run_inner(
     let ciphertext = repo
         .join("secrets")
         .join(format!("{}.sops.yaml", request.host));
-    for file in [repo.join("flake.lock"), ciphertext.clone()] {
+    let nested_flake = repo.join("homelab/flake.nix");
+    let flake_dir = if regular_file(&nested_flake).is_ok() {
+        repo.join("homelab")
+    } else {
+        repo.clone()
+    };
+    for file in [flake_dir.join("flake.lock"), ciphertext.clone()] {
         if !regular_file(&file)
             .and_then(|file| file.metadata())
             .is_ok_and(|metadata| metadata.len() > 0)
@@ -873,6 +879,7 @@ fn run_inner(
                 ".sops.yaml",
                 "secrets",
                 "flake.lock",
+                "homelab/flake.lock",
                 "bootstrap/installer.json",
             ]),
             SHORT,
@@ -903,13 +910,17 @@ fn run_inner(
             &mut progress,
         )?,
     };
-    let target = format!("{}#darwinConfigurations.{}", repo.display(), request.host);
+    let target = format!(
+        "{}#darwinConfigurations.{}",
+        flake_dir.display(),
+        request.host
+    );
     let mut evaluate = command(&nix, &home);
     evaluate
         .args(["eval", "--json"])
         .arg(format!(
             "{}#lib.setupPlan.hosts.{}",
-            repo.display(),
+            flake_dir.display(),
             request.host
         ))
         .arg("--no-update-lock-file");
