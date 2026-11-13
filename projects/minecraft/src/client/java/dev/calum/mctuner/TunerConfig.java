@@ -13,6 +13,7 @@ public final class TunerConfig {
     private static final Path PATH = FabricLoader.getInstance().getConfigDir().resolve("minecraft-tuner.json");
     public boolean invertWheel = false;
     public int topCenterOffset = 0;
+    public double wheelDivisor = 1.0;
 
     public static TunerConfig load() {
         if (Files.exists(PATH)) {
@@ -20,6 +21,9 @@ public final class TunerConfig {
                 TunerConfig config = GSON.fromJson(Files.readString(PATH), TunerConfig.class);
                 if (config != null) {
                     config.topCenterOffset = Math.clamp(config.topCenterOffset, 0, 160);
+                    if (!Double.isFinite(config.wheelDivisor) || config.wheelDivisor <= 0.0) {
+                        config.wheelDivisor = 1.0;
+                    }
                     return config;
                 }
             } catch (Exception e) {

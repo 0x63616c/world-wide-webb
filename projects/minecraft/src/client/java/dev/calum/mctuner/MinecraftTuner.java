@@ -26,6 +26,16 @@ public final class MinecraftTuner implements ClientModInitializer {
         return HAS_JADE;
     }
 
+    public static double transformWheel(double raw) {
+        Minecraft client = Minecraft.getInstance();
+        boolean tuning = client.gui.screen() instanceof TunerScreen;
+        if (tuning) {
+            ((TunerScreen) client.gui.screen()).recordRawWheel(raw);
+        }
+        double units = (client.gui.screen() == null || tuning) ? CONFIG.wheelDivisor : 1.0;
+        return (CONFIG.invertWheel ? -raw : raw) / units;
+    }
+
     public static void applyHudOffset(Minecraft client) {
         if (HAS_JADE && client.getWindow() != null) {
             JadePosition.apply(CONFIG.topCenterOffset, client.getWindow().getGuiScaledHeight());

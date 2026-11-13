@@ -16,6 +16,11 @@ public final class TunerScreen extends Screen {
     private double lastDelta = 0;
     private int lastSlots = 0;
     private int wheelEvents = 0;
+    private boolean calibrating = false;
+    private double calibrationSum = 0.0;
+    private int calibrationEvents = 0;
+    private long lastCalibrationEventAt = 0L;
+    private String calibrationResult = "Press, then turn one wheel click";
     private Button invertButton;
     private Button discreteButton;
 
@@ -64,6 +69,14 @@ public final class TunerScreen extends Screen {
             }
         });
 
+        this.addRenderableWidget(Button.builder(Component.literal("Calibrate one click"), button -> {
+            calibrating = true;
+            calibrationSum = 0.0;
+            calibrationEvents = 0;
+            lastCalibrationEventAt = 0L;
+            calibrationResult = "Turn the wheel one click now";
+        }).bounds(this.width - 190, 48, 170, 20).build());
+
         this.addRenderableWidget(Button.builder(Component.literal("Done"), button -> onClose())
             .bounds(this.width / 2 - 75, this.height - 27, 150, 20).build());
     }
@@ -78,6 +91,31 @@ public final class TunerScreen extends Screen {
 
     private Component discreteLabel() {
         return Component.literal("Discrete scrolling: " + (this.minecraft.options.discreteMouseScroll().get() ? "On" : "Off"));
+    }
+
+    public void recordRawWheel(double raw) {
+        if (calibrating) {
+            calibrationSum += raw;
+            calibrationEvents++;
+            lastCalibrationEventAt = System.nanoTime();
+        }
+    }
+
+    @Override
+    public void tick() {
+        if (calibrating && calibrationEvents > 0 && System.nanoTime() - lastCalibrationEventAt > 350_000_000L) {
+            calibrating = false;
+            double measured = Math.abs(calibrationSum);
+            if (measured < 0.01) {
+                calibrationResult = "No usable wheel movement; try again";
+                return;
+            }
+            MinecraftTuner.config().wheelDivisor = measured * currentSensitivity() * (1.0 - 1e-9);
+            this.minecraft.options.discreteMouseScroll().set(false);
+            this.discreteButton.setMessage(discreteLabel());
+            MinecraftTuner.save(this.minecraft);
+            calibrationResult = String.format(Locale.ROOT, "%d events, raw total %.3f", calibrationEvents, measured);
+        }
     }
 
     @Override
@@ -118,6 +156,9 @@ public final class TunerScreen extends Screen {
         graphics.text(this.font, Component.literal(String.format(Locale.ROOT,
             "Last event: %+.2f = %d slot(s)", this.lastDelta, this.lastSlots)), 20, 200, 0xFFFFFFFF);
         graphics.text(this.font, Component.literal("Wheel events: " + this.wheelEvents), 20, 212, 0xFFAAAAAA);
+        graphics.text(this.font, Component.literal(calibrationResult), this.width - 190, 74, 0xFFFFFFFF);
+        graphics.text(this.font, Component.literal(String.format(Locale.ROOT, "Divisor: %.3f", MinecraftTuner.config().wheelDivisor)),
+            this.width - 190, 88, 0xFFAAAAAA);
     }
 
     @Override

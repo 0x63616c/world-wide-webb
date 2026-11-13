@@ -10,6 +10,6 @@ import org.spongepowered.asm.mixin.injection.ModifyVariable;
 public class MouseHandlerMixin {
     @ModifyVariable(method = "onScroll", at = @At("HEAD"), argsOnly = true, ordinal = 1)
     private double minecraftTuner$invertWheel(double yOffset) {
-        return MinecraftTuner.config().invertWheel ? -yOffset : yOffset;
+        return MinecraftTuner.transformWheel(yOffset);
     }
 }
