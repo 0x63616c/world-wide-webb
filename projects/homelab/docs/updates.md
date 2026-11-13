@@ -5,12 +5,7 @@ promotion to `deploy/homelab`; Comin polls that branch every 30 seconds. GitHub
 promotion completion is distinct from host acceptance. Check the installed revision
 and `/var/lib/homelab-operations/last-success.json` before claiming deployment.
 
-The move to `projects/homelab` keeps temporary `flake.nix` and
-`homelab/flake.nix` bridges with matching lockfiles. Hosts already running Comin
-still evaluate their installed root or `homelab/` path; both bridges import the
-project flake, whose configuration switches Comin to
-`projects/homelab`. Remove both bridges only after both hosts have accepted a
-generation with the new subdirectory and recovery has been verified.
+Comin reads the `projects/homelab` flake from the promoted repository.
 
 ## Generation changes
 

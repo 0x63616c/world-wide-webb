@@ -13,8 +13,6 @@ The Nix flake and lockfile live at `projects/homelab/flake.nix` and
 (`bootstrap/installer.json`) and encrypted host files (`secrets/`) live beside it.
 The CLI reads the project paths for new setup and retains approved old revisions for recovery. Comin is
 configured to read the `projects/homelab` subdirectory of the promoted repository.
-Existing hosts use temporary [old-path bridges](docs/updates.md) for their
-first update to this layout.
 
 From the repository root:
 
@@ -46,7 +44,7 @@ activation. See [updates](docs/updates.md) and [releases](docs/releases.md).
 
 | Host | Current role |
 | --- | --- |
-| `homelab-macbook` | Disposable macOS and Linux runner guests; non-admin `coding` account and [Rex server](docs/rex.md). |
+| `homelab-macbook` | Disposable macOS and Linux runner guests; non-admin `coding` account. |
 | `homelab-mac-mini` | Production application services, including Control Center and monitoring. |
 
 The runner controller admits four jobs in total and at most two macOS guests.
