@@ -4,21 +4,22 @@
     ../modules/coding.nix
   ];
   networking.hostName = "homelab-macbook";
-  users.knownUsers = [ "coding" ];
-  users.users.coding = {
+  users.knownUsers = [ "vov" ];
+  users.users.vov = {
     uid = 502;
     gid = 20; # staff, without administrator membership
-    description = "Coding";
+    description = "Vov";
+    # Retain the existing home: Claude project paths and Rex state stay valid.
     home = "/Users/coding";
     createHome = true;
     isHidden = false;
   };
-  homelab.sshUsers.coding = config.homelab.authorizedKeys;
+  homelab.sshUsers.vov = config.homelab.authorizedKeys;
   # Remote Login's PAM access list is separate from OpenSSH's AllowUsers.
   # An absent access group means all users are already permitted by macOS.
   system.activationScripts.users.text = lib.mkAfter ''
     if /usr/bin/dscl . -read /Groups/com.apple.access_ssh >/dev/null 2>&1; then
-      /usr/sbin/dseditgroup -o edit -a coding -t user com.apple.access_ssh
+      /usr/sbin/dseditgroup -o edit -a vov -t user com.apple.access_ssh
     fi
   '';
   # tailscaled's confined DNS writer rejects a symlink out of /etc/resolver.

@@ -2,7 +2,7 @@
 { lib, pkgs, ... }:
 let
   package = import ../packages/rex.nix { inherit pkgs; };
-  codingHome = "/Users/coding";
+  agentHome = "/Users/coding";
   logDirectory = "/var/log/homelab-rex";
   logFile = "${logDirectory}/server.log";
   logrotateConfig = pkgs.writeText "homelab-rex-logrotate.conf" ''
@@ -27,7 +27,7 @@ in
     fi
   '';
   system.activationScripts.users.text = lib.mkAfter ''
-    /usr/bin/install -d -o coding -g staff -m 0700 ${logDirectory}
+    /usr/bin/install -d -o vov -g staff -m 0700 ${logDirectory}
   '';
   launchd.daemons.homelab-rex = {
     serviceConfig = {
@@ -40,15 +40,15 @@ in
         "server"
         "run"
         "--state-dir"
-        "${codingHome}/.local/state/rex"
+        "${agentHome}/.local/state/rex"
       ];
-      UserName = "coding";
+      UserName = "vov";
       GroupName = "staff";
-      WorkingDirectory = codingHome;
+      WorkingDirectory = agentHome;
       EnvironmentVariables = {
-        HOME = codingHome;
-        USER = "coding";
-        LOGNAME = "coding";
+        HOME = agentHome;
+        USER = "vov";
+        LOGNAME = "vov";
         SHELL = "${pkgs.zsh}/bin/zsh";
         PATH = "${package}/bin:/run/current-system/sw/bin:/usr/bin:/bin:/usr/sbin:/sbin";
       };
@@ -60,7 +60,7 @@ in
       StandardErrorPath = logFile;
     };
   };
-  # Rotation runs as coding, never restarts Rex, and keeps its open log FD valid.
+  # Rotation runs as vov, never restarts Rex, and keeps its open log FD valid.
   # A shell is harmless here: this job never launches Rex or its terminals.
   launchd.daemons.homelab-rex-logrotate = {
     command = lib.escapeShellArgs [
@@ -70,7 +70,7 @@ in
       "${logrotateConfig}"
     ];
     serviceConfig = {
-      UserName = "coding";
+      UserName = "vov";
       GroupName = "staff";
       RunAtLoad = true;
       StartInterval = 3600;

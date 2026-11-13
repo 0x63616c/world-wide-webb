@@ -20,5 +20,5 @@
     "/share/zsh-syntax-highlighting"
   ];
   environment.shells = [ pkgs.zsh ];
-  users.users.coding.shell = pkgs.zsh;
+  users.users.vov.shell = pkgs.zsh;
 }

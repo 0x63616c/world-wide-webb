@@ -95,23 +95,23 @@ in
       let
         book = self.darwinConfigurations.homelab-macbook.config;
         mini = self.darwinConfigurations.homelab-mac-mini.config;
-        coding = book.users.users.coding;
+        coding = book.users.users.vov;
       in
       assert coding.uid == 502 && coding.gid == 20;
       assert coding.home == "/Users/coding" && coding.createHome;
       assert coding.shell == pkgs.zsh && !coding.isHidden;
-      assert builtins.elem "coding" book.users.knownUsers;
-      assert book.homelab.sshUsers.coding == book.homelab.authorizedKeys;
-      assert pkgs.lib.hasInfix "AllowUsers admin coding" book.services.openssh.extraConfig;
+      assert builtins.elem "vov" book.users.knownUsers;
+      assert book.homelab.sshUsers.vov == book.homelab.authorizedKeys;
+      assert pkgs.lib.hasInfix "AllowUsers admin vov" book.services.openssh.extraConfig;
       assert pkgs.lib.hasInfix "PasswordAuthentication no" book.services.openssh.extraConfig;
-      assert pkgs.lib.hasInfix "--user ${pkgs.lib.escapeShellArg "coding"}"
+      assert pkgs.lib.hasInfix "--user ${pkgs.lib.escapeShellArg "vov"}"
         book.system.activationScripts.etc.text;
-      assert pkgs.lib.hasInfix "coding must not be an administrator"
+      assert pkgs.lib.hasInfix "vov must not be an administrator"
         book.system.activationScripts.preActivation.text;
-      assert pkgs.lib.hasInfix "/Users/coding UniqueID" book.system.activationScripts.preActivation.text;
-      assert pkgs.lib.hasInfix "-a coding -t user com.apple.access_ssh"
+      assert pkgs.lib.hasInfix "/Users/vov UniqueID" book.system.activationScripts.preActivation.text;
+      assert pkgs.lib.hasInfix "-a vov -t user com.apple.access_ssh"
         book.system.activationScripts.users.text;
-      assert !(mini.users.users ? coding) && mini.homelab.sshUsers == { };
+      assert !(mini.users.users ? vov) && mini.homelab.sshUsers == { };
       assert pkgs.lib.hasInfix "AllowUsers admin\n" mini.services.openssh.extraConfig;
       pkgs.runCommand "homelab-coding-account-check" { } ''touch "$out"'';
     deployment-inputs =

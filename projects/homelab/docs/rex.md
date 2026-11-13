@@ -1,12 +1,12 @@
 # Rex on the MacBook
 
 The MacBook installs the official signed Rex server helper from a versioned preview
-DMG and runs its server as `coding` through `org.nixos.homelab-rex`. launchd starts
+DMG and runs its server as `vov` through `org.nixos.homelab-rex`. launchd starts
 it at boot without a graphical login. The Mini does not install or run Rex.
 
 In Rex on your personal Mac, choose **Add Remote Host…** and enter
-`ssh://coding@homelab-macbook.local` (use the MacBook's Tailscale name away from the
-LAN). For the CLI, run `rex -S ssh://coding@homelab-macbook.local ls`.
+`ssh://vov@homelab-macbook.local` (use the MacBook's Tailscale name away from the
+LAN). For the CLI, run `rex -S ssh://vov@homelab-macbook.local ls`.
 SSH uses the existing approved key. There is no Rex TCP listener or additional
 Tailscale enrollment. The socket is the private, default per-user
 `/Users/coding/Library/Application Support/rex/server.sock`; state lives in
@@ -24,7 +24,7 @@ release enclosure when available. Agent executables, provider authentication and
 `rex skill setup` under `coding` are separate from this server installation.
 
 Inspect the service with `sudo launchctl print system/org.nixos.homelab-rex`.
-Server diagnostics go to `/var/log/homelab-rex/server.log` (private to `coding`).
+Server diagnostics go to `/var/log/homelab-rex/server.log` (private to `vov`).
 An hourly logrotate job copies and truncates logs above 5 MiB, keeping two archives
 without signalling or restarting Rex; the log can grow between hourly checks.
 
