@@ -3,9 +3,16 @@
 let
   package = import ../packages/rex.nix { inherit pkgs; };
   codingHome = "/Users/coding";
-  loggedServer = pkgs.writeShellScript "homelab-rex" ''
-    # Keep Rex as launchd's main PID so it receives shutdown signals directly.
-    exec ${package}/bin/rex server run --state-dir ${lib.escapeShellArg "${codingHome}/.local/state/rex"} > >(/usr/bin/logger -t homelab-rex) 2>&1
+  logDirectory = "/var/log/homelab-rex";
+  logFile = "${logDirectory}/server.log";
+  logrotateConfig = pkgs.writeText "homelab-rex-logrotate.conf" ''
+    ${logFile} {
+      size 5M
+      rotate 2
+      copytruncate
+      missingok
+      notifempty
+    }
   '';
 in
 {
@@ -19,11 +26,22 @@ in
       export PATH="$REX_BIN_DIR:$PATH"
     fi
   '';
+  system.activationScripts.users.text = lib.mkAfter ''
+    /usr/bin/install -d -o coding -g staff -m 0700 ${logDirectory}
+  '';
   launchd.daemons.homelab-rex = {
-    # nix-darwin waits for /nix/store. The default 0600 user socket is also what
-    # Rex's SSH transport discovers; do not add a second server or network listener.
-    command = lib.escapeShellArgs [ "${loggedServer}" ];
     serviceConfig = {
+      # Do not use command/script: nix-darwin wraps them in /bin/sh, and TCC
+      # retains that shell's identity across exec. Launch the signed helper
+      # directly so Full Disk Access applies to Rex and its terminal children.
+      # KeepAlive retries startup if the Nix volume has not mounted yet.
+      ProgramArguments = [
+        "${package}/libexec/Rex Server.rex/Contents/MacOS/rex"
+        "server"
+        "run"
+        "--state-dir"
+        "${codingHome}/.local/state/rex"
+      ];
       UserName = "coding";
       GroupName = "staff";
       WorkingDirectory = codingHome;
@@ -38,7 +56,24 @@ in
       KeepAlive = true;
       ThrottleInterval = 30;
       Umask = 63;
-      # Unified logging owns retention; no unbounded terminal log in the home.
+      StandardOutPath = logFile;
+      StandardErrorPath = logFile;
+    };
+  };
+  # Rotation runs as coding, never restarts Rex, and keeps its open log FD valid.
+  # A shell is harmless here: this job never launches Rex or its terminals.
+  launchd.daemons.homelab-rex-logrotate = {
+    command = lib.escapeShellArgs [
+      "${pkgs.logrotate}/bin/logrotate"
+      "--state"
+      "${logDirectory}/logrotate.status"
+      "${logrotateConfig}"
+    ];
+    serviceConfig = {
+      UserName = "coding";
+      GroupName = "staff";
+      RunAtLoad = true;
+      StartInterval = 3600;
       StandardOutPath = "/dev/null";
       StandardErrorPath = "/dev/null";
     };

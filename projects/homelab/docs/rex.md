@@ -24,7 +24,18 @@ release enclosure when available. Agent executables, provider authentication and
 `rex skill setup` under `coding` are separate from this server installation.
 
 Inspect the service with `sudo launchctl print system/org.nixos.homelab-rex`.
-Server diagnostics go to macOS logging under the `homelab-rex` sender tag.
+Server diagnostics go to `/var/log/homelab-rex/server.log` (private to `coding`).
+An hourly logrotate job copies and truncates logs above 5 MiB, keeping two archives
+without signalling or restarting Rex; the log can grow between hourly checks.
+
+For protected folders such as Documents, grant the running server helper Full Disk
+Access in macOS System Settings → Privacy & Security. The service launches the
+signed executable directly: shell wrappers retain Bash's TCC responsibility even
+after `exec`, so granting Rex alone would not cover its terminals. Do not grant
+Bash access as a workaround. The grant is an OS permission, separate from Nix;
+recheck it after a Rex package upgrade changes the executable's store path.
+Restart Rex after granting access, then verify from a fresh Rex terminal with
+`ls -A "$HOME/Documents" >/dev/null`. SSH success alone does not verify Rex access.
 The package's install check exercises headless startup, a private socket,
 client disconnect/reconnect and graceful shutdown in a temporary home. It never
 loads launchd or changes the live host configuration. Boot/login behavior still
