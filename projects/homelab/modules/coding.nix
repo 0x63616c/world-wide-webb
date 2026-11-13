@@ -14,6 +14,11 @@
     zsh-syntax-highlighting
     (import ../packages/claude-code.nix { inherit pkgs; })
   ];
+  # nix-darwin does not link arbitrary share directories into the system profile.
+  environment.pathsToLink = [
+    "/share/zsh-autosuggestions"
+    "/share/zsh-syntax-highlighting"
+  ];
   environment.shells = [ pkgs.zsh ];
   users.users.coding.shell = pkgs.zsh;
 }
