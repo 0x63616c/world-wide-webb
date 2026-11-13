@@ -19,7 +19,7 @@ release details. Shared code owns selection and common entrypoints.
 | `scripts`, `fastlane`, `tools` | Local entrypoints and standard iOS delivery. [Development](docs/DEVELOPMENT.md) |
 | `docs` | Shared developer, release and historical migration records. |
 | `.agents/skills` | Vendored guidance and its [source record](.agents/skills/SOURCES.md). |
-| `.codex`, `.config` | Shared agent and repository tool configuration. |
+| `.codex` | Shared agent and repository tool configuration. |
 
 The old root `apps`, `homelab` and `bootstrap` content now lives in `projects`.
 Root `flake.nix` and `homelab/flake.nix` temporarily bridge existing Comin

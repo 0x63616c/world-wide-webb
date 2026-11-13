@@ -403,8 +403,7 @@
         ".claude/**",
         ".codex/**",
         "opencode.jsonc",
-        "tui.json",
-        ".config/**"
+        "tui.json"
       ],
       "delivery": null,
       "exclude": ["scripts/homelab/**", "scripts/distribution/**"]
