@@ -38,6 +38,56 @@ ROOT = Path("/var/lib/homelab-operations")
 CURRENT = Path("/run/current-system")
 PROFILE = Path("/nix/var/nix/profiles/system")
 BACKUPS = Path("/var/lib/_containers/backups")
+SERVICES_DOCKER = "unix:///var/lib/_containers/.colima/services/docker.sock"
+PENPOT_CONTAINERS = {
+    "penpot-penpot-frontend-1",
+    "penpot-penpot-backend-1",
+    "penpot-penpot-exporter-1",
+    "penpot-penpot-admin-console-1",
+    "penpot-penpot-mcp-1",
+    "penpot-penpot-postgres-1",
+    "penpot-penpot-valkey-1",
+}
+PENPOT_VOLUMES = ("penpot_assets", "penpot_postgres", "penpot_valkey")
+
+
+def retire_penpot(log):
+    """Remove only the verified Penpot Compose project after the host lock is held."""
+    docker = ["/run/current-system/sw/bin/docker", "--host", SERVICES_DOCKER]
+
+    def command(*args):
+        return subprocess.run([*docker, *args], check=True, capture_output=True, text=True, timeout=180).stdout.strip()
+
+    names = set(
+        command(
+            "ps", "-a", "--filter", "label=com.docker.compose.project=penpot", "--format", "{{.Names}}"
+        ).splitlines()
+    )
+    if names - PENPOT_CONTAINERS:
+        raise RuntimeError("Penpot project has unexpected containers; retirement needs inspection")
+    for name in sorted(names):
+        command("rm", "-f", name)
+    remaining = set(
+        command(
+            "ps", "-a", "--filter", "label=com.docker.compose.project=penpot", "--format", "{{.Names}}"
+        ).splitlines()
+    )
+    if remaining:
+        raise RuntimeError("Penpot containers remain after retirement")
+    volumes = set(command("volume", "ls", "--format", "{{.Name}}").splitlines())
+    for name in PENPOT_VOLUMES:
+        if name in volumes:
+            command("volume", "rm", name)
+    networks = set(command("network", "ls", "--format", "{{.Name}}").splitlines())
+    if "penpot_default" in networks:
+        command("network", "rm", "penpot_default")
+    log.write("Penpot containers, data volumes and network retired.\n")
+
+
+def retire_services(services, log):
+    if services != ["penpot"]:
+        raise ValueError("Unknown service retirement")
+    retire_penpot(log)
 
 
 def system_path(path):
@@ -164,7 +214,9 @@ def activate(candidate, previous, fd, token, log):
         ensure_ha_launchers()
 
 
-def transaction(candidate, previous, root, fd, backup, switch, reconcile, token=None, initial_timings=None):
+def transaction(
+    candidate, previous, root, fd, backup, switch, reconcile, token=None, initial_timings=None, retire=None
+):
     old, new = metadata(previous), metadata(candidate)
     plan = plan_deployment(old, new)
     token = token or uuid.uuid4().hex
@@ -195,6 +247,10 @@ def transaction(candidate, previous, root, fd, backup, switch, reconcile, token=
     # Failure retains the journal; no data rollback or stale restart is inferred.
     if plan["backup"]:
         phase("backup", lambda: backup(previous, fd))
+    if plan["retire"]:
+        if retire is None:
+            raise RuntimeError("Service retirement has no implementation")
+        phase("retire", lambda: retire(plan["retire"]))
     phase("activation", lambda: switch(candidate, fd, token))
     if plan["reconcile"] or plan["health"]:
         phase("reconcile", lambda: reconcile(candidate, fd))
@@ -443,6 +499,7 @@ def main():
                 ),
                 token=token,
                 initial_timings={"pull": pull_timing} if pull_timing else None,
+                retire=lambda services: retire_services(services, log),
             )
             if plan["backup"] and not plan["legacy"]:
                 try:

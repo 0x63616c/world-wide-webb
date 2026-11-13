@@ -2,7 +2,6 @@ locals {
   origins = {
     ha        = { service = "http://192.168.0.130:8123", no_tls_verify = false }
     hindsight = { service = "http://127.0.0.1:9999", no_tls_verify = false }
-    penpot    = { service = "http://127.0.0.1:9001", no_tls_verify = false }
     bambuddy  = { service = "http://127.0.0.1:8000", no_tls_verify = false }
     beszel    = { service = "http://127.0.0.1:8090", no_tls_verify = false }
     dsm       = { service = "https://192.168.0.218:5001", no_tls_verify = true }
