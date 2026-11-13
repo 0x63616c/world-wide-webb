@@ -17,8 +17,8 @@ configured to read the `projects/homelab` subdirectory of the promoted repositor
 From the repository root:
 
 ```sh
-nix flake check projects/homelab --no-update-lock-file --print-build-logs
-nix develop projects/homelab --command python3 -m unittest discover -s projects/homelab/tests
+nix flake check ./projects/homelab --no-update-lock-file --print-build-logs
+nix develop ./projects/homelab --command python3 -m unittest discover -s projects/homelab/tests
 cargo test --locked --manifest-path projects/homelab/cli/Cargo.toml
 cargo test --locked --manifest-path projects/homelab/host/Cargo.toml
 cargo test --locked --manifest-path projects/homelab/runner/Cargo.toml

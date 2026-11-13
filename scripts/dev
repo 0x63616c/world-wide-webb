@@ -48,7 +48,7 @@ case "$command_name" in
       tendr) exec mise exec -- bundle install ;;
       homelab)
         command -v nix > /dev/null || fail 'install Nix to work on homelab hosts'
-        exec nix develop projects/homelab --command true
+        exec nix develop ./projects/homelab --command true
         ;;
       *) printf 'Project tools ready: %s\n' "$project" ;;
     esac
