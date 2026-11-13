@@ -6,7 +6,7 @@ input_boolean:
     # No initial: restore an explicit choice; a new helper defaults to off.
   __ROOMS_CONFIRMED_KEY__:
     name: Vacuum room IDs confirmed
-    initial: false  # Rendered from rooms_confirmed; cannot enable unreviewed room IDs.
+    initial: false # Rendered from rooms_confirmed; cannot enable unreviewed room IDs.
 script:
   __CLEAN_ROOM_KEY__:
     alias: Vacuum a confirmed room
