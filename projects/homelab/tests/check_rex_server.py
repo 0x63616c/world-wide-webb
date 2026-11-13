@@ -64,7 +64,8 @@ def check(binary):
                         "--",
                         "/bin/sh",
                         "-c",
-                        'echo $$ > "$1"; read -r line; printf "%s" "$line" > "$2"; exec /bin/sleep 60',
+                        'echo $$ > "$1.tmp"; /bin/mv "$1.tmp" "$1"; read -r line; '
+                        'printf "%s" "$line" > "$2.tmp"; /bin/mv "$2.tmp" "$2"; exec /bin/sleep 60',
                         "check",
                         str(child_pid),
                         str(marker),
