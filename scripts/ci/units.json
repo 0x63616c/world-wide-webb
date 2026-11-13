@@ -288,6 +288,8 @@
     },
     "homelab.config": {
       "paths": [
+        "flake.nix",
+        "flake.lock",
         "projects/homelab/**",
         "projects/homelab/homelab.json",
         "projects/homelab/flake.nix",

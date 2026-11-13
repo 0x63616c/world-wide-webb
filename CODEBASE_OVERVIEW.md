@@ -22,8 +22,8 @@ release details. Shared code owns selection and common entrypoints.
 | `.codex`, `.config` | Shared agent and repository tool configuration. |
 
 The old root `apps`, `homelab` and `bootstrap` content now lives in `projects`.
-Root `homelab/flake.nix` temporarily bridges existing Comin installations to the
-new project flake; see the [update guide](projects/homelab/docs/updates.md).
+Root `flake.nix` and `homelab/flake.nix` temporarily bridge existing Comin
+installations to the new project flake; see the [update guide](projects/homelab/docs/updates.md).
 The root `mise.toml` and `mise.lock` pin shared developer tools.
 
 The [release guide](docs/RELEASE.md) maps delivery channels. The
