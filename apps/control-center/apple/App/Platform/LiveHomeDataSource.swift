@@ -27,6 +27,7 @@ import UIKit
     let calendarProvider: LiveCalendarProvider
     let diagnosticsClient: PanelAPIClient
     let panelPIN: PanelPINAPI
+    let profilesAPI: ProfilesAPI
     let diagnosticsBackendURL: String
     private var commandName = "command"
     private var commandPayload: Data?
@@ -76,6 +77,7 @@ import UIKit
             transport ?? URLSession(configuration: session, delegate: PhotoSessionDelegate(), delegateQueue: nil)
         let client = PanelAPIClient(configuration: configuration, transport: transport)
         panelPIN = PanelPINAPI(client: client)
+        profilesAPI = ProfilesAPI(client: client)
         teslaProvider = LiveTeslaProvider(api: TeslaAPI(client: client))
         let namespace = SHA256.hash(data: Data((configuration?.baseURL.absoluteString ?? "unconfigured").utf8))
             .map { String(format: "%02x", $0) }.joined()
@@ -202,6 +204,7 @@ import UIKit
     func send(_ command: HomeCommand) {
         errorMessage = nil
         commandName = String(String(describing: command).prefix(while: { $0 != "(" }))
+        PanelEventLog.shared.record(category: "action", action: commandName)
         switch command {
         case .brightness(let value), .kelvin(let value), .target(let value), .low(let value), .high(let value),
             .shiftRange(let value):
@@ -267,6 +270,7 @@ import UIKit
     }
 
     private func rejectCommand(_ message: String, reason: String = "dropped: action unavailable") {
+        PanelEventLog.shared.record(category: "action", action: commandName, outcome: "rejected")
         PanelCommandLog.shared.record(control: commandName, input: commandPayload, error: reason)
         errorMessage = message
         errorRevision += 1

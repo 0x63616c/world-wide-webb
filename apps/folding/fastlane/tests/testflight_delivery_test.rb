@@ -2,15 +2,28 @@ require "minitest/autorun"
 require_relative "../lib/release_operations"
 
 class TestflightDeliveryTest < Minitest::Test
-  Group = Struct.new(:id, :name, :is_internal_group, :public_link_enabled, :has_access_to_all_builds)
+  Group =
+    Struct.new(
+      :id,
+      :name,
+      :is_internal_group,
+      :public_link_enabled,
+      :has_access_to_all_builds
+    )
   Build = Struct.new(:id, :processing_state)
   Page = Struct.new(:to_models)
   Response = Struct.new(:all_pages)
-  Record = Struct.new(:data) do
-    def verify_identity!; end
-    def save(values); data.merge!(values); end
-    def advance(state, values = {}); save(values.merge("state" => state)); end
-  end
+  Record =
+    Struct.new(:data) do
+      def verify_identity!
+      end
+      def save(values)
+        data.merge!(values)
+      end
+      def advance(state, values = {})
+        save(values.merge("state" => state))
+      end
+    end
 
   def setup
     @previous = ENV["FOLDING_TESTFLIGHT_GROUPS"]
@@ -19,12 +32,45 @@ class TestflightDeliveryTest < Minitest::Test
     @members = {}
     @assignments = []
     @build = Build.new("apple42", "VALID")
-    @record = Record.new({"state" => "archived", "environment" => "production", "build_number" => 42,
-      "bundle_id" => "app", "asc_app_id" => "asc", "marketing_version" => "1.0.0", "preview_backend_verification" => {}})
+    @record =
+      Record.new(
+        {
+          "state" => "archived",
+          "environment" => "production",
+          "build_number" => 42,
+          "bundle_id" => "app",
+          "asc_app_id" => "asc",
+          "marketing_version" => "1.0.0",
+          "preview_backend_verification" => {
+          }
+        }
+      )
     @client = Object.new
+    api = Object.new
+    api.define_singleton_method(:get) do |path|
+      raise "Wrong group" unless path == "v1/betaGroups/group42"
+      Struct.new(:body).new(
+        {
+          "data" => {
+            "type" => "betaGroups",
+            "id" => "group42",
+            "attributes" => {
+              "feedbackEnabled" => true
+            }
+          }
+        }
+      )
+    end
+    @client.define_singleton_method(:test_flight_request_client) { api }
     members = @members
     @client.define_singleton_method(:get_builds_for_beta_group) do |group_id:|
-      Response.new([Page.new(members.fetch(group_id, []).map { |id| Build.new(id, "VALID") })])
+      Response.new(
+        [
+          Page.new(
+            members.fetch(group_id, []).map { |id| Build.new(id, "VALID") }
+          )
+        ]
+      )
     end
     groups = @groups
     @app = Object.new
@@ -39,7 +85,9 @@ class TestflightDeliveryTest < Minitest::Test
     context = Object.new
     assignments, members = @assignments, @members
     context.define_singleton_method(:upload_to_testflight) do |**options|
-      raise "Must never upload an IPA in this distribution-only fixture" unless options[:distribute_only]
+      unless options[:distribute_only]
+        raise "Must never upload an IPA in this distribution-only fixture"
+      end
       assignments << options
       members["group42"] = ["apple42"] if assign
       raise "Lost assignment response" if lose_response
@@ -62,9 +110,15 @@ class TestflightDeliveryTest < Minitest::Test
   end
 
   def test_missing_partial_ambiguous_or_external_groups_do_not_record_delivery
-    cases = [[], [Group.new("other", "Other", true, false, false)],
-      [Group.new("a", "Owner Preview", true, false, false), Group.new("b", "Owner Preview", true, false, false)],
-      [Group.new("external", "Owner Preview", false, false, false)]]
+    cases = [
+      [],
+      [Group.new("other", "Other", true, false, false)],
+      [
+        Group.new("a", "Owner Preview", true, false, false),
+        Group.new("b", "Owner Preview", true, false, false)
+      ],
+      [Group.new("external", "Owner Preview", false, false, false)]
+    ]
     cases.each do |groups|
       @groups.replace(groups)
       assert_raises(RuntimeError) { beta }
@@ -89,7 +143,8 @@ class TestflightDeliveryTest < Minitest::Test
     refute @record.data.key?("testflight_distributed_build_id")
     beta
     assert_equal 1, @assignments.length
-    assert_equal "apple42", @record.data.fetch("testflight_distributed_build_id")
+    assert_equal "apple42",
+                 @record.data.fetch("testflight_distributed_build_id")
     assert_equal ["group42"], @record.data.fetch("testflight_group_ids")
     assert @record.data.fetch("testflight_group_assignment_verified_at")
     @members.clear

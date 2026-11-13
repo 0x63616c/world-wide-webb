@@ -81,6 +81,7 @@ struct HomeView: View {
     var onWake: () -> Void = {}
     @State private var shell = PanelShellState()
     @State private var timer: PanelTimerStore
+    @State private var brightnessPreview = PanelBrightnessPreview()
     private let runsTimer: Bool
     private var display = PanelDisplayPreferences()
     @AppStorage("panel.clockFace") private var clockFace = PanelClockFace.green
@@ -176,18 +177,23 @@ struct HomeView: View {
 
     private func clockDial(_ face: PanelClockFace) -> some View {
         PresenceClockFace(store: store, face: face)
-            .environment(\.motionPhase, selected == nil && showingClock ? inheritedMotionPhase : 0)
+            .environment(\.motionPhase, selected == nil ? inheritedMotionPhase : 0)
             .clipShape(ConcentricRectangle())
             .allowsHitTesting(false)
             .accessibilityHidden(true)
     }
 
     private func home() {
+        if let selected {
+            PanelEventLog.shared.record(category: "navigation", action: "app.\(selected.id).close_requested")
+        }
+        PanelEventLog.shared.record(category: "navigation", action: "launcher.open")
         withAnimation(selected == nil ? .spring(duration: 0.3, bounce: 0) : .smooth(duration: 0.4)) {
             shell.showLauncher()
         }
     }
     private func clock() {
+        PanelEventLog.shared.record(category: "navigation", action: "clock.open")
         withAnimation(.spring(duration: 0.3, bounce: 0)) { shell.showClock() }
     }
     private var appPath: Binding<[String]> {
@@ -239,8 +245,8 @@ struct HomeView: View {
                         .clipShape(ConcentricRectangle())
                         .frame(width: size.width, height: size.height)
                         .offset(y: showingClock ? size.height : 0)
-                        .allowsHitTesting(!showingClock && selected == nil)
-                        .accessibilityHidden(showingClock || selected != nil)
+                        .allowsHitTesting(shell.launcherCanReceiveInput)
+                        .accessibilityHidden(!shell.launcherCanReceiveInput)
                     }
                 }.frame(width: size.width, height: size.height).clipped()
                     .environment(\.colorScheme, .dark).foregroundStyle(.white).tint(.white)
@@ -254,6 +260,12 @@ struct HomeView: View {
                     }
                     .toolbar(.hidden, for: .navigationBar)
                     .navigationTransition(.zoom(sourceID: app.id, in: zoom))
+                    .onDisappear {
+                        if shell.appDestinationDisappeared(id) {
+                            PanelEventLog.shared.record(
+                                category: "navigation", action: "app.\(id).disappearance_recovered")
+                        }
+                    }
                 }
             }
         }
@@ -290,13 +302,20 @@ struct HomeView: View {
             }
         }
         .environment(\.colorScheme, .dark).foregroundStyle(.white).tint(.white)
-        .onChange(of: selected?.id, initial: true) { _, id in
+        .onChange(of: selected?.id, initial: true) { oldID, id in
+            if let oldID, id == nil {
+                PanelEventLog.shared.record(category: "navigation", action: "app.\(oldID).closed")
+            }
+            if let id {
+                PanelEventLog.shared.record(category: "navigation", action: "app.\(id).shown")
+            }
             notifications?.setVisibleSources(PanelNotifications.sources(for: id))
         }
         .modifier(
             PanelIdleDimming(
                 onIdle: clock, timeout: display.returnToClockSeconds, inhibited: keepsAwake, onWake: onWake)
         )
+        .environment(brightnessPreview)
         #if targetEnvironment(simulator)
             .background {
                 Button("Open apps") { if showingClock || selected != nil { home() } else { clock() } }
@@ -306,6 +325,7 @@ struct HomeView: View {
         #endif
     }
     private func open(_ app: PanelAppDefinition) {
+        PanelEventLog.shared.record(category: "navigation", action: "app.\(app.id).open")
         if app.route == .clock {
             clock()
             return

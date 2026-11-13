@@ -15,6 +15,11 @@ catalog. The build generated Assets.car, resized icon resources, and
 CFBundlePrimaryIcon → AppIcon. System clear treatments are not separately authored
 layered Icon Composer assets. Final Home Screen appearance review remains pending.
 
+November 12, 2026: the icon generator lowers the selected mark by five pixels on
+the 1024-pixel canvas to balance its top and bottom padding. The three committed
+appearance variants were regenerated and visually checked; this does not change
+the website artwork or complete the deferred Home Screen review.
+
 Apple references: [asset catalog configuration](https://developer.apple.com/documentation/xcode/configuring-your-app-icon)
 and [app icon guidance](https://developer.apple.com/design/human-interface-guidelines/app-icons).
 

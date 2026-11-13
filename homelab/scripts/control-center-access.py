@@ -36,9 +36,7 @@ def unrelated(config):
 
 def reconcile(binary):
     def read(*args):
-        result = subprocess.run(
-            [binary, *args], check=True, capture_output=True, text=True, timeout=30
-        )
+        result = subprocess.run([binary, *args], check=True, capture_output=True, text=True, timeout=30)
         return json.loads(result.stdout) or {}
 
     node = read("status", "--json", "--peers=false")
@@ -53,7 +51,10 @@ def reconcile(binary):
     if before.get("Services", {}).get(SERVICE) != EXPECTED:
         subprocess.run(
             [binary, "serve", "--service=" + SERVICE, "--https=443", ORIGIN],
-            check=True, capture_output=True, text=True, timeout=60,
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=60,
         )
     after = read("serve", "status", "--json")
     validate(after)
@@ -64,7 +65,10 @@ def reconcile(binary):
     # Advertisements are separate from ServeConfig and may be lost on restore.
     subprocess.run(
         [binary, "serve", "advertise", SERVICE],
-        check=True, capture_output=True, text=True, timeout=30,
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=30,
     )
     print("Verified private app service route and advertisement")
 

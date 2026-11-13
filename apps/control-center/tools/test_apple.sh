@@ -5,7 +5,8 @@ bash tools/test_canvas_layout.sh
 out="${APPLE_DERIVED_DATA:-${TMPDIR:-/tmp}/www-apple-derived}"
 mkdir -p "$out"
 stamp=$(date -u +%Y%m%dT%H%M%SZ)-$$
-destinations=$(python3 - <<'PY'
+destinations=$(
+  python3 - << 'PY'
 import json,re,subprocess
 sdk=tuple(map(int,subprocess.check_output(['xcrun','--sdk','iphonesimulator','--show-sdk-version'],text=True).strip().split('.')))
 sdk=sdk+(0,)*(3-len(sdk))
@@ -30,25 +31,28 @@ PY
 read -r simulator phone_simulator <<< "$destinations"
 xcodegen generate --spec apple/project.yml --project apple > "$out/generate.log"
 args=(-project apple/WorldWideWebb.xcodeproj -scheme Panel -destination "id=$simulator"
-      -derivedDataPath "$out" CODE_SIGNING_ALLOWED=NO -parallel-testing-enabled NO)
+  -derivedDataPath "$out" CODE_SIGNING_ALLOWED=NO -parallel-testing-enabled NO)
 xcodebuild "${args[@]}" build-for-testing > "$out/build.log" 2>&1 || {
-  tail -50 "$out/build.log"; exit 1;
+  tail -50 "$out/build.log"
+  exit 1
 }
 xcodebuild "${args[@]}" test-without-building -only-testing:PanelTests \
   -resultBundlePath "$out/unit-$stamp.xcresult" > "$out/unit.log" 2>&1 || {
-  python3 - "$out/unit.log" <<'PY'
+  python3 - "$out/unit.log" << 'PY'
 import sys
 from pathlib import Path
 for line in Path(sys.argv[1]).read_text().splitlines():
     if ": error:" in line or "Failing tests:" in line:
         print(line)
 PY
-  tail -20 "$out/unit.log"; exit 1;
+  tail -20 "$out/unit.log"
+  exit 1
 }
 xcodebuild -project apple/WorldWideWebb.xcodeproj -scheme Panel -destination "id=$phone_simulator" \
   -derivedDataPath "$out" CODE_SIGNING_ALLOWED=NO -parallel-testing-enabled NO \
   test-without-building -only-testing:PanelTests/PanelPlatformPolicyTests \
   -resultBundlePath "$out/phone-$stamp.xcresult" > "$out/phone.log" 2>&1 || {
-  tail -30 "$out/phone.log"; exit 1;
+  tail -30 "$out/phone.log"
+  exit 1
 }
 echo 'PASS: iPad production target/unit tests and iPhone platform/layout policy'

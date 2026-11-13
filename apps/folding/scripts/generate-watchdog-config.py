@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Generate a scheduled-only watchdog deployment from OpenTofu JSON outputs."""
+
 import argparse
 import json
 import pathlib
@@ -39,18 +40,28 @@ def main():
     version = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
     crate = ROOT / "backend/watchdog"
     config = {
-        "name": name, "account_id": bindings["account_id"],
+        "name": name,
+        "account_id": bindings["account_id"],
         "main": str(crate / "build/worker/shim.mjs"),
-        "compatibility_date": "2026-11-07", "workers_dev": False,
+        "compatibility_date": "2026-11-07",
+        "workers_dev": False,
         "preview_urls": False,
         "triggers": {"crons": ["* * * * *"] if enabled else []},
-        "vars": {"DEPLOYMENT": env, "WORKER_VERSION": version,
-                 "MONITOR_ENABLED": str(enabled).lower(),
-                 "OUTBOUND_DELIVERY_VERIFIED": str(verified).lower(),
-                 "ALERT_DESTINATION": args.destination},
-        "d1_databases": [{"binding": "MONITOR_DB", "database_name": name,
-                          "database_id": bindings["database_id"],
-                          "migrations_dir": str(crate / "migrations")}],
+        "vars": {
+            "DEPLOYMENT": env,
+            "WORKER_VERSION": version,
+            "MONITOR_ENABLED": str(enabled).lower(),
+            "OUTBOUND_DELIVERY_VERIFIED": str(verified).lower(),
+            "ALERT_DESTINATION": args.destination,
+        },
+        "d1_databases": [
+            {
+                "binding": "MONITOR_DB",
+                "database_name": name,
+                "database_id": bindings["database_id"],
+                "migrations_dir": str(crate / "migrations"),
+            }
+        ],
         "send_email": [{"name": "ALERT_EMAIL", "destination_address": args.destination}],
         "observability": {"enabled": True, "head_sampling_rate": 1},
     }

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Portable release regressions: inputs, Duo PNG export, and submission with a fake ASC."""
+
 import importlib.util
 import json
 import os
@@ -17,11 +18,13 @@ ROOT = Path(__file__).resolve().parent.parent
 spec = importlib.util.spec_from_file_location("stage_duo", ROOT / "scripts/stage-duo-screenshots.py")
 duo = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(duo)
-settings_spec = importlib.util.spec_from_file_location("screenshot_settings", ROOT / "scripts/screenshot-build-settings.py")
+settings_spec = importlib.util.spec_from_file_location(
+    "screenshot_settings", ROOT / "scripts/screenshot-build-settings.py"
+)
 screenshot_settings = importlib.util.module_from_spec(settings_spec)
 settings_spec.loader.exec_module(screenshot_settings)
 
-FAKE_ASC = r'''
+FAKE_ASC = r"""
 require "json"
 require "ostruct"
 module Spaceship
@@ -58,7 +61,7 @@ class FakeASC
     File.open(ENV.fetch("MUTATIONS"), "a") { |f| f.puts JSON.generate([path, body]) }
   end
 end
-'''
+"""
 
 
 class ReleaseTests(unittest.TestCase):
@@ -66,21 +69,38 @@ class ReleaseTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             manifest = Path(temporary) / "release.json"
             manifest.write_text(json.dumps({"app": "tendr", "version": "1.1.1", "build": "1", "sha": "release-source"}))
-            environment = {"RELEASE_MANIFEST": str(manifest), "GITHUB_SHA": "release-source", "RELEASE_VERSION": "1.1.1"}
-            self.assertEqual(screenshot_settings.build_settings("tendr", environment),
-                             ["MARKETING_VERSION=1.1.1", "CURRENT_PROJECT_VERSION=1"])
-            for override in ({"GITHUB_SHA": "other-source"}, {"GITHUB_SHA": ""}, {"RELEASE_VERSION": "1.1.0"}, {"RELEASE_BUILD": "29"}):
+            environment = {
+                "RELEASE_MANIFEST": str(manifest),
+                "GITHUB_SHA": "release-source",
+                "RELEASE_VERSION": "1.1.1",
+            }
+            self.assertEqual(
+                screenshot_settings.build_settings("tendr", environment),
+                ["MARKETING_VERSION=1.1.1", "CURRENT_PROJECT_VERSION=1"],
+            )
+            for override in (
+                {"GITHUB_SHA": "other-source"},
+                {"GITHUB_SHA": ""},
+                {"RELEASE_VERSION": "1.1.0"},
+                {"RELEASE_BUILD": "29"},
+            ):
                 with self.subTest(override=override), self.assertRaises(ValueError):
                     screenshot_settings.build_settings("tendr", {**environment, **override})
             with self.assertRaises(ValueError):
                 screenshot_settings.build_settings("other-app", environment)
             for field in ("version", "build"):
-                manifest.write_text(json.dumps({"app": "tendr", "version": "1.1.1", "build": "1", "sha": "release-source", field: ""}))
+                manifest.write_text(
+                    json.dumps({"app": "tendr", "version": "1.1.1", "build": "1", "sha": "release-source", field: ""})
+                )
                 with self.subTest(field=field), self.assertRaises(ValueError):
-                    screenshot_settings.build_settings("tendr", {"RELEASE_MANIFEST": str(manifest), "GITHUB_SHA": "release-source"})
+                    screenshot_settings.build_settings(
+                        "tendr", {"RELEASE_MANIFEST": str(manifest), "GITHUB_SHA": "release-source"}
+                    )
         self.assertEqual(screenshot_settings.build_settings("tendr", {}), [])
-        self.assertEqual(screenshot_settings.build_settings("tendr", {"RELEASE_VERSION": "1.2", "RELEASE_BUILD": "18"}),
-                         ["MARKETING_VERSION=1.2", "CURRENT_PROJECT_VERSION=18"])
+        self.assertEqual(
+            screenshot_settings.build_settings("tendr", {"RELEASE_VERSION": "1.2", "RELEASE_BUILD": "18"}),
+            ["MARKETING_VERSION=1.2", "CURRENT_PROJECT_VERSION=18"],
+        )
         for override in ({"RELEASE_VERSION": "1.1.1\nOTHER=1"}, {"RELEASE_BUILD": "0"}, {"RELEASE_BUILD": "latest"}):
             with self.subTest(override=override), self.assertRaises(ValueError):
                 screenshot_settings.build_settings("tendr", override)
@@ -96,7 +116,7 @@ class ReleaseTests(unittest.TestCase):
             for name in ("capture-screenshots.sh", "boot-simulator.sh", "screenshot-build-settings.py"):
                 shutil.copy2(ROOT / "scripts" / name, scripts / name)
             tool = binaries / "tool"
-            tool.write_text('''#!/usr/bin/env python3
+            tool.write_text("""#!/usr/bin/env python3
 import json, os, pathlib, sys
 name, args = pathlib.Path(sys.argv[0]).name, sys.argv[1:]
 if name == "ruby":
@@ -109,14 +129,30 @@ elif name == "xcrun" and args[:2] == ["simctl", "create"]:
 elif name == "xcodebuild":
     pathlib.Path(os.environ["SCREENSHOT_BUILD_RECORD"]).write_text(json.dumps(args))
     sys.exit(42)
-''')
+""")
             tool.chmod(0o755)
             for name in ("ruby", "xcrun", "xcodebuild", "xcodegen"):
                 (binaries / name).symlink_to(tool)
             record = root / "build.json"
-            environment = {key: value for key, value in os.environ.items() if key not in ("RELEASE_MANIFEST", "RELEASE_VERSION", "RELEASE_BUILD")}
-            environment.update(PATH=f"{binaries}:{environment['PATH']}", RELEASE_VERSION="1.1.1", RELEASE_BUILD="1", SCREENSHOT_BUILD_RECORD=str(record), PROJECT_GENERATED_RECORD=str(root / "generated-project"))
-            result = subprocess.run(["bash", str(scripts / "capture-screenshots.sh"), "tendr"], env=environment, capture_output=True, text=True, timeout=15)
+            environment = {
+                key: value
+                for key, value in os.environ.items()
+                if key not in ("RELEASE_MANIFEST", "RELEASE_VERSION", "RELEASE_BUILD")
+            }
+            environment.update(
+                PATH=f"{binaries}:{environment['PATH']}",
+                RELEASE_VERSION="1.1.1",
+                RELEASE_BUILD="1",
+                SCREENSHOT_BUILD_RECORD=str(record),
+                PROJECT_GENERATED_RECORD=str(root / "generated-project"),
+            )
+            result = subprocess.run(
+                ["bash", str(scripts / "capture-screenshots.sh"), "tendr"],
+                env=environment,
+                capture_output=True,
+                text=True,
+                timeout=15,
+            )
             self.assertEqual(result.returncode, 42, result.stdout + result.stderr)
             self.assertEqual((root / "generated-project").read_text(), str((root / "apps/tendr").resolve()))
             arguments = json.loads(record.read_text())
@@ -133,7 +169,7 @@ elif name == "xcodebuild":
             for name in ("capture-screenshots.sh", "boot-simulator.sh", "screenshot-build-settings.py"):
                 shutil.copy2(ROOT / "scripts" / name, scripts / name)
             tool = binaries / "tool"
-            tool.write_text('''#!/usr/bin/env python3
+            tool.write_text("""#!/usr/bin/env python3
 import json, os, pathlib, struct, sys
 name, args = pathlib.Path(sys.argv[0]).name, sys.argv[1:]
 state = pathlib.Path(os.environ["SIMULATOR_STATE"])
@@ -156,16 +192,27 @@ elif name == "xcodebuild" and args[0] == "test-without-building":
     output = pathlib.Path(os.environ["TEST_RUNNER_SCREENSHOT_DIR"])
     (output / "home.png").write_bytes(b"\\x89PNG\\r\\n\\x1a\\n" + b"\\x00" * 8 + struct.pack(">II", 1320, 2868))
     state.write_text("Shutdown")  # Reproduce the state observed after the hosted test session.
-''')
+""")
             tool.chmod(0o755)
             for name in ("ruby", "xcrun", "xcodebuild"):
                 (binaries / name).symlink_to(tool)
-            environment = {key: value for key, value in os.environ.items()
-                           if key not in ("RELEASE_MANIFEST", "RELEASE_VERSION", "RELEASE_BUILD")}
-            environment.update(PATH=f"{binaries}:{environment['PATH']}",
-                               SIMULATOR_STATE=str(root / "state"), COMMAND_RECORD=str(root / "commands"))
-            result = subprocess.run(["bash", str(scripts / "capture-screenshots.sh"), "tendr"],
-                                    env=environment, capture_output=True, text=True, timeout=15)
+            environment = {
+                key: value
+                for key, value in os.environ.items()
+                if key not in ("RELEASE_MANIFEST", "RELEASE_VERSION", "RELEASE_BUILD")
+            }
+            environment.update(
+                PATH=f"{binaries}:{environment['PATH']}",
+                SIMULATOR_STATE=str(root / "state"),
+                COMMAND_RECORD=str(root / "commands"),
+            )
+            result = subprocess.run(
+                ["bash", str(scripts / "capture-screenshots.sh"), "tendr"],
+                env=environment,
+                capture_output=True,
+                text=True,
+                timeout=15,
+            )
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             for appearance in ("light", "dark"):
                 self.assertTrue((root / "build/screenshots/tendr/raw" / appearance / "home.png").is_file())
@@ -182,22 +229,41 @@ elif name == "xcodebuild" and args[0] == "test-without-building":
     def run_ruby(self, script, env, args=()):
         # No real Apple credentials are used, including when this runs on a release Mac.
         base = {key: value for key, value in os.environ.items() if key != "GITHUB_OUTPUT"}
-        return subprocess.run(["ruby", str(ROOT / "scripts" / script), *args],
-                              cwd=ROOT, env={**base, **env}, text=True, capture_output=True)
+        return subprocess.run(
+            ["ruby", str(ROOT / "scripts" / script), *args],
+            cwd=ROOT,
+            env={**base, **env},
+            text=True,
+            capture_output=True,
+        )
 
     def test_release_target(self):
-        result = self.run_ruby("release-target.rb", {"GITHUB_REF_TYPE": "branch", "INPUT_APP": "tendr", "INPUT_VERSION": "1.1.0", "INPUT_BUILD": "18"})
+        result = self.run_ruby(
+            "release-target.rb",
+            {"GITHUB_REF_TYPE": "branch", "INPUT_APP": "tendr", "INPUT_VERSION": "1.1.0", "INPUT_BUILD": "18"},
+        )
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("build=18", result.stdout)
-        for tag, app in (("app-store/tendr/1.1.0-18", "tendr"), ("app-store/tendr/1.2-9", "tendr"), ("app-store/1.0.0-28", "tendr")):
+        for tag, app in (
+            ("app-store/tendr/1.1.0-18", "tendr"),
+            ("app-store/tendr/1.2-9", "tendr"),
+            ("app-store/1.0.0-28", "tendr"),
+        ):
             result = self.run_ruby("release-target.rb", {"GITHUB_REF_TYPE": "tag", "GITHUB_REF_NAME": tag})
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertIn(f"app={app}\n", result.stdout)
-        for tag in ("app-store/tendr/latest", "app-store/tendr/1.1.0", "app-store/unknown/1.1.0-18", "app-store/tendr/1.1.0-18/extra"):
+        for tag in (
+            "app-store/tendr/latest",
+            "app-store/tendr/1.1.0",
+            "app-store/unknown/1.1.0-18",
+            "app-store/tendr/1.1.0-18/extra",
+        ):
             result = self.run_ruby("release-target.rb", {"GITHUB_REF_TYPE": "tag", "GITHUB_REF_NAME": tag})
             self.assertNotEqual(result.returncode, 0, tag)
         for build in ("", "0", "latest", "18\napp=samplr", "18;echo nope"):
-            result = self.run_ruby("release-target.rb", {"GITHUB_REF_TYPE": "branch", "INPUT_APP": "tendr", "INPUT_BUILD": build})
+            result = self.run_ruby(
+                "release-target.rb", {"GITHUB_REF_TYPE": "branch", "INPUT_APP": "tendr", "INPUT_BUILD": build}
+            )
             self.assertNotEqual(result.returncode, 0, build)
 
     def test_submission_pins_build_and_dry_run_is_read_only(self):
@@ -205,9 +271,23 @@ elif name == "xcodebuild" and args[0] == "test-without-building":
             root = Path(tmp)
             (root / "spaceship.rb").write_text(FAKE_ASC)
             mutations = root / "mutations.jsonl"
-            env = {"RUBYLIB": tmp, "MUTATIONS": str(mutations), "ASC_KEY_ID": "fake", "ASC_ISSUER_ID": "fake",
-                   "ASC_KEY_CONTENT": "fake", "VERSION": "1.1.0", "BUILD_NUMBER": "18", "WHATS_NEW": "", "CANCEL_WAITING": "false"}
-            for override in ({"DRY_RUN": "true"}, {"BUILD_NUMBER": ""}, {"NO_BUILD": "true"}, {"SUBMISSION_STATE": "WAITING_FOR_REVIEW"}):
+            env = {
+                "RUBYLIB": tmp,
+                "MUTATIONS": str(mutations),
+                "ASC_KEY_ID": "fake",
+                "ASC_ISSUER_ID": "fake",
+                "ASC_KEY_CONTENT": "fake",
+                "VERSION": "1.1.0",
+                "BUILD_NUMBER": "18",
+                "WHATS_NEW": "",
+                "CANCEL_WAITING": "false",
+            }
+            for override in (
+                {"DRY_RUN": "true"},
+                {"BUILD_NUMBER": ""},
+                {"NO_BUILD": "true"},
+                {"SUBMISSION_STATE": "WAITING_FOR_REVIEW"},
+            ):
                 result = self.run_ruby("submit-review.rb", {**env, **override}, ["tendr"])
                 self.assertEqual(result.returncode, 0 if override.get("DRY_RUN") == "true" else 1, result.stderr)
                 self.assertFalse(mutations.exists(), result.stdout)
@@ -217,7 +297,9 @@ elif name == "xcodebuild" and args[0] == "test-without-building":
             build_call = next(body for path, body in calls if path.endswith("/relationships/build"))
             self.assertEqual(build_call["data"]["id"], "build-18")
             self.assertIn("build 18", result.stdout)
-            release_call = next(body for path, body in calls if body.get("data", {}).get("attributes", {}).get("releaseType"))
+            release_call = next(
+                body for path, body in calls if body.get("data", {}).get("attributes", {}).get("releaseType")
+            )
             self.assertEqual(release_call["data"]["attributes"]["releaseType"], "AFTER_APPROVAL")
 
     def test_duo_landscape_export(self):
@@ -270,7 +352,11 @@ elif name == "xcodebuild" and args[0] == "test-without-building":
                 with self.assertRaises(ValueError):
                     duo.stage(config, raw, output)
             (raw / "plan.json").write_text('{"mode":"displays"}')
-            for image in (Image.new("RGB", (100, 100)), Image.new("RGBA", (2007, 2853), (0, 0, 0, 0)), Image.new("RGB", (2007, 2853))):
+            for image in (
+                Image.new("RGB", (100, 100)),
+                Image.new("RGBA", (2007, 2853), (0, 0, 0, 0)),
+                Image.new("RGB", (2007, 2853)),
+            ):
                 image.save(raw / "inner-dark-home.png")
                 with self.assertRaises(ValueError):
                     duo.stage(config, raw, output)

@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 export PATH=/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin
-python3 - <<'CHECK'
+python3 - << 'CHECK'
 import socket
 s=socket.socket(socket.AF_UNIX,socket.SOCK_STREAM)
 s.settimeout(2)

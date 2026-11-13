@@ -1,1 +1,1 @@
-fold,hinge,duo,stats,tracker,leaderboard,widgets
+fold,hinge,duo,stats,tracker,leaderboard

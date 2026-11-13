@@ -16,6 +16,20 @@ The app automatically connects to `https://homelab.tail8c014d.ts.net` over priva
 All Tailnet devices are trusted; no app login or pasted connection record is required. Connection settings
 can check reachability. DEBUG fixtures stay isolated from production integrations. No runtime credentials
 are bundled. Historical design studies are reference material, not alternate app targets.
+
+## Diagnostics
+
+Settings → Diagnostics shows the installation ID, editable device label, connection/feature status,
+the latest 500 control actions and 500 client events. Share diagnostics exports that local history
+and status as a JSON file through the iOS share sheet.
+Events contain fixed action names, outcomes, HTTP status and duration, including touch taps and app
+open/close transitions; touch coordinates, request URLs, response bodies, headers, credentials and
+user content are excluded. The client keeps the latest 500 events locally
+and uploads batches while the app is active, with build and Git revision metadata. Uploads are idempotent,
+and the server retains up to 2 MB of events per installation in SQLite. `GET /api/v1/diagnostics/events` returns the newest 500
+events, optionally filtered with `?deviceId=<installation UUID>`; the full retained history is
+available in the `diagnostic_event` table. Slow requests and main-thread scheduling delays appear
+in the event timeline.
 Signing/TestFlight automation uses `fastlane/Fastfile` and publishes release metadata only after Apple processing.
 
 ## App navigation

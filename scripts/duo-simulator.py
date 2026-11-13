@@ -6,6 +6,7 @@ script's disposable simulator. Display IDs always come from enumeration. The
 optional Device Hub bridge pairs native modes with Open/Closed controls; the iOS
 tests independently verify the resulting layout before release export.
 """
+
 import argparse
 import json
 import os
@@ -26,9 +27,14 @@ def simctl(*args, check=False):
     attempts = 2 if args and args[0] in ("help", "list") else 1
     for attempt in range(attempts):
         try:
-            return subprocess.run(["xcrun", "simctl", *args], text=True,
-                                  stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                                  timeout=timeout, check=check)
+            return subprocess.run(
+                ["xcrun", "simctl", *args],
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                timeout=timeout,
+                check=check,
+            )
         except subprocess.TimeoutExpired:
             if attempt == attempts - 1:
                 raise
@@ -38,10 +44,12 @@ def fold_candidates(udid, help_text):
     """Known command shapes, gated on documented verbs AND state names."""
     top, ui, io, fold = (help_text.get(key, "") for key in ("top", "ui", "io", "fold"))
     candidates = []
-    for help_body, prefix in [(fold, ["fold", udid]),
-                              (ui, ["ui", udid, "fold"]),
-                              (ui, ["ui", udid, "display"]),
-                              (io, ["io", udid, "display"])]:
+    for help_body, prefix in [
+        (fold, ["fold", udid]),
+        (ui, ["ui", udid, "fold"]),
+        (ui, ["ui", udid, "display"]),
+        (io, ["io", udid, "display"]),
+    ]:
         verb = prefix[0] if len(prefix) == 2 else prefix[2]
         if not re.search(rf"\b{verb}\b", help_body):
             continue
@@ -95,7 +103,8 @@ def probe(udid, directory):
     enumeration = simctl("io", udid, "enumerate").stdout
     directory.mkdir(parents=True, exist_ok=True)
     (directory / "simctl-capabilities.txt").write_text(
-        "\n\n".join(f"{key}:\n{value}" for key, value in help_text.items()) + "\n\n" + enumeration)
+        "\n\n".join(f"{key}:\n{value}" for key, value in help_text.items()) + "\n\n" + enumeration
+    )
     for commands in fold_candidates(udid, help_text):
         outer = simctl(*commands["outer"]).returncode == 0
         inner = simctl(*commands["inner"]).returncode == 0  # restore even after a partial failure
@@ -119,8 +128,10 @@ def probe(udid, directory):
         "default": "No supported fold control or named inner/outer display pair. Capturing the device default only (default-*); live-fold checks skipped.",
     }[plan["mode"]]
     (directory / "capture-notes.txt").write_text(
-        note + "\nLandscape filenames describe requested device orientation; inner windows and centered sheets may retain portrait geometry.\n"
-        "See simctl-capabilities.txt for the installed interface.\n")
+        note
+        + "\nLandscape filenames describe requested device orientation; inner windows and centered sheets may retain portrait geometry.\n"
+        "See simctl-capabilities.txt for the installed interface.\n"
+    )
     print(note)
 
 
@@ -131,8 +142,7 @@ def configure_host(directory, set_pose=None):
         raise ValueError("Device Hub bridge requires two enumerated integrated displays")
     text = (directory / "simctl-capabilities.txt").read_text()
     displays = {}
-    expected = {(2007, 2853): "inner", (2853, 2007): "inner",
-                (1398, 2034): "outer", (2034, 1398): "outer"}
+    expected = {(2007, 2853): "inner", (2853, 2007): "inner", (1398, 2034): "outer", (2034, 1398): "outer"}
     for block in re.split(r"(?=^\s*Screen ID:\s*\d+\s*$)", text, flags=re.MULTILINE):
         identifier = re.search(r"^\s*Screen ID:\s*(\d+)\s*$", block, re.MULTILINE)
         pixels = re.search(r"Pixel Size:\s*\{(\d+),\s*(\d+)\}", block)
@@ -150,7 +160,8 @@ def configure_host(directory, set_pose=None):
     (directory / "plan.json").write_text(json.dumps({"mode": "fold", "host_control": True, "displays": displays}))
     (directory / "capture-notes.txt").write_text(
         "Device Hub Open/Closed controls select each pose. Display IDs come from enumeration and their native pixel modes. "
-        "The iOS tests assert native inner/outer navigation and live state retention. Blank or incorrectly sized releases are rejected.\n")
+        "The iOS tests assert native inner/outer navigation and live state retention. Blank or incorrectly sized releases are rejected.\n"
+    )
 
 
 def host_pose(directory, pose):
@@ -243,7 +254,9 @@ def serve(udid, directory, output, appearance):
                 screen = request["name"]
                 if not re.fullmatch(r"[a-z0-9-]+", screen):
                     raise ValueError("Invalid screenshot name")
-                displays = {pose: plan["displays"][pose]} if plan.get("host_control") else plan.get("displays", {pose: None})
+                displays = (
+                    {pose: plan["displays"][pose]} if plan.get("host_control") else plan.get("displays", {pose: None})
+                )
                 for label, display in displays.items():
                     destination = output / f"{label}-{appearance}-{screen}.png"
                     options = [f"--display={display}"] if display is not None else []

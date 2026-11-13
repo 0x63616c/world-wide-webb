@@ -37,7 +37,7 @@ for f in "$@"; do
 
   # Case-insensitive match of the private location tokens (any casing, including
   # combined forms and adjoining words like the SSID or street variants).
-  if grep -niE "$PATTERN" "$f" >/dev/null 2>&1; then
+  if grep -niE "$PATTERN" "$f" > /dev/null 2>&1; then
     while IFS= read -r line; do
       violations+=("$f:$line")
     done < <(grep -niE "$PATTERN" "$f")

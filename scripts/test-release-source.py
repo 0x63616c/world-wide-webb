@@ -1,4 +1,5 @@
 """Exercise stale-publisher decisions against real committed trees."""
+
 import importlib.util
 import json
 from pathlib import Path
@@ -24,7 +25,10 @@ class SourceTest(unittest.TestCase):
         self.git("config", "commit.gpgsign", "false")
         self.write("scripts/affected", (ROOT / "scripts/affected").read_text())
         (self.root / "scripts/affected").chmod(0o755)
-        self.write("apps/tendr/app.yml", "testflight: true\napp_store_automatic: true\nuses: [RDesign]\npaths: ['shared/tendr/**']\n")
+        self.write(
+            "apps/tendr/app.yml",
+            "testflight: true\napp_store_automatic: true\nuses: [RDesign]\npaths: ['shared/tendr/**']\n",
+        )
         self.write("apps/samplr/app.yml", "testflight: true\nuses: []\n")
         self.write("packages/RDesign/view.swift", "// fixture\n")
         self.base = self.commit()
@@ -43,8 +47,13 @@ class SourceTest(unittest.TestCase):
         return self.git("rev-parse", "HEAD")
 
     def test_app_dependency_extra_path_and_listing_supersede(self):
-        for path in ["apps/tendr/view.swift", "packages/RDesign/view.swift", "shared/tendr/code.swift",
-                     "apps/tendr/fastlane/metadata/en-US/description.txt", "apps/tendr/screenshots.json"]:
+        for path in [
+            "apps/tendr/view.swift",
+            "packages/RDesign/view.swift",
+            "shared/tendr/code.swift",
+            "apps/tendr/fastlane/metadata/en-US/description.txt",
+            "apps/tendr/screenshots.json",
+        ]:
             with self.subTest(path=path):
                 self.write(path)
                 latest = self.commit()
@@ -64,8 +73,11 @@ class SourceTest(unittest.TestCase):
         latest = self.commit()
         self.git("checkout", "-q", self.base)
         self.assertFalse(release.current("tendr", self.base, latest))
-        result = json.loads(subprocess.check_output(
-            [str(self.root / "scripts/affected"), self.base, "--head", latest, "--intent", "ship"], cwd=self.root))
+        result = json.loads(
+            subprocess.check_output(
+                [str(self.root / "scripts/affected"), self.base, "--head", latest, "--intent", "ship"], cwd=self.root
+            )
+        )
         self.assertEqual(["tendr"], result["apps"])
 
     def test_disabled_automatic_delivery_and_abandoned_source_cannot_publish(self):

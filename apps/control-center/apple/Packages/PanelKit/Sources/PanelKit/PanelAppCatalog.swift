@@ -73,9 +73,16 @@ public struct PanelShellState: Sendable, Equatable {
         case app(String)
     }
     public private(set) var screen: Screen = .clock
+    /// A destination covers the launcher; stale app state must not disable it if the destination vanishes visually.
+    public var launcherCanReceiveInput: Bool { screen != .clock }
     public init() {}
     public mutating func showLauncher() { screen = .launcher }
     public mutating func showClock() { screen = .clock }
+    @discardableResult public mutating func appDestinationDisappeared(_ id: String) -> Bool {
+        guard screen == .app(id) else { return false }
+        screen = .launcher
+        return true
+    }
     @discardableResult public mutating func open(_ id: String, catalog: PanelAppCatalog = .standard) -> Bool {
         guard let app = catalog.app(id: id) else { return false }
         screen = app.route == .clock ? .clock : .app(id)

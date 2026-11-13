@@ -1,5 +1,5 @@
 name: Tendr CI
-'on':
+"on":
   workflow_call: {}
 permissions:
   contents: read
@@ -15,97 +15,97 @@ jobs:
       tooling: ${{ steps.detect.outputs.tooling }}
       backends: ${{ steps.backends.outputs.apps }}
     steps:
-    - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
-      with:
-        fetch-depth: 0
-        filter: blob:none
-    - id: detect
-      uses: ./.github/actions/affected
-      with:
-        base: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
-        intent: verify
-        only: standard_ios
-    - id: backends
-      env:
-        APPS: ${{ steps.detect.outputs.apps }}
-      run: echo "apps=$(python3 scripts/check-app-backends.py --apps "$APPS" --list)" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          fetch-depth: 0
+          filter: blob:none
+      - id: detect
+        uses: ./.github/actions/affected
+        with:
+          base: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+          intent: verify
+          only: standard_ios
+      - id: backends
+        env:
+          APPS: ${{ steps.detect.outputs.apps }}
+        run: echo "apps=$(python3 scripts/check-app-backends.py --apps "$APPS" --list)" >> "$GITHUB_OUTPUT"
   backends:
     needs: changes
     if: needs.changes.outputs.backends != '[]' || needs.changes.outputs.template == 'true'
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 10
     steps:
-    - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
-    - uses: ./.github/actions/archive-tools
-    - uses: actions/setup-node@v4
-      with:
-        node-version: 26.13.0
-    - uses: oven-sh/setup-bun@v2
-      with:
-        bun-version: 1.4.4
-    - name: Verify selected Cloudflare backends and generated template
-      env:
-        APPS: ${{ needs.changes.outputs.backends }}
-        TEMPLATE: ${{ needs.changes.outputs.template }}
-        WRANGLER_SEND_METRICS: 'false'
-      run: |
-        args=(--apps "$APPS")
-        if [ "$TEMPLATE" = true ]; then args+=(--template); fi
-        python3 scripts/check-app-backends.py "${args[@]}"
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - uses: ./.github/actions/archive-tools
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26.13.0
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+      - name: Verify selected Cloudflare backends and generated template
+        env:
+          APPS: ${{ needs.changes.outputs.backends }}
+          TEMPLATE: ${{ needs.changes.outputs.template }}
+          WRANGLER_SEND_METRICS: "false"
+        run: |
+          args=(--apps "$APPS")
+          if [ "$TEMPLATE" = true ]; then args+=(--template); fi
+          python3 scripts/check-app-backends.py "${args[@]}"
   tooling:
     needs: changes
     if: needs.changes.outputs.tooling == 'true'
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 10
     steps:
-    - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
-    - uses: ./.github/actions/ruby-tools
-    - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
-      with:
-        python-version: 3.15.2
-    - name: Validate app configuration
-      run: ruby scripts/app-config.rb --list
-    - name: Release lane checks (no Apple access)
-      run: |
-        ruby scripts/check-release.rb
-        ruby scripts/test-review-products.rb
-        ruby scripts/test-release-pipeline.rb
-        ruby scripts/test-pending-release.rb
-        ruby scripts/test-storefront-status.rb
-    - name: Install impact resolver dependencies
-      run: python3 -m pip install -r scripts/requirements.txt
-    - name: Scoped container credential handoff
-      run: python3 .github/actions/ghcr-login/test_login.py
-    - name: Path filter regression checks
-      run: |
-        python3 scripts/test-changed-apps.py
-        python3 -m unittest discover -s scripts/ci -p 'test_*.py'
-        python3 scripts/test-release-source.py
-    - name: Private prebuilt distribution checks
-      run: python3 -m unittest discover -s scripts/distribution
-    - name: Duo capture and Xcode selection checks
-      run: python3 scripts/test-duo-screenshots.py
-    - name: Install screenshot export dependencies
-      run: python3 -m pip install -r scripts/requirements-screenshots.txt
-    - name: Release target, Duo export and submission checks
-      run: python3 scripts/test-release.py
-    - name: ASC retirement guard checks
-      run: python3 scripts/test-asc-retire.py
-    - name: Site publication retention checks
-      run: python3 scripts/test-publish-site.py
-    - uses: actions/setup-go@v5
-      with:
-        go-version: '1.24'
-    - name: Actionlint
-      run: |
-        go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
-        "$(go env GOPATH)/bin/actionlint"
-    - name: Shell scripts
-      run: |
-        command -v shellcheck >/dev/null || { sudo apt-get update && sudo apt-get install -y shellcheck; }
-        shopt -s nullglob
-        scripts=(scripts/*.sh apps/*/scripts/*.sh)
-        shellcheck "${scripts[@]}"
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - uses: ./.github/actions/ruby-tools
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: 3.15.2
+      - name: Validate app configuration
+        run: ruby scripts/app-config.rb --list
+      - name: Release lane checks (no Apple access)
+        run: |
+          ruby scripts/check-release.rb
+          ruby scripts/test-review-products.rb
+          ruby scripts/test-release-pipeline.rb
+          ruby scripts/test-pending-release.rb
+          ruby scripts/test-storefront-status.rb
+      - name: Install impact resolver dependencies
+        run: python3 -m pip install -r scripts/requirements.txt
+      - name: Scoped container credential handoff
+        run: python3 .github/actions/ghcr-login/test_login.py
+      - name: Path filter regression checks
+        run: |
+          python3 scripts/test-changed-apps.py
+          python3 -m unittest discover -s scripts/ci -p 'test_*.py'
+          python3 scripts/test-release-source.py
+      - name: Private prebuilt distribution checks
+        run: python3 -m unittest discover -s scripts/distribution
+      - name: Duo capture and Xcode selection checks
+        run: python3 scripts/test-duo-screenshots.py
+      - name: Install screenshot export dependencies
+        run: python3 -m pip install -r scripts/requirements-screenshots.txt
+      - name: Release target, Duo export and submission checks
+        run: python3 scripts/test-release.py
+      - name: ASC retirement guard checks
+        run: python3 scripts/test-asc-retire.py
+      - name: Site publication retention checks
+        run: python3 scripts/test-publish-site.py
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+      - name: Actionlint
+        run: |
+          go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
+          "$(go env GOPATH)/bin/actionlint"
+      - name: Shell scripts
+        run: |
+          command -v shellcheck >/dev/null || { sudo apt-get update && sudo apt-get install -y shellcheck; }
+          shopt -s nullglob
+          scripts=(scripts/*.sh apps/*/scripts/*.sh)
+          shellcheck "${scripts[@]}"
   rdesign:
     needs: changes
     if: needs.changes.outputs.rdesign == 'true'
@@ -114,11 +114,11 @@ jobs:
     env:
       DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
     steps:
-    - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
-    - name: RDesign tests (macOS)
-      run: swift test --package-path apps/tendr/Packages/RDesign
-    - name: rframe builds
-      run: swift build --package-path apps/tendr/Packages/RDesign -c release --product rframe
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - name: RDesign tests (macOS)
+        run: swift test --package-path apps/tendr/Packages/RDesign
+      - name: rframe builds
+        run: swift build --package-path apps/tendr/Packages/RDesign -c release --product rframe
   app:
     needs: changes
     if: needs.changes.outputs.apps != '[]'
@@ -132,32 +132,32 @@ jobs:
       DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
       APP: ${{ matrix.app }}
     steps:
-    - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
-    - name: Select app toolchain
-      run: |
-        if dir=$(ruby scripts/app-config.rb "$APP" developer_dir 2>/dev/null); then
-          echo "DEVELOPER_DIR=$dir" >> "$GITHUB_ENV"
-        fi
-    - name: Core tests
-      run: |
-        if [[ "$(ruby scripts/app-config.rb "$APP" swift_package 2>/dev/null)" == "true" ]]; then
-          swift test --package-path "apps/$APP"
-        else
-          echo "$APP has no Swift package tests"
-        fi
-    - name: Project is generated from project.yml
-      run: |
-        brew list xcodegen >/dev/null 2>&1 || brew install xcodegen
-        if [[ -f "apps/$APP/project.yml" ]]; then (cd "apps/$APP" && xcodegen generate --quiet); fi
-        if ! git diff --quiet -- "apps/$APP"; then
-          git diff --stat -- "apps/$APP"
-          echo "::warning::apps/$APP's Xcode project differs from project.yml; run 'xcodegen generate' in apps/$APP and commit"
-        fi
-    - name: Build for the simulator
-      timeout-minutes: 20
-      run: |
-        xcodebuild -project "$(ruby scripts/app-config.rb "$APP" project_path)" -scheme "$(ruby scripts/app-config.rb "$APP" scheme)" \
-          -destination 'generic/platform=iOS Simulator' -sdk iphonesimulator -configuration Debug CODE_SIGNING_ALLOWED=NO build -quiet
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - name: Select app toolchain
+        run: |
+          if dir=$(ruby scripts/app-config.rb "$APP" developer_dir 2>/dev/null); then
+            echo "DEVELOPER_DIR=$dir" >> "$GITHUB_ENV"
+          fi
+      - name: Core tests
+        run: |
+          if [[ "$(ruby scripts/app-config.rb "$APP" swift_package 2>/dev/null)" == "true" ]]; then
+            swift test --package-path "apps/$APP"
+          else
+            echo "$APP has no Swift package tests"
+          fi
+      - name: Project is generated from project.yml
+        run: |
+          brew list xcodegen >/dev/null 2>&1 || brew install xcodegen
+          if [[ -f "apps/$APP/project.yml" ]]; then (cd "apps/$APP" && xcodegen generate --quiet); fi
+          if ! git diff --quiet -- "apps/$APP"; then
+            git diff --stat -- "apps/$APP"
+            echo "::warning::apps/$APP's Xcode project differs from project.yml; run 'xcodegen generate' in apps/$APP and commit"
+          fi
+      - name: Build for the simulator
+        timeout-minutes: 20
+        run: |
+          xcodebuild -project "$(ruby scripts/app-config.rb "$APP" project_path)" -scheme "$(ruby scripts/app-config.rb "$APP" scheme)" \
+            -destination 'generic/platform=iOS Simulator' -sdk iphonesimulator -configuration Debug CODE_SIGNING_ALLOWED=NO build -quiet
   template:
     needs: changes
     if: needs.changes.outputs.template == 'true'
@@ -166,43 +166,44 @@ jobs:
     env:
       DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
     steps:
-    - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
-    - name: Scaffold a throwaway app from templates/new-app
-      run: |
-        brew list xcodegen >/dev/null 2>&1 || brew install xcodegen
-        scripts/new-app.sh Samplr samplr
-    - name: Build it for the simulator
-      timeout-minutes: 20
-      run: xcodebuild -project apps/samplr/Samplr.xcodeproj -scheme Samplr -destination 'generic/platform=iOS Simulator' -sdk
-        iphonesimulator -configuration Debug CODE_SIGNING_ALLOWED=NO build -quiet
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - name: Scaffold a throwaway app from templates/new-app
+        run: |
+          brew list xcodegen >/dev/null 2>&1 || brew install xcodegen
+          scripts/new-app.sh Samplr samplr
+      - name: Build it for the simulator
+        timeout-minutes: 20
+        run:
+          xcodebuild -project apps/samplr/Samplr.xcodeproj -scheme Samplr -destination 'generic/platform=iOS Simulator' -sdk
+          iphonesimulator -configuration Debug CODE_SIGNING_ALLOWED=NO build -quiet
   gate:
     name: Standard iOS checks
     if: always() && !cancelled()
     needs:
-    - changes
-    - tooling
-    - rdesign
-    - app
-    - template
-    - backends
+      - changes
+      - tooling
+      - rdesign
+      - app
+      - template
+      - backends
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 5
     steps:
-    - env:
-        RESULTS: ${{ toJSON(needs) }}
-      run: |
-        python3 - <<'PYTHON'
-        import json, os
-        results = json.loads(os.environ['RESULTS'])
-        assert results['changes']['result'] == 'success', 'App selection failed'
-        selection = results['changes']['outputs']
-        for job, selected in (
-            ('tooling', selection['tooling'] == 'true'),
-            ('backends', bool(json.loads(selection['backends'])) or selection['template'] == 'true'),
-            ('rdesign', selection['rdesign'] == 'true'),
-            ('template', selection['template'] == 'true'),
-            ('app', bool(json.loads(selection['apps']))),
-        ):
-            expected = 'success' if selected else 'skipped'
-            assert results[job]['result'] == expected, f'{job}: expected {expected}'
-        PYTHON
+      - env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          python3 - <<'PYTHON'
+          import json, os
+          results = json.loads(os.environ['RESULTS'])
+          assert results['changes']['result'] == 'success', 'App selection failed'
+          selection = results['changes']['outputs']
+          for job, selected in (
+              ('tooling', selection['tooling'] == 'true'),
+              ('backends', bool(json.loads(selection['backends'])) or selection['template'] == 'true'),
+              ('rdesign', selection['rdesign'] == 'true'),
+              ('template', selection['template'] == 'true'),
+              ('app', bool(json.loads(selection['apps']))),
+          ):
+              expected = 'success' if selected else 'skipped'
+              assert results[job]['result'] == expected, f'{job}: expected {expected}'
+          PYTHON

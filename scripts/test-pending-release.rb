@@ -8,7 +8,15 @@ class PendingReleaseTest < Minitest::Test
 
   class Apple
     attr_reader :writes
-    attr_accessor :state, :version_state, :item_state, :source, :extra, :advance_on_last_read, :complete_cancel, :purchase_state, :cancel_error
+    attr_accessor :state,
+                  :version_state,
+                  :item_state,
+                  :source,
+                  :extra,
+                  :advance_on_last_read,
+                  :complete_cancel,
+                  :purchase_state,
+                  :cancel_error
     def initialize
       @state = @version_state = "WAITING_FOR_REVIEW"
       @item_state = "READY_FOR_REVIEW"
@@ -20,22 +28,32 @@ class PendingReleaseTest < Minitest::Test
     end
 
     def get(path)
-      data = case path
-             when /reviewSubmissions\?/ then [review]
-             when "v1/reviewSubmissions/review"
-               @reads += 1
-               @state = "IN_REVIEW" if @advance_on_last_read && @reads >= 2
-               review
-             when /\/items\?/
-               items = [item("appStoreVersion", "appStoreVersions", "version"), item("inAppPurchaseVersion", "inAppPurchaseVersions", "tip")]
-               items << item("appEvent", "appEvents", "event") if @extra
-               items
-             when "v1/appStoreVersions/version" then version
-             when "v1/appStoreVersions/version/build" then { "id" => "build" }
-             when "v1/inAppPurchaseVersions/tip" then { "attributes" => { "state" => @purchase_state } }
-             when /betaBuildLocalizations/ then [{ "attributes" => { "whatsNew" => "Build from main (#{@source})" } }]
-             else raise path
-             end
+      data =
+        case path
+        when /reviewSubmissions\?/
+          [review]
+        when "v1/reviewSubmissions/review"
+          @reads += 1
+          @state = "IN_REVIEW" if @advance_on_last_read && @reads >= 2
+          review
+        when %r{/items\?}
+          items = [
+            item("appStoreVersion", "appStoreVersions", "version"),
+            item("inAppPurchaseVersion", "inAppPurchaseVersions", "tip")
+          ]
+          items << item("appEvent", "appEvents", "event") if @extra
+          items
+        when "v1/appStoreVersions/version"
+          version
+        when "v1/appStoreVersions/version/build"
+          { "id" => "build" }
+        when "v1/inAppPurchaseVersions/tip"
+          { "attributes" => { "state" => @purchase_state } }
+        when /betaBuildLocalizations/
+          [{ "attributes" => { "whatsNew" => "Build from main (#{@source})" } }]
+        else
+          raise path
+        end
       OpenStruct.new(body: { "data" => data })
     end
 
@@ -44,11 +62,30 @@ class PendingReleaseTest < Minitest::Test
     end
 
     def version
-      { "id" => "version", "attributes" => { "appVersionState" => @version_state, "versionString" => "1.1.1" } }
+      {
+        "id" => "version",
+        "attributes" => {
+          "appVersionState" => @version_state,
+          "versionString" => "1.1.1"
+        }
+      }
     end
 
     def item(relation, type, id)
-      { "id" => id, "attributes" => { "state" => @item_state }, "relationships" => { relation => { "data" => { "type" => type, "id" => id } } } }
+      {
+        "id" => id,
+        "attributes" => {
+          "state" => @item_state
+        },
+        "relationships" => {
+          relation => {
+            "data" => {
+              "type" => type,
+              "id" => id
+            }
+          }
+        }
+      }
     end
 
     def patch(path, body)
@@ -69,17 +106,24 @@ class PendingReleaseTest < Minitest::Test
 
   def setup
     @api = Apple.new
-    @coordinator = PendingRelease.new(@api, "app", NEW, ancestor: ->(a, b) { a == OLD && b == NEW }, sleeper: ->(_) {})
+    @coordinator =
+      PendingRelease.new(
+        @api,
+        "app",
+        NEW,
+        ancestor: ->(a, b) { a == OLD && b == NEW },
+        sleeper: ->(_) {}
+      )
   end
 
   def test_planning_reuses_waiting_version_without_cancellation
-    assert_equal ["1.1.1", "version"], @coordinator.plan([@api.version], "1.1.0")
+    assert_equal %w[1.1.1 version], @coordinator.plan([@api.version], "1.1.0")
     assert_empty @api.writes
   end
 
   def test_replacement_preserves_joint_purchase_targets_and_waits_for_editability
     required = @coordinator.replace!("1.1.1")
-    assert_includes required, ["inAppPurchaseVersion", "inAppPurchaseVersions", "tip"]
+    assert_includes required, %w[inAppPurchaseVersion inAppPurchaseVersions tip]
     assert_equal 1, @api.writes.length
     assert_equal({ canceled: true }, @api.writes.first.last[:data][:attributes])
     assert_equal "DEVELOPER_REJECTED", @api.version_state
@@ -87,17 +131,25 @@ class PendingReleaseTest < Minitest::Test
 
   def test_same_source_does_not_restart_review
     @api.source = NEW
-    assert_raises(ReleasePipeline::AlreadySubmitted) { @coordinator.plan([@api.version], "1.1.0") }
-    assert_raises(ReleasePipeline::AlreadySubmitted) { @coordinator.replace!("1.1.1") }
+    assert_raises(ReleasePipeline::AlreadySubmitted) do
+      @coordinator.plan([@api.version], "1.1.0")
+    end
+    assert_raises(ReleasePipeline::AlreadySubmitted) do
+      @coordinator.replace!("1.1.1")
+    end
     assert_empty @api.writes
     @api.version_state = @api.state = "IN_REVIEW"
-    assert_raises(ReleasePipeline::AlreadySubmitted) { @coordinator.plan([@api.version], "1.1.0") }
+    assert_raises(ReleasePipeline::AlreadySubmitted) do
+      @coordinator.plan([@api.version], "1.1.0")
+    end
   end
 
   def test_untracked_or_newer_submission_is_never_withdrawn
     [nil, "untracked", "c" * 40].each do |source|
       @api.source = source
-      assert_raises(ReleasePipeline::Deferred) { @coordinator.replace!("1.1.1") }
+      assert_raises(ReleasePipeline::Deferred) do
+        @coordinator.replace!("1.1.1")
+      end
     end
     assert_empty @api.writes
   end
@@ -105,7 +157,9 @@ class PendingReleaseTest < Minitest::Test
   def test_actual_review_and_later_states_are_preserved
     %w[IN_REVIEW CANCELING COMPLETING NEW_APPLE_STATE].each do |state|
       @api.state = state
-      assert_raises(ReleasePipeline::Deferred) { @coordinator.plan([@api.version], "1.1.0") }
+      assert_raises(ReleasePipeline::Deferred) do
+        @coordinator.plan([@api.version], "1.1.0")
+      end
     end
     assert_empty @api.writes
   end
@@ -130,7 +184,10 @@ class PendingReleaseTest < Minitest::Test
     assert_raises(ReleasePipeline::Deferred) { @coordinator.replace!("1.1.1") }
     @api.purchase_state = "WAITING_FOR_REVIEW"
     assert_raises(ReleasePipeline::Superseded) do
-      @coordinator.replace!("1.1.1", before_cancel: -> { raise ReleasePipeline::Superseded })
+      @coordinator.replace!(
+        "1.1.1",
+        before_cancel: -> { raise ReleasePipeline::Superseded }
+      )
     end
     assert_empty @api.writes
   end

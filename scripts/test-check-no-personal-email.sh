@@ -13,7 +13,7 @@ TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
 sha256_hex() {
-  if command -v shasum >/dev/null 2>&1; then
+  if command -v shasum > /dev/null 2>&1; then
     printf '%s' "$1" | shasum -a 256 | awk '{print $1}'
   else
     printf '%s' "$1" | sha256sum | awk '{print $1}'
@@ -28,11 +28,14 @@ export PERSONAL_EMAIL_SHA256_EXTRA="$TEST_DIGEST"
 
 fails=0
 pass() { printf '  ✓ %s\n' "$1"; }
-fail() { printf '  ✗ %s\n' "$1"; fails=$((fails + 1)); }
+fail() {
+  printf '  ✗ %s\n' "$1"
+  fails=$((fails + 1))
+}
 
 # 1. Blocks a file containing the (disposable) target email.
-printf 'contact: %s\n' "$TEST_EMAIL" >"$TMP/bad.txt"
-if bash "$GUARD" "$TMP/bad.txt" >"$TMP/out" 2>&1; then
+printf 'contact: %s\n' "$TEST_EMAIL" > "$TMP/bad.txt"
+if bash "$GUARD" "$TMP/bad.txt" > "$TMP/out" 2>&1; then
   fail "should BLOCK a file containing the target email"
 else
   pass "blocks a file containing the target email"
@@ -46,32 +49,32 @@ else
 fi
 
 # 3. Blocks case-insensitively (uppercased domain/local).
-printf 'CONTACT: %s\n' "TEST.USER@EXAMPLE.COM" >"$TMP/upper.txt"
-if bash "$GUARD" "$TMP/upper.txt" >/dev/null 2>&1; then
+printf 'CONTACT: %s\n' "TEST.USER@EXAMPLE.COM" > "$TMP/upper.txt"
+if bash "$GUARD" "$TMP/upper.txt" > /dev/null 2>&1; then
   fail "should BLOCK case-variant of the target email"
 else
   pass "blocks case-insensitively"
 fi
 
 # 4. Blocks when the email is embedded mid-string.
-printf 'mailto:%s?subject=hi\n' "$TEST_EMAIL" >"$TMP/embed.txt"
-if bash "$GUARD" "$TMP/embed.txt" >/dev/null 2>&1; then
+printf 'mailto:%s?subject=hi\n' "$TEST_EMAIL" > "$TMP/embed.txt"
+if bash "$GUARD" "$TMP/embed.txt" > /dev/null 2>&1; then
   fail "should BLOCK an embedded email"
 else
   pass "blocks an embedded email"
 fi
 
 # 5. Passes on the GitHub noreply identity (the sanctioned commit address).
-printf 'author: 6991398+0x63616c@users.noreply.github.com\n' >"$TMP/ok.txt"
-if bash "$GUARD" "$TMP/ok.txt" >/dev/null 2>&1; then
+printf 'author: 6991398+0x63616c@users.noreply.github.com\n' > "$TMP/ok.txt"
+if bash "$GUARD" "$TMP/ok.txt" > /dev/null 2>&1; then
   pass "passes on the noreply identity"
 else
   fail "should PASS on the noreply identity"
 fi
 
 # 6. Passes on a clean file with no email at all.
-printf 'just some code, no contact here\n' >"$TMP/clean.txt"
-if bash "$GUARD" "$TMP/clean.txt" >/dev/null 2>&1; then
+printf 'just some code, no contact here\n' > "$TMP/clean.txt"
+if bash "$GUARD" "$TMP/clean.txt" > /dev/null 2>&1; then
   pass "passes on a clean file"
 else
   fail "should PASS on a clean file"

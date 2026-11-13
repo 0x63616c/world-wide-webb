@@ -1,7 +1,6 @@
 import FoldingData
 import FoldingDomain
 import Foundation
-import WidgetKit
 
 /// Private tracking uses an account-fenced App Group journal. Development storage
 /// is compiled only for the unconfigured Debug simulator composition.
@@ -105,7 +104,6 @@ actor TrackingRuntime {
     captureReplay?.task.cancel()
     captureReplay = nil
     journal = nil
-    clearWidgets()
     try await cloudConnection?.invalidate()
     await DailyLimitDelivery.shared.cancelAll()
     try await cancelExports()
@@ -135,7 +133,6 @@ actor TrackingRuntime {
       await uploadCompetition()
       await configureDailyLimit()
       if let journal { await DailyLimitDelivery.shared.deliver(from: journal) }
-      await publishWidgets()
       changed()
     } catch {
       if revision == accountRevision {
@@ -304,8 +301,7 @@ actor TrackingRuntime {
       await DailyLimitDelivery.shared.deliver(from: current)
       await scheduleCompetitionUpload(from: current)
       // Upload and iCloud outboxes were committed with each event. Existing workers
-      // retry those independently; widgets remain best effort as specified.
-      await publishWidgets(using: current)
+      // retry those independently.
       changed()
     }
   }
@@ -319,7 +315,6 @@ actor TrackingRuntime {
 
   func setup(_ action: SetupAction) async throws -> SetupProgress {
     let result = try await store().advanceSetup(action, nowMS: Self.nowMS)
-    await publishWidgets()
     changed()
     return result
   }
@@ -332,7 +327,6 @@ actor TrackingRuntime {
   }
 
   func trackingPhoneChanged() async {
-    await publishWidgets()
     changed()
   }
 
@@ -343,8 +337,6 @@ actor TrackingRuntime {
     _ = try await current.reset(nowMS: Self.nowMS)
     await DailyLimitDelivery.shared.cancel(pending)
     await scheduleCompetitionUpload(from: current)
-    clearWidgets()
-    await publishWidgets()
     changed()
   }
 
@@ -441,7 +433,7 @@ actor TrackingRuntime {
     ]
     var events: [TrackingDiagnosticEntry] = []
     do {
-      // A support read must not wait for replay, network, widgets or notification delivery.
+      // A support read must not wait for replay, network or notification delivery.
       let current = try await localCaptureStore()
       let local = try await current.diagnosticSnapshot(nowMS: Self.nowMS)
       fields.merge(local.context) { _, new in new }
@@ -480,58 +472,6 @@ actor TrackingRuntime {
         DailyLimitPreferences(enabled: enabled, threshold: localPreferences().dailyLimit))
       await DailyLimitDelivery.shared.cancel(cancelled)
     } catch {}
-  }
-
-  private func widgetStore() throws -> WidgetSnapshotStore {
-    guard
-      let group = Bundle.main.object(forInfoDictionaryKey: "FoldingAppGroupIdentifier") as? String,
-      !group.isEmpty
-    else { throw WidgetSnapshotError.unavailable }
-    return try WidgetSnapshotStore(groupIdentifier: group)
-  }
-
-  func clearWidgets() {
-    try? widgetStore().clear()
-    WidgetCenter.shared.reloadAllTimelines()
-  }
-
-  func publishWidgets(using suppliedStore: TrackingStore? = nil) async {
-    do {
-      let destination = try widgetStore()
-      let preferences =
-        UserDefaults.standard.data(forKey: "folding.preferences.v1")
-        .flatMap { try? JSONDecoder().decode(FoldingPreferences.self, from: $0) }
-        ?? FoldingPreferences()
-      let store: TrackingStore
-      if let suppliedStore { store = suppliedStore } else { store = try await self.store() }
-      let now = Self.nowMS
-      let range = try PersonalDateRange.trailingDays(
-        7, throughMS: now, homeTimezone: preferences.homeTimezone)
-      let snapshot = try await store.compactAnalytics(
-        homeTimezone: preferences.homeTimezone, asOfMS: now, range: range)
-      let setup = try await store.setupProgress(nowMS: now)
-      guard let today = snapshot.days.last,
-        try await store.currentGeneration() == snapshot.generation
-      else {
-        clearWidgets()
-        return
-      }
-      try destination.write(
-        WidgetTrackingSnapshot(
-          routeID: snapshot.version.journalID,
-          generationRevision: snapshot.generation.revision,
-          generationID: snapshot.generation.resetID,
-          generatedAtMS: now, homeDayEndMS: today.endMS,
-          folds: today.folds, unfoldedMS: today.completeDurationMS + today.runningDurationMS,
-          dailyLimit: preferences.dailyLimit, trend: snapshot.days.map(\.folds),
-          accent: "monochrome", setupComplete: setup.step == .complete))
-      await FoldingDiagnostics.record(store, .widgetSnapshotWritten)
-      WidgetCenter.shared.reloadAllTimelines()
-    } catch {
-      await FoldingDiagnostics.record(suppliedStore ?? journal, .widgetFailed, error: error)
-      // Widget maintenance must never make a committed observation report failure.
-      clearWidgets()
-    }
   }
 
   private func exports() async throws -> TrackingExportService {

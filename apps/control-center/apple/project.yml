@@ -5,14 +5,14 @@ packages:
 options:
   bundleIdPrefix: co.worldwidewebb
   deploymentTarget:
-    iOS: '26.0'
+    iOS: "26.0"
 settings:
   base:
-    SWIFT_VERSION: '6.0'
+    SWIFT_VERSION: "6.0"
     SWIFT_STRICT_CONCURRENCY: complete
     GENERATE_INFOPLIST_FILE: YES
-    MARKETING_VERSION: '0.1.0'
-    CURRENT_PROJECT_VERSION: '1'
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
     CODE_SIGNING_ALLOWED: NO
 targets:
   Panel:
@@ -20,7 +20,16 @@ targets:
     platform: iOS
     sources:
       - path: App
-        excludes: [Platform/Config, Platform/Info.plist, Platform/README.md, Platform/Verification, App.swift, Media, Assets.xcassets]
+        excludes:
+          [
+            Platform/Config,
+            Platform/Info.plist,
+            Platform/README.md,
+            Platform/Verification,
+            App.swift,
+            Media,
+            Assets.xcassets,
+          ]
       - path: Resources
       - path: Packages/PanelKit/Tests/PanelKitTests/Fixtures
         type: folder
@@ -37,7 +46,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: co.worldwidewebb.theworkflowengine
         PRODUCT_MODULE_NAME: Panel
-        TARGETED_DEVICE_FAMILY: '1,2'
+        TARGETED_DEVICE_FAMILY: "1,2"
         GENERATE_INFOPLIST_FILE: NO
         INFOPLIST_FILE: App/Platform/Info.plist
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
@@ -55,7 +64,7 @@ targets:
       base:
         PRODUCT_MODULE_NAME: NextAlarmWidget
         PRODUCT_BUNDLE_IDENTIFIER: co.worldwidewebb.theworkflowengine.NextAlarmWidget
-        TARGETED_DEVICE_FAMILY: '1,2'
+        TARGETED_DEVICE_FAMILY: "1,2"
         GENERATE_INFOPLIST_FILE: NO
         INFOPLIST_FILE: Extensions/NextAlarmWidget/Info.plist
         APPLICATION_EXTENSION_API_ONLY: YES

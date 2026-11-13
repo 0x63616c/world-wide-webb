@@ -55,7 +55,7 @@ public final class PanelCommandLog: @unchecked Sendable {
             error: safeError, latencyMs: max(0, min(latencyMs, 300_000)))
         lock.lock()
         entries.append(entry)
-        if entries.count > 50 { entries.removeFirst(entries.count - 50) }
+        if entries.count > 500 { entries.removeFirst(entries.count - 500) }
         lock.unlock()
         Foundation.NotificationCenter.default.post(name: Self.changedNotification, object: nil)
         if safeError != nil && safeError != "cancelled" {

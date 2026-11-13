@@ -29,16 +29,8 @@
           "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
         }
       },
-      "required": [
-        "revision",
-        "reset_id"
-      ]
+      "required": ["revision", "reset_id"]
     }
   },
-  "required": [
-    "schema_version",
-    "operation_id",
-    "epoch_id",
-    "generation"
-  ]
+  "required": ["schema_version", "operation_id", "epoch_id", "generation"]
 }

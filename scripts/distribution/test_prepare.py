@@ -16,13 +16,23 @@ class ArtifactTransportTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             app = Path(directory) / "Callkeep.app"
             (app / "Contents").mkdir(parents=True)
-            expected = {"CFBundleIdentifier": "co.calum.callkeep", "CallkeepSourceCommit": "a" * 40,
-                        "CFBundleShortVersionString": "1.0.26", "CFBundleVersion": "26", "CallkeepProduction": "YES"}
+            expected = {
+                "CFBundleIdentifier": "co.calum.callkeep",
+                "CallkeepSourceCommit": "a" * 40,
+                "CFBundleShortVersionString": "1.0.26",
+                "CFBundleVersion": "26",
+                "CallkeepProduction": "YES",
+            }
             path = app / "Contents/Info.plist"
             path.write_bytes(plistlib.dumps(expected))
             prepare.validate_callkeep_identity(app, "a" * 40, "1.0.26")
-            for field, value in [("CallkeepSourceCommit", "b" * 40), ("CFBundleShortVersionString", "1.0.25"),
-                                 ("CFBundleVersion", "25"), ("CallkeepProduction", "NO"), ("CFBundleIdentifier", "other")]:
+            for field, value in [
+                ("CallkeepSourceCommit", "b" * 40),
+                ("CFBundleShortVersionString", "1.0.25"),
+                ("CFBundleVersion", "25"),
+                ("CallkeepProduction", "NO"),
+                ("CFBundleIdentifier", "other"),
+            ]:
                 with self.subTest(field=field):
                     path.write_bytes(plistlib.dumps(dict(expected, **{field: value})))
                     with self.assertRaisesRegex(ValueError, "identity"):

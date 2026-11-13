@@ -9,8 +9,14 @@ options=()
 while (($#)); do
   case "$1" in
     --build) intent=ship ;;
-    --only) options+=(--only "${2:?--only needs a key}"); shift ;;
-    *) echo "Unknown option $1" >&2; exit 64 ;;
+    --only)
+      options+=(--only "${2:?--only needs a key}")
+      shift
+      ;;
+    *)
+      echo "Unknown option $1" >&2
+      exit 64
+      ;;
   esac
   shift
 done

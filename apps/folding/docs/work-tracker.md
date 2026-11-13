@@ -4,6 +4,19 @@ Repository consolidation is complete. Active issues belong to `0x63616c/world-wi
 references below to old `folding` issue/PR numbers are historical. That source repository
 was snapshotted into private `github-archive` and deleted by owner request.
 
+## Analytics, setup, and Settings refresh — November 12, 2026
+
+Owner feedback replaces Today with fixed all-time Analytics, removes widgets and result
+sharing from the app, hides historical results while retaining backend records, and
+starts Leaderboard at All Time. Settings groups Appearance (Theme), Tracking
+(Shortcuts status, last event, Run setup again, tracking phone, iCloud), Alerts
+(Notifications), Competition (profile and blocked players), Account (account actions),
+Data (recovery, export, reset), and Support (tip jar, contact, privacy, diagnostics,
+version). Tracking and Data footers explain sync and destructive actions. Setup begins
+at Welcome with a closed Duo, has no Help or Not now control, offers bottom Cancel only for a rerun, and retains receipt-based
+automation tests. Native app compilation, localization, and release-tool checks are
+recorded with the implementing branch; physical Duo acceptance remains deferred.
+
 ## App Store country policy — November 11, 2026
 
 Version 1.0.0 is publicly listed in the US and UK. Apple reported 173 available
@@ -39,7 +52,7 @@ Delegated reviews require an explicit owner request.
 - [x] App Attest enrollment recovery
 - [x] Immediate account-change privacy fencing
 - [x] Typed upload failures, reconciliation and retry policy
-- [x] Widget URL routing through setup
+- [x] Widget URL routing through setup (retired in November 12 UI refresh)
 - [x] Effective notification locale and English fallback
 - [x] Reset raw-history purge
 - [x] Automatic-quarantine approval

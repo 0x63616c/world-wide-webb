@@ -33,7 +33,7 @@ run "native_api_is_not_published" {
 run "tendr_static_site_is_independent" {
   command = plan
   assert {
-    condition = cloudflare_dns_record.tendr.name == "tendr.worldwidewebb.co" && cloudflare_dns_record.tendr.proxied && cloudflare_workers_route.tendr.pattern == "tendr.worldwidewebb.co/*" && cloudflare_workers_route.tendr.script == "tendr-web-production"
+    condition     = cloudflare_dns_record.tendr.name == "tendr.worldwidewebb.co" && cloudflare_dns_record.tendr.proxied && cloudflare_workers_route.tendr.pattern == "tendr.worldwidewebb.co/*" && cloudflare_workers_route.tendr.script == "tendr-web-production"
     error_message = "Tendr must route only its canonical hostname to its static Worker."
   }
 }

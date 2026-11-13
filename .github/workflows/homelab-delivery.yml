@@ -1,14 +1,14 @@
 name: Homelab delivery
-'on':
+"on":
   workflow_run:
     workflows:
-    - CI
+      - CI
     types:
-    - completed
+      - completed
     branches:
-    - main
+      - main
   schedule:
-  - cron: 17,47 * * * *
+    - cron: 17,47 * * * *
   workflow_dispatch:
     inputs:
       source:
@@ -22,7 +22,7 @@ name: Homelab delivery
       attempt:
         description: Exact successful CI attempt
         required: true
-        default: '1'
+        default: "1"
         type: string
       reconcile:
         description: Explicitly reconcile this checked host source
@@ -45,13 +45,13 @@ jobs:
       contents: write
       actions: read
     steps:
-    - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
-      with:
-        ref: main
-        fetch-depth: 0
-        filter: blob:none
-        persist-credentials: true
-    - uses: ./.github/actions/github-cli
-    - env:
-        GH_TOKEN: ${{ github.token }}
-      run: python3 scripts/homelab/deliver.py
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          ref: main
+          fetch-depth: 0
+          filter: blob:none
+          persist-credentials: true
+      - uses: ./.github/actions/github-cli
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/homelab/deliver.py

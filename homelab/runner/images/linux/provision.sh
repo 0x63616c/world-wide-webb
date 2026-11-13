@@ -26,9 +26,9 @@ sudo install -d -m 0755 /usr/local/libexec
 sudo install -m 0555 /home/admin/runner-source/target/release/homelab-runner-guest /usr/local/libexec/homelab-runner-guest
 # Explicit public DNS is required because production Softnet blocks gateway DNS.
 sudo mkdir -p /etc/systemd/resolved.conf.d
-printf '[Resolve]\nDNS=1.1.1.1 9.9.9.9\nFallbackDNS=\nDomains=~.\n' | sudo tee /etc/systemd/resolved.conf.d/homelab-public.conf >/dev/null
+printf '[Resolve]\nDNS=1.1.1.1 9.9.9.9\nFallbackDNS=\nDomains=~.\n' | sudo tee /etc/systemd/resolved.conf.d/homelab-public.conf > /dev/null
 # Ubuntu cloud images use netplan; disable DHCP-provided DNS on the VM interface.
-sudo python3 - <<'PY'
+sudo python3 - << 'PY'
 import glob
 import yaml
 for name in glob.glob('/etc/netplan/*.yaml'):

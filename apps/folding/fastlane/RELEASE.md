@@ -16,6 +16,8 @@ keep remaining product acceptance deferrals distinct from the live delivery path
 - `FOLDING_WORKFLOW_RUN_URL`: durable run identity for the reservation.
 - `FOLDING_COPYRIGHT`: actual operator/copyright owner, supplied before sealing release assets.
 - `FOLDING_TESTFLIGHT_GROUPS`: explicit comma-separated internal group names.
+
+The `beta` stage enables screenshot feedback for every configured TestFlight group in App Store Connect and confirms readback before recording distribution. The setting belongs to the group, not the app binary.
 - Review contact environment names are in `release-config.json`. Contact details are sent to Apple, never inserted into a public listing.
 
 `reserve` requires a clean committed checkout on trusted main history and authenticated draft artifact storage. Drafts must remain unpublished even after Apple releases the app; publishing a GitHub release would expose its artifacts in a public repository. Globally serialize all distribution workflows using `folding-release`, with cancellation disabled. The central immutable draft-release reservation ledger also rejects concurrent revision writes. Allocation is above both registered apps' Apple maximum and every prior ledger reservation. The same commit/version/configuration key belongs to one release tag; retries reuse that record. A different binary needs a new reservation and build number, never an overwritten IPA.

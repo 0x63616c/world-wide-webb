@@ -29,9 +29,5 @@
       "uniqueItems": true
     }
   },
-  "required": [
-    "operation_id",
-    "event_ids",
-    "epoch_ids"
-  ]
+  "required": ["operation_id", "event_ids", "epoch_ids"]
 }

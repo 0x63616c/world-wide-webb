@@ -15,7 +15,7 @@ out=${2:-build/snapshots/$app}
 derived=build/snapshots-derived/$app
 
 if [[ -f "apps/$app/project.yml" ]]; then
-  command -v xcodegen >/dev/null || brew install xcodegen
+  command -v xcodegen > /dev/null || brew install xcodegen
   (cd "apps/$app" && xcodegen generate --quiet)
 fi
 

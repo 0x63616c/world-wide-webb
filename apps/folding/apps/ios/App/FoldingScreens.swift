@@ -21,12 +21,12 @@ struct FoldingRootView: View {
       } else {
         TabView(selection: $model.selectedTab) {
           Tab(
-            String(localized: "tab.today", defaultValue: "Today"), systemImage: "chart.bar",
+            String(localized: "tab.analytics", defaultValue: "Analytics"), systemImage: "chart.bar",
             value: .today
           ) {
             NavigationStack {
               TodayScreen(model: model, actions: actions)
-                .navigationTitle(String(localized: "tab.today", defaultValue: "Today"))
+                .navigationTitle(String(localized: "tab.analytics", defaultValue: "Analytics"))
             }
           }
           Tab(
@@ -62,8 +62,10 @@ struct FoldingRootView: View {
                           data: model.competitionProfile?.approvedAvatarData,
                           url: model.competitionProfile?.approvedAvatarURL
                         )
-                        .frame(width: 32, height: 32).clipShape(Circle())
+                        .frame(width: 36, height: 36).clipShape(Circle())
+                        .contentShape(Circle())
                       }
+                      .buttonStyle(.plain)
                       .accessibilityLabel(
                         String(localized: "profile.title", defaultValue: "Profile"))
                     }
@@ -141,7 +143,6 @@ struct FoldingRootView: View {
             }
           }
       }
-    case .editSummary: SummaryEditor(model: model, actions: actions)
     case .patterns: PatternsScreen(model: model, actions: actions)
     case .tiedRank(let rank):
       NavigationStack {
@@ -226,42 +227,19 @@ private struct TodayScreen: View {
             Label(status, systemImage: "arrow.triangle.2.circlepath").font(.subheadline)
               .foregroundStyle(.secondary)
           }
-          if let today {
-            ForEach(Array(metricRows(width: geometry.size.width).enumerated()), id: \.offset) {
-              _, row in
+          if let today, let snapshot = model.analytics {
+            if SummaryCardLayout.usesWideRows(
+              width: geometry.size.width, accessibilitySize: dynamicTypeSize.isAccessibilitySize)
+            {
               HStack(alignment: .top, spacing: 12) {
-                ForEach(row) { metric in
-                  SummaryCard {
-                    metricView(metric, today: today)
-                  }
-                  .draggable(metric.rawValue)
-                  .dropDestination(for: String.self) { values, _ in
-                    guard let raw = values.first, let moved = SummaryMetric(rawValue: raw),
-                      model.preferences.orderedCards.contains(moved), moved != metric
-                    else { return false }
-                    var next = model.preferences
-                    next.moveCard(moved, to: metric)
-                    let saved = next
-                    Task {
-                      await model.command(
-                        String(localized: "settings.saving", defaultValue: "Saving")
-                      ) {
-                        try await actions.savePreferences(saved)
-                      }
-                    }
-                    return true
-                  }
-                  .contextMenu {
-                    Button(String(localized: "today.editSummary", defaultValue: "Edit Summary")) {
-                      model.present(.editSummary)
-                    }
-                  }
-
-                }
-                if usesWideRows(width: geometry.size.width), row.count == 1 {
-                  Color.clear.frame(maxWidth: .infinity).accessibilityHidden(true)
-                }
+                SummaryCard { trendChart(snapshot, height: 288) }
+                  .frame(maxWidth: .infinity)
+                metricsGrid(snapshot: snapshot, today: today)
+                  .frame(maxWidth: .infinity)
               }
+            } else {
+              SummaryCard { trendChart(snapshot, height: 180) }
+              metricsGrid(snapshot: snapshot, today: today)
             }
           } else if model.personalFailure != nil {
             ContentUnavailableView(
@@ -277,121 +255,90 @@ private struct TodayScreen: View {
       }
     }
     .background(FoldingSurface.background)
-    .refreshable {
-      await model.command(String(localized: "action.refreshing", defaultValue: "Refreshing")) {
-        try await actions.refresh()
+
+  }
+
+  private func metricsGrid(
+    snapshot: PersonalAnalyticsSnapshot, today: PersonalDailySummary
+  ) -> some View {
+    LazyVGrid(
+      columns: dynamicTypeSize.isAccessibilitySize
+        ? [GridItem(.flexible())] : [GridItem(.flexible()), GridItem(.flexible())],
+      spacing: 12
+    ) {
+      SummaryCard {
+        MetricRow(
+          title: String(localized: "metric.lifetimeFolds", defaultValue: "All-time folds"),
+          value: snapshot.lifetime.folds.formatted())
       }
-    }
-  }
-
-  private func usesWideRows(width: CGFloat) -> Bool {
-    SummaryCardLayout.usesWideRows(
-      width: width, accessibilitySize: dynamicTypeSize.isAccessibilitySize)
-  }
-
-  private func metricRows(width: CGFloat) -> [[SummaryMetric]] {
-    SummaryCardLayout.rows(
-      model.preferences.orderedCards.filter {
-        $0 != .competitionComparison || model.competitionJoined
-      },
-      width: width, accessibilitySize: dynamicTypeSize.isAccessibilitySize)
-  }
-
-  @ViewBuilder private func metricView(_ metric: SummaryMetric, today: PersonalDailySummary)
-    -> some View
-  {
-    switch metric {
-    case .competitionComparison:
-      if model.competitionJoined {
-        Button {
-          model.selectedTab = .leaderboard
-        } label: {
-          VStack(alignment: .leading, spacing: 8) {
-            HStack {
-              Text(metric.title).font(.subheadline).foregroundStyle(.secondary)
-              Spacer()
-              if let board = model.competition.previous {
-                Text(board.periodTitle).font(.caption).foregroundStyle(.secondary)
-              }
-            }
-            if let entry = model.competition.previous?.currentUser {
-              HStack {
-                Label(entry.rank.formatted(), systemImage: "trophy")
-                  .font(.title2.weight(.semibold)).monospacedDigit()
-                  .accessibilityLabel(String(localized: "results.place", defaultValue: "Place"))
-                  .accessibilityValue(entry.rank.formatted())
-                Spacer()
-                MetricRow(
-                  title: String(localized: "metric.folds", defaultValue: "Folds"),
-                  value: entry.folds.formatted())
-              }
-            } else {
-              Image(systemName: "chevron.right").frame(minHeight: 44)
-            }
-          }.contentShape(Rectangle())
-        }.buttonStyle(.plain)
-      }
-
-    case .timeUnfolded:
-      if let snapshot = model.analytics {
-        let running = RunningDurationPresentation(snapshot: snapshot, day: today)
+      SummaryCard {
         TimelineView(.periodic(from: .now, by: 1)) { context in
+          let running = RunningDurationPresentation(snapshot: snapshot, day: today)
+          let duration = snapshot.lifetime.completeDurationMS + running.durationMS(at: context.date)
           MetricRow(
-            title: metric.title,
-            value: foldingElapsedDuration(running.totalDurationMS(at: context.date)))
-
-        }
-      } else {
-        MetricRow(title: metric.title, value: foldingElapsedDuration(today.completeDurationMS))
-      }
-    case .trend:
-      VStack(alignment: .leading, spacing: 12) {
-        Text(metric.title).font(.headline)
-        if let snapshot = model.analytics {
-          Chart(0..<snapshot.days.count, id: \.self) { index in
-            let day = snapshot.days[index]
-            BarMark(
-              x: .value(
-                String(localized: "chart.date", defaultValue: "Date"),
-                index),
-              y: .value(String(localized: "metric.folds", defaultValue: "Folds"), day.folds),
-              width: .fixed(20)
-            )
-            .foregroundStyle(
-              day.startMS == snapshot.days.last?.startMS
-                ? FoldingTint.color : FoldingTint.color.opacity(0.55)
-            )
-            .cornerRadius(5)
-            .accessibilityLabel(day.date)
-            .accessibilityValue(day.folds.formatted())
-          }
-          .chartXAxis {
-            AxisMarks(preset: .aligned, values: Array(snapshot.days.indices)) { value in
-              AxisValueLabel(centered: false, anchor: .top, offsetsMarks: false) {
-                if let index = value.as(Int.self), snapshot.days.indices.contains(index) {
-                  Text(
-                    Date(timeIntervalSince1970: Double(snapshot.days[index].startMS) / 1000),
-                    format: .dateTime.weekday(.abbreviated))
-                }
-              }
-            }
-          }
-          .chartYAxis(.hidden)
-          .chartXScale(domain: -0.5...(Double(snapshot.days.count) - 0.5))
-          .frame(height: 132)
-          .accessibilityLabel(metric.title)
+            title: String(localized: "metric.timeUnfolded", defaultValue: "Time unfolded"),
+            value: foldingElapsedDuration(duration))
         }
       }
-    case .opens: MetricRow(title: metric.title, value: today.opens.formatted())
-    case .closes: MetricRow(title: metric.title, value: today.closes.formatted())
-    case .cycles: MetricRow(title: metric.title, value: today.cycles.formatted())
-    case .lifetimeFolds:
-      MetricRow(title: metric.title, value: model.analytics?.lifetime.folds.formatted() ?? "—")
-    case .folds:
-      MetricRow(title: metric.title, value: today.folds.formatted())
-
+      SummaryCard {
+        MetricRow(
+          title: String(localized: "metric.opens", defaultValue: "Opens"),
+          value: snapshot.lifetime.opens.formatted())
+      }
+      SummaryCard {
+        MetricRow(
+          title: String(localized: "metric.closes", defaultValue: "Closes"),
+          value: snapshot.lifetime.closes.formatted())
+      }
+      SummaryCard {
+        MetricRow(
+          title: String(localized: "metric.cycles", defaultValue: "Cycles"),
+          value: snapshot.lifetime.cycles.formatted())
+      }
+      SummaryCard {
+        MetricRow(
+          title: String(localized: "tab.today", defaultValue: "Today"),
+          value: today.folds.formatted())
+      }
     }
   }
+
+  private func trendChart(_ snapshot: PersonalAnalyticsSnapshot, height: CGFloat) -> some View {
+    VStack(alignment: .leading, spacing: 12) {
+      Text(String(localized: "metric.trend", defaultValue: "Last 7 days")).font(.headline)
+      Chart(0..<snapshot.days.count, id: \.self) { index in
+        let day = snapshot.days[index]
+        BarMark(
+          x: .value(String(localized: "chart.date", defaultValue: "Date"), index),
+          y: .value(String(localized: "metric.folds", defaultValue: "Folds"), day.folds),
+          width: .fixed(20)
+        )
+        .foregroundStyle(
+          index == snapshot.days.count - 1
+            ? FoldingTint.color : FoldingTint.color.opacity(0.55)
+        )
+        .cornerRadius(5)
+        .accessibilityLabel(day.date)
+        .accessibilityValue(day.folds.formatted())
+      }
+      .chartXAxis {
+        AxisMarks(preset: .aligned, values: Array(snapshot.days.indices)) { value in
+          AxisValueLabel(centered: false, anchor: .top, offsetsMarks: false) {
+            if let index = value.as(Int.self), snapshot.days.indices.contains(index) {
+              Text(
+                Date(timeIntervalSince1970: Double(snapshot.days[index].startMS) / 1000),
+                format: .dateTime.weekday(.abbreviated))
+            }
+          }
+        }
+      }
+      .chartYAxis(.hidden)
+      .chartXScale(domain: -0.5...(Double(snapshot.days.count) - 0.5))
+      .frame(height: height)
+      .accessibilityLabel(String(localized: "metric.trend", defaultValue: "Last 7 days"))
+    }
+  }
+
 }
 
 struct SummaryCard<Content: View>: View {
@@ -444,6 +391,7 @@ private struct HistoryScreen: View {
             VStack(alignment: .leading, spacing: 18) { summaryContent }
               .padding(20)
               .frame(maxWidth: .infinity, alignment: .leading)
+              .frame(minHeight: max(240, geometry.size.height - 40), alignment: .top)
               .background(
                 FoldingSurface.card,
                 in: RoundedRectangle(cornerRadius: FoldingShape.cornerRadius))
@@ -459,6 +407,7 @@ private struct HistoryScreen: View {
             }
             .padding(20)
             .frame(width: min(380, geometry.size.width * 0.38), alignment: .leading)
+            .frame(minHeight: max(240, geometry.size.height - 40), alignment: .top)
             .background(
               FoldingSurface.card,
               in: RoundedRectangle(cornerRadius: FoldingShape.cornerRadius))
@@ -728,13 +677,7 @@ private struct SettingsScreen: View {
           }
 
         }
-        Section(String(localized: "tab.today", defaultValue: "Today")) {
-          Button(String(localized: "today.editSummary", defaultValue: "Edit Summary")) {
-            model.present(.editSummary)
-          }
-
-        }
-        Section(String(localized: "settings.tracking", defaultValue: "Tracking")) {
+        Section {
           LabeledContent("Shortcuts") {
             if model.needsSetup {
               Text(String(localized: "settings.setupRequired", defaultValue: "Not complete"))
@@ -759,6 +702,7 @@ private struct SettingsScreen: View {
               }
             }
           }
+          .foregroundStyle(.blue)
           NavigationLink {
             TrackingPhoneScreen(model: model, actions: actions)
           } label: {
@@ -768,19 +712,32 @@ private struct SettingsScreen: View {
                 for: model.analytics?.selectedDeviceID,
                 fallback: model.trackingPhoneSelection?.title ?? "—"))
           }
-          if let sync = model.syncStatus {
-            LabeledContent(String(localized: "sync.iCloud", defaultValue: "iCloud")) {
-              Text(syncTitle(sync.iCloud))
+          LabeledContent(String(localized: "sync.iCloud", defaultValue: "iCloud")) {
+            if model.syncStatus?.iCloud == .available {
+              Label(
+                String(localized: "sync.available", defaultValue: "Available"),
+                systemImage: "checkmark.circle.fill"
+              )
+              .foregroundStyle(.green)
+            } else {
+              Text(syncTitle(model.syncStatus?.iCloud ?? .checking))
             }
           }
+        } header: {
+          Text(String(localized: "settings.tracking", defaultValue: "Tracking"))
+        } footer: {
+          Text(
+            String(
+              localized: "settings.icloudFooter",
+              defaultValue: "Personal history syncs through iCloud when available."))
         }
-        Section {
+        Section(String(localized: "settings.alerts", defaultValue: "Alerts")) {
           NavigationLink(String(localized: "notifications.title", defaultValue: "Notifications")) {
             NotificationSettingsScreen(model: model, actions: actions)
           }
         }
         if model.competitionJoined {
-          Section {
+          Section(String(localized: "profile.competition", defaultValue: "Competition")) {
             NavigationLink(String(localized: "profile.yours", defaultValue: "Your Profile")) {
               YourProfileScreen(model: model, actions: actions)
             }
@@ -790,9 +747,11 @@ private struct SettingsScreen: View {
           }
         }
         if model.competitionAccountExists {
-          Section { ProfileAccountActions(model: model, actions: actions) }
+          Section(String(localized: "profile.account", defaultValue: "Account")) {
+            ProfileAccountActions(model: model, actions: actions)
+          }
         }
-        Section(String(localized: "settings.data", defaultValue: "Data")) {
+        Section {
           if model.privateHistoryHealth?.requiresAttention == true {
             NavigationLink {
               HistoryRecoveryScreen(
@@ -815,6 +774,14 @@ private struct SettingsScreen: View {
             ) { resetConfirmation = true }
             .disabled(!model.canResetHistory)
           }
+        } header: {
+          Text(String(localized: "settings.data", defaultValue: "Data"))
+        } footer: {
+          Text(
+            String(
+              localized: "settings.dataFooter",
+              defaultValue: "Export saves a copy. Reset deletes history, scores, medals and badges."
+            ))
         }
         Section(String(localized: "settings.support", defaultValue: "Support")) {
           NavigationLink(String(localized: "tips.title", defaultValue: "Tip jar")) {
@@ -908,74 +875,6 @@ private struct SettingsScreen: View {
 
 }
 
-private struct SummaryEditor: View {
-  @Bindable var model: FoldingPresentation
-  let actions: FoldingActions
-  @State private var ordered: [SummaryMetric] = []
-
-  var body: some View {
-    NavigationStack {
-      List {
-        Section {
-          ForEach(ordered) { metric in
-            Toggle(
-              metric.title,
-              isOn: Binding(
-                get: { metric == .folds || model.preferences.metrics.contains(metric) },
-                set: { enabled in
-                  var next = model.preferences
-                  next.metrics = ordered.filter {
-                    $0 != .folds && ($0 == metric ? enabled : next.metrics.contains($0))
-                  }
-                  next.cardOrder = ordered
-                  save(next)
-                })
-            )
-            .tint(.black)
-            .disabled(metric == .folds)
-          }.onMove { source, destination in
-            ordered.move(fromOffsets: source, toOffset: destination)
-            var next = model.preferences
-            next.metrics = ordered.filter { $0 != .folds && next.metrics.contains($0) }
-            next.cardOrder = ordered
-            save(next)
-          }
-        }
-      }
-      .environment(\.editMode, .constant(.active))
-      .disabled(model.operation != nil)
-      .navigationTitle(String(localized: "today.editSummary", defaultValue: "Edit Summary"))
-      .navigationBarTitleDisplayMode(.inline)
-      .toolbar {
-        ToolbarItem(placement: .confirmationAction) {
-          Button(String(localized: "action.done", defaultValue: "Done")) { model.sheet = nil }
-        }
-      }
-      .onAppear {
-        ordered =
-          (model.preferences.orderedCards
-          + SummaryMetric.allCases.filter { !model.preferences.orderedCards.contains($0) })
-          .filter { $0 != .competitionComparison || model.competitionJoined }
-      }
-    }
-  }
-  private func save(_ proposed: FoldingPreferences) {
-    var next = proposed
-    if !model.competitionJoined && model.preferences.metrics.contains(.competitionComparison)
-      && !next.metrics.contains(.competitionComparison)
-    {
-      next.metrics.append(.competitionComparison)
-    }
-    let saved = next
-    Task {
-      await model.command(String(localized: "settings.saving", defaultValue: "Saving")) {
-        try await actions.savePreferences(saved)
-        model.preferences = saved
-      }
-    }
-  }
-}
-
 private enum HingePosture { case closed, partiallyOpen, fullyOpen }
 
 private struct SetupScreen: View {
@@ -990,9 +889,6 @@ private struct SetupScreen: View {
       step)
   }
   private var passed: Bool { step == .openingPassed || step == .closingPassed || step == .complete }
-  private var instructions: String? {
-    closing ? actions.closingInstructions : actions.openingInstructions
-  }
   private var readyForTest: Bool {
     guard let hinge else { return false }
     if step == .openingReady { return hinge == .closed }
@@ -1030,7 +926,7 @@ private struct SetupScreen: View {
         ScrollView {
           VStack(spacing: 16) {
             FoldIllustration(
-              open: hinge.map { $0 != .closed } ?? !closing, success: passed,
+              open: hinge.map { $0 != .closed } ?? (step != .welcome && !closing), success: passed,
               compact: compactIllustration
             )
             .id(step)
@@ -1087,43 +983,23 @@ private struct SetupScreen: View {
                 .buttonStyle(.borderedProminent)
                 .foregroundStyle(FoldingTint.onTint)
             }
-            if showingAutomationInstructions || step == .openingRetry || step == .closingRetry {
-              DisclosureGroup(String(localized: "action.help", defaultValue: "Help")) {
-                VStack(alignment: .leading, spacing: 12) {
-                  if let instructions {
-                    Text(instructions)
-                  } else {
-                    Text(
-                      closing
-                        ? String(
-                          localized: "setup.chooseClosing",
-                          defaultValue:
-                            "In the editor, choose an automation for when your Duo closes.")
-                        : String(
-                          localized: "setup.chooseOpening",
-                          defaultValue:
-                            "In the editor, choose an automation for when your Duo opens."
-                        ))
-                  }
-                  Text(
-                    String(
-                      localized: "setup.lockedHelp",
-                      defaultValue:
-                        "Allow the shortcut to run while locked."))
-                  Text(
-                    String(
-                      localized: "setup.existingHelp",
-                      defaultValue:
-                        "Edit existing automations to avoid duplicates."))
-                  Link(
-                    String(localized: "setup.appleGuide", defaultValue: "Shortcuts guide"),
-                    destination: URL(
-                      string:
-                        "https://support.apple.com/guide/shortcuts/add-automations-apdfbdbd7123/ios"
-                    )!
-                  )
-                }.frame(maxWidth: .infinity, alignment: .leading)
-              }.font(.subheadline)
+            if step == .welcome {
+              Button(
+                hinge == nil
+                  ? String(localized: "setup.confirmClosed", defaultValue: "My Duo is closed")
+                  : String(localized: "action.continue", defaultValue: "Continue")
+              ) {
+                guard hinge == nil || hinge == .closed else { return }
+                perform(.next)
+              }
+              .buttonStyle(.borderedProminent)
+              .disabled(hinge != nil && hinge != .closed || model.operation != nil)
+            }
+            if !model.showInitialSetup && step != .complete {
+              Button(String(localized: "action.cancel", defaultValue: "Cancel")) {
+                dismissSetup()
+              }
+              .disabled(model.operation != nil)
             }
           }
           .frame(maxWidth: 480)
@@ -1133,21 +1009,8 @@ private struct SetupScreen: View {
         }
       }
       .animation(reduceMotion ? nil : .easeInOut(duration: 0.25), value: step)
-      .toolbar {
-        ToolbarItem(placement: .topBarTrailing) {
-          if step != .complete {
-            Button(String(localized: "setup.notNow", defaultValue: "Not now")) { dismissSetup() }
-              .disabled(model.operation != nil)
-          }
-        }
-      }
     }
     .interactiveDismissDisabled()
-    .task {
-      #if !FOLDING_SCREENSHOTS
-        if step == .welcome { perform(.next) }
-      #endif
-    }
     .onChange(of: hinge) { _, _ in beginTestWhenReady() }
     .onChange(of: step) { _, next in
       if next == .openingPassed || next == .closingPassed {
@@ -1178,6 +1041,16 @@ private struct SetupScreen: View {
           : String(localized: "intent.recordOpening.title", defaultValue: "Log Duo Opened")
       )
       .font(.headline)
+      if showingAutomationInstructions {
+        Text(
+          String(
+            localized: "setup.lockedHelp",
+            defaultValue: "Allow the shortcut to run while locked."))
+        Text(
+          String(
+            localized: "setup.existingHelp",
+            defaultValue: "Edit existing automations to avoid duplicates."))
+      }
       if let open = actions.openShortcuts {
         Button(String(localized: "setup.openShortcuts", defaultValue: "Open Shortcuts")) {
           open()
@@ -1201,7 +1074,7 @@ private struct SetupScreen: View {
 
   private var title: String {
     switch step {
-    case .welcome: String(localized: "setup.welcome", defaultValue: "Every fold counts")
+    case .welcome: String(localized: "setup.welcome", defaultValue: "Welcome to Folding")
     case .openingInstructions:
       String(localized: "setup.openingAutomation", defaultValue: "Track opening")
     case .closingInstructions:
@@ -1233,7 +1106,7 @@ private struct SetupScreen: View {
     case .welcome:
       String(
         localized: "setup.welcomeDetail",
-        defaultValue: "Connect Shortcuts, then test both directions.")
+        defaultValue: "Close your Duo to begin. Then add and test both Shortcuts automations.")
     case .openingInstructions, .closingInstructions: nil
     case .openingReady:
       hinge == nil
@@ -1402,9 +1275,6 @@ struct LeaderboardScreen: View {
           ForEach(CompetitionPeriod.allCases) { Text($0.title).tag($0) }
         }.pickerStyle(.segmented).disabled(
           actions.loadLeaderboard == nil && actions.loadLeaderboardPage == nil)
-        NavigationLink(String(localized: "results.title", defaultValue: "Results")) {
-          CompetitionResultsScreen(model: model, actions: actions)
-        }
         if let value {
           let podium = Dictionary(
             grouping: value.entries.filter {
@@ -1503,13 +1373,6 @@ struct LeaderboardScreen: View {
             } label: {
               LeaderboardRow(entry: current)
             }.buttonStyle(.plain)
-            Button {
-              model.present(.competition(.liveShare))
-            } label: {
-              Image(systemName: "square.and.arrow.up")
-            }
-            .frame(minWidth: 44, minHeight: 44)
-            .accessibilityLabel(String(localized: "results.share", defaultValue: "Share result"))
           }
         }
         .padding(.horizontal, 16).padding(.vertical, 12)
@@ -1613,27 +1476,6 @@ struct NotificationSettingsScreen: View {
           String(localized: "notifications.badges", defaultValue: "Badges earned"),
           isOn: preference(\.badgesEarned)
         ).disabled(!model.competitionJoined)
-        Picker(
-          String(localized: "notifications.weekly", defaultValue: "Weekly result"),
-          selection: preference(\.weeklyResult)
-        ) {
-          ForEach(ResultNotificationChoice.allCases) { Text($0.title).tag($0) }
-        }.disabled(!model.competitionJoined)
-        Picker(
-          String(localized: "notifications.monthly", defaultValue: "Monthly result"),
-          selection: preference(\.monthlyResult)
-        ) {
-          ForEach(ResultNotificationChoice.allCases) { Text($0.title).tag($0) }
-        }.disabled(!model.competitionJoined)
-        if !model.competitionJoined {
-          Button(
-            String(
-              localized: "profile.signInForNotifications",
-              defaultValue: "Join to enable result notifications")
-          ) {
-            model.selectedTab = .leaderboard
-          }
-        }
       }.disabled(actions.saveNotifications == nil || model.operation != nil)
     }
     .navigationTitle(String(localized: "notifications.title", defaultValue: "Notifications"))

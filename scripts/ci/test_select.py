@@ -43,9 +43,14 @@ class SelectionTests(unittest.TestCase):
                 self.assertEqual(result["unmapped"], [])
 
     def test_test_only_changes_verify_their_product_without_delivery(self):
-        paths = ["apps/tendr/Tests/ImportTests.swift", "apps/folding/apps/ios/Packages/FoldingKit/Tests/SyncTests.swift",
-                 "apps/folding/backend/crates/worker/tests/runtime.rs", "apps/callkeep/Tests/RecorderTests.swift",
-                 "apps/control-center/server/tests/health.rs", "infra/cloudflare/home/tests/routing.tftest.hcl"]
+        paths = [
+            "apps/tendr/Tests/ImportTests.swift",
+            "apps/folding/apps/ios/Packages/FoldingKit/Tests/SyncTests.swift",
+            "apps/folding/backend/crates/worker/tests/runtime.rs",
+            "apps/callkeep/Tests/RecorderTests.swift",
+            "apps/control-center/server/tests/health.rs",
+            "infra/cloudflare/home/tests/routing.tftest.hcl",
+        ]
         for path in paths:
             with self.subTest(path=path):
                 result = selection.select([path], CONFIG)
@@ -60,11 +65,13 @@ class SelectionTests(unittest.TestCase):
         self.assertEqual(result["delivery_candidates"], [])
 
     def test_folding_store_capture_inputs_keep_a_source_bound_beta(self):
-        for path in ["apps/folding/apps/ios/Screenshots/FoldingScreenshotApp.swift",
-                     "apps/folding/apps/ios/StorefrontTests/StorefrontCaptureTests.swift",
-                     "apps/folding/fastlane/screenshot-plan.json",
-                     "apps/folding/fastlane/lib/release_assets.rb",
-                     "apps/folding/fastlane/scripts/opaque-screen.swift"]:
+        for path in [
+            "apps/folding/apps/ios/Screenshots/FoldingScreenshotApp.swift",
+            "apps/folding/apps/ios/StorefrontTests/StorefrontCaptureTests.swift",
+            "apps/folding/fastlane/screenshot-plan.json",
+            "apps/folding/fastlane/lib/release_assets.rb",
+            "apps/folding/fastlane/scripts/opaque-screen.swift",
+        ]:
             with self.subTest(path=path):
                 result = selection.select([path], CONFIG)
                 self.assertEqual(result["verify"], ["folding.native"])

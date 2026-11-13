@@ -3,13 +3,13 @@ description: Install resolver dependencies and expose the shared impact result
 inputs:
   base:
     description: Base commit (empty uses merge-base with origin/main)
-    default: ''
+    default: ""
   intent:
     description: verify, ship or optional UI preview
     default: verify
   only:
     description: Optional app.yml capability
-    default: ''
+    default: ""
 outputs:
   apps:
     description: JSON app array
@@ -29,7 +29,7 @@ runs:
     - uses: ./.github/actions/ruby-tools
     - uses: actions/setup-python@v5
       with:
-        python-version: '3.12'
+        python-version: "3.12"
     - shell: bash
       run: python3 -m pip install -r scripts/requirements.txt
     - id: detect

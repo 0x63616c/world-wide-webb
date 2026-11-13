@@ -1,1 +1,1 @@
-falten,duo,statistik,zähler,rangliste,widgets
+falten,duo,statistik,zähler,rangliste

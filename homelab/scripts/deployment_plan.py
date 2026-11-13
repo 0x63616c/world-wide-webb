@@ -2,7 +2,9 @@
 
 import re
 
-SERVICES = frozenset(("control-center", "bambuddy", "hindsight", "cloudflared", "penpot", "beszel", "golink", "home-assistant"))
+SERVICES = frozenset(
+    ("control-center", "bambuddy", "hindsight", "cloudflared", "penpot", "beszel", "golink", "home-assistant")
+)
 
 
 def assigned(metadata):

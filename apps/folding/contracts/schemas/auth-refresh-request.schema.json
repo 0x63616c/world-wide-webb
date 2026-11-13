@@ -13,8 +13,5 @@
       "pattern": "^[A-Za-z0-9_-]{43}$"
     }
   },
-  "required": [
-    "operation_id",
-    "refresh_token"
-  ]
+  "required": ["operation_id", "refresh_token"]
 }

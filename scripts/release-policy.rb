@@ -9,9 +9,17 @@ module ReleasePolicy
   # option alone would be ignored. Set the policy explicitly before submitting.
   def self.apply!(asc, config, version_id)
     return unless automatic?(config)
-    asc.patch("v1/appStoreVersions/#{version_id}", { data: {
-      type: "appStoreVersions", id: version_id,
-      attributes: { releaseType: "AFTER_APPROVAL" }
-    } })
+    asc.patch(
+      "v1/appStoreVersions/#{version_id}",
+      {
+        data: {
+          type: "appStoreVersions",
+          id: version_id,
+          attributes: {
+            releaseType: "AFTER_APPROVAL"
+          }
+        }
+      }
+    )
   end
 end

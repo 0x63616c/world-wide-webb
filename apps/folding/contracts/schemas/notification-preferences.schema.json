@@ -5,18 +5,10 @@
   "additionalProperties": false,
   "properties": {
     "weekly": {
-      "enum": [
-        "off",
-        "all",
-        "podium"
-      ]
+      "enum": ["off", "all", "podium"]
     },
     "monthly": {
-      "enum": [
-        "off",
-        "all",
-        "podium"
-      ]
+      "enum": ["off", "all", "podium"]
     },
     "badge_earned": {
       "type": "boolean",
@@ -41,10 +33,5 @@
       ]
     }
   },
-  "required": [
-    "weekly",
-    "monthly",
-    "home_timezone",
-    "locale"
-  ]
+  "required": ["weekly", "monthly", "home_timezone", "locale"]
 }

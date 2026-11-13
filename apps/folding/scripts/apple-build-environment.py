@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Fail closed on a different Apple toolchain; resolve a matching installed simulator."""
+
 import argparse
 import json
 import pathlib
@@ -24,7 +25,8 @@ def resolve_device(simulator, *, create=False):
         raise ValueError("Install the pinned Duo simulator runtime; do not substitute another device.")
     devices = json.loads(output("xcrun", "simctl", "list", "devices", "available", "-j"))["devices"]
     matches = [
-        device for device in devices.get(simulator["runtime"], [])
+        device
+        for device in devices.get(simulator["runtime"], [])
         if device.get("deviceTypeIdentifier") == simulator["device_type"]
     ]
     if not matches and create:

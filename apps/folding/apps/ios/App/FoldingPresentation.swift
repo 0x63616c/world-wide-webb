@@ -118,29 +118,6 @@ enum SummaryCardLayout {
     width >= 600 && !accessibilitySize
   }
 
-  static func rows(_ metrics: [SummaryMetric], width: CGFloat, accessibilitySize: Bool)
-    -> [[SummaryMetric]]
-  {
-    if accessibilitySize { return metrics.map { [$0] } }
-    let wide = usesWideRows(width: width, accessibilitySize: accessibilitySize)
-    func compact(_ metric: SummaryMetric) -> Bool {
-      switch metric {
-      case .opens, .closes, .cycles, .lifetimeFolds: true
-      default: false
-      }
-    }
-    var rows: [[SummaryMetric]] = []
-    for metric in metrics {
-      if wide || compact(metric), let last = rows.indices.last, rows[last].count == 1,
-        wide || compact(rows[last][0])
-      {
-        rows[last].append(metric)
-      } else {
-        rows.append([metric])
-      }
-    }
-    return rows
-  }
 }
 
 enum HistoryPeriod: String, CaseIterable, Identifiable {
@@ -228,7 +205,7 @@ enum CompetitionPresentation {
 }
 
 enum PresentedSheet: Identifiable, Equatable {
-  case settings, setup, editSummary, patterns, trackingPhone
+  case settings, setup, patterns, trackingPhone
   case tiedRank(Int)
   case export(UUID)
   case competition(CompetitionSheet)
@@ -240,7 +217,6 @@ enum PresentedSheet: Identifiable, Equatable {
     case .milestoneUnlock(let badges): "unlock-" + badges.map(\.rawValue).joined(separator: "-")
     case .trackingPhone: "tracking-phone"
     case .setup: "setup"
-    case .editSummary: "summary"
     case .patterns: "patterns"
     case .tiedRank(let rank): "tie-\(rank)"
     case .export(let ticket): "export-\(ticket.uuidString)"
@@ -328,8 +304,6 @@ enum ExportChoice { case json, csv }
   var saveNickname: ((String) async throws -> CompetitionProfile)?
   var uploadAvatar: ((Data) async throws -> AvatarState)?
   var removeAvatar: (() async throws -> Void)?
-  var loadResults: ((CompetitionPeriod, String?) async throws -> CompetitionResultsPage)?
-  var loadResultShare: ((String) async throws -> CompetitionShare)?
   var reportParticipant: ((String, ParticipantReportReason) async throws -> Void)?
   var loadHiddenParticipants: ((String?) async throws -> HiddenParticipantsPage)?
   var setParticipantBlocked: ((String, Bool) async throws -> Void)?
@@ -339,9 +313,6 @@ enum ExportChoice { case json, csv }
   var deleteIncompleteEntry: ((SessionDeletionTarget) async throws -> Void)?
   var appleRequest: ((ASAuthorizationAppleIDRequest) -> Void)?
   var appleCompletion: ((Result<ASAuthorization, Error>) -> Void)?
-  /// Verified per-OS/localized instructions, supplied by composition rather than invented by views.
-  var openingInstructions: String?
-  var closingInstructions: String?
   var loadDiagnostics: (() async throws -> TrackingDiagnosticSnapshot)?
   var clearDiagnostics: (() async throws -> Void)?
   var checkDiagnostics: (() async throws -> Void)?
@@ -349,20 +320,6 @@ enum ExportChoice { case json, csv }
 
 @MainActor @Observable final class FoldingPresentation {
   var entryDeletionPending = false
-  /// Widget links select the tab underneath setup; dismissing setup preserves the destination.
-  func openWidgetURL(_ url: URL) {
-    guard let parts = URLComponents(url: url, resolvingAgainstBaseURL: false),
-      parts.scheme == "folding", parts.user == nil, parts.password == nil,
-      parts.port == nil, parts.fragment == nil,
-      parts.path.isEmpty || parts.path == "/", parts.query == nil
-    else { return }
-    switch parts.host {
-    case "today": selectedTab = .today
-    case "history": selectedTab = .history
-    default: return
-    }
-  }
-
   func invalidatePersonalPresentation() {
     historyRequest = UUID()
     historyLoading = false
@@ -410,17 +367,8 @@ enum ExportChoice { case json, csv }
   var hiddenVersion: String?
   var hiddenParticipantIDs: Set<String> = []
   var hiddenParticipantNames: [String: String] = [:]
-  var requestedResultID: String?
-  var allTimeResult: LeaderboardPresentation?
-  var results: [CompetitionResult] = []
-  var resultsPeriod: CompetitionPeriod = .week
-  var resultsCursor: String?
-  var resultsVersion: String?
-  var resultsLoading = false
-  var resultsFailed = false
-  var resultsRequestID = UUID()
   var competition: CompetitionPresentation = .unavailable
-  var competitionPeriod: CompetitionPeriod = .week {
+  var competitionPeriod: CompetitionPeriod = .all {
     didSet {
       guard competitionPeriod != oldValue else { return }
       switch competition {

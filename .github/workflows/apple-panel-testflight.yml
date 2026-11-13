@@ -59,7 +59,7 @@ jobs:
         run: xcodebuild -version
       - run: brew install sops
       - run: brew install xcodegen
-        if: steps.receipt.outputs.uploaded != 'true' 
+        if: steps.receipt.outputs.uploaded != 'true'
       - name: Load signing credentials once
         if: steps.receipt.outputs.uploaded != 'true'
         env:
@@ -68,7 +68,7 @@ jobs:
       - uses: ./.github/actions/ruby-tools
         if: steps.receipt.outputs.uploaded != 'true'
         with:
-          ruby-version: '3.4'
+          ruby-version: "3.4"
           bundler-cache: true
           working-directory: apps/control-center/apple
       - name: Build and upload tested native revision
