@@ -1,4 +1,4 @@
-# Reads apps/<app>/app.yml for shell scripts and workflows.
+# Reads projects/<app>/app.yml for shell scripts and workflows.
 #   ruby scripts/app-config.rb tendr scheme        -> Still
 #   ruby scripts/app-config.rb tendr project_path  -> projects/tendr/Still.xcodeproj
 #   ruby scripts/app-config.rb --list              -> every app folder with an app.yml
@@ -14,7 +14,8 @@ apps =
 
 # Validate dependency declarations for every caller, including --list.
 apps.each do |slug|
-  config = YAML.safe_load(File.read(File.join(root, "projects", slug, "app.yml")))
+  config =
+    YAML.safe_load(File.read(File.join(root, "projects", slug, "app.yml")))
   %w[uses paths].each do |field|
     values = config.fetch(field, [])
     unless values.is_a?(Array) &&
@@ -44,7 +45,9 @@ if ARGV.first == "--list"
   puts(
     apps.select do |app|
       key.nil? ||
-        YAML.safe_load(File.read(File.join(root, "projects", app, "app.yml")))[key]
+        YAML.safe_load(File.read(File.join(root, "projects", app, "app.yml")))[
+          key
+        ]
     end
   )
   exit

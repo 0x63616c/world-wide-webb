@@ -113,7 +113,7 @@ in
     deployment-inputs =
       let
         base = self.darwinConfigurations.homelab-mac-mini;
-        inputsFor = host: builtins.fromJSON host.config.environment.etc."projects/homelab/deployment.json".text;
+        inputsFor = host: builtins.fromJSON host.config.environment.etc."homelab/deployment.json".text;
         original = inputsFor base;
         monitor = inputsFor (
           base.extendModules {
@@ -292,7 +292,7 @@ in
               })
             ];
           }).config;
-        deployment = builtins.fromJSON haOnly.environment.etc."projects/homelab/deployment.json".text;
+        deployment = builtins.fromJSON haOnly.environment.etc."homelab/deployment.json".text;
         plan = import ./lib/setup-plan.nix {
           revision = "fixture";
           hosts.example.config = haOnly;

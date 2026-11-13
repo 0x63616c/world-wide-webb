@@ -176,7 +176,7 @@ in
         reconcile
         stop
       ];
-      environment.etc."projects/homelab/home-assistant/compose.yaml".source =
+      environment.etc."homelab/home-assistant/compose.yaml".source =
         ../services/home-assistant/compose.yaml;
       # Only the small vmnet helper runs as root. Socket access is limited to
       # _containers; no passwordless sudo is granted to the service account.

@@ -56,13 +56,13 @@ fn read_receipt(path: &Path, original: &Changes) -> Result<Option<Receipt>, Erro
         || receipt.changes.manifest.tailscale != original.manifest.tailscale
         || receipt.changes.manifest.hosts.get(&original.host)
             != original.manifest.hosts.get(&original.host)
-        || receipt
-            .changes
-            .files
-            .get(&format!("projects/homelab/secrets/{}.sops.yaml", original.host))
-            != original
-                .files
-                .get(&format!("projects/homelab/secrets/{}.sops.yaml", original.host))
+        || receipt.changes.files.get(&format!(
+            "projects/homelab/secrets/{}.sops.yaml",
+            original.host
+        )) != original.files.get(&format!(
+            "projects/homelab/secrets/{}.sops.yaml",
+            original.host
+        ))
     {
         return Err(Error::Conflict);
     }
@@ -240,7 +240,8 @@ fn rebase(api: &impl Api, changes: &Changes, revision: &str) -> Result<Changes, 
         &changes.host,
         key,
         Encryption {
-            ciphertext: &changes.files[&format!("projects/homelab/secrets/{}.sops.yaml", changes.host)],
+            ciphertext: &changes.files
+                [&format!("projects/homelab/secrets/{}.sops.yaml", changes.host)],
             host_recipient: recipients[0],
             recovery_recipient: recipients[1],
         },

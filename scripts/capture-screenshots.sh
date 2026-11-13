@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Captures an app's raw App Store screenshots (its screenshot_test in apps/<app>/app.yml, or the key
+# Captures an app's raw App Store screenshots (its screenshot_test in projects/<app>/app.yml, or the key
 # named by SCREENSHOT_TEST_KEY, e.g. pr_screenshot_test) on a
 # fresh iPhone 18 Pro Max simulator (6.9", 1320x2868) with a 9:41 status bar.
 # Usage: scripts/capture-screenshots.sh <app> [output-dir] [appearance...]

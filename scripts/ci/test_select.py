@@ -30,7 +30,9 @@ class SelectionTests(unittest.TestCase):
         for key in ("verify", "checks", "previews", "delivery_candidates", "unmapped"):
             self.assertEqual(result[key], [])
         self.assertNotIn("airmiles.native", CONFIG["units"])
-        mixed = selection.select(["projects/airmiles/app.yml", "projects/folding/apps/ios/App/FoldingScreens.swift"], CONFIG)
+        mixed = selection.select(
+            ["projects/airmiles/app.yml", "projects/folding/apps/ios/App/FoldingScreens.swift"], CONFIG
+        )
         self.assertEqual(mixed["verify"], ["folding.native"])
         self.assertEqual(mixed["delivery_candidates"], ["folding.native"])
 
@@ -96,21 +98,20 @@ class SelectionTests(unittest.TestCase):
         result = selection.select([".github/workflows/ci.yml"], CONFIG)
         self.assertEqual(result["verify"], ["repo.tooling"])
         self.assertEqual(result["delivery_candidates"], [])
-        for path in ["mise.toml", "apps/folding/mise.toml"]:
+        for path, owner in [
+            ("mise.lock", "repo.tooling"),
+            ("projects/folding/mise.toml", "folding.tooling"),
+            ("projects/control-center/mise.toml", "control-center.tooling"),
+        ]:
             with self.subTest(path=path):
                 result = selection.select([path], CONFIG)
-                self.assertTrue(result["verify"])
+                self.assertIn(owner, result["verify"])
                 self.assertEqual(result["delivery_candidates"], [])
 
-    def test_nested_flake_selects_homelab_without_other_delivery(self):
-        for path in ["homelab/flake.nix", "homelab/flake.lock", "flake.nix", "flake.lock"]:
-            with self.subTest(path=path):
-                result = selection.select([path], CONFIG)
-                self.assertIn("homelab.config", result["verify"])
-                self.assertEqual(result["delivery_candidates"], ["homelab.config"])
-
     def test_docs_do_not_activate_hosts_or_ship_apps(self):
-        result = selection.select(["README.md", "projects/homelab/docs/current-state.md", ".agents/skills/new/SKILL.md"], CONFIG)
+        result = selection.select(
+            ["README.md", "projects/homelab/docs/current-state.md", ".agents/skills/new/SKILL.md"], CONFIG
+        )
         self.assertEqual(result["verify"], [])
         self.assertEqual(result["delivery_candidates"], [])
 

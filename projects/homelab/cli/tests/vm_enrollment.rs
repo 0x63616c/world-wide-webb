@@ -995,7 +995,11 @@ fn merge_enrollment(f: &Fixture) -> String {
     names.sort();
     assert_eq!(
         names,
-        [".sops.yaml", "projects/homelab/homelab.json", "projects/homelab/secrets/vm-test.sops.yaml"]
+        [
+            ".sops.yaml",
+            "projects/homelab/homelab.json",
+            "projects/homelab/secrets/vm-test.sops.yaml"
+        ]
     );
     let current_main = api(
         f,

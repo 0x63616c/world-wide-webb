@@ -111,7 +111,7 @@ in
       docker-compose
       reconcile
     ];
-    environment.etc."projects/homelab/services".source = ../services;
+    environment.etc."homelab/services".source = ../services;
     launchd.daemons.homelab-colima = {
       path = with pkgs; [
         colima

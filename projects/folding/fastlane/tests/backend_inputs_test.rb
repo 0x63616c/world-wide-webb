@@ -197,9 +197,15 @@ class BackendInputsTest < Minitest::Test
         git.call("mv", "backend", "tool-versions.json", "projects/folding/")
         moved = commit.call
         FoldingRelease.send(:remove_const, :ROOT)
-        FoldingRelease.const_set(:ROOT, File.join(directory, "projects/folding"))
+        FoldingRelease.const_set(
+          :ROOT,
+          File.join(directory, "projects/folding")
+        )
         assert_equal expected, FoldingRelease.backend_input_hash(moved)
-        write.call("projects/folding/apps/ios/App/Screen.swift", "native change")
+        write.call(
+          "projects/folding/apps/ios/App/Screen.swift",
+          "native change"
+        )
         write.call(
           "projects/folding/backend/crates/worker/README.md",
           "documentation change"
@@ -212,8 +218,14 @@ class BackendInputsTest < Minitest::Test
         )
         client = commit.call
         assert_equal expected, FoldingRelease.backend_input_hash(client)
-        write.call("projects/folding/backend/bun.lock", "changed test dependency")
-        write.call("projects/folding/backend/package.json", "changed test tools")
+        write.call(
+          "projects/folding/backend/bun.lock",
+          "changed test dependency"
+        )
+        write.call(
+          "projects/folding/backend/package.json",
+          "changed test tools"
+        )
         write.call(
           "projects/folding/scripts/generate-worker-config.py",
           "changed configuration generator"

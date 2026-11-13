@@ -46,7 +46,8 @@ class DispatchTests(unittest.TestCase):
             dispatch(["projects/golink-safari/Extension/redirect.js"], CONFIGURATION)["security_languages"], []
         )
         self.assertEqual(
-            dispatch(["projects/folding/backend/crates/worker/src/lib.rs"], CONFIGURATION)["security_languages"], ["rust"]
+            dispatch(["projects/folding/backend/crates/worker/src/lib.rs"], CONFIGURATION)["security_languages"],
+            ["rust"],
         )
 
     def test_required_gate_rejects_failed_selected_or_unexpected_skips(self):

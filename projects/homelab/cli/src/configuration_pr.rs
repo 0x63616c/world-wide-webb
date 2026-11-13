@@ -177,9 +177,12 @@ impl Changes {
             return Err(Error::Invalid);
         }
         self.manifest.validate().map_err(|_| Error::Invalid)?;
-        let manifest: Manifest =
-            serde_json::from_str(self.files.get("projects/homelab/homelab.json").ok_or(Error::Invalid)?)
-                .map_err(|_| Error::Invalid)?;
+        let manifest: Manifest = serde_json::from_str(
+            self.files
+                .get("projects/homelab/homelab.json")
+                .ok_or(Error::Invalid)?,
+        )
+        .map_err(|_| Error::Invalid)?;
         if manifest != self.manifest
             || manifest
                 .deployment
@@ -419,9 +422,10 @@ fn prepare_inner(
     }
     let prefix = format!("repos/{}/contents", workspace.repository);
     let suffix = format!("?ref={}", workspace.revision);
-    let original: Manifest =
-        serde_json::from_slice(&api.raw(&format!("{prefix}/projects/homelab/homelab.json{suffix}"))?)
-            .map_err(|_| Error::Invalid)?;
+    let original: Manifest = serde_json::from_slice(
+        &api.raw(&format!("{prefix}/projects/homelab/homelab.json{suffix}"))?,
+    )
+    .map_err(|_| Error::Invalid)?;
     if original != workspace.manifest {
         return Err(Error::Conflict);
     }
@@ -535,7 +539,10 @@ fn validate_delta(api: &impl Api, changes: &Changes) -> Result<(), Error> {
         Encryption {
             ciphertext: changes
                 .files
-                .get(&format!("projects/homelab/secrets/{}.sops.yaml", changes.host))
+                .get(&format!(
+                    "projects/homelab/secrets/{}.sops.yaml",
+                    changes.host
+                ))
                 .ok_or(Error::Invalid)?,
             host_recipient: recipients[0],
             recovery_recipient: recipients[1],
@@ -545,9 +552,13 @@ fn validate_delta(api: &impl Api, changes: &Changes) -> Result<(), Error> {
     // Old saved proposals retain their original manifest bytes and branch identity.
     // Only the retired milestone/formatting may differ from a newly prepared file;
     // every desired field and both encrypted-input files must still match.
-    let saved_manifest: Manifest =
-        serde_json::from_str(changes.files.get("projects/homelab/homelab.json").ok_or(Error::Invalid)?)
-            .map_err(|_| Error::Invalid)?;
+    let saved_manifest: Manifest = serde_json::from_str(
+        changes
+            .files
+            .get("projects/homelab/homelab.json")
+            .ok_or(Error::Invalid)?,
+    )
+    .map_err(|_| Error::Invalid)?;
     if expected.manifest != changes.manifest
         || expected.manifest != saved_manifest
         || expected.files.len() != changes.files.len()
@@ -766,9 +777,10 @@ pub fn approved_workspace(
         return Ok(None);
     };
     let prefix = format!("repos/{}/contents", changes.repository);
-    let manifest: Manifest =
-        serde_json::from_slice(&api.raw(&format!("{prefix}/projects/homelab/homelab.json?ref={revision}"))?)
-            .map_err(|_| Error::Invalid)?;
+    let manifest: Manifest = serde_json::from_slice(&api.raw(&format!(
+        "{prefix}/projects/homelab/homelab.json?ref={revision}"
+    ))?)
+    .map_err(|_| Error::Invalid)?;
     manifest.validate().map_err(|_| Error::Invalid)?;
     if manifest.hosts.get(&changes.host) != changes.manifest.hosts.get(&changes.host)
         || manifest.tailscale != changes.manifest.tailscale

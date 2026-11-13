@@ -139,7 +139,9 @@ def main() -> int:
             if result.stdout != source.read_bytes():
                 print(f"Needs formatting: {path}", file=sys.stderr)
                 return 1
-        if path.endswith(".swift") and path.startswith(("projects/control-center/apple/", "projects/folding/apps/ios/")):
+        if path.endswith(".swift") and path.startswith(
+            ("projects/control-center/apple/", "projects/folding/apps/ios/")
+        ):
             lint = [*command[:2], "lint", "--strict", path]
             result = subprocess.run(lint, cwd=ROOT, check=False)
             if result.returncode:

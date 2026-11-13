@@ -128,7 +128,8 @@ do {
   try write(svg(.dark), to: "projects/tendr/design/icon/tendr-icon-dark.svg")
   try write(svg(.light), to: "projects/tendr/design/icon/tendr-icon-light.svg")
   try write(render(.dark, pixels: 1024), to: "projects/tendr/design/icon/tendr-icon-dark-1024.png")
-  try write(render(.light, pixels: 1024), to: "projects/tendr/design/icon/tendr-icon-light-1024.png")
+  try write(
+    render(.light, pixels: 1024), to: "projects/tendr/design/icon/tendr-icon-light-1024.png")
 
   try write(render(.dark, pixels: 1024), to: "\(appIcon)/AppIcon.png")
   try write(render(.dark, pixels: 1024), to: "\(appIcon)/AppIcon-Dark.png")

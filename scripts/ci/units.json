@@ -9,7 +9,11 @@
     },
     "tendr.native": {
       "paths": ["scripts/ci/with-match-signing.sh", "projects/tendr/**"],
-      "exclude": ["projects/tendr/site/**", "projects/tendr/site.wrangler.jsonc", "projects/tendr/site-tool-versions.json"],
+      "exclude": [
+        "projects/tendr/site/**",
+        "projects/tendr/site.wrangler.jsonc",
+        "projects/tendr/site-tool-versions.json"
+      ],
       "delivery": "testflight",
       "delivery_paths": [
         "projects/tendr/Still/**",
@@ -106,6 +110,7 @@
         "projects/folding/bun.lock",
         "projects/folding/rust-toolchain.toml",
         "projects/folding/tool-versions.json",
+        "projects/folding/mise.toml",
         "projects/folding/Gemfile",
         "projects/folding/Gemfile.lock",
         "projects/folding/design/**",
@@ -208,7 +213,8 @@
         "projects/control-center/Cargo.toml",
         "projects/control-center/.gitignore",
         "projects/control-center/rust-toolchain.toml",
-        "projects/control-center/app.yml"
+        "projects/control-center/app.yml",
+        "projects/control-center/mise.toml"
       ],
       "delivery": null,
       "exclude": [
@@ -387,6 +393,8 @@
         ".prettierrc.json",
         "package.json",
         "bun.lock",
+        "mise.toml",
+        "mise.lock",
         "renovate.json",
         "ruff.toml",
         ".gitleaks.toml",

@@ -116,7 +116,7 @@ in
 {
   config = lib.mkMerge [
     {
-      environment.etc."projects/homelab/deployment.json".text = builtins.toJSON {
+      environment.etc."homelab/deployment.json".text = builtins.toJSON {
         host = config.networking.hostName;
         services = import ../lib/assigned-services.nix config.homelab;
         backupsEnabled = config.homelab.backups.enable;

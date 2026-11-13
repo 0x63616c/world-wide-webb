@@ -8,7 +8,9 @@ require "json"
 APP = ARGV.first || ENV["APP"] || abort("usage: review-status.rb <app>")
 abort("Invalid app slug") unless APP.match?(/\A[a-z][a-z0-9-]*\z/)
 CONFIG =
-  YAML.safe_load(File.read(File.expand_path("../projects/#{APP}/app.yml", __dir__)))
+  YAML.safe_load(
+    File.read(File.expand_path("../projects/#{APP}/app.yml", __dir__))
+  )
 APP_ID =
   if APP == "folding"
     JSON

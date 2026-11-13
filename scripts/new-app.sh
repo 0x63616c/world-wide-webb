@@ -4,7 +4,7 @@
 #   scripts/new-app.sh Samplr samplr      → projects/samplr, bundle ID com.calumwebb.samplr, sites/samplr
 #
 # Creates the XcodeGen project (native SwiftUI, launch screen, placeholder icon, Home and Settings with
-# privacy and support links, a screenshot UI test), apps/<app>/app.yml for fastlane and CI,
+# privacy and support links, a screenshot UI test), projects/<app>/app.yml for fastlane and CI,
 # a metadata skeleton, screenshot frames and site pages. CI picks the app up automatically.
 # Remaining product/account setup is printed at the end; see docs/NEW-APP.md.
 set -euo pipefail

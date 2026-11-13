@@ -11,7 +11,9 @@ require_relative "release-policy"
 APP = ARGV.first || ENV["APP"] || abort("usage: submit-review.rb <app>")
 abort("Invalid app slug") unless APP.match?(/\A[a-z][a-z0-9-]*\z/)
 CONFIG =
-  YAML.safe_load(File.read(File.expand_path("../projects/#{APP}/app.yml", __dir__)))
+  YAML.safe_load(
+    File.read(File.expand_path("../projects/#{APP}/app.yml", __dir__))
+  )
 APP_ID = CONFIG["apple_id"].to_s
 abort("Set apple_id in projects/#{APP}/app.yml") if APP_ID.empty?
 TARGET =

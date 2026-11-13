@@ -14,7 +14,7 @@ let
   };
 in
 {
-  environment.etc."projects/homelab/revision.json".text = builtins.toJSON {
+  environment.etc."homelab/revision.json".text = builtins.toJSON {
     repository = deploymentPolicy.repository;
     branch = deploymentPolicy.branch;
     host = config.networking.hostName;

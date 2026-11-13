@@ -16,7 +16,8 @@ class CheckSelectionTests(unittest.TestCase):
     def test_homelab_test_and_service_changes_do_not_test_the_linux_controller(self):
         self.assertEqual(self.checks("projects/homelab/tests/test_backup.py"), {"homelab.operations"})
         self.assertEqual(
-            self.checks("projects/homelab/services/control-center/release.json"), {"homelab.operations", "homelab.darwin"}
+            self.checks("projects/homelab/services/control-center/release.json"),
+            {"homelab.operations", "homelab.darwin"},
         )
         self.assertEqual(self.checks("projects/homelab/runner/src/main.rs"), {"homelab.linux", "homelab.darwin"})
         self.assertEqual(self.checks("projects/homelab/runner/tests/test.rs"), {"homelab.linux"})
@@ -24,7 +25,9 @@ class CheckSelectionTests(unittest.TestCase):
     def test_cli_and_shared_process_keep_real_host_consumers(self):
         self.assertEqual(self.checks("projects/homelab/cli/src/tui.rs"), {"homelab.cli", "homelab.darwin"})
         self.assertEqual(self.checks("projects/homelab/cli/tests/config.rs"), {"homelab.cli"})
-        self.assertEqual(self.checks("projects/homelab/process/src/lib.rs"), {"homelab.cli", "homelab.darwin", "homelab.host"})
+        self.assertEqual(
+            self.checks("projects/homelab/process/src/lib.rs"), {"homelab.cli", "homelab.darwin", "homelab.host"}
+        )
 
     def test_image_helpers_run_their_actual_python_consumers(self):
         self.assertIn("homelab.operations", self.checks("projects/homelab/runner/images/linux/build-image.py"))
@@ -41,7 +44,8 @@ class CheckSelectionTests(unittest.TestCase):
     def test_native_ui_avoids_rust_and_server_tests_avoid_simulator_and_image(self):
         self.assertEqual(self.checks("projects/control-center/apple/App/Clock.swift"), {"control-center.apple"})
         self.assertEqual(
-            self.checks("projects/control-center/server/tests/api.rs"), {"control-center.rust", "control-center.contract"}
+            self.checks("projects/control-center/server/tests/api.rs"),
+            {"control-center.rust", "control-center.contract"},
         )
         self.assertEqual(
             self.checks("projects/control-center/server/src/http.rs"),
@@ -68,7 +72,9 @@ class CheckSelectionTests(unittest.TestCase):
 
     def test_mixed_changes_union_checks_and_do_not_hide_safety_inputs(self):
         result = self.checks(
-            "projects/homelab/tests/test_backup.py", "projects/homelab/modules/operations.nix", "projects/homelab/runner/src/main.rs"
+            "projects/homelab/tests/test_backup.py",
+            "projects/homelab/modules/operations.nix",
+            "projects/homelab/runner/src/main.rs",
         )
         self.assertEqual(result, {"homelab.operations", "homelab.linux", "homelab.darwin"})
 

@@ -91,18 +91,18 @@
                 host = "vm-test";
                 revision = self.rev or (throw "Publish the prepared fixture as an exact clean Git commit.");
               };
-              environment.etc."projects/homelab/revision.json".text = builtins.toJSON {
+              environment.etc."homelab/revision.json".text = builtins.toJSON {
                 repository = fixture.repository;
                 host = "vm-test";
                 revision = config.system.configurationRevision;
               };
-              environment.etc."projects/homelab/deployment.json".text = builtins.toJSON {
+              environment.etc."homelab/deployment.json".text = builtins.toJSON {
                 host = "vm-test";
                 revision = config.system.configurationRevision;
                 services = [];
                 backupsEnabled = false;
               };
-              environment.etc."projects/homelab/github_known_hosts".source = ./github_known_hosts;
+              environment.etc."homelab/github_known_hosts".source = ./github_known_hosts;
               services.comin = {
                 enable = true;
                 # Use nix-darwin's boot profile for publication and bounded

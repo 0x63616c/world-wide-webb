@@ -28,7 +28,13 @@ def current(app, source, latest):
         subprocess.check_output(["scripts/affected", source, "--head", latest, "--intent", "ship"], cwd=ROOT, text=True)
     )
     listing = git(
-        "diff", "--name-only", source, latest, "--", f"projects/{app}/fastlane/metadata", f"projects/{app}/screenshots.json"
+        "diff",
+        "--name-only",
+        source,
+        latest,
+        "--",
+        f"projects/{app}/fastlane/metadata",
+        f"projects/{app}/screenshots.json",
     )
     return app not in affected["apps"] and not listing
 

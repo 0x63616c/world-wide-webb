@@ -12,7 +12,10 @@ import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-SCENARIOS = {"backup-test": "projects/homelab/tests/test_backup.py", "service": "projects/homelab/services/control-center/release.json"}
+SCENARIOS = {
+    "backup-test": "projects/homelab/tests/test_backup.py",
+    "service": "projects/homelab/services/control-center/release.json",
+}
 
 
 def plan(repository, path):
@@ -32,7 +35,8 @@ def plan(repository, path):
 def commands(check, repository, path):
     if check == "homelab.operations":
         return [
-            ["python3", "-m", "unittest", "discover", "-s", folder] for folder in ("projects/homelab/tests", "scripts/homelab")
+            ["python3", "-m", "unittest", "discover", "-s", folder]
+            for folder in ("projects/homelab/tests", "scripts/homelab")
         ] + [["bash", "-n", "projects/homelab/bootstrap.sh"]]
     if check == "homelab.linux":
         return [

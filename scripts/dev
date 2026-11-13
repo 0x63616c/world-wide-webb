@@ -40,10 +40,12 @@ case "$command_name" in
     [[ "$project" =~ ^[a-z][a-z0-9-]*$ && -f "projects/$project/README.md" ]] || fail "unknown project: $project"
     command -v mise > /dev/null || fail 'install mise to use the pinned project tools'
     (cd "projects/$project" && mise install)
+    mise exec -- uv venv --clear --python "$(mise which python)" .venv
+    mise exec -- uv pip sync --python .venv/bin/python scripts/requirements.txt
     case "$project" in
-      folding) exec bash projects/folding/scripts/bootstrap ;;
-      control-center) exec bash projects/control-center/tools/setup ;;
-      tendr) exec bundle install ;;
+      folding) (cd projects/folding && exec mise exec -- bash scripts/bootstrap) ;;
+      control-center) (cd projects/control-center && exec mise exec -- bash tools/setup) ;;
+      tendr) exec mise exec -- bundle install ;;
       homelab)
         command -v nix > /dev/null || fail 'install Nix to work on homelab hosts'
         exec nix develop projects/homelab --command true
@@ -65,7 +67,7 @@ case "$command_name" in
   doctor)
     (($# == 0)) || fail 'doctor takes no arguments'
     missing=0
-    for tool in git mise ruby bundle python3 bun cargo swift xcodegen xcrun; do
+    for tool in git mise uv ruby bundle python3 bun cargo swift xcodegen xcrun; do
       if command -v "$tool" > /dev/null 2>&1; then
         printf 'Available: %s\n' "$tool"
       else
@@ -90,17 +92,20 @@ case "$command_name" in
       python3 scripts/homelab/dev_check.py all
       exec python3 scripts/homelab/check_nix.py
     fi
+    if [[ "$app" == golink-safari ]]; then
+      exec mise exec -- bash projects/golink-safari/Scripts/check.sh javascript
+    fi
     [[ -f "projects/$app/app.yml" && ! -L "projects/$app" ]] || fail "unknown app: $app"
     if [[ -f "projects/$app/backend/wrangler.jsonc" ]]; then
-      (cd "projects/$app/backend" && bun install --frozen-lockfile && bun run check)
+      (cd "projects/$app/backend" && mise exec -- bun install --frozen-lockfile && mise exec -- bun run check)
     fi
-    handler=$(ruby scripts/app-config.rb "$app" delivery_handler)
+    handler=$(mise exec -- ruby scripts/app-config.rb "$app" delivery_handler)
     case "$handler" in
       standard_ios)
         # Manifest values are command arguments, never shell fragments.
-        project=$(ruby scripts/app-config.rb "$app" project_path)
-        scheme=$(ruby scripts/app-config.rb "$app" scheme)
-        package_tests=$(ruby scripts/app-config.rb "$app" swift_package)
+        project=$(mise exec -- ruby scripts/app-config.rb "$app" project_path)
+        scheme=$(mise exec -- ruby scripts/app-config.rb "$app" scheme)
+        package_tests=$(mise exec -- ruby scripts/app-config.rb "$app" swift_package)
         [[ "$package_tests" == true || "$package_tests" == false ]] || fail "$app: swift_package must be true or false"
         if [[ "$package_tests" == true ]]; then
           swift test --package-path "projects/$app"
@@ -110,9 +115,9 @@ case "$command_name" in
           -destination 'generic/platform=iOS Simulator' \
           -derivedDataPath "$root/build/local/$app" CODE_SIGNING_ALLOWED=NO build
         ;;
-      folding) exec bash projects/folding/scripts/check ;;
-      callkeep) exec bash projects/callkeep/Scripts/test.sh ;;
-      control_center) exec bash projects/control-center/tools/check ;;
+      folding) (cd projects/folding && exec mise exec -- bash scripts/check) ;;
+      callkeep) (cd projects/callkeep && exec mise exec -- bash Scripts/test.sh) ;;
+      control_center) (cd projects/control-center && exec mise exec -- bash tools/check) ;;
       *) fail "no local check handler for $app ($handler)" ;;
     esac
     ;;

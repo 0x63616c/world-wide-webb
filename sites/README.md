@@ -2,8 +2,8 @@
 
 Tendr's canonical website is **https://tendr.worldwidewebb.co/**, with
 [privacy](https://tendr.worldwidewebb.co/privacy/) and
-[support](https://tendr.worldwidewebb.co/support/) pages. Source and content live in `sites/tendr`.
-Folding publishes separately from `sites/folding` to `https://getfolding.app`.
+[support](https://tendr.worldwidewebb.co/support/) pages. Source and content live in `projects/tendr/site`.
+Folding publishes separately from `projects/folding/site` to `https://getfolding.app`.
 
 ## Build and verify
 

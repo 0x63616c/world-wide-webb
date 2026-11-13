@@ -41,7 +41,7 @@ in
           ${transaction}/bin/homelab-activate-generation guard --candidate "$systemConfig"
         ''
     );
-    environment.etc."projects/homelab/github_known_hosts".source = ../lib/github_known_hosts;
+    environment.etc."homelab/github_known_hosts".source = ../lib/github_known_hosts;
 
     services.comin = {
       repositorySubdir = "projects/homelab";

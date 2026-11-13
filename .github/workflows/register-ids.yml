@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
     inputs:
       app:
-        description: "App folder under apps/"
+        description: "Project folder under projects/"
         type: string
         default: tendr
 
