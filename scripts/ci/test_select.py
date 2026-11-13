@@ -121,6 +121,15 @@ class SelectionTests(unittest.TestCase):
         self.assertIn("tendr.native", result["verify"])
         self.assertIn("homelab.config", result["verify"])
 
+    def test_root_flake_bridge_is_checked_and_promoted_only_as_homelab(self):
+        for path in ("flake.nix", "flake.lock"):
+            with self.subTest(path=path):
+                result = selection.select([path], CONFIG)
+                self.assertEqual(result["unmapped"], [])
+                self.assertEqual(result["verify"], ["homelab.config"])
+                self.assertIn("homelab.darwin", result["checks"])
+                self.assertEqual(result["delivery_candidates"], ["homelab.config"])
+
     def test_docs_do_not_activate_hosts_or_ship_apps(self):
         result = selection.select(
             ["README.md", "projects/homelab/docs/current-state.md", ".agents/skills/new/SKILL.md"], CONFIG

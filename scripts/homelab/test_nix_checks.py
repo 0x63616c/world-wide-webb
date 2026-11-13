@@ -50,6 +50,9 @@ class NixScopeTests(unittest.TestCase):
                     expected.append(outputs["runner-controller"])
                 self.assertEqual(json.loads(roots.read_text()), sorted(expected))
                 commands = [call.args[0] for call in run.call_args_list]
+                self.assertEqual([command[3] for command in commands[:2]], [".", "./homelab"])
+                self.assertTrue(all("--no-build" in command for command in commands[:2]))
+                commands = commands[2:]
                 self.assertEqual(commands[0][:3], ["nix", "flake", "check"])
                 self.assertIn("./projects/homelab", commands[0])
                 if service:
@@ -60,3 +63,16 @@ class NixScopeTests(unittest.TestCase):
                 else:
                     self.assertNotIn("--no-build", commands[0])
                     self.assertEqual(len(commands), 1)
+
+    def test_failed_legacy_entrypoint_skips_build_and_cache_export(self):
+        import subprocess
+
+        with (
+            patch("sys.argv", ["check_nix"]),
+            patch.object(check_nix.subprocess, "run", side_effect=subprocess.CalledProcessError(1, "nix")) as run,
+            patch.object(check_nix.subprocess, "check_output") as output,
+        ):
+            with self.assertRaises(subprocess.CalledProcessError):
+                check_nix.main()
+        self.assertEqual(run.call_count, 1)
+        output.assert_not_called()

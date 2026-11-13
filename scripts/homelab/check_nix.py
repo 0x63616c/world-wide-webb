@@ -29,6 +29,10 @@ def main():
             .strip("\0")
             .split("\0")
         )
+    # Enrolled reconcilers still use both historical entrypoints. Evaluate them
+    # before building the canonical project, so a broken bridge fails fast.
+    for bridge in (".", "./homelab"):
+        subprocess.run(["nix", "flake", "check", bridge, "--no-build", "--no-update-lock-file"], check=True)
     command = ["nix", "flake", "check", FLAKE, "--no-update-lock-file", "--print-build-logs"]
     if service_only(paths):
         subprocess.run([*command, "--no-build"], check=True)

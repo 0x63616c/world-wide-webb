@@ -5,11 +5,14 @@ promotion to `deploy/homelab`; Comin polls that branch every 30 seconds. GitHub
 promotion completion is distinct from host acceptance. Check the installed revision
 and `/var/lib/homelab-operations/last-success.json` before claiming deployment.
 
-The move to `projects/homelab` keeps a temporary `homelab/flake.nix` bridge and
-matching lockfile. Hosts already running Comin still evaluate the old path; the
-bridge imports the project flake, whose configuration switches Comin to
-`projects/homelab`. Remove the bridge only after both hosts have accepted a
-generation with the new subdirectory and recovery has been verified.
+The move to `projects/homelab` keeps temporary flake entrypoints at the repository
+root and `homelab/`, each with the same pinned inputs as the project. The MacBook's
+installed reconciler was observed evaluating `dir=.` on November 12; retaining
+only `homelab/flake.nix` left it unable to evaluate the promoted source. Both
+bridges import the project outputs, whose configuration switches Comin to
+`projects/homelab`. CI evaluates both legacy entrypoints before building the
+canonical project once. Remove the bridges only after both hosts have accepted
+a generation with the new subdirectory and recovery has been verified.
 
 ## Generation changes
 
