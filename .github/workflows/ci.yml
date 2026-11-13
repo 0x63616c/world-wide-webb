@@ -166,6 +166,20 @@ jobs:
       'golink')
     uses: ./.github/workflows/golink-safari-ci.yml
     secrets: inherit
+  minecraft:
+    name: Minecraft mod
+    needs: changes
+    if: contains(fromJSON(needs.changes.outputs.products), 'minecraft')
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 10
+    steps:
+      - *id001
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961
+        with:
+          distribution: microsoft
+          java-version: "25"
+      - run: bash ./gradlew build --no-daemon
+        working-directory: projects/minecraft
   homelab:
     name: Homelab
     needs:
@@ -212,6 +226,7 @@ jobs:
       - tendr
       - callkeep
       - golink
+      - minecraft
       - homelab
       - sites
       - security

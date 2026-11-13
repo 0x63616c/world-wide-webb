@@ -11,6 +11,7 @@ release details. Shared code owns selection and common entrypoints.
 | `projects/callkeep` | macOS app, transcription packages and notarized release. [README](projects/callkeep/README.md) |
 | `projects/control-center` | Native client, Rust/SQLite server and deployment. Read its [source map](projects/control-center/CODEBASE_OVERVIEW.md). |
 | `projects/golink-safari` | Safari extension and native container; the server lives in Homelab. [README](projects/golink-safari/README.md) |
+| `projects/minecraft` | Fabric client mod for wheel and HUD settings. [README](projects/minecraft/README.md) |
 | `projects/homelab` | Mac configuration, services, disposable runners and setup CLI. [README](projects/homelab/README.md) |
 | `sites` | Shared landing page and approved publication list; product sites live in their projects. [README](sites/README.md) |
 | `infra/cloudflare/home` | Retained shared OpenTofu state; Folding's state root lives in its project. |
