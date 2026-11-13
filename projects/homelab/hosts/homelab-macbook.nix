@@ -1,4 +1,5 @@
 { config, lib, ... }: {
+  imports = [ ../modules/rex.nix ];
   networking.hostName = "homelab-macbook";
   users.knownUsers = [ "coding" ];
   users.users.coding = {
