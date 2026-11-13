@@ -82,6 +82,13 @@ hosts only; service activation needs a separately tested migration workflow.
 | `services/cloudflared/token` | `tunnel-token` | Existing tunnel identity |
 | `services/bambuddy/environment` | `bambuddy-environment` | Sidecar enrollment settings, if needed |
 
+The Mini's private Control Center image pulls reuse the existing Homelab PAT in the
+`homelab` 1Password vault, item **GitHub Personal Access Token**
+(`dewmvuagsxajla6zs5oy6e6hva`). This is a lookup reference, never a token value.
+Comin Git access and the GitHub Runners App are separate from registry authentication.
+Check pulls as the `_containers` service account before requesting another token;
+cached images can hide failed authentication (PR #981).
+
 These service files are owned by `_containers`, mode 0400. The dormant
 [scripts/reconcile-service.py](../scripts/reconcile-service.py) projects only the
 selected service's files into `/var/lib/_containers/runtime-secrets/<service>`

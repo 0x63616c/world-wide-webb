@@ -105,20 +105,33 @@ fn main() {
                 );
                 event(root, "fetch");
                 let repo = Path::new(args.last().unwrap());
-                fs::create_dir_all(repo.join("projects/homelab/secrets")).unwrap();
-                fs::create_dir_all(repo.join("projects/homelab/bootstrap")).unwrap();
-                fs::write(repo.join("projects/homelab/flake.lock"), "fixture-lock").unwrap();
-                fs::copy(root.join("manifest.json"), repo.join("projects/homelab/homelab.json")).unwrap();
+                let config = if flag("legacy-layout") || flag("nested-flake") {
+                    repo.to_path_buf()
+                } else {
+                    fs::create_dir_all(repo.join("projects/homelab")).unwrap();
+                    repo.join("projects/homelab")
+                };
+                fs::create_dir_all(config.join("secrets")).unwrap();
+                fs::create_dir_all(config.join("bootstrap")).unwrap();
+                if flag("nested-flake") {
+                    fs::create_dir_all(repo.join("homelab")).unwrap();
+                    fs::write(repo.join("homelab/flake.nix"), "fixture-flake").unwrap();
+                    fs::write(repo.join("homelab/flake.lock"), "fixture-lock").unwrap();
+                } else {
+                    fs::write(config.join("flake.nix"), "fixture-flake").unwrap();
+                    fs::write(config.join("flake.lock"), "fixture-lock").unwrap();
+                }
+                fs::copy(root.join("manifest.json"), config.join("homelab.json")).unwrap();
                 if !flag("missing-ciphertext") {
                     fs::write(
-                        repo.join("projects/homelab/secrets/workstation.sops.yaml"),
+                        config.join("secrets/workstation.sops.yaml"),
                         "fixture-ciphertext",
                     )
                     .unwrap();
                 }
                 fs::copy(
                     root.join("installer.json"),
-                    repo.join("projects/homelab/bootstrap/installer.json"),
+                    config.join("bootstrap/installer.json"),
                 )
                 .unwrap();
             } else if args.iter().any(|arg| arg == "diff") {
@@ -150,6 +163,14 @@ fn main() {
                 println!("nix fixture");
             } else if args[0] == "eval" {
                 event(root, "evaluate");
+                let suffix = if flag("nested-flake") {
+                    "/homelab#lib.setupPlan.hosts.workstation"
+                } else if flag("legacy-layout") {
+                    "/repo#lib.setupPlan.hosts.workstation"
+                } else {
+                    "/projects/homelab#lib.setupPlan.hosts.workstation"
+                };
+                assert!(args.iter().any(|arg| arg.ends_with(suffix)), "wrong flake: {args:?}");
                 if flag("evaluation-fails") { fail(); }
                 if flag("build-supervision-fails") {
                     fs::remove_file(root.join("nix")).unwrap();

@@ -1,7 +1,7 @@
 # Homelab
 
 The MacBook and Mac mini are configured from this repository. Host modules,
-services, disposable runners and the setup CLI live under `homelab/`. Checked
+services, disposable runners and the setup CLI live under `projects/homelab/`. Checked
 changes move from authoring `main` to `deploy/homelab`; Comin follows that
 promotion branch. Read [current state](docs/current-state.md) before a live
 host or service change.
@@ -9,19 +9,19 @@ host or service change.
 ## Source and checks
 
 The Nix flake and lockfile live at `projects/homelab/flake.nix` and
-`projects/homelab/flake.lock`. The host manifest (`../homelab.json`), installer pin
-(`../bootstrap/installer.json`) and encrypted host files (`../secrets/`) stay at
-the repository root because enrollment and recovery use those paths. Comin is
+`projects/homelab/flake.lock`. The host manifest (`homelab.json`), installer pin
+(`bootstrap/installer.json`) and encrypted host files (`secrets/`) live beside it.
+The CLI reads the project paths for new setup and retains approved old revisions for recovery. Comin is
 configured to read the `projects/homelab` subdirectory of the promoted repository.
 
 From the repository root:
 
 ```sh
-nix flake check ./homelab --no-update-lock-file --print-build-logs
-nix develop ./homelab --command python3 -m unittest discover -s homelab/tests
+nix flake check projects/homelab --no-update-lock-file --print-build-logs
+nix develop projects/homelab --command python3 -m unittest discover -s projects/homelab/tests
 cargo test --locked --manifest-path projects/homelab/cli/Cargo.toml
-cargo test --locked --manifest-path homelab/host/Cargo.toml
-cargo test --locked --manifest-path homelab/runner/Cargo.toml
+cargo test --locked --manifest-path projects/homelab/host/Cargo.toml
+cargo test --locked --manifest-path projects/homelab/runner/Cargo.toml
 ```
 
 These checks do not activate a host. `scripts/dev homelab <area>` runs focused
@@ -31,8 +31,8 @@ apps are not included in its package input.
 
 ## Enrollment and updates
 
-Install the public CLI with `brew install 0x63616c/tap/homelab`, run `projects/homelab`
-and attach `0x63616c/world-wide-webb`. It reads `homelab.json`, prepares
+Install the public CLI with `brew install 0x63616c/tap/homelab`, run `homelab`
+and attach `0x63616c/world-wide-webb`. It reads this project's `homelab.json`, prepares
 per-host encrypted configuration and verifies the approved install after reboot.
 See [setup](docs/setup.md) for prerequisites and recovery.
 

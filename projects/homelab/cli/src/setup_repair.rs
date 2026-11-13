@@ -107,13 +107,20 @@ pub fn resolve(
             return Err(Error::Conflict);
         }
         // Compare raw bytes as well as parsed configuration: a repair cannot hide
-        // key rotation or a desired-state change behind normalization.
+        // key rotation or a desired-state change behind normalization. Keep the
+        // layout of the approved revision, including older root-based setups.
+        let project = match api.raw(&format!(
+            "{base}/contents/projects/homelab/homelab.json?ref={from}"
+        )) {
+            Ok(_) => "projects/homelab/",
+            Err(Error::Missing) => "",
+            Err(error) => return Err(error),
+        };
         for path in [
-            "projects/homelab/homelab.json".to_owned(),
+            format!("{project}homelab.json"),
             ".sops.yaml".into(),
-            "projects/homelab/flake.lock".into(),
-            "projects/homelab/bootstrap/installer.json".into(),
-            format!("projects/homelab/secrets/{host}.sops.yaml"),
+            format!("{project}bootstrap/installer.json"),
+            format!("{project}secrets/{host}.sops.yaml"),
         ] {
             let before = api.raw(&format!("{base}/contents/{path}?ref={}", from))?;
             let after = api.raw(&format!(
@@ -123,6 +130,29 @@ pub fn resolve(
             if before != after {
                 return Err(Error::Conflict);
             }
+        }
+        // A repair may update code, but cannot move or change the approved flake lock.
+        let mut found_lock = false;
+        for path in [
+            "flake.lock",
+            "homelab/flake.lock",
+            "projects/homelab/flake.lock",
+        ] {
+            let read =
+                |revision: &str| match api.raw(&format!("{base}/contents/{path}?ref={revision}")) {
+                    Ok(bytes) => Ok(Some(bytes)),
+                    Err(Error::Missing) => Ok(None),
+                    Err(error) => Err(error),
+                };
+            let before = read(from)?;
+            let after = read(&selection.repaired_revision)?;
+            if before != after || (found_lock && before.is_some()) {
+                return Err(Error::Conflict);
+            }
+            found_lock |= before.is_some();
+        }
+        if !found_lock {
+            return Err(Error::Missing);
         }
     }
     crate::provisioning::save_installation_repair(root, host, &selection)

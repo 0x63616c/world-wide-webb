@@ -445,8 +445,17 @@ fn usable_nix(tools: &Tools, home: &Path) -> Result<Option<PathBuf>, Error> {
     Ok(nix)
 }
 
+fn configuration_root(repo: &Path) -> PathBuf {
+    let project = repo.join("projects/homelab");
+    if regular_file(&project.join("homelab.json")).is_ok() {
+        project
+    } else {
+        repo.to_path_buf()
+    }
+}
+
 fn verify_completed_nix(tools: &Tools, home: &Path, repo: &Path) -> Result<(), Error> {
-    let installer = verify_installer(&repo.join("projects/homelab/bootstrap/installer.json"))?;
+    let installer = verify_installer(&configuration_root(repo).join("bootstrap/installer.json"))?;
     let version = installer
         .url
         .rsplit('/')
@@ -474,7 +483,7 @@ fn install_nix(
     uid: u32,
     progress: &mut dyn FnMut(Phase),
 ) -> Result<PathBuf, Error> {
-    let installer = verify_installer(&repo.join("projects/homelab/bootstrap/installer.json"))?;
+    let installer = verify_installer(&configuration_root(repo).join("bootstrap/installer.json"))?;
     let downloaded = work.join("nix-installer");
     let mut download = command(&tools.curl, home);
     download
@@ -818,8 +827,9 @@ fn run_inner(
     if actual_revision != request.revision {
         return Err(Error::Repository);
     }
+    let config = configuration_root(&repo);
     let mut manifest_bytes = Vec::new();
-    regular_file(&repo.join("projects/homelab/homelab.json"))
+    regular_file(&config.join("homelab.json"))
         .map_err(|_| Error::Unprovisioned)?
         .take(65_537)
         .read_to_end(&mut manifest_bytes)
@@ -833,10 +843,18 @@ fn run_inner(
     if fetched.hosts.get(&request.host) != Some(approved) {
         return Err(Error::NotReady);
     }
-    let ciphertext = repo
-        .join("projects/homelab/secrets")
+    let ciphertext = config
+        .join("secrets")
         .join(format!("{}.sops.yaml", request.host));
-    for file in [repo.join("projects/homelab/flake.lock"), ciphertext.clone()] {
+    let nested_flake = repo.join("homelab");
+    let flake = if regular_file(&config.join("flake.nix")).is_ok() {
+        config.clone()
+    } else if regular_file(&nested_flake.join("flake.nix")).is_ok() {
+        nested_flake
+    } else {
+        repo.clone()
+    };
+    for file in [flake.join("flake.lock"), ciphertext.clone()] {
         if !regular_file(&file)
             .and_then(|file| file.metadata())
             .is_ok_and(|metadata| metadata.len() > 0)
@@ -869,6 +887,11 @@ fn run_inner(
                 from,
                 &request.revision,
                 "--",
+                "homelab.json",
+                "secrets",
+                "bootstrap/installer.json",
+                "flake.lock",
+                "homelab/flake.lock",
                 "projects/homelab/homelab.json",
                 ".sops.yaml",
                 "projects/homelab/secrets",
@@ -903,7 +926,6 @@ fn run_inner(
             &mut progress,
         )?,
     };
-    let flake = repo.join("projects/homelab");
     let target = format!("{}#darwinConfigurations.{}", flake.display(), request.host);
     let mut evaluate = command(&nix, &home);
     evaluate

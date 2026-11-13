@@ -14,6 +14,7 @@ struct Git {
     main_reads: Cell<usize>,
     followup: Cell<bool>,
     nested_lock: Cell<bool>,
+    project_layout: Cell<bool>,
 }
 impl Default for Git {
     fn default() -> Self {
@@ -25,6 +26,7 @@ impl Default for Git {
             main_reads: Cell::new(0),
             followup: Cell::new(false),
             nested_lock: Cell::new(false),
+            project_layout: Cell::new(false),
         }
     }
 }
@@ -39,6 +41,9 @@ impl Api for Git {
         Ok(json!({"status":if self.descendant {"ahead"} else {"diverged"}}))
     }
     fn raw(&self, path: &str) -> Result<Vec<u8>, Error> {
+        if path.contains("/contents/projects/homelab/") && !self.project_layout.get() {
+            return Err(Error::Missing);
+        }
         if path.contains("/contents/homelab/flake.lock") {
             return if self.nested_lock.get() {
                 Ok(b"nested lock".to_vec())
@@ -46,7 +51,9 @@ impl Api for Git {
                 Err(Error::Missing)
             };
         }
-        if path.contains("/contents/flake.lock") && self.nested_lock.get() {
+        if path.contains("/contents/flake.lock")
+            && (self.nested_lock.get() || self.project_layout.get())
+        {
             return Err(Error::Missing);
         }
         if path.contains("/setup-repairs/") {
@@ -79,6 +86,19 @@ fn repair_preserves_nested_flake_lock() {
     saved(&root);
     let api = Git::default();
     api.nested_lock.set(true);
+    let (repaired, original) =
+        setup_repair::resolve(&api, &root, workspace(), "build-mac").unwrap();
+    assert_eq!(repaired.revision, "b".repeat(40));
+    assert_eq!(original, Some("a".repeat(40)));
+}
+
+#[test]
+fn repair_preserves_project_flake_lock() {
+    let directory = tempfile::tempdir().unwrap();
+    let root = directory.path().join("state");
+    saved(&root);
+    let api = Git::default();
+    api.project_layout.set(true);
     let (repaired, original) =
         setup_repair::resolve(&api, &root, workspace(), "build-mac").unwrap();
     assert_eq!(repaired.revision, "b".repeat(40));

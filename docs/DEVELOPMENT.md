@@ -10,39 +10,40 @@ all products into one app.
 ```sh
 wtp add -b codex/my-change origin/main
 cd "$(wtp cd codex/my-change)"
-mise install
+scripts/dev setup tendr
 scripts/dev doctor
 ```
 
 Worktrees live outside the main checkout. `wtp add` runs `tools/setup` and installs
 the repository's Lefthook pre-commit checks. If you created a worktree without
 `wtp`, run `lefthook install`.
-Read product-local `AGENTS.md` and setup instructions before changing that area.
+Read the root `AGENTS.md` and product README before changing that area.
 
-Root `mise.toml` pins Bun, Node, Python, Ruby, XcodeGen and OpenTofu for local
-work. Run commands with `mise exec -- …` or activate mise in your shell.
+Root `mise.toml` and `mise.lock` pin Bun, Node, Python, uv, Ruby, XcodeGen and
+OpenTofu for local work. `scripts/dev setup <project>` installs them and creates
+the Python environment from `scripts/requirements.txt`.
 Folding's `mise.toml` selects its release Ruby version when working in that
 directory. Product lockfiles and CI pins remain the release authority; the
 mise pin check prevents common local versions drifting from them. Xcode and
 simulator runtimes are installed separately; Rust toolchain files keep their
 product-specific targets and components. The Homelab Nix flake lives under
-`homelab/` and is not replaced by mise.
-For `scripts/dev affected` and shared CI selector tests, create a local Python
-environment with `mise exec -- python3 -m venv .venv`, install
-`scripts/requirements.txt` into it, and put `.venv/bin` on `PATH` for those
-commands. `scripts/dev doctor` reports a missing PyYAML dependency.
+`projects/homelab/` and is not replaced by mise. Put `.venv/bin` on `PATH` for
+`scripts/dev affected` and shared CI selector tests; `scripts/dev doctor` reports
+a missing PyYAML dependency.
 
 ## Choose a local check
 
 | Command | What it does |
 | --- | --- |
-| `scripts/dev apps` | List app folders known to the app manifest reader. |
-| `scripts/dev check <app>` | Run that app's local handler. Standard iOS apps run package tests when declared and an unsigned simulator build; Folding, Callkeep and Control Center use their own handlers. |
+| `scripts/dev list` | List every project. |
+| `scripts/dev setup <project>` | Install pinned tools and shared Python requirements, then run project setup. |
+| `scripts/dev check <project>` | Run its local handler. Standard iOS apps run package tests when declared and an unsigned simulator build; Folding, Callkeep, Control Center, Golink and Homelab use their own handlers. |
 | `scripts/dev homelab <area>` | Run focused Homelab planner, activation or backup tests. |
 | `scripts/dev affected <base>` | Resolve affected apps for verification from committed changes. |
 | `scripts/dev doctor` | Report missing shared tools; product pins, Apple runtimes and account readiness are checked in their own workflows. |
 
-Prefix these commands with `mise exec --` if your shell has not activated mise.
+`scripts/dev check` invokes mise for pinned project tools even when your shell has
+not activated it.
 
 The product README supplies narrower commands and required toolchains. For example,
 Tendr package tests run with `swift test --package-path projects/tendr`; Folding's

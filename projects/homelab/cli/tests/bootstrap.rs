@@ -21,6 +21,14 @@ fn nested_flake_builds_from_homelab_directory() {
     fixture.run().unwrap();
     assert!(fixture.events().contains(&"build".into()));
 }
+
+#[test]
+fn original_root_flake_remains_recoverable() {
+    let fixture = Fixture::new(true);
+    fixture.flag("legacy-layout");
+    fixture.run().unwrap();
+    assert!(fixture.events().contains(&"build".into()));
+}
 impl Fixture {
     fn new(existing_nix: bool) -> Self {
         let directory = tempfile::tempdir().unwrap();

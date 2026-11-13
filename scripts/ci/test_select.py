@@ -101,7 +101,6 @@ class SelectionTests(unittest.TestCase):
         for path, owner in [
             ("mise.lock", "repo.tooling"),
             ("projects/folding/mise.toml", "folding.tooling"),
-            ("projects/control-center/mise.toml", "control-center.tooling"),
         ]:
             with self.subTest(path=path):
                 result = selection.select([path], CONFIG)

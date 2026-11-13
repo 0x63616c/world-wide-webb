@@ -30,9 +30,10 @@ The Git host name is also the required macOS local hostname. The CLI derives
 `adminUser@<host-name>.local`; there is no address override in Git or local settings.
 Initial setup requires local-network reachability before Tailscale enrollment.
 
-The configuration repository supplies a locked flake at its root or under
-`homelab/`, plus `bootstrap/installer.json` (reviewed Determinate installer
-URL and SHA-256). WWW uses `homelab/flake.nix` and `homelab/flake.lock`;
+The configuration repository supplies a locked flake at its root, under
+`homelab/`, or under `projects/homelab/`, plus a reviewed Determinate installer
+URL and SHA-256. WWW uses `projects/homelab/flake.nix` and
+`projects/homelab/flake.lock`;
 its host configuration, Comin and CLI all select that same subdirectory.
 Enrollment creates `secrets/<host>.sops.yaml` and commits its encrypted contents
 with the host configuration. A PR is used when review is required; you do not

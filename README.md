@@ -19,21 +19,22 @@ boundaries. Product READMEs give the commands and deeper docs for their own area
 
 ## Work locally
 
-Create a worktree from the current main branch, then enter it:
+Create a worktree from the current main branch, then set up the project:
 
 ```sh
 wtp add -b codex/my-change origin/main
 cd "$(wtp cd codex/my-change)"
-mise install
-mise exec -- scripts/dev apps
-mise exec -- scripts/dev check tendr
+scripts/dev list
+scripts/dev setup tendr
+scripts/dev check tendr
 ```
 
 `wtp add` runs the repository's setup and installs Lefthook's local checks.
-`mise.toml` pins common local tools; `mise exec` uses them without shell activation.
-The product may require its own toolchain or runtime; start with its README. Use
-`scripts/dev check <app>` for the product's local handler and
-`scripts/dev homelab` for focused host checks. These commands do not publish.
+`mise.toml` and `mise.lock` pin shared local tools; project configs add their own
+versions. `scripts/dev setup` installs them and creates a Python environment from
+pinned requirements. Swift uses Xcode and SwiftPM, Rust uses product toolchain and
+Cargo locks, and Homelab uses its Nix flake lock. Read the project README for
+platform requirements. These commands do not publish.
 
 Install the tracked Git hooks with `lefthook install` in each checkout and the locked
 Prettier plugins with `bun install --frozen-lockfile`. The hook formats staged maintained
@@ -49,6 +50,7 @@ findings are deferred to a focused security change. A push remains an explicit a
 
 [Development](docs/DEVELOPMENT.md), [new apps](docs/NEW-APP.md) and [releases](docs/RELEASE.md)
 describe the shared lifecycle and current handler boundaries.
+
 ## How changes ship
 
 The [CI selection policy](scripts/ci/units.json) separates verification from

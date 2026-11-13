@@ -27,7 +27,7 @@ Tendr and Folding share the event selector, exact-source beta receipt validation
 per-app publisher lock and review-state rules. Tendr uses the root Fastlane bundle;
 Folding keeps its own immutable archive, Worker prerequisites and Fastlane bundle.
 
-1. Set the new marketing version in `apps/<app>/app.yml` before merging the app
+1. Set the new marketing version in `projects/<app>/app.yml` before merging the app
    change. Several TestFlight builds may share that version; each has a different
    build number.
 2. Merge to `main`. Wait for successful exact-source CI, internal TestFlight

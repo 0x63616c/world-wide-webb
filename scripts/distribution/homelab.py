@@ -153,7 +153,7 @@ def main():
         expected = "homelab-host" if binary == "homelab-host" else "homelab"
         if prepare.run(str(payload / "bin" / binary), "--version") != f"{expected} {version}":
             raise ValueError("The prebuilt CLI and helper versions do not agree")
-    tag = f"projects/homelab/v{version}"
+    tag = f"homelab/v{version}"
     existing = publish.remote_commit(publish.REMOTE, tag)
     if existing and existing != source:
         raise ValueError("CLI version already belongs to another source; bump Cargo.toml before releasing")

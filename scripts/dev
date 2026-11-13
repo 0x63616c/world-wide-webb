@@ -54,7 +54,8 @@ case "$command_name" in
     esac
     ;;
   homelab)
-    exec python3 scripts/homelab/dev_check.py "$@"
+    [[ -x .venv/bin/python ]] || fail 'run scripts/dev setup homelab first'
+    exec .venv/bin/python scripts/homelab/dev_check.py "$@"
     ;;
   new)
     (($# == 2 || $# == 4)) || fail 'new needs <Name> <bundle-suffix> [--backend cloudflare]'
@@ -89,8 +90,9 @@ case "$command_name" in
     app=$1
     [[ "$app" =~ ^[a-z][a-z0-9-]*$ ]] || fail 'use a project name from scripts/dev list'
     if [[ "$app" == homelab ]]; then
-      python3 scripts/homelab/dev_check.py all
-      exec python3 scripts/homelab/check_nix.py
+      [[ -x .venv/bin/python ]] || fail 'run scripts/dev setup homelab first'
+      .venv/bin/python scripts/homelab/dev_check.py all
+      exec .venv/bin/python scripts/homelab/check_nix.py
     fi
     if [[ "$app" == golink-safari ]]; then
       exec mise exec -- bash projects/golink-safari/Scripts/check.sh javascript

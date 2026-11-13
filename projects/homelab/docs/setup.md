@@ -99,7 +99,7 @@ restart. See [updates](updates.md) for what future merges authorize.
 ## Add another host
 
 1. Add its entry to `homelab.json`, initially disabled, and its `hosts/<name>.nix`.
-2. Add the Darwin configuration in `homelab/flake.nix` and review account/UID assumptions.
+2. Add the Darwin configuration in `projects/homelab/flake.nix` and review account/UID assumptions.
 3. Reload the repository in the CLI, select the new host and confirm its address.
 4. Review Begin setup and let the checklist complete; merge a PR if required.
 

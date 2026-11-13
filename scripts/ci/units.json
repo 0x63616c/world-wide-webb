@@ -213,8 +213,7 @@
         "projects/control-center/Cargo.toml",
         "projects/control-center/.gitignore",
         "projects/control-center/rust-toolchain.toml",
-        "projects/control-center/app.yml",
-        "projects/control-center/mise.toml"
+        "projects/control-center/app.yml"
       ],
       "delivery": null,
       "exclude": [

@@ -3,8 +3,7 @@
 Use the shared scaffold when a new iOS product needs its own source, tests,
 listing and website placeholder. From the repository root:
 
-Run `mise install` once in the worktree, then use `mise exec --` for local
-commands if mise is not activated in your shell.
+Run `scripts/dev setup <project>` after creating it to install local tools.
 
 ```sh
 scripts/dev new Samplr samplr
@@ -12,7 +11,7 @@ scripts/dev new Samplr samplr
 scripts/dev new Cloudr cloudr --backend cloudflare
 ```
 
-The display name becomes a lowercase app folder; the suffix forms the bundle ID
+The display name becomes a lowercase folder under `projects/`; the suffix forms the bundle ID
 (`com.calumwebb.samplr` in the first example). The scaffold creates an app-local
 SwiftUI/XcodeGen project, starter screens, a synthetic screenshot test, `app.yml`,
 listing configuration and privacy/support page placeholders. It registers the app
@@ -28,7 +27,7 @@ explains resources and first delivery. A backend is not needed for an offline ap
 1. Replace the starter screens and public page placeholders with the real user
    journey, data handling, support details and accessibility behavior.
 2. Keep components, domain tests, fixtures and screenshots with the app. Run
-   `scripts/dev check <folder>`; it checks the declared package and unsigned
+   `scripts/dev check <project>`; it checks the declared package and unsigned
    simulator build. For a backend, it also runs its frozen install, tests and
    environment bundles.
 3. Verify the app's own site and release metadata. New app registration selects
