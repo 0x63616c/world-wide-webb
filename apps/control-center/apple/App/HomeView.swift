@@ -245,8 +245,8 @@ struct HomeView: View {
                         .clipShape(ConcentricRectangle())
                         .frame(width: size.width, height: size.height)
                         .offset(y: showingClock ? size.height : 0)
-                        .allowsHitTesting(!showingClock && selected == nil)
-                        .accessibilityHidden(showingClock || selected != nil)
+                        .allowsHitTesting(shell.launcherCanReceiveInput)
+                        .accessibilityHidden(!shell.launcherCanReceiveInput)
                     }
                 }.frame(width: size.width, height: size.height).clipped()
                     .environment(\.colorScheme, .dark).foregroundStyle(.white).tint(.white)
@@ -260,6 +260,12 @@ struct HomeView: View {
                     }
                     .toolbar(.hidden, for: .navigationBar)
                     .navigationTransition(.zoom(sourceID: app.id, in: zoom))
+                    .onDisappear {
+                        if shell.appDestinationDisappeared(id) {
+                            PanelEventLog.shared.record(
+                                category: "navigation", action: "app.\(id).disappearance_recovered")
+                        }
+                    }
                 }
             }
         }
