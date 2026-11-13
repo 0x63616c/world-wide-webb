@@ -16,6 +16,10 @@
   ],
   "shared_verify": [],
   "units": {
+    "minecraft.mod": {
+      "paths": ["projects/minecraft/**"],
+      "delivery": null
+    },
     "golink.safari": {
       "paths": ["projects/golink-safari/**"],
       "delivery": null

@@ -30,6 +30,12 @@ class DispatchTests(unittest.TestCase):
     def test_docs_and_unrelated_products_do_not_run(self):
         self.assertEqual(dispatch(["docs/example.md"], CONFIGURATION)["products"], [])
         self.assertEqual(
+            dispatch(["projects/minecraft/src/client/java/dev/calum/mctuner/MinecraftTuner.java"], CONFIGURATION)[
+                "products"
+            ],
+            ["minecraft"],
+        )
+        self.assertEqual(
             dispatch(["projects/folding/apps/ios/App/FoldingScreens.swift"], CONFIGURATION)["products"], ["folding"]
         )
         self.assertEqual(
@@ -59,6 +65,7 @@ class DispatchTests(unittest.TestCase):
                 "tendr",
                 "callkeep",
                 "golink",
+                "minecraft",
                 "homelab",
                 "sites",
                 "typecheck",

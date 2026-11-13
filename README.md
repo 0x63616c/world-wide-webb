@@ -12,6 +12,7 @@ its code and user experience; shared tooling selects checks and delivery work.
 | Callkeep | macOS recording and transcription app | [App](projects/callkeep/README.md) |
 | Control Center | iPad/iPhone home controls and private Rust service | [Product](projects/control-center/README.md) · [Source map](projects/control-center/CODEBASE_OVERVIEW.md) |
 | Golink for Safari | Safari client for the tailnet Golink service | [Extension](projects/golink-safari/README.md) · [Service](projects/homelab/docs/golink.md) |
+| Minecraft Tuner | Fabric mod for scroll and HUD positioning | [Mod](projects/minecraft/README.md) |
 | Homelab | Mac configuration, services, runners and setup CLI | [Hosts](projects/homelab/README.md) · [CLI](projects/homelab/cli/README.md) |
 
 The [source map](CODEBASE_OVERVIEW.md) covers the shared directories and ownership

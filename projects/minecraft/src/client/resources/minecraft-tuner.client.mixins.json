@@ -1,0 +1,7 @@
+{
+  "required": true,
+  "package": "dev.calum.mctuner.mixin",
+  "compatibilityLevel": "JAVA_25",
+  "client": ["MouseHandlerMixin", "BossHealthOverlayMixin", "ScreenAccessor"],
+  "injectors": { "defaultRequire": 1 }
+}

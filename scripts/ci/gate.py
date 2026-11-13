@@ -16,6 +16,7 @@ def verify(needs):
         "tendr",
         "callkeep",
         "golink",
+        "minecraft",
         "homelab",
         "sites",
         "typecheck",

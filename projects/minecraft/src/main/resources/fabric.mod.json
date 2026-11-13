@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "minecraft-tuner",
+  "version": "${version}",
+  "name": "Minecraft Tuner",
+  "description": "Live wheel and top-center HUD tuning for Minecraft 26.3.",
+  "authors": ["Calum"],
+  "contact": { "sources": "https://github.com/0x63616c/minecraft" },
+  "license": "CC0-1.0",
+  "environment": "client",
+  "entrypoints": { "client": ["dev.calum.mctuner.MinecraftTuner"] },
+  "mixins": [
+    { "config": "minecraft-tuner.client.mixins.json", "environment": "client" }
+  ],
+  "depends": {
+    "fabricloader": ">=0.20.1",
+    "minecraft": "~26.3",
+    "java": ">=25",
+    "fabric-api": "*"
+  },
+  "suggests": { "jade": "*" }
+}
