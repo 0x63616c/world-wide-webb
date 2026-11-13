@@ -31,7 +31,7 @@ in
         HOME = codingHome;
         USER = "coding";
         LOGNAME = "coding";
-        SHELL = "/bin/zsh";
+        SHELL = "${pkgs.zsh}/bin/zsh";
         PATH = "${package}/bin:/run/current-system/sw/bin:/usr/bin:/bin:/usr/sbin:/sbin";
       };
       RunAtLoad = true;
