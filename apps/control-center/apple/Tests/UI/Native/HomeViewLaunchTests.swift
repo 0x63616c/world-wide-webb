@@ -86,6 +86,8 @@ import XCTest
 
         addUser.tap()
         XCTAssertTrue(pinDigit.waitForExistence(timeout: 5))
+        XCTAssertTrue(pinDigit.isHittable, "The bottom PIN row must be visible")
+        XCTAssertTrue(app.buttons["pin-digit-9"].isHittable, "The PIN pad must fit in the sheet")
         XCTAssertFalse(name.exists)
         XCTAssertFalse(photo.exists)
         let screenshot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
@@ -101,13 +103,13 @@ import XCTest
         XCTAssertTrue(name.waitForExistence(timeout: 5))
         XCTAssertTrue(photo.exists)
         XCTAssertFalse(app.buttons["profile-save"].isEnabled)
-        app.buttons["Cancel"].tap()
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.05, dy: 0.5)).tap()
         XCTAssertTrue(addUser.waitForExistence(timeout: 5))
 
         addUser.tap()
         XCTAssertTrue(pinDigit.waitForExistence(timeout: 5))
         XCTAssertFalse(photo.exists)
-        app.buttons["Cancel"].tap()
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.05, dy: 0.5)).tap()
         XCTAssertTrue(addUser.waitForExistence(timeout: 5))
     }
     func testSwipingDoesNotNavigateBetweenClockAndHome() {

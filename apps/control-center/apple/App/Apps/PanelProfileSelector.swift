@@ -75,7 +75,6 @@ struct PanelProfileSelector: ViewModifier {
                     delete: { pin in try await remove(target.profile, pin: pin) }
                 )
                 .preferredColorScheme(.dark)
-                .frame(idealWidth: 420, idealHeight: 310)
                 .presentationSizing(.fitted)
             }
             .onChange(of: isAvailable) { _, available in
@@ -265,18 +264,14 @@ private struct ProfileEditorSheet: View {
                 .padding(20)
                 .fixedSize(horizontal: false, vertical: true)
             } else {
-                VStack(spacing: 0) {
-                    ViewThatFits(in: .vertical) {
-                        challenge.fixedSize(horizontal: false, vertical: true)
-                        ScrollView { challenge }
-                    }
-                    Button("Cancel", role: .cancel) { dismiss() }
-                        .buttonStyle(.glass)
-                        .controlSize(.large)
-                        .padding(.bottom, 20)
+                ViewThatFits(in: .vertical) {
+                    challenge.fixedSize(horizontal: false, vertical: true)
+                    ScrollView { challenge }
                 }
             }
         }
+        .frame(idealWidth: 420, idealHeight: authorizedPIN == nil ? 700 : 310)
+        .accessibilityAction(.escape) { dismiss() }
         .onChange(of: scenePhase) { _, phase in
             if phase == .background { dismiss() }
         }
