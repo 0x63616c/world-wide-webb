@@ -204,7 +204,7 @@ struct ClockComplication: View {
 
     var body: some View {
         Text(text)
-            .font(.system(size: max(17, faceHeight * 0.042), weight: .regular))
+            .font(.system(size: max(17, faceHeight * 0.042), weight: .semibold))
             .monospacedDigit()
             .foregroundStyle(ink)
             .fixedSize()
