@@ -63,19 +63,19 @@ class StandardDeliveryTests(unittest.TestCase):
                     [str(repo / "scripts/affected"), base, "--head", source, "--intent", "verify"], cwd=repo, text=True
                 )
             )
-            self.assertEqual(result, {"apps": [], "tooling": False, "rdesign": False, "template": False})
-            for name in ("scripts/check-app-backends.py", "scripts/test-new-app.py"):
-                base = source
-                write(name, "backend template check")
-                source = commit()
-                result = json.loads(
-                    subprocess.check_output(
-                        [str(repo / "scripts/affected"), base, "--head", source, "--intent", "verify"],
-                        cwd=repo,
-                        text=True,
-                    )
+            self.assertEqual(result, {"apps": [], "tooling": False, "rdesign": False})
+            base = source
+            write("scripts/check-app-backends.py", "backend check")
+            source = commit()
+            result = json.loads(
+                subprocess.check_output(
+                    [str(repo / "scripts/affected"), base, "--head", source, "--intent", "verify"],
+                    cwd=repo,
+                    text=True,
                 )
-                self.assertEqual(result, {"apps": [], "tooling": False, "rdesign": False, "template": True})
+            )
+            # Owned by repo.tooling via main CI selection; not a separate template product.
+            self.assertEqual(result, {"apps": [], "tooling": False, "rdesign": False})
 
 
 if __name__ == "__main__":

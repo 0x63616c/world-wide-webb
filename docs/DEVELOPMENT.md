@@ -78,5 +78,5 @@ handlers own external writes; do not run multiple publishers for the same target
 - OpenTofu owns durable Cloudflare resources; Wrangler owns Worker code/assets.
   Homelab host promotion is distinct from authoring changes on `main`.
 
-The [new-app guide](NEW-APP.md) covers scaffolding. Historical migration evidence
-lives under `docs/plans/`; use current product runbooks for active operations.
+The [new-app guide](NEW-APP.md) covers copying a living app. Historical migration
+evidence lives under `docs/plans/`; use current product runbooks for active operations.

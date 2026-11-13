@@ -46,6 +46,6 @@ new hosting cannot repair links embedded in previously installed builds.
 
 ## Folding publication
 
-`FOLDING_SITE_DELIVERY_ENABLED` controls Folding publication. Its publisher retains its own
-`FOLDING_DEPLOY_TOKEN`, Wrangler configuration/version and tested artifact. OpenTofu retains
-Folding's DNS/resource ownership. Tendr publication does not deploy Folding or its API.
+Folding publication uses its own `FOLDING_DEPLOY_TOKEN`, Wrangler configuration/version and
+tested artifact after successful selection on main. OpenTofu retains Folding's DNS/resource
+ownership. Tendr publication does not deploy Folding or its API.

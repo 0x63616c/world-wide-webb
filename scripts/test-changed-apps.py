@@ -35,14 +35,13 @@ with tempfile.TemporaryDirectory(prefix="affected-") as directory:
     def selected(base, intent):
         return json.loads(subprocess.check_output(["scripts/affected", base, "--intent", intent], cwd=root, text=True))
 
-    def expect(base, verify=(), ship=(), rdesign=False, template=False, tooling=False):
+    def expect(base, verify=(), ship=(), rdesign=False, tooling=False):
         for intent, apps in [("verify", verify), ("ship", ship)]:
             actual = selected(base, intent)
             expected = {
                 "apps": list(apps),
                 "tooling": intent == "verify" and tooling,
                 "rdesign": intent == "verify" and rdesign,
-                "template": intent == "verify" and template,
             }
             assert actual == expected, (base, intent, actual, expected)
 
@@ -68,7 +67,7 @@ with tempfile.TemporaryDirectory(prefix="affected-") as directory:
     base = change("projects/samplr/code.swift")
     expect(base, ["samplr"], ["samplr"])
     base = change("packages/RDesign/code.swift")
-    expect(base, ["tendr"], ["tendr"], True, True)
+    expect(base, ["tendr"], ["tendr"], True)
     for path in [
         "fastlane/Fastfile",
         "fastlane/Appfile",
@@ -77,7 +76,7 @@ with tempfile.TemporaryDirectory(prefix="affected-") as directory:
         ".github/workflows/ci.yml",
         "scripts/build.sh",
     ]:
-        expect(change(path), ["samplr", "tendr"], rdesign=True, template=True, tooling=True)
+        expect(change(path), ["samplr", "tendr"], rdesign=True, tooling=True)
     for path in [
         "README.md",
         "AGENTS.md",
@@ -92,7 +91,6 @@ with tempfile.TemporaryDirectory(prefix="affected-") as directory:
     ]:
         expect(change(path))
     expect(change("projects/tendr/site/privacy/index.html"))
-    expect(change("templates/new-app/Example.swift"), template=True)
     expect(change("projects/design-fixture/design.png"))
     # A move must affect both sides even if Git would identify it as a rename.
     base = git("rev-parse", "HEAD")
@@ -128,11 +126,11 @@ with tempfile.TemporaryDirectory(prefix="affected-") as directory:
     git("rm", "-qr", "projects/samplr")
     git("commit", "-qm", "Remove synthetic app")
     expect(base)
-    expect(change("scripts/build.sh"), ["tendr"], rdesign=True, template=True, tooling=True)
+    expect(change("scripts/build.sh"), ["tendr"], rdesign=True, tooling=True)
     forced = json.loads(
         subprocess.check_output(["scripts/affected", "HEAD", "--intent", "verify", "--force"], cwd=root, text=True)
     )
-    assert forced == {"apps": ["tendr"], "tooling": True, "rdesign": True, "template": True}
+    assert forced == {"apps": ["tendr"], "tooling": True, "rdesign": True}
     rejected = subprocess.run(
         ["scripts/affected", "HEAD", "--intent", "ship", "--force"], cwd=root, capture_output=True, text=True
     )

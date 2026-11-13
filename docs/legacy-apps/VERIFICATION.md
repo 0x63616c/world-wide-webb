@@ -39,7 +39,7 @@ Verified on Linux on 2026-11-01. Each command below exited 0:
 - `python3 scripts/test-publish-site.py`
 - `build/tools/bin/actionlint` (1.7.7, installed with `go install -p 4 github.com/rhysd/actionlint/cmd/actionlint@v1.7.7`)
 - `(shopt -s nullglob; shellcheck scripts/*.sh apps/*/scripts/*.sh)`
-- `bash -n` individually on `scripts/import-app.sh`, `scripts/new-app.sh` and `scripts/setup-mac-runner.sh`
+- `bash -n` individually on `scripts/import-app.sh` and `scripts/setup-mac-runner.sh`
 - `ruby -c scripts/check-release.rb`
 - `git diff --check`
 

@@ -24,9 +24,8 @@ python3 -m pip install -r scripts/requirements.txt
 python3 scripts/test-changed-apps.py
 (shopt -s nullglob; shellcheck scripts/*.sh apps/*/scripts/*.sh)
 actionlint
-scripts/new-app.sh Samplr samplr
 ```
 
-[scripts/new-app.sh](scripts/new-app.sh) creates a native app and Pages skeleton from [templates/new-app](templates/new-app). [docs/IMPORT.md](docs/IMPORT.md) describes history-preserving imports. [site/README.md](site/README.md) covers Pages previews and publication.
+Historical apps-root snapshot. For a new product today, follow [docs/NEW-APP.md](../../NEW-APP.md) (copy a living app). [docs/IMPORT.md](docs/IMPORT.md) describes history-preserving imports. [site/README.md](site/README.md) covers Pages previews and publication.
 
 Keep changes focused. Use synthetic screenshot fixtures. Never commit signing assets, credentials, or personal health data. Core or Linux checks do not prove native UI correctness, signing, or TestFlight availability. See [AGENTS.md](AGENTS.md) for working rules and [docs/VERIFICATION.md](docs/VERIFICATION.md) for migration evidence.

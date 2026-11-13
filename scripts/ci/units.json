@@ -344,15 +344,6 @@
         "projects/homelab/process/src/**"
       ]
     },
-    "templates": {
-      "paths": [
-        "templates/**",
-        "scripts/new-app.sh",
-        "scripts/check-app-backends.py",
-        "scripts/test-new-app.py"
-      ],
-      "delivery": null
-    },
     "sites.pages": {
       "paths": [
         "projects/tendr/site/**",
@@ -395,7 +386,6 @@
         ".github/**",
         "tools/**",
         "fastlane/**",
-        "templates/**",
         "Gemfile",
         "Gemfile.lock",
         "lefthook.yml",

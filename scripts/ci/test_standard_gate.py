@@ -31,7 +31,7 @@ class StandardGateTests(unittest.TestCase):
         jobs = yaml.safe_load((ROOT / ".github/workflows/tendr-ci.yml").read_text())["jobs"]
         gate = jobs["gate"]
         self.assertEqual(gate["if"], "always() && !cancelled()")
-        self.assertEqual(set(gate["needs"]), {"changes", "tooling", "rdesign", "app", "template", "backends"})
+        self.assertEqual(set(gate["needs"]), {"changes", "tooling", "rdesign", "app", "backends"})
         script = gate["steps"][0]["run"]
         base = {
             "changes": {
@@ -40,11 +40,10 @@ class StandardGateTests(unittest.TestCase):
                     "apps": "[]",
                     "tooling": "false",
                     "rdesign": "false",
-                    "template": "false",
                     "backends": "[]",
                 },
             },
-            **{job: {"result": "skipped"} for job in ("tooling", "rdesign", "app", "template", "backends")},
+            **{job: {"result": "skipped"} for job in ("tooling", "rdesign", "app", "backends")},
         }
 
         def succeeds(results):
@@ -66,7 +65,6 @@ class StandardGateTests(unittest.TestCase):
             ("apps", '["tendr"]', {"app"}),
             ("tooling", "true", {"tooling"}),
             ("rdesign", "true", {"rdesign"}),
-            ("template", "true", {"template", "backends"}),
             ("backends", '["samplr"]', {"backends"}),
         ):
             selected = copy.deepcopy(base)
@@ -79,7 +77,7 @@ class StandardGateTests(unittest.TestCase):
                     variant = copy.deepcopy(selected)
                     variant[job]["result"] = result
                     self.assertEqual(succeeds(variant), result == "success", (field, job, result))
-        for job in ("tooling", "rdesign", "app", "template", "backends"):
+        for job in ("tooling", "rdesign", "app", "backends"):
             unexpected = copy.deepcopy(base)
             unexpected[job]["result"] = "success"
             self.assertFalse(succeeds(unexpected), job)

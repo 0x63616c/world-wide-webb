@@ -39,11 +39,10 @@ per-host encrypted configuration and verifies the approved install after reboot.
 See [setup](docs/setup.md) for prerequisites and recovery.
 
 After enrollment, Comin checks `deploy/homelab` every 30 seconds with a read-only
-Git deploy key. Homelab CI and the promotion workflow control that ref;
-`HOMELAB_DELIVERY_ENABLED` controls host promotion. The existing stateful
-transaction owns backup, activation, reconciliation and health. A main merge
-alone is not a host activation. See [updates](docs/updates.md) and
-[releases](docs/releases.md).
+Git deploy key. Homelab CI and the promotion workflow control that ref after
+successful selected main runs. The existing stateful transaction owns backup,
+activation, reconciliation and health. A main merge alone is not a host
+activation. See [updates](docs/updates.md) and [releases](docs/releases.md).
 
 | Host | Current role |
 | --- | --- |

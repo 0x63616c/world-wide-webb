@@ -190,15 +190,12 @@ def main():
             apps.append(app)
     verify = args.intent == "verify"
     rdesign = any(path.startswith(("projects/tendr/Packages/RDesign/", "packages/RDesign/")) for path in files)
-    legacy_rdesign = any(path.startswith("packages/RDesign/") for path in files)
-    template = "templates" in verification_units or any(path.startswith("templates/") for path in files)
     print(
         json.dumps(
             {
                 "apps": apps,
                 "tooling": verify and build_tooling,
                 "rdesign": verify and (rdesign or build_tooling),
-                "template": verify and (template or legacy_rdesign or build_tooling),
             },
             separators=(",", ":"),
         )

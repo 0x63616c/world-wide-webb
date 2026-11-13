@@ -63,12 +63,10 @@ reconcile and health gate. This preserves one image pin and one host activation 
 workflow copies Compose, backup scripts, launchd definitions or Serve configuration onto the mini.
 There is no temporary runtime override that a later host update could accidentally undo.
 
-`CONTROL_CENTER_IMAGE_DELIVERY_ENABLED`, `CONTROL_CENTER_PROMOTION_ENABLED` and
-`HOMELAB_DELIVERY_ENABLED` must be enabled only after their source/host canaries. The old
-`MINI_DEPLOY_ENABLED` flag no longer enables this replacement. Source-authority handover remains
-necessary before the mini can consume the new pin. Preserve old release generation records;
-the new epoch uses the existing forward Git promotion and serialized Nix system generations,
-not the old workflow run number. Delayed old pipelines must remain disabled.
+Successful Homelab CI and the `deploy/homelab` promoter own host activation after selected
+main inputs. Preserve old release generation records; the new epoch uses the existing
+forward Git promotion and serialized Nix system generations, not the old workflow run
+number. Delayed old pipelines must remain disabled.
 
 Cloudflare continues to use the scoped operations SSH route; app image publication no longer
 needs that route. The controller therefore does not grant operations capacity to `deploy-mini.yml`.

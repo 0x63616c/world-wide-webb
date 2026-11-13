@@ -18,7 +18,7 @@ def dispatch(paths, config, force=False):
         if prefix == "cloudflare":
             prefix = "control-center" if unit == "cloudflare.home" else "folding"
         if prefix not in {"repo", "credentials"}:
-            products.add("tendr" if prefix == "templates" else prefix)
+            products.add(prefix)
     languages = set()
     for path in paths:
         if path.endswith(".rs") or Path(path).name in {"Cargo.toml", "Cargo.lock"}:

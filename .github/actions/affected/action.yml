@@ -20,9 +20,6 @@ outputs:
   rdesign:
     description: Whether to verify RDesign
     value: ${{ steps.detect.outputs.rdesign }}
-  template:
-    description: Whether to verify the template
-    value: ${{ steps.detect.outputs.template }}
 runs:
   using: composite
   steps:
