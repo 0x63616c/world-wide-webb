@@ -1380,3 +1380,98 @@ async fn tesla_history_reads_discovered_odometer_statistics_and_converts_km() {
     assert!((body["points"][0]["miles"].as_f64().unwrap() - 10000.0).abs() < 0.001);
     task.await.unwrap();
 }
+
+#[tokio::test]
+async fn vacuum_projects_real_state_and_never_retries_physical_commands() {
+    use axum::{
+        Json,
+        extract::Path,
+        routing::{get, post},
+    };
+    use std::sync::{Arc, RwLock};
+    use www_server::{config::Config, integrations::homeassistant::HomeAssistant};
+    let (dir, _, db) = fixture().await;
+    let config: Value = serde_json::from_str(include_str!("../config/vacuum.json")).unwrap();
+    let entity = config["entities"]["vacuum"].as_str().unwrap().to_owned();
+    let live = Arc::new(RwLock::new(json!([
+        {"entity_id":entity, "state":"docked", "attributes":{"battery_level":87}}
+    ])));
+    let calls = Arc::new(RwLock::new(Vec::<(String, Value)>::new()));
+    let read = live.clone();
+    let writes = calls.clone();
+    let ha = Router::new()
+        .route(
+            "/api/states",
+            get(move || {
+                let read = read.clone();
+                async move { Json(read.read().unwrap().clone()) }
+            }),
+        )
+        .route(
+            "/api/services/{domain}/{service}",
+            post(
+                move |Path((domain, service)): Path<(String, String)>, Json(body): Json<Value>| {
+                    let writes = writes.clone();
+                    async move {
+                        writes
+                            .write()
+                            .unwrap()
+                            .push((format!("{domain}/{service}"), body));
+                        // Simulate an ambiguous failure after HA accepted the command.
+                        StatusCode::BAD_GATEWAY
+                    }
+                },
+            ),
+        );
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    let task = tokio::spawn(async move { axum::serve(listener, ha).await.unwrap() });
+    let mut state = AppState::new(db, dir.path().join("media"));
+    state.config = Arc::new(Config {
+        ha: Some(HomeAssistant::new(&format!("http://{addr}"), "fixture".into()).unwrap()),
+        ..Default::default()
+    });
+    let app = http::router(state);
+    let (status, snapshot) = call(&app, "GET", "/api/v1/vacuum", Value::Null).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(snapshot["status"], "docked");
+    assert_eq!(snapshot["battery"], 87.0);
+    assert_eq!(snapshot["rooms"], json!([]));
+    for (action, service) in [
+        ("start", "start"),
+        ("pause", "pause"),
+        ("stop", "stop"),
+        ("dock", "return_to_base"),
+    ] {
+        assert_eq!(
+            call(&app, "POST", "/api/v1/vacuum", json!({"action":action}))
+                .await
+                .0,
+            StatusCode::SERVICE_UNAVAILABLE
+        );
+        assert_eq!(
+            calls.read().unwrap().last().unwrap(),
+            &(format!("vacuum/{service}"), json!({"entity_id":entity}))
+        );
+    }
+    assert_eq!(calls.read().unwrap().len(), 4);
+    assert_eq!(
+        call(
+            &app,
+            "POST",
+            "/api/v1/vacuum",
+            json!({"action":"room","room":"living-room"})
+        )
+        .await
+        .0,
+        StatusCode::BAD_REQUEST
+    );
+    assert_eq!(calls.read().unwrap().len(), 4);
+    live.write().unwrap()[0]["state"] = json!("unavailable");
+    assert_eq!(
+        call(&app, "GET", "/api/v1/vacuum", Value::Null).await.0,
+        StatusCode::SERVICE_UNAVAILABLE
+    );
+    task.abort();
+    let _ = task.await;
+}

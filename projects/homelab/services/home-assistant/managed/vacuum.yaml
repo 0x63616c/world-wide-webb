@@ -1,0 +1,49 @@
+# Rendered from server/config/vacuum.json; change entity IDs and room IDs there only.
+input_boolean:
+  __SCHEDULE_KEY__:
+    name: Vacuum schedule enabled
+    icon: mdi:calendar-clock
+    # No initial: restore an explicit choice; a new helper defaults to off.
+  __ROOMS_CONFIRMED_KEY__:
+    name: Vacuum room IDs confirmed
+    initial: false # Rendered from rooms_confirmed; cannot enable unreviewed room IDs.
+script:
+  __CLEAN_ROOM_KEY__:
+    alias: Vacuum a confirmed room
+    mode: single
+    fields:
+      room:
+        required: true
+        selector:
+          select:
+            options: __ROOM_OPTIONS__
+    sequence:
+      - condition: state
+        entity_id: __ROOMS_CONFIRMED__
+        state: "on"
+      - variables:
+          segments: __ROOM_SEGMENTS__
+      - condition: template
+        value_template: "{{ room in segments }}"
+      - service: dreame_vacuum.vacuum_clean_segment
+        target:
+          entity_id: __VACUUM__
+        data:
+          segments: "{{ [segments[room]] }}"
+automation:
+  - id: homelab_vacuum_weekday
+    alias: Vacuum weekday placeholder (enable after choosing a time)
+    mode: single
+    trigger:
+      - platform: time
+        at: "10:00:00"
+    condition:
+      - condition: state
+        entity_id: __SCHEDULE__
+        state: "on"
+      - condition: time
+        weekday: [mon, wed, fri]
+    action:
+      - service: vacuum.start
+        target:
+          entity_id: __VACUUM__

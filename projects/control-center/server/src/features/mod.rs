@@ -10,4 +10,5 @@ pub mod releases;
 pub mod settings;
 pub mod sound;
 pub mod tesla;
+pub mod vacuum;
 pub mod weather;

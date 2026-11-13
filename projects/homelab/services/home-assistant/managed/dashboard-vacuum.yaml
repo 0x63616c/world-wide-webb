@@ -1,0 +1,57 @@
+# Entity and room assumptions: projects/control-center/server/config/vacuum.json ONLY.
+# Room selection remains hidden until rooms_confirmed is reviewed and set to true.
+title: Vacuum
+views:
+  - title: Dreame L50 Ultra
+    path: vacuum
+    cards:
+      - type: custom:xiaomi-vacuum-map-card
+        entity: __VACUUM__
+        vacuum_platform: Tasshack/dreame-vacuum
+        map_source:
+          camera: __MAP__
+        calibration_source:
+          camera: true
+        map_modes: __MAP_MODES__
+      - type: horizontal-stack
+        cards:
+          - type: button
+            name: Full clean
+            icon: mdi:play
+            tap_action:
+              action: call-service
+              service: vacuum.start
+              target: { entity_id: __VACUUM__ }
+          - type: button
+            name: Pause
+            icon: mdi:pause
+            tap_action:
+              action: call-service
+              service: vacuum.pause
+              target: { entity_id: __VACUUM__ }
+          - type: button
+            name: Stop
+            icon: mdi:stop
+            tap_action:
+              action: call-service
+              service: vacuum.stop
+              target: { entity_id: __VACUUM__ }
+          - type: button
+            name: Dock
+            icon: mdi:home
+            tap_action:
+              action: call-service
+              service: vacuum.return_to_base
+              target: { entity_id: __VACUUM__ }
+      - type: entities
+        title: Cleaning settings
+        entities:
+          - __STATUS__
+          - __BATTERY__
+          - __SUCTION__
+          - __WATER__
+          - __CLEANING_MODE__
+          - __CARPET_SENSITIVITY__
+          - __CARPET_CLEANING__
+          - __CARPET_RECOGNITION__
+          - __SCHEDULE__

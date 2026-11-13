@@ -89,6 +89,7 @@ let
       lib.makeBinPath [
         pkgs.docker
         pkgs.docker-compose
+        (pkgs.python3.withPackages (ps: [ ps.pyyaml ]))
         pkgs.coreutils
       ]
     }
@@ -104,8 +105,8 @@ let
     # an empty HA installation. Never create/import it in this daemon.
     docker volume inspect ha_config >/dev/null
     exec /run/current-system/sw/bin/homelab-operation -- \
-      docker-compose -f /etc/homelab/home-assistant/compose.yaml \
-      up -d --wait --wait-timeout 240
+      python3 ${../scripts/provision-ha.py} ${../services/home-assistant} \
+      ${../../control-center/server/config/vacuum.json}
   '';
   stop = pkgs.writeShellScriptBin "homelab-stop-ha" ''
     set -eu
@@ -131,7 +132,7 @@ in
     };
     memoryGiB = lib.mkOption {
       type = lib.types.ints.positive;
-      default = 2;
+      default = 3;
     };
     bridgeInterface = lib.mkOption {
       type = lib.types.nullOr (lib.types.strMatching "en[0-9]+");

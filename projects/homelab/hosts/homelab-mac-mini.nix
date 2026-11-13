@@ -4,9 +4,9 @@
   homelab.updates.enable = true;
   # Install the transactional updater while fresh enrollment has no services.
   homelab.updates.stateful.enable = true;
-  # 8 GiB total: 4 GiB services + 2 GiB HA leaves 2 GiB for macOS.
+  # 8 GiB total: 4 GiB services + 3 GiB HA leaves 1 GiB for macOS; monitor pressure.
   homelab.containers.memoryGiB = 4;
-  homelab.homeassistant.memoryGiB = 2;
+  homelab.homeassistant.memoryGiB = 3;
   homelab.runners.enable = false;
   environment.systemPackages = [ (import ../packages/opentofu.nix { inherit pkgs; }) ];
   # Verified on the rebuilt Mini: en1 is the home-LAN default route.

@@ -4,6 +4,17 @@ Source consolidation is complete: both Macs and CLI delivery use WWW. Old-reposi
 below are historical observations. See the [migration record](../../../docs/plans/monorepo-migration-progress.md)
 for current ownership; inspect live host state before operations.
 
+## Dreame L50 Ultra desired configuration
+
+The checked-in HA target is now 3 GiB for `colima-ha` and a 2 GiB container limit,
+with pinned HACS, Tasshack Dreame v2.0.3 and Xiaomi Vacuum Map Card provisioning
+into the existing `ha_config` volume. This is repository desired state, not a
+live deployment observation; the historical 2 GiB/1 GiB figures below describe
+the earlier inspection. Normal stateful deployment applies the VM resize and HA
+restart after its backup gates. The [HA runbook](home-assistant.md) records pins,
+config-conflict handling, the Vacuum YAML dashboard, disabled-by-default schedules
+and the one-time Dreamehome UI setup. No live host was contacted for this change.
+
 ## Restart incident — November 11, 2026
 
 After the owner power-cycled the Mini and logged in, host Tailscale and SSH

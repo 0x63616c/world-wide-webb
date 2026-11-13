@@ -1,0 +1,27 @@
+[
+  {
+    "name": "hacs",
+    "repository": "https://github.com/hacs/integration",
+    "version": "2.0.5",
+    "url": "https://github.com/hacs/integration/releases/download/2.0.5/hacs.zip",
+    "sha256": "97be6b824a4f38e683728cc6dd72367f6b8bad0a43428b1b3b987a3087adf413",
+    "target": "custom_components/hacs"
+  },
+  {
+    "name": "dreame",
+    "repository": "https://github.com/Tasshack/dreame-vacuum",
+    "version": "v2.0.3",
+    "url": "https://github.com/Tasshack/dreame-vacuum/releases/download/v2.0.3/dreame_vacuum.zip",
+    "sha256": "f9af5050ef47cf61c1212d29331b211873920419ecfaadb4b21b0479e45fdf57",
+    "target": "custom_components/dreame_vacuum",
+    "commit": "fec086caf064f2681e8bcc7be20a0d0ef54f444d"
+  },
+  {
+    "name": "card",
+    "repository": "https://github.com/PiotrMachowski/lovelace-xiaomi-vacuum-map-card",
+    "version": "v2.4.1",
+    "url": "https://github.com/PiotrMachowski/lovelace-xiaomi-vacuum-map-card/releases/download/v2.4.1/xiaomi-vacuum-map-card.js",
+    "sha256": "6eb544c670480607c75d82321bb5d1932c781098c1f34391084ecefcac23d445",
+    "target": "www/community/lovelace-xiaomi-vacuum-map-card/xiaomi-vacuum-map-card.js"
+  }
+]

@@ -304,6 +304,7 @@ in
           hosts.example.config = haOnly;
         };
       in
+      assert self.darwinConfigurations.homelab-mac-mini.config.homelab.homeassistant.memoryGiB == 3;
       assert deployment.services == [ "home-assistant" ];
       assert plan.hosts.example.services == deployment.services;
       pkgs.runCommand "homelab-service-assignments-check" { } ''

@@ -1,0 +1,32 @@
+{
+  "entities": {
+    "vacuum": "vacuum.dreame_l50_ultra",
+    "map": "camera.dreame_l50_ultra_map",
+    "battery": "sensor.dreame_l50_ultra_battery_level",
+    "status": "sensor.dreame_l50_ultra_status",
+    "suction": "select.dreame_l50_ultra_suction_level",
+    "water": "select.dreame_l50_ultra_water_volume",
+    "cleaning_mode": "select.dreame_l50_ultra_cleaning_mode",
+    "carpet_sensitivity": "select.dreame_l50_ultra_carpet_sensitivity",
+    "carpet_cleaning": "select.dreame_l50_ultra_carpet_cleaning",
+    "carpet_recognition": "switch.dreame_l50_ultra_carpet_recognition",
+    "schedule": "input_boolean.vacuum_schedule_enabled",
+    "rooms_confirmed": "input_boolean.vacuum_rooms_confirmed",
+    "clean_room": "script.vacuum_clean_room"
+  },
+  "rooms": [
+    {
+      "id": "living-room",
+      "name": "Living room",
+      "segment": 1,
+      "label_position": [0, 0]
+    },
+    {
+      "id": "bedroom",
+      "name": "Bedroom",
+      "segment": 2,
+      "label_position": [1000, 0]
+    }
+  ],
+  "rooms_confirmed": false
+}

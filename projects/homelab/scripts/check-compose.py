@@ -134,6 +134,7 @@ def check(root):
         ha = models["home-assistant"]
         assert ha["volumes"]["ha_config"]["external"] is True
         assert ha["services"]["home-assistant"]["network_mode"] == "host"
+        assert int(ha["services"]["home-assistant"]["mem_limit"]) == 2 * 1024**3
         assert "ha0" in "\n".join(ha["services"]["home-assistant"]["entrypoint"])
         assert models["control-center"]["services"]["www"]["environment"]["WORKER_CYCLES"] == "off"
         assert models["control-center"]["volumes"]["www_sqlite"]["external"] is True
