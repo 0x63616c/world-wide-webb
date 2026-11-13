@@ -91,7 +91,9 @@ def main():
             if not isinstance(values, list) or not all(isinstance(v, str) and v for v in values):
                 parser.error(f"{config_path}: {key} must be a list of nonempty strings")
         if config.get("uses"):
-            parser.error(f"{config_path}: root packages/ are retired; keep shared code under the product and leave uses empty")
+            parser.error(
+                f"{config_path}: root packages/ are retired; keep shared code under the product and leave uses empty"
+            )
         for pattern in config.get("paths", []):
             if pattern.startswith("/") or ".." in pattern.split("/"):
                 parser.error(f"{config_path}: paths must be repo-relative globs")
