@@ -1,4 +1,5 @@
 import contextlib
+import hashlib
 import importlib.util
 import json
 import os
@@ -63,6 +64,96 @@ class StatefulActivationTests(unittest.TestCase):
                 self.assertEqual(self.events, events)
                 self.assertEqual(json.loads((self.root / "transaction").read_text())["phase"], phase)
                 self.assertFalse((self.root / "last-success.json").exists())
+
+    def test_verified_backup_stage_can_be_released_without_losing_its_journal(self):
+        token = "a" * 32
+        current = self.root / "current"
+        profile = self.root / "profile"
+        current.symlink_to(self.old)
+        profile.symlink_to(self.old)
+        (self.root / "operation.lock").touch()
+        plan = activation.plan_deployment(activation.metadata(self.old), activation.metadata(self.new))
+        record = {
+            "id": token,
+            "previous": str(self.old),
+            "candidate": str(self.new),
+            "phase": "backup",
+            "plan": plan,
+            "timings": {"backup": {"finishedAt": "2026-11-13T04:34:04Z"}},
+        }
+        (self.root / "transaction").write_text(json.dumps(record))
+        (self.root / "transaction").chmod(0o600)
+        (self.root / "last-success.json").write_text(json.dumps({"phase": "verified", "candidate": str(self.old)}))
+        backup_root = self.root / "backups"
+        backup = backup_root / "deployment" / "20261113T042940Z-829be109"
+        backup.mkdir(parents=True)
+        for directory in (backup_root, backup.parent, backup):
+            directory.chmod(0o700)
+        manifest = backup / "COMPLETE.json"
+        manifest.write_text("{}")
+        digest = hashlib.sha256(manifest.read_bytes()).hexdigest()
+        (backup / "LOCAL_VERIFIED.json").write_text(
+            json.dumps(
+                {"transaction": token, "scope": "deployment", "services": plan["backup"], "manifestSha256": digest}
+            )
+        )
+        (backup / "NAS_VERIFIED").write_text(json.dumps({"manifestSha256": digest}))
+        (backup / "PINNED").write_text(json.dumps({"transaction": token}))
+        (backup / "LOCAL_VERIFIED.json").chmod(0o600)
+
+        @contextlib.contextmanager
+        def acquire(*_args, **_kwargs):
+            yield 7
+
+        with patch.object(activation.locks, "operation_lock", side_effect=acquire):
+            with self.assertRaisesRegex(RuntimeError, "candidate differs"):
+                activation.recover_backup_stage(
+                    self.old,
+                    token,
+                    self.root,
+                    current,
+                    profile,
+                    backup_root,
+                    lambda _: {"host": "example", "services": plan["backup"], "scope": "deployment"},
+                    lambda: None,
+                )
+            (backup / "NAS_VERIFIED").unlink()
+            with self.assertRaisesRegex(RuntimeError, "NAS verification"):
+                activation.recover_backup_stage(
+                    self.new,
+                    token,
+                    self.root,
+                    current,
+                    profile,
+                    backup_root,
+                    lambda _: {"host": "example", "services": plan["backup"], "scope": "deployment"},
+                    lambda: None,
+                )
+            (backup / "NAS_VERIFIED").write_text(json.dumps({"manifestSha256": digest}))
+            activation.recover_backup_stage(
+                self.new,
+                token,
+                self.root,
+                current,
+                profile,
+                backup_root,
+                lambda _: {"host": "example", "services": plan["backup"], "scope": "deployment"},
+                lambda: None,
+                check_only=True,
+            )
+            self.assertTrue((self.root / "transaction").exists())
+            activation.recover_backup_stage(
+                self.new,
+                token,
+                self.root,
+                current,
+                profile,
+                backup_root,
+                lambda _: {"host": "example", "services": plan["backup"], "scope": "deployment"},
+                lambda: None,
+            )
+        self.assertFalse((self.root / "transaction").exists())
+        self.assertEqual(json.loads((self.root / f"transaction-recovered-{token}").read_text()), record)
 
     def test_removal_and_disabled_backups_fail_before_any_mutation(self):
         path = self.new / "etc/homelab/deployment.json"
@@ -146,6 +237,22 @@ class StatefulActivationTests(unittest.TestCase):
         ):
             activation.main()
             self.assertEqual(transaction.call_args.args[1], self.new)
+
+    def test_recovery_cli_checks_before_releasing_the_backup_barrier(self):
+        token = "a" * 32
+        with (
+            patch.object(
+                sys,
+                "argv",
+                ["activate", "recover-backup", "--candidate", str(self.new), "--transaction-id", token, "--check-only"],
+            ),
+            patch.object(activation.os, "geteuid", return_value=0),
+            patch.object(activation, "system_path", return_value=self.new),
+            patch.object(activation.locks, "initialize"),
+            patch.object(activation, "recover_backup_stage") as recover,
+        ):
+            activation.main()
+        recover.assert_called_once_with(self.new, token, check_only=True)
 
     def test_hot_bridge_replacement_stops_existing_guest_before_switch_and_reloads_after(self):
         for system, content in ((self.old, "old-bridge"), (self.new, "new-bridge")):

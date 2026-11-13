@@ -42,6 +42,19 @@ and bytes; NAS receipts record publication time. Successful receipt plus current
 profile agreement establishes host acceptance. Timings are observed work, not timeout
 budgets. Preserve interrupted transactions for inspection.
 
+For a failed **backup-phase** transaction whose local set was later published to NAS,
+use the candidate path and transaction ID from the root-owned journal:
+
+```sh
+homelab-activate-generation recover-backup --candidate PATH --transaction-id ID --check-only
+```
+
+The root-only check verifies the old system/profile, journal,
+recovery set and service health without changing state. Run the same command
+without `--check-only` only after the check passes; it archives the journal under
+the operation lock so Comin can make a new attempt. The original recovery set
+remains pinned. This command refuses activation or reconcile phase failures.
+
 ## During setup
 
 1. The CLI creates a protected hold before first activation.

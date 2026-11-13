@@ -10,7 +10,9 @@ import datetime
 import importlib.util
 import json
 import os
+import re
 import signal
+import stat
 import subprocess
 import sys
 import time
@@ -30,9 +32,12 @@ def load(name, file):
 
 locks = load("operation_lock", "operation-lock.py")
 children = load("service_child", "service-child.py")
+backup_publish = load("backup_publish", "backup_publish.py")
+backup_verifier = load("verify_backup", "verify-backup.py")
 ROOT = Path("/var/lib/homelab-operations")
 CURRENT = Path("/run/current-system")
 PROFILE = Path("/nix/var/nix/profiles/system")
+BACKUPS = Path("/var/lib/_containers/backups")
 
 
 def system_path(path):
@@ -226,15 +231,138 @@ def guard(candidate, root=ROOT, current=CURRENT, profile=PROFILE):
         raise RuntimeError("Boot generation has no verified activation receipt")
 
 
+def recover_backup_stage(
+    candidate,
+    token,
+    root=ROOT,
+    current=CURRENT,
+    profile=PROFILE,
+    backups=BACKUPS,
+    verify=None,
+    health=None,
+    check_only=False,
+):
+    """Release only a failed pre-activation backup after its off-host point is verified."""
+    if not re.fullmatch(r"[a-f0-9]{32}", token):
+        raise ValueError("Expected the exact transaction ID")
+    verify = verify or backup_verifier.verify
+    health = health or (
+        lambda: subprocess.run(
+            [str(current / "sw/bin/homelab-health")],
+            check=True,
+            timeout=180,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    )
+    descriptor = os.open(root / "operation.lock", os.O_RDWR | os.O_NOFOLLOW)
+    try:
+        # This is the only recovery entrypoint allowed past the retained marker.
+        # The existing inode and exclusive lock still fence all other operations.
+        with locks.operation_lock(root, inherited_fd=descriptor):
+            journal = root / "transaction"
+            info = journal.lstat()
+            if not stat.S_ISREG(info.st_mode) or info.st_uid != os.geteuid() or info.st_mode & 0o077:
+                raise RuntimeError("Unsafe transaction journal")
+            record = json.loads(journal.read_text())
+            if record.get("id") != token or record.get("phase") != "backup":
+                raise RuntimeError("Transaction differs or activation may have started")
+            previous = Path(record["previous"])
+            if record.get("candidate") != str(candidate):
+                raise RuntimeError("Transaction candidate differs")
+            if current.resolve(strict=True) != previous or profile.resolve(strict=True) != previous:
+                raise RuntimeError("Current system or boot profile differs from the pre-activation generation")
+            last = json.loads((root / "last-success.json").read_text())
+            if last.get("phase") != "verified" or last.get("candidate") != str(previous):
+                raise RuntimeError("Previous generation has no verified receipt")
+            plan = plan_deployment(metadata(previous), metadata(candidate))
+            if record.get("plan") != plan or plan["recovery"] != "off-host" or not plan["backup"]:
+                raise RuntimeError("Transaction plan differs or has no off-host backup requirement")
+            if not record.get("timings", {}).get("backup", {}).get("finishedAt"):
+                raise RuntimeError("Backup phase has no completed attempt")
+            backup_info = backups.lstat()
+            backup_owner = backup_info.st_uid
+            if not stat.S_ISDIR(backup_info.st_mode) or backup_info.st_mode & 0o077:
+                raise RuntimeError("Unsafe backup root")
+            matched = []
+            for path in backup_publish.pending_sets(backups, include_verified=True):
+                info = path.lstat()
+                receipt_path = path / "LOCAL_VERIFIED.json"
+                receipt_info = receipt_path.lstat()
+                if (
+                    not stat.S_ISDIR(info.st_mode)
+                    or info.st_uid != backup_owner
+                    or info.st_mode & 0o077
+                    or not stat.S_ISREG(receipt_info.st_mode)
+                    or receipt_info.st_uid != backup_owner
+                    or receipt_info.st_mode & 0o077
+                ):
+                    raise RuntimeError("Unsafe local recovery set")
+                receipt = json.loads(receipt_path.read_text())
+                if receipt.get("transaction") == token:
+                    matched.append((path, receipt))
+            if len(matched) != 1:
+                raise RuntimeError("Expected one local recovery set for the transaction")
+            path, receipt = matched[0]
+            marker = path / "NAS_VERIFIED"
+            pin = path / "PINNED"
+            if marker.is_symlink() or not marker.is_file() or marker.stat().st_uid != backup_owner:
+                raise RuntimeError("Transaction has no NAS verification")
+            if pin.is_symlink() or not pin.is_file() or pin.stat().st_uid != backup_owner:
+                raise RuntimeError("Transaction recovery pin is missing")
+            published = json.loads(marker.read_text())
+            manifest = backup_publish.digest(path / "COMPLETE.json")
+            if (
+                receipt.get("scope") != "deployment"
+                or receipt.get("services") != plan["backup"]
+                or receipt.get("manifestSha256") != manifest
+                or published.get("manifestSha256") != manifest
+                or json.loads(pin.read_text()).get("transaction") != token
+            ):
+                raise RuntimeError("Transaction recovery receipt differs")
+            metadata_snapshot = verify(path)
+            if (
+                metadata_snapshot.get("host") != metadata(previous)["host"]
+                or metadata_snapshot.get("scope") != "deployment"
+                or metadata_snapshot.get("services") != plan["backup"]
+            ):
+                raise RuntimeError("Recovery set does not cover the previous host and services")
+            health()
+            if check_only:
+                return journal
+            archive = root / ("transaction-recovered-" + token)
+            os.link(journal, archive, follow_symlinks=False)
+            durable.sync_directory(root)
+            durable.remove(journal)
+            return archive
+    finally:
+        os.close(descriptor)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("operation", choices=["apply", "guard"])
+    parser.add_argument("operation", choices=["apply", "guard", "recover-backup"])
     parser.add_argument("--candidate", type=Path, required=True)
+    parser.add_argument("--transaction-id")
+    parser.add_argument("--check-only", action="store_true")
     parser.add_argument("--operation", dest="switch_operation", default="switch")
     args = parser.parse_args()
     if os.geteuid() != 0:
         parser.error("Only root may activate a system generation")
     candidate = system_path(args.candidate)
+    if args.operation == "recover-backup":
+        if not args.transaction_id:
+            parser.error("Recovery requires the exact transaction ID")
+        locks.initialize(ROOT)
+        recover_backup_stage(candidate, args.transaction_id, check_only=args.check_only)
+        print(
+            "Backup-stage recovery is safe to release."
+            if args.check_only
+            else "Verified backup-stage transaction archived; Comin may retry activation."
+        )
+        return
+    if args.transaction_id or args.check_only:
+        parser.error("Recovery options are only accepted for backup-stage recovery")
     if args.operation == "guard":
         guard(candidate)
         return
