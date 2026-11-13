@@ -15,4 +15,3 @@ class MisePinsTests(unittest.TestCase):
             self.assertEqual(shared[name], folding[name])
         self.assertEqual(shared["opentofu"], (ROOT / ".opentofu-version").read_text().strip())
         self.assertEqual(shared["ruby"], folding["ruby"])
-
