@@ -47,7 +47,7 @@ alone is not a host activation. See [updates](docs/updates.md) and
 
 | Host | Current role |
 | --- | --- |
-| `homelab-macbook` | Disposable macOS and Linux runner guests; non-admin `coding` account. |
+| `homelab-macbook` | Disposable macOS and Linux runner guests; non-admin `coding` account and [Rex server](docs/rex.md). |
 | `homelab-mac-mini` | Production application services, including Control Center and monitoring. |
 
 The runner controller admits four jobs in total and at most two macOS guests.

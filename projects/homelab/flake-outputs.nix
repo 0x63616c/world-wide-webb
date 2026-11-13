@@ -6,15 +6,16 @@ inputs@{
 }:
 let
   system = "aarch64-darwin";
-  allowRunnerTools =
+  allowUnfreePackages =
     pkg:
     builtins.elem (nixpkgs.lib.getName pkg) [
       "tart"
       "softnet"
+      "rex"
     ];
   pkgs = import nixpkgs {
     inherit system;
-    config.allowUnfreePredicate = allowRunnerTools;
+    config.allowUnfreePredicate = allowUnfreePackages;
   };
   manifest = builtins.fromJSON (builtins.readFile ./homelab.json);
   deploymentPolicy =
@@ -31,7 +32,7 @@ let
         reviewedHost = manifest.hosts.${name};
       };
       modules = [
-        { nixpkgs.config.allowUnfreePredicate = allowRunnerTools; }
+        { nixpkgs.config.allowUnfreePredicate = allowUnfreePackages; }
         inputs.nix-homebrew.darwinModules.nix-homebrew
         inputs.sops-nix.darwinModules.sops
         inputs.determinate.darwinModules.default
@@ -65,6 +66,7 @@ in
     homelab-host-ops = import ./packages/host.nix { inherit pkgs; };
     homelab-runner = import ./packages/runner.nix { inherit pkgs; };
     beszel-agent = import ./packages/beszel-agent.nix { inherit pkgs; };
+    rex = import ./packages/rex.nix { inherit pkgs; };
   };
   devShells.${system}.default = pkgs.mkShellNoCC {
     packages = with pkgs; [
@@ -141,6 +143,7 @@ in
       assert original.inputs.services.penpot == worker.inputs.services.penpot;
       pkgs.runCommand "homelab-deployment-inputs-check" { } ''touch "$out"'';
     beszel-agent = self.packages.${system}.beszel-agent;
+    rex = self.packages.${system}.rex;
     beszel-agent-settings =
       let
         options = self.darwinConfigurations.homelab-macbook.options.homelab.monitoring.agent;
