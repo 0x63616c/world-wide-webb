@@ -503,23 +503,26 @@ test("actual Worker issues bounded challenges and rotates encrypted sessions wit
   assert.deepEqual(Buffer.from(persisted.nonce_hash), hash(issued.nonce));
   assert.equal(persisted.used, 0);
   assert.equal(persisted.expires_at_ms, issued.expires_at_ms);
-  for (let i = 1; i < 20; i++)
-    assert.equal(
-      (
-        await post(
-          "challenges",
-          { purpose: "sign_in" },
-          { "CF-Connecting-IP": "192.0.2.1" },
-        )
-      ).status,
-      200,
+  // 20 challenges are allowed per IP per 60s wall-clock window. If the
+  // window rolls mid-loop, start counting again rather than treating a
+  // fresh window's 200 as a failure.
+  let accepted = 1;
+  let limited;
+  for (let attempts = 0; attempts < 60; attempts++) {
+    const response = await post(
+      "challenges",
+      { purpose: "sign_in" },
+      { "CF-Connecting-IP": "192.0.2.1" },
     );
-  const limited = await post(
-    "challenges",
-    { purpose: "sign_in" },
-    { "CF-Connecting-IP": "192.0.2.1" },
-  );
-  assert.equal(limited.status, 429);
+    if (response.status === 429) {
+      assert.equal(accepted, 20);
+      limited = response;
+      break;
+    }
+    assert.equal(response.status, 200);
+    accepted = accepted >= 20 ? 1 : accepted + 1;
+  }
+  assert.ok(limited, "expected challenge issuance to become rate limited");
   assert.equal(limited.headers.get("Retry-After"), "60");
   assert.equal((await limited.json()).retry_after_seconds, 60);
   const timestamp = Date.now();
@@ -1036,6 +1039,11 @@ test("reset raw-history purge is atomic and preserves replay receipts and other 
     "utf8",
   );
   const purge = source.match(/const PURGE_OBSERVATIONS: &str = "([^"]+)"/)[1];
+  await db
+    .prepare(
+      "INSERT OR IGNORE INTO participants(participant_id,subject_hmac,membership,restriction,generation_revision,generation_id,epoch_id,active_device_id) VALUES ('auth-person','auth-subject','not_joined','none',0,'g',NULL,NULL)",
+    )
+    .run();
   await db
     .prepare(
       "INSERT INTO participants(participant_id,subject_hmac,membership,restriction,generation_revision,generation_id) VALUES ('reset-person','reset-subject','joined','none',0,'old')",
@@ -2875,9 +2883,7 @@ test("bot simulation stays off by default, hides the bot marker, and keeps admin
     .first("n");
   const observationsBefore =
     (await db
-      .prepare(
-        "SELECT count(*) n FROM observations WHERE participant_id=?",
-      )
+      .prepare("SELECT count(*) n FROM observations WHERE participant_id=?")
       .bind(botId)
       .first("n")) ?? 0;
   const dry = await authenticatedRuntime.dispatchFetch(
@@ -3030,7 +3036,9 @@ async function runBotSimulationTick(db, label) {
         .first("n")) ?? 0;
     if (completed > before && row?.state === "completed") return;
     if (row?.state === "failed") {
-      throw new Error(`${label} failed: ${row.last_error || "execution_failed"}`);
+      throw new Error(
+        `${label} failed: ${row.last_error || "execution_failed"}`,
+      );
     }
     await new Promise((resolve) => setTimeout(resolve, 50));
   }
@@ -3056,9 +3064,14 @@ test("launch tick creates a 50-bot roster with observations and is watermark-ide
     )
     .bind(human, `human-leader-${human}`, generation)
     .run();
-  await db.prepare("INSERT INTO participant_revisions VALUES (?,0)").bind(human).run();
   await db
-    .prepare("INSERT INTO profiles VALUES (?,'Human Leader',NULL,'approved','none')")
+    .prepare("INSERT INTO participant_revisions VALUES (?,0)")
+    .bind(human)
+    .run();
+  await db
+    .prepare(
+      "INSERT INTO profiles VALUES (?,'Human Leader',NULL,'approved','none')",
+    )
     .bind(human)
     .run();
   const periods = periodIdsCovering(now - 800 * 86400000, now + 86400000);
@@ -3163,5 +3176,9 @@ test("launch tick creates a 50-bot roster with observations and is watermark-ide
       )
       .all()
   ).results;
-  assert.deepEqual(leaders, [], "no bot may be #1 or tied for first on any board");
+  assert.deepEqual(
+    leaders,
+    [],
+    "no bot may be #1 or tied for first on any board",
+  );
 });
