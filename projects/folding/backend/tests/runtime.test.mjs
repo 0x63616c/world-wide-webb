@@ -1972,6 +1972,7 @@ test("admin root stays host-scoped and every admin view retains shared dark navi
     "/admin/jobs",
     "/admin/queue?kind=cases",
     "/admin/queue?kind=ban_reviews",
+    "/admin/bots",
   ];
   for (const path of pages) {
     const response = await authenticatedRuntime.dispatchFetch(
@@ -2709,4 +2710,212 @@ test("enrollment recovers an expired challenge after cleanup without treating it
   assert.equal(replay.status, 200);
   assert.match(replay.headers.get("X-Request-ID"), /^[0-9a-f-]{36}$/);
   assert.equal((await replay.json()).enrolled, true);
+});
+
+test("bot simulation stays off by default, hides the bot marker, and keeps admin details private", async () => {
+  const db = await authenticatedRuntime.getD1Database("DB");
+  const id = (n) => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
+  const adminId = id(91001);
+  const humanId = id(91002);
+  const botId = id(91003);
+  const device = id(91004);
+  const epoch = id(91005);
+  const time = Date.now();
+  const token = Buffer.alloc(32, 217);
+  const session = "bot-admin-capability-session-v2";
+  const hash = (value) => createHash("sha256").update(value).digest();
+  assert.equal(
+    await db
+      .prepare(
+        "SELECT bot_simulation_enabled FROM administrative_configuration WHERE singleton=1",
+      )
+      .first("bot_simulation_enabled"),
+    0,
+  );
+  const botsBefore = await db
+    .prepare("SELECT count(*) n FROM bot_profiles")
+    .first("n");
+  const worker = await authenticatedRuntime.getWorker();
+  await worker.scheduled({
+    cron: "* * * * *",
+    scheduledTime: time,
+  });
+  assert.equal(
+    await db.prepare("SELECT count(*) n FROM bot_profiles").first("n"),
+    botsBefore,
+  );
+  await db.batch([
+    db
+      .prepare(
+        "INSERT INTO participants(participant_id,subject_hmac,membership,restriction,generation_revision,generation_id,epoch_id,active_device_id) VALUES (?,?,'joined','none',0,'00000000-0000-0000-0000-000000000000',?,?)",
+      )
+      .bind(adminId, `admin-subject-${adminId}`, epoch, device),
+    db.prepare("INSERT INTO participant_revisions VALUES (?,0)").bind(adminId),
+    db
+      .prepare(
+        "INSERT INTO profiles VALUES (?,'Admin Folder',NULL,'approved','none')",
+      )
+      .bind(adminId),
+    db
+      .prepare(
+        "INSERT INTO epochs VALUES (?,?,?,0,'00000000-0000-0000-0000-000000000000',0,0,NULL)",
+      )
+      .bind(epoch, adminId, device),
+    db
+      .prepare("INSERT INTO sessions VALUES (?,?,?,'production',?,?,?,?,0)")
+      .bind(
+        session,
+        adminId,
+        device,
+        time,
+        time,
+        time + 86400000,
+        time + 86400000,
+      ),
+    db
+      .prepare("INSERT INTO access_tokens VALUES (?,?,?)")
+      .bind(hash(token), session, time + 86400000),
+    db
+      .prepare(
+        "INSERT INTO participants(participant_id,subject_hmac,membership,restriction,generation_revision,generation_id) VALUES (?,?,'joined','none',0,'00000000-0000-0000-0000-000000000000')",
+      )
+      .bind(humanId, `human-subject-${humanId}`),
+    db.prepare("INSERT INTO participant_revisions VALUES (?,0)").bind(humanId),
+    db
+      .prepare(
+        "INSERT INTO profiles VALUES (?,'Real Folder',NULL,'approved','none')",
+      )
+      .bind(humanId),
+    db
+      .prepare(
+        "INSERT INTO participants(participant_id,subject_hmac,membership,restriction,generation_revision,generation_id) VALUES (?,?,'joined','none',0,'00000000-0000-0000-0000-000000000000')",
+      )
+      .bind(botId, `bot-subject-${botId}`),
+    db.prepare("INSERT INTO participant_revisions VALUES (?,0)").bind(botId),
+    db
+      .prepare(
+        "INSERT INTO profiles VALUES (?,'Sim Folder',NULL,'approved','none')",
+      )
+      .bind(botId),
+    db
+      .prepare(
+        "INSERT INTO bot_profiles(participant_id,persona_id,persona_version,seed,joined_at_ms,avatar_style,created_at_ms) VALUES (?,'steady',1,?,?, 'initials',?)",
+      )
+      .bind(botId, Buffer.alloc(32, 3), time, time),
+  ]);
+  const headers = {
+    Authorization: "Bearer " + token.toString("base64url"),
+  };
+  const me = await authenticatedRuntime.dispatchFetch(
+    "https://api.example/v1/me",
+    { headers },
+  );
+  assert.equal(me.status, 200);
+  const meBody = await me.json();
+  assert.equal(meBody.is_admin, false);
+  assert.equal(meBody.profile.is_bot, undefined);
+  const denied = await authenticatedRuntime.dispatchFetch(
+    `https://api.example/v1/admin/participants/${botId}`,
+    { headers },
+  );
+  assert.equal(denied.status, 404);
+  const publicProfile = await authenticatedRuntime.dispatchFetch(
+    `https://api.example/v1/participants/${botId}`,
+    { headers },
+  );
+  assert.equal(publicProfile.status, 200, await publicProfile.clone().text());
+  const publicBody = await publicProfile.json();
+  const publicText = JSON.stringify(publicBody);
+  assert.equal(publicBody.profile?.is_bot, undefined);
+  assert.doesNotMatch(publicText, /"is_bot"/);
+  assert.doesNotMatch(publicText, /"persona_id"/);
+  await db
+    .prepare(
+      "INSERT INTO participant_roles(participant_id, role, granted_at_ms, granted_by) VALUES (?,'admin',?,'test')",
+    )
+    .bind(adminId, time)
+    .run();
+  const adminMe = await authenticatedRuntime.dispatchFetch(
+    "https://api.example/v1/me",
+    { headers },
+  );
+  assert.equal(adminMe.status, 200);
+  const adminMeBody = await adminMe.json();
+  assert.equal(adminMeBody.is_admin, true);
+  const details = await authenticatedRuntime.dispatchFetch(
+    `https://api.example/v1/admin/participants/${botId}`,
+    { headers },
+  );
+  assert.equal(details.status, 200);
+  const detailsBody = await details.json();
+  assert.equal(detailsBody.participant.is_bot, true);
+  assert.equal(detailsBody.participant.persona_id, "steady");
+  const jwt = appleToken({
+    iss: "https://folding-test.cloudflareaccess.com",
+    aud: ["local-admin"],
+    sub: "synthetic-admin",
+    email: "admin@example.test",
+    type: "app",
+  });
+  const page = await authenticatedRuntime.dispatchFetch(
+    "https://admin.example/admin/bots",
+    { headers: { "Cf-Access-Jwt-Assertion": jwt } },
+  );
+  assert.equal(page.status, 200, await page.clone().text());
+  const html = await page.text();
+  const csrf = html.match(/name="csrf_token" value="([^"]+)"/)[1];
+  const operation = html.match(/name="operation_id" value="([^"]+)"/)[1];
+  const watermarkBefore = await db
+    .prepare(
+      "SELECT watermark_ms, revision, cursor_participant_id FROM bot_simulation_state WHERE singleton=1",
+    )
+    .first();
+  const auditBefore = await db
+    .prepare("SELECT count(*) n FROM bot_simulation_audit")
+    .first("n");
+  const observationsBefore =
+    (await db
+      .prepare(
+        "SELECT count(*) n FROM observations WHERE participant_id=?",
+      )
+      .bind(botId)
+      .first("n")) ?? 0;
+  const dry = await authenticatedRuntime.dispatchFetch(
+    "https://admin.example/admin/bots",
+    {
+      method: "POST",
+      redirect: "manual",
+      headers: {
+        "Cf-Access-Jwt-Assertion": jwt,
+        Origin: "https://admin.example",
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        csrf_token: csrf,
+        operation_id: operation,
+        action: "dry_run",
+        expected_revision: "0",
+        participant_id: "",
+        reason: "Operations dry-run",
+      }),
+    },
+  );
+  assert.equal(dry.status, 303, await dry.text());
+  const watermarkAfter = await db
+    .prepare(
+      "SELECT watermark_ms, revision, cursor_participant_id FROM bot_simulation_state WHERE singleton=1",
+    )
+    .first();
+  assert.deepEqual(watermarkAfter, watermarkBefore);
+  assert.equal(
+    await db.prepare("SELECT count(*) n FROM bot_simulation_audit").first("n"),
+    auditBefore + 1,
+  );
+  assert.equal(
+    (await db
+      .prepare("SELECT count(*) n FROM observations WHERE participant_id=?")
+      .bind(botId)
+      .first("n")) ?? 0,
+    observationsBefore,
+  );
 });

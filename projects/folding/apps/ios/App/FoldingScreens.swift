@@ -1371,7 +1371,7 @@ struct LeaderboardScreen: View {
             NavigationLink {
               YourProfileScreen(model: model, actions: actions)
             } label: {
-              LeaderboardRow(entry: current)
+              LeaderboardRow(entry: current, showAdminBotMarker: model.revealAdminBotMarker(for: current.id))
             }.buttonStyle(.plain)
           }
         }
@@ -1385,13 +1385,20 @@ struct LeaderboardScreen: View {
 
 struct LeaderboardRow: View {
   let entry: LeaderboardEntry
+  var showAdminBotMarker = false
   var body: some View {
     HStack(spacing: 12) {
       Text(entry.rank, format: .number).font(.subheadline.monospacedDigit()).foregroundStyle(
         .secondary
       ).frame(minWidth: 24, alignment: .trailing)
       CompetitionAvatar(entry: entry, size: 36)
-      Text(entry.displayName).fontWeight(entry.isCurrentUser ? .semibold : .regular).lineLimit(2)
+      HStack(spacing: 6) {
+        Text(entry.displayName).fontWeight(entry.isCurrentUser ? .semibold : .regular).lineLimit(2)
+        if showAdminBotMarker {
+          Circle().fill(.secondary).frame(width: 6, height: 6)
+            .accessibilityLabel("Simulated player")
+        }
+      }
       Spacer(minLength: 8)
       Text(entry.folds, format: .number).monospacedDigit()
     }

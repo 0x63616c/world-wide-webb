@@ -297,6 +297,7 @@ struct ParticipantProfileScreen: View {
   @State private var loadedContext: UUID?
   @State private var loading = false
   @State private var requestID = UUID()
+  @State private var adminDetails: AdminParticipantDetails?
   var body: some View {
     List {
       if model.competitionJoined, loadedContext == model.milestonesContext, let value {
@@ -305,12 +306,42 @@ struct ParticipantProfileScreen: View {
           VStack(spacing: 12) {
             ApprovedAvatarImage(data: value.avatarData, url: nil).frame(width: 80, height: 80)
               .clipShape(Circle()).accessibilityHidden(true)
-            Text(profile.nickname).font(.title2.bold())
+            HStack(spacing: 8) {
+              Text(profile.nickname).font(.title2.bold())
+              if model.isAdmin,
+                model.revealAdminBotMarker(for: participantID)
+                  || adminDetails?.participant.is_bot == true
+              {
+                Circle().fill(.secondary).frame(width: 6, height: 6)
+                  .accessibilityLabel("Simulated player")
+              }
+            }
 
           }.frame(maxWidth: .infinity).padding(.vertical, 12)
           LabeledContent(
             String(localized: "milestones.total", defaultValue: "All-time folds"),
             value: profile.folds.formatted())
+        }
+        if model.isAdmin, let admin = adminDetails {
+          Section("Admin") {
+            LabeledContent(
+              "Simulated player", value: admin.participant.is_bot == true ? "Yes" : "No")
+            if let persona = admin.participant.persona_id {
+              LabeledContent("Persona", value: persona)
+            }
+            if let version = admin.participant.persona_version {
+              LabeledContent("Persona version", value: version.formatted())
+            }
+            if let style = admin.participant.avatar_style {
+              LabeledContent("Avatar style", value: style)
+            }
+            if admin.participant.paused_at_ms != nil {
+              LabeledContent("Status", value: "Paused")
+            }
+            if admin.participant.retired_at_ms != nil {
+              LabeledContent("Status", value: "Retired")
+            }
+          }
         }
 
       } else if loading {
@@ -383,6 +414,7 @@ struct ParticipantProfileScreen: View {
   private func refresh() async {
     guard model.competitionJoined, let load = actions.loadParticipantProfile else {
       value = nil
+      adminDetails = nil
       return
     }
     let context = model.milestonesContext
@@ -397,7 +429,18 @@ struct ParticipantProfileScreen: View {
       }
       value = response
       loadedContext = context
-    } catch { if request == requestID { value = nil } }
+      adminDetails = nil
+      if model.isAdmin, let loadAdmin = actions.loadAdminParticipant {
+        if let details = try? await loadAdmin(participantID),
+          context == model.milestonesContext, request == requestID, !Task.isCancelled
+        {
+          adminDetails = details
+          if details.participant.is_bot == true {
+            model.adminBotIDs.insert(participantID)
+          }
+        }
+      }
+    } catch { if request == requestID { value = nil; adminDetails = nil } }
   }
 }
 

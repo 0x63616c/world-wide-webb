@@ -190,6 +190,12 @@ import struct FoldingData.TrackingDiagnosticSnapshot
         }
         return ParticipantProfileLoad(profile: response, avatarData: avatar)
       },
+      loadAdminParticipant: { id in
+        let identity = self.competitionIdentityRevision
+        let details = try await self.competitionClient().adminParticipant(id)
+        guard identity == self.competitionIdentityRevision else { throw CancellationError() }
+        return details
+      },
       acknowledgeMilestones: { participant, request in
         let identity = self.competitionIdentityRevision
         let currentGeneration = try await self.runtime.store().currentGeneration()
@@ -597,6 +603,11 @@ import struct FoldingData.TrackingDiagnosticSnapshot
     await runtime.trackingPhoneChanged()
   }
 
+  private func applyAdminCapability(_ me: CompetitionMe) {
+    presentation.isAdmin = me.is_admin == true
+    if !presentation.isAdmin { presentation.adminBotIDs = [] }
+  }
+
   private func showPublicTrackingPhone(_ me: CompetitionMe) async throws {
     let identity = accountChangeRevision
     let store = try await runtime.store()
@@ -657,6 +668,7 @@ import struct FoldingData.TrackingDiagnosticSnapshot
       if try await client.transport.hasStoredAccount() { setCompetitionAccountExists(true) }
       let me = try await client.me()
       guard identity == accountChangeRevision, !accountChanging else { return }
+      applyAdminCapability(me)
       try await showPublicTrackingPhone(me)
       let profile = await profilePresentation(me.profile)
       guard identity == accountChangeRevision, !accountChanging else { return }
@@ -731,6 +743,7 @@ import struct FoldingData.TrackingDiagnosticSnapshot
     } else if profile.membership == "joined" {
       let me = try await api.me()
       guard identity == accountChangeRevision, !accountChanging else { throw CancellationError() }
+      applyAdminCapability(me)
       try await showPublicTrackingPhone(me)
       guard identity == accountChangeRevision, !accountChanging else { throw CancellationError() }
       if let remote = me.preferences {

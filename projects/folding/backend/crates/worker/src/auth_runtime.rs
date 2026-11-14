@@ -113,6 +113,7 @@ pub(crate) struct Configuration {
     pub(crate) deployment: String,
     pub(crate) keys: KeyRing,
     pub(crate) network_key: [u8; 32],
+    pub(crate) admin_participant_ids: Vec<String>,
 }
 impl Configuration {
     pub(crate) fn load(env: &Env) -> std::result::Result<Self, Failure> {
@@ -142,10 +143,23 @@ impl Configuration {
             .map_err(|_| Failure::unavailable())?
             .try_into()
             .map_err(|_| Failure::unavailable())?;
+        let admin_participant_ids = env
+            .var("ADMIN_PARTICIPANT_IDS")
+            .ok()
+            .map(|value| {
+                value
+                    .to_string()
+                    .split(',')
+                    .map(|id| id.trim().to_ascii_lowercase())
+                    .filter(|id| !id.is_empty())
+                    .collect()
+            })
+            .unwrap_or_default();
         Ok(Self {
             deployment,
             keys,
             network_key,
+            admin_participant_ids,
         })
     }
 }
@@ -202,7 +216,9 @@ pub async fn dispatch(
     if request.method() == Method::Get && request.path().starts_with("/v1/admin/participants/") {
         let config = Configuration::load(env)?;
         let db = env.d1("DB").map_err(|_| Failure::unavailable())?;
-        return Ok(Some(crate::community_reads::admin_participant(request, &db, &config, request_id).await?));
+        return Ok(Some(
+            crate::community_reads::admin_participant(request, &db, &config, request_id).await?,
+        ));
     }
     if (request.method() == Method::Patch && request.path() == "/v1/profile/badge")
         || (request.method() == Method::Post && request.path() == "/v1/milestones/acknowledgments")

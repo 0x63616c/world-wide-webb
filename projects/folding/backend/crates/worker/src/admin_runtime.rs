@@ -135,7 +135,9 @@ pub(crate) async fn dispatch(
     let config = Configuration::load(env)?;
     let admin = admin_auth::authorize(request, env, &config).await?;
     let db = env.d1("DB").map_err(|_| Failure::unavailable())?;
-    if request.path()=="/admin/bots" { return crate::bots_admin::admin(request,env,&db,&config,&admin,body).await; }
+    if request.path() == "/admin/bots" {
+        return crate::bots_admin::admin(request, env, &db, &config, &admin, body).await;
+    }
     if request.path() == "/admin/jobs" || request.path().starts_with("/admin/jobs/") {
         return crate::jobs_admin::admin(request, &db, &config, &admin, body).await;
     }

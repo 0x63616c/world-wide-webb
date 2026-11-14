@@ -103,25 +103,44 @@ async fn enabled(db: &D1Database) -> Result<bool, Failure> {
 
 fn avatar_png(style: &str, seed: &[u8; 32]) -> Result<Vec<u8>, Failure> {
     use image::{ImageBuffer, ImageFormat, Rgb};
-    let base = if style == "black" { [12, 12, 14] } else { [seed[0], seed[1], seed[2]] };
+    let base = if style == "black" {
+        [12, 12, 14]
+    } else {
+        [seed[0], seed[1], seed[2]]
+    };
     let image = ImageBuffer::from_fn(128, 128, |x, y| {
         let mut color = base;
         if style == "illustrated" {
             let dx = x as i32 - (48 + (seed[3] % 32) as i32);
             let dy = y as i32 - 58;
-            if dx * dx + dy * dy < 34 * 34 { color = [245, 210, 140]; }
-            if (y > 82 && (x as i32 - 64).abs() < 44) || (y > 12 && y < 28 && x > 18 && x < 110) { color = [seed[4], seed[5], seed[6]]; }
-            if (x > 25 && x < 35 && y > 46 && y < 52) || (x > 80 && x < 90 && y > 46 && y < 52) { color = [35, 30, 40]; }
+            if dx * dx + dy * dy < 34 * 34 {
+                color = [245, 210, 140];
+            }
+            if (y > 82 && (x as i32 - 64).abs() < 44) || (y > 12 && y < 28 && x > 18 && x < 110) {
+                color = [seed[4], seed[5], seed[6]];
+            }
+            if (x > 25 && x < 35 && y > 46 && y < 52) || (x > 80 && x < 90 && y > 46 && y < 52) {
+                color = [35, 30, 40];
+            }
         } else if style == "initials" {
             let glyph = (seed[0] % 26) as u32;
             let x0 = 45 + (glyph % 5) * 3;
             let y0 = 40 + (glyph / 5) * 3;
-            if x >= x0 && x < x0 + 38 && y >= y0 && y < y0 + 48 && ((x + y + glyph) % 13 < 5 || x == x0 || y == y0) { color = [250, 250, 250]; }
+            if x >= x0
+                && x < x0 + 38
+                && y >= y0
+                && y < y0 + 48
+                && ((x + y + glyph) % 13 < 5 || x == x0 || y == y0)
+            {
+                color = [250, 250, 250];
+            }
         }
         Rgb(color)
     });
     let mut cursor = std::io::Cursor::new(Vec::new());
-    image::DynamicImage::ImageRgb8(image).write_to(&mut cursor, ImageFormat::Png).map_err(|_| Failure::unavailable())?;
+    image::DynamicImage::ImageRgb8(image)
+        .write_to(&mut cursor, ImageFormat::Png)
+        .map_err(|_| Failure::unavailable())?;
     Ok(cursor.into_inner())
 }
 
@@ -162,7 +181,7 @@ async fn create_roster(env: &Env, db: &D1Database, time: i64) -> Result<(), Fail
         return Ok(());
     }
     let personas = policy::personas();
-    let bucket=env.bucket("AVATARS").map_err(|_|Failure::unavailable())?;
+    let bucket = env.bucket("AVATARS").map_err(|_| Failure::unavailable())?;
     let mut writes = vec![];
     for ordinal in count..desired {
         let p = &personas[ordinal % personas.len()];
@@ -181,8 +200,16 @@ async fn create_roster(env: &Env, db: &D1Database, time: i64) -> Result<(), Fail
             "INSERT INTO participant_revisions VALUES(?1,0)",
             &[text(&participant)],
         )?);
-        let avatar_style=if p.avatar_style=="solid" && seed[7]%3==0 {"black"} else {p.avatar_style.as_str()};
-        let avatar=if avatar_style=="none" { None } else { Some(uuid()?) };
+        let avatar_style = if p.avatar_style == "solid" && seed[7] % 3 == 0 {
+            "black"
+        } else {
+            p.avatar_style.as_str()
+        };
+        let avatar = if avatar_style == "none" {
+            None
+        } else {
+            Some(uuid()?)
+        };
         writes.push(statement(db,"INSERT INTO profiles(participant_id,nickname,avatar_id,nickname_status,avatar_status) VALUES(?1,?2,?3,'approved',?4)",&[text(&participant),text(&nickname),avatar.as_deref().map(text).unwrap_or(wasm_bindgen::JsValue::NULL),text(if avatar.is_some(){"approved"}else{"none"})])?);
         writes.push(statement(
             db,
@@ -197,12 +224,14 @@ async fn create_roster(env: &Env, db: &D1Database, time: i64) -> Result<(), Fail
             ],
         )?);
         writes.push(statement(db,"INSERT INTO bot_profiles(participant_id,persona_id,persona_version,seed,joined_at_ms,created_at_ms,avatar_style) VALUES(?1,?2,?3,?4,?5,?6,?7)",&[text(&participant),text(&p.id),number(p.version as i64),blob(&seed),number(joined),number(time),text(avatar_style)])?);
-        if let Some(avatar_id)=avatar {
-            let original=format!("private/bot/{avatar_id}/original"); let derivative=format!("private/bot/{avatar_id}/derivative");
-            let bytes=avatar_png(avatar_style,&seed)?;
-            crate::avatar_runtime::put_once(&bucket,&original,bytes.clone(),"image/png").await?;
-            crate::avatar_runtime::put_once(&bucket,&derivative,bytes.clone(),"image/png").await?;
-            let hash=Sha256::digest(&bytes);
+        if let Some(avatar_id) = avatar {
+            let original = format!("private/bot/{avatar_id}/original");
+            let derivative = format!("private/bot/{avatar_id}/derivative");
+            let bytes = avatar_png(avatar_style, &seed)?;
+            crate::avatar_runtime::put_once(&bucket, &original, bytes.clone(), "image/png").await?;
+            crate::avatar_runtime::put_once(&bucket, &derivative, bytes.clone(), "image/png")
+                .await?;
+            let hash = Sha256::digest(&bytes);
             writes.push(statement(db,"INSERT INTO avatar_objects(avatar_id,participant_id,operation_id,normalized_hash,state,original_key,derivative_key,created_at_ms) VALUES(?1,?2,?3,?4,'approved',?5,?6,?7)",&[text(&avatar_id),text(&participant),text(&format!("bot-{ordinal}")),blob(&hash),text(&original),text(&derivative),number(time)])?);
         }
         writes.push(crate::milestone_runtime::initialize(
@@ -362,10 +391,44 @@ async fn replay_day(
     }
     writes.push(statement(db,"INSERT INTO score_jobs VALUES(?1,1,'pending') ON CONFLICT(participant_id) DO UPDATE SET revision=revision+1,state='pending'",&[text(&bot.participant_id)])?);
     #[derive(Deserialize)]
-    struct Counted { event_id: Id, observed_at_ms: u64 }
-    let before=statement(db,"SELECT event_id,observed_at_ms FROM milestone_counted_events WHERE participant_id=?1",&[text(&bot.participant_id)])?.all().await.map_err(|_|Failure::unavailable())?.results::<Counted>().map_err(|_|Failure::unavailable())?.into_iter().map(|e|(e.event_id,e.observed_at_ms)).collect::<Vec<_>>();
-    let after=summary.counted_events.iter().filter_map(|id|stream.iter().find(|e|&e.event_id==id).map(|e|(e.event_id.clone(),e.observed_at_ms))).collect::<Vec<_>>();
-    writes.extend(crate::milestone_runtime::incremental(db,&bot.participant_id,&generation,1,&before,&after).await?);
+    struct Counted {
+        event_id: Id,
+        observed_at_ms: u64,
+    }
+    let before = statement(
+        db,
+        "SELECT event_id,observed_at_ms FROM milestone_counted_events WHERE participant_id=?1",
+        &[text(&bot.participant_id)],
+    )?
+    .all()
+    .await
+    .map_err(|_| Failure::unavailable())?
+    .results::<Counted>()
+    .map_err(|_| Failure::unavailable())?
+    .into_iter()
+    .map(|e| (e.event_id, e.observed_at_ms))
+    .collect::<Vec<_>>();
+    let after = summary
+        .counted_events
+        .iter()
+        .filter_map(|id| {
+            stream
+                .iter()
+                .find(|e| &e.event_id == id)
+                .map(|e| (e.event_id.clone(), e.observed_at_ms))
+        })
+        .collect::<Vec<_>>();
+    writes.extend(
+        crate::milestone_runtime::incremental(
+            db,
+            &bot.participant_id,
+            &generation,
+            1,
+            &before,
+            &after,
+        )
+        .await?,
+    );
     db.batch(writes).await.map_err(|_| Failure::conflict())?;
     Ok(count * 2)
 }
@@ -389,7 +452,10 @@ pub(crate) async fn tick(env: &Env, db: &D1Database, dry_run: bool) -> Result<us
     }
     let time = now();
     if dry_run {
-        #[derive(Deserialize)] struct Active { count:i64 }
+        #[derive(Deserialize)]
+        struct Active {
+            count: i64,
+        }
         return Ok(statement(db,"SELECT count(*) AS count FROM bot_profiles WHERE retired_at_ms IS NULL AND paused_at_ms IS NULL",&[])?.first::<Active>(None).await.map_err(|_|Failure::unavailable())?.map_or(0,|v|v.count.max(0) as usize));
     }
     create_roster(env, db, time).await?;

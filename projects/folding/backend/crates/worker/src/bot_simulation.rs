@@ -219,4 +219,12 @@ mod tests {
         // An inactive leader is still the real score ceiling: never pass it.
         assert!(!bot_score_allowed(4, 11, Some(11)));
     }
+
+    #[test]
+    fn photo_avatar_manifest_is_pluggable_and_empty_by_default() {
+        let value: serde_json::Value =
+            serde_json::from_str(include_str!("../policies/photo-avatars.manifest.json")).unwrap();
+        assert_eq!(value["version"], 1);
+        assert!(value["assets"].as_array().expect("assets").is_empty());
+    }
 }
