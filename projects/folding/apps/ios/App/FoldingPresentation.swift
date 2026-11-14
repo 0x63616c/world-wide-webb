@@ -541,25 +541,11 @@ enum ExportChoice { case json, csv }
       return
     }
     var discovered: Set<String> = []
-    await withTaskGroup(of: String?.self) { group in
-      var inflight = 0
-      var remaining = ids.makeIterator()
-      func enqueue() {
-        while inflight < 4, let id = remaining.next() {
-          inflight += 1
-          group.addTask {
-            do {
-              return try await load(id).participant.is_bot == true ? id : nil
-            } catch { return nil }
-          }
-        }
-      }
-      enqueue()
-      for await result in group {
-        inflight -= 1
-        if let id = result { discovered.insert(id) }
-        enqueue()
-      }
+    for id in ids {
+      if Task.isCancelled { break }
+      do {
+        if try await load(id).participant.is_bot == true { discovered.insert(id) }
+      } catch { continue }
     }
     adminBotIDs.formUnion(discovered)
     // Drop IDs that left the current board only when this is a full refresh of current entries.

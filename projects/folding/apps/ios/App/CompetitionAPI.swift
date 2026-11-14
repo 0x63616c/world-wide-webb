@@ -16,17 +16,26 @@ struct CompetitionWireEnrollment: Decodable, Sendable {
 }
 struct AdminParticipantDetails: Decodable, Sendable {
   struct Participant: Decodable, Sendable {
+    // swift-format-ignore: AlwaysUseLowerCamelCase
     let participant_id: String
     let nickname: String?
+    // swift-format-ignore: AlwaysUseLowerCamelCase
     let is_bot: Bool?
+    // swift-format-ignore: AlwaysUseLowerCamelCase
     let persona_id: String?
+    // swift-format-ignore: AlwaysUseLowerCamelCase
     let persona_version: Int64?
+    // swift-format-ignore: AlwaysUseLowerCamelCase
     let bot_joined_at_ms: Int64?
+    // swift-format-ignore: AlwaysUseLowerCamelCase
     let retired_at_ms: Int64?
+    // swift-format-ignore: AlwaysUseLowerCamelCase
     let paused_at_ms: Int64?
+    // swift-format-ignore: AlwaysUseLowerCamelCase
     let avatar_style: String?
     let membership: String?
     let restriction: String?
+    // swift-format-ignore: AlwaysUseLowerCamelCase
     let account_state: String?
   }
   let participant: Participant
@@ -36,6 +45,7 @@ struct CompetitionMe: Decodable, Sendable {
   let profile: CompetitionWireProfile
   let enrollment: CompetitionWireEnrollment?
   /// Present on current workers; older clients ignore the unknown key.
+  // swift-format-ignore: AlwaysUseLowerCamelCase
   let is_admin: Bool?
 }
 struct CompetitionJoinResponse: Decodable, Sendable {
