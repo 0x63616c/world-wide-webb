@@ -2,7 +2,7 @@
   "sourceLanguage": "en",
   "strings": {
     "action.cancel": {
-      "comment": "Action UI: Cancel. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "Action UI: Cancel. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -68,7 +68,7 @@
       }
     },
     "action.done": {
-      "comment": "Action UI: Done. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "Action UI: Done. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -134,7 +134,7 @@
       }
     },
     "action.ok": {
-      "comment": "Action UI: OK. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "Action UI: OK. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -200,7 +200,7 @@
       }
     },
     "action.refreshing": {
-      "comment": "Action UI: Refreshing. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "Action UI: Refreshing. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -266,7 +266,7 @@
       }
     },
     "action.retry": {
-      "comment": "Action UI: Retry. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "Action UI: Retry. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -332,7 +332,7 @@
       }
     },
     "appearance.dark": {
-      "comment": "Appearance UI: Dark. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "Appearance UI: Dark. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -398,7 +398,7 @@
       }
     },
     "appearance.light": {
-      "comment": "Appearance UI: Light. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "Appearance UI: Light. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -464,7 +464,7 @@
       }
     },
     "appearance.system": {
-      "comment": "Appearance UI: System. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "Appearance UI: System. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -530,7 +530,7 @@
       }
     },
     "chart.date": {
-      "comment": "Chart UI: Date. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "Chart UI: Date. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -596,7 +596,7 @@
       }
     },
     "data.export": {
-      "comment": "Data UI: Export. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "Data UI: Export. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -662,7 +662,7 @@
       }
     },
     "data.reset": {
-      "comment": "Data UI: Reset history. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "Data UI: Reset history. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -728,7 +728,7 @@
       }
     },
     "error.title": {
-      "comment": "Error UI: Unable to continue. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "Error UI: Unable to continue. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -794,7 +794,7 @@
       }
     },
     "error.tryAgain": {
-      "comment": "Error UI: Something went wrong. Try again.. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "Error UI: Something went wrong. Try again.. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -860,7 +860,7 @@
       }
     },
     "export.progress": {
-      "comment": "Export UI: Preparing export. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "Export UI: Preparing export. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -926,7 +926,7 @@
       }
     },
     "history.all": {
-      "comment": "History UI: All. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "History UI: All. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -992,7 +992,7 @@
       }
     },
     "history.day": {
-      "comment": "History UI: Day. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "History UI: Day. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -1322,7 +1322,7 @@
       }
     },
     "history.interval": {
-      "comment": "History UI: Interval. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "History UI: Interval. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -1388,7 +1388,7 @@
       }
     },
     "history.month": {
-      "comment": "History UI: Month. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "History UI: Month. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -1454,7 +1454,7 @@
       }
     },
     "history.next": {
-      "comment": "History UI: Next period. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "History UI: Next period. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -1520,7 +1520,7 @@
       }
     },
     "history.noSessions": {
-      "comment": "History UI: No sessions yet. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "History UI: No sessions yet. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -1586,7 +1586,7 @@
       }
     },
     "history.previous": {
-      "comment": "History UI: Previous period. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "History UI: Previous period. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -1652,7 +1652,7 @@
       }
     },
     "history.session": {
-      "comment": "History UI: Session. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "History UI: Session. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -1718,7 +1718,7 @@
       }
     },
     "history.sessions": {
-      "comment": "History UI: Sessions. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "History UI: Sessions. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -1784,7 +1784,7 @@
       }
     },
     "history.unavailable": {
-      "comment": "History UI: History unavailable. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "History UI: History unavailable. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -1850,7 +1850,7 @@
       }
     },
     "history.week": {
-      "comment": "History UI: Week. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "History UI: Week. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -1916,7 +1916,7 @@
       }
     },
     "intent.recordClosing.detail": {
-      "comment": "Intent UI: Record a closing detected by your automation.. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "Intent UI: Record a closing detected by your automation.. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -1988,67 +1988,67 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Log Duo Closed"
+            "value": "Log iPhone Closed"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Log Duo Closed"
+            "value": "Log iPhone Closed"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Log Duo Closed"
+            "value": "Log iPhone Closed"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Log Duo Closed"
+            "value": "Log iPhone Closed"
           }
         },
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "Log Duo Closed"
+            "value": "Log iPhone Closed"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "Log Duo Closed"
+            "value": "Log iPhone Closed"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "Log Duo Closed"
+            "value": "Log iPhone Closed"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Log Duo Closed"
+            "value": "Log iPhone Closed"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Log Duo Closed"
+            "value": "Log iPhone Closed"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "Log Duo Closed"
+            "value": "Log iPhone Closed"
           }
         }
       }
     },
     "intent.recordOpening.detail": {
-      "comment": "Intent UI: Record an opening detected by your automation.. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "Intent UI: Record an opening detected by your automation.. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -2120,67 +2120,67 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Log Duo Opened"
+            "value": "Log iPhone Opened"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Log Duo Opened"
+            "value": "Log iPhone Opened"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Log Duo Opened"
+            "value": "Log iPhone Opened"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Log Duo Opened"
+            "value": "Log iPhone Opened"
           }
         },
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "Log Duo Opened"
+            "value": "Log iPhone Opened"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "Log Duo Opened"
+            "value": "Log iPhone Opened"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "Log Duo Opened"
+            "value": "Log iPhone Opened"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Log Duo Opened"
+            "value": "Log iPhone Opened"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Log Duo Opened"
+            "value": "Log iPhone Opened"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "Log Duo Opened"
+            "value": "Log iPhone Opened"
           }
         }
       }
     },
     "leaderboard.all": {
-      "comment": "Leaderboard UI: All Time. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "Leaderboard UI: All Time. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -2246,7 +2246,7 @@
       }
     },
     "leaderboard.appeal": {
-      "comment": "Leaderboard UI: Contact support. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "Leaderboard UI: Contact support. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -2312,7 +2312,7 @@
       }
     },
     "leaderboard.empty": {
-      "comment": "Leaderboard UI: No folds yet. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "Leaderboard UI: No folds yet. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -2510,7 +2510,7 @@
       }
     },
     "leaderboard.month": {
-      "comment": "Leaderboard UI: Month. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "Leaderboard UI: Month. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -2642,7 +2642,7 @@
       }
     },
     "leaderboard.period": {
-      "comment": "Leaderboard UI: Period. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "Leaderboard UI: Period. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -2708,7 +2708,7 @@
       }
     },
     "leaderboard.restricted": {
-      "comment": "Leaderboard UI: Competition restricted. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "Leaderboard UI: Competition restricted. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -2774,7 +2774,7 @@
       }
     },
     "leaderboard.tiedRank": {
-      "comment": "Leaderboard UI: Tied places. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "Leaderboard UI: Tied places. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -2840,7 +2840,7 @@
       }
     },
     "leaderboard.unavailable": {
-      "comment": "Leaderboard UI: Leaderboard unavailable. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "Leaderboard UI: Leaderboard unavailable. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -2906,7 +2906,7 @@
       }
     },
     "leaderboard.viewTies": {
-      "comment": "Leaderboard UI: View tied places. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "Leaderboard UI: View tied places. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -2972,7 +2972,7 @@
       }
     },
     "leaderboard.week": {
-      "comment": "Leaderboard UI: Week. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "Leaderboard UI: Week. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -3236,7 +3236,7 @@
       }
     },
     "metric.closes": {
-      "comment": "Metric UI: Closes. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "Metric UI: Closes. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -3434,7 +3434,7 @@
       }
     },
     "metric.lifetimeFolds": {
-      "comment": "Metric UI: All-time folds. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "Metric UI: All-time folds. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -3500,7 +3500,7 @@
       }
     },
     "metric.opens": {
-      "comment": "Metric UI: Opens. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "Metric UI: Opens. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -3632,7 +3632,7 @@
       }
     },
     "metric.trend": {
-      "comment": "Metric UI: Last 7 days. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "Metric UI: Last 7 days. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -5216,7 +5216,7 @@
       }
     },
     "profile.avatar": {
-      "comment": "Profile UI: Avatar. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "Profile UI: Avatar. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -5810,7 +5810,7 @@
       }
     },
     "profile.joinedPhotoFailed": {
-      "comment": "Setup or profile UI: You're in. Photo didn't upload. Keep concise; preserve Duo and Shortcuts product names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "Setup or profile UI: You're in. Photo didn't upload. Keep concise; preserve iPhone and Shortcuts product names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -7130,7 +7130,7 @@
       }
     },
     "reset.confirm": {
-      "comment": "Reset UI: Reset History. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "Reset UI: Reset History. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -7262,7 +7262,7 @@
       }
     },
     "reset.progress": {
-      "comment": "Reset UI: Resetting history. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "Reset UI: Resetting history. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -7328,7 +7328,7 @@
       }
     },
     "reset.title": {
-      "comment": "Reset UI: Reset history?. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "Reset UI: Reset history?. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -7394,7 +7394,7 @@
       }
     },
     "session.candidate": {
-      "comment": "Session UI: Uncertain. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "Session UI: Uncertain. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -7460,7 +7460,7 @@
       }
     },
     "session.closed": {
-      "comment": "Session UI: Closed. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "Session UI: Closed. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -7526,7 +7526,7 @@
       }
     },
     "session.complete": {
-      "comment": "Session UI: Complete. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "Session UI: Complete. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -7592,7 +7592,7 @@
       }
     },
     "session.incomplete": {
-      "comment": "Session UI: Incomplete. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "Session UI: Incomplete. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -7658,7 +7658,7 @@
       }
     },
     "session.opened": {
-      "comment": "Session UI: Opened. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "Session UI: Opened. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -7724,7 +7724,7 @@
       }
     },
     "session.running": {
-      "comment": "Session UI: Running. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "Session UI: Running. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -7790,7 +7790,7 @@
       }
     },
     "settings.appearance": {
-      "comment": "Settings UI: Appearance. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "Settings UI: Appearance. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -7856,7 +7856,7 @@
       }
     },
     "settings.dailyLimit": {
-      "comment": "Settings UI: Daily limit. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "Settings UI: Daily limit. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -7922,7 +7922,7 @@
       }
     },
     "settings.data": {
-      "comment": "Settings UI: Data. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "Settings UI: Data. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -7988,7 +7988,7 @@
       }
     },
     "settings.lastEvent": {
-      "comment": "Settings UI: Last event. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "Settings UI: Last event. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -8054,7 +8054,7 @@
       }
     },
     "settings.runSetup": {
-      "comment": "Settings UI: Run setup again. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "Settings UI: Run setup again. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -8120,7 +8120,7 @@
       }
     },
     "settings.saving": {
-      "comment": "Settings UI: Saving. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "Settings UI: Saving. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -8186,7 +8186,7 @@
       }
     },
     "settings.setupComplete": {
-      "comment": "Settings UI: Tested. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "Settings UI: Tested. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -8252,7 +8252,7 @@
       }
     },
     "settings.setupRequired": {
-      "comment": "Settings UI: Not complete. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "Settings UI: Not complete. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -8318,7 +8318,7 @@
       }
     },
     "settings.support": {
-      "comment": "Settings UI: Support. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "Settings UI: Support. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -8384,7 +8384,7 @@
       }
     },
     "settings.theme": {
-      "comment": "Settings UI: Theme. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "Settings UI: Theme. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -8450,7 +8450,7 @@
       }
     },
     "settings.title": {
-      "comment": "Settings UI: Settings. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "Settings UI: Settings. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -8516,7 +8516,7 @@
       }
     },
     "settings.tracking": {
-      "comment": "Settings UI: Tracking. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "Settings UI: Tracking. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -8582,7 +8582,7 @@
       }
     },
     "settings.version": {
-      "comment": "Settings UI: Version. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "Settings UI: Version. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -8648,7 +8648,7 @@
       }
     },
     "setup.addedAutomation": {
-      "comment": "Setup or profile UI: I've added it Keep concise; preserve Duo and Shortcuts product names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "Setup or profile UI: I've added it Keep concise; preserve iPhone and Shortcuts product names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -8714,73 +8714,73 @@
       }
     },
     "setup.closeDevice": {
-      "comment": "Setup UI: Close your Duo. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "Setup UI: Close your iPhone. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Close your Duo"
+            "value": "Close your iPhone"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Schließe dein Duo"
+            "value": "Schließe dein iPhone"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Fermez votre Duo"
+            "value": "Fermez votre iPhone"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Cierra tu Duo"
+            "value": "Cierra tu iPhone"
           }
         },
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "Cierra tu Duo"
+            "value": "Cierra tu iPhone"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "Duoを閉じる"
+            "value": "iPhoneを閉じる"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "Duo를 닫으세요"
+            "value": "iPhone를 닫으세요"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Feche seu Duo"
+            "value": "Feche seu iPhone"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "合上你的 Duo"
+            "value": "合上你的 iPhone"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "闔上你的 Duo"
+            "value": "闔上你的 iPhone"
           }
         }
       }
     },
     "setup.closingAutomation": {
-      "comment": "Setup UI: Track closing. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "Setup UI: Track closing. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -8846,7 +8846,7 @@
       }
     },
     "setup.complete": {
-      "comment": "Setup UI: You're set. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "Setup UI: You're set. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -8912,7 +8912,7 @@
       }
     },
     "setup.hingeClosed": {
-      "comment": "Live Duo hinge/setup guidance. AI translations require native review.",
+      "comment": "Live iPhone hinge/setup guidance. AI translations require native review.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -8978,7 +8978,7 @@
       }
     },
     "setup.hingeOpen": {
-      "comment": "Live Duo hinge/setup guidance. AI translations require native review.",
+      "comment": "Live iPhone hinge/setup guidance. AI translations require native review.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -9044,7 +9044,7 @@
       }
     },
     "setup.hingePartlyOpen": {
-      "comment": "Live Duo hinge/setup guidance. AI translations require native review.",
+      "comment": "Live iPhone hinge/setup guidance. AI translations require native review.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -9110,139 +9110,139 @@
       }
     },
     "setup.manualClose": {
-      "comment": "Setup or profile UI: Start open. Then close your Duo. Keep concise; preserve Duo and Shortcuts product names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "Setup or profile UI: Start open. Then close your iPhone. Keep concise; preserve iPhone and Shortcuts product names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Start open. Then close your Duo."
+            "value": "Start open. Then close your iPhone."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Geöffnet beginnen. Dann Duo schließen."
+            "value": "Geöffnet beginnen. Dann iPhone schließen."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Commencez ouvert, puis fermez votre Duo."
+            "value": "Commencez ouvert, puis fermez votre iPhone."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Empieza abierto. Luego cierra tu Duo."
+            "value": "Empieza abierto. Luego cierra tu iPhone."
           }
         },
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "Empieza abierto. Luego cierra tu Duo."
+            "value": "Empieza abierto. Luego cierra tu iPhone."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "開いた状態からDuoを閉じてください。"
+            "value": "開いた状態からiPhoneを閉じてください。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "열린 상태에서 Duo를 닫으세요."
+            "value": "열린 상태에서 iPhone를 닫으세요."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Comece aberto. Depois feche seu Duo."
+            "value": "Comece aberto. Depois feche seu iPhone."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "先打开 Duo，再合上。"
+            "value": "先打开 iPhone，再合上。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "先打開 Duo，再合上。"
+            "value": "先打開 iPhone，再合上。"
           }
         }
       }
     },
     "setup.manualOpen": {
-      "comment": "Setup or profile UI: Start closed. Then open your Duo. Keep concise; preserve Duo and Shortcuts product names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "Setup or profile UI: Start closed. Then open your iPhone. Keep concise; preserve iPhone and Shortcuts product names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Start closed. Then open your Duo."
+            "value": "Start closed. Then open your iPhone."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Geschlossen beginnen. Dann Duo öffnen."
+            "value": "Geschlossen beginnen. Dann iPhone öffnen."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Commencez fermé, puis ouvrez votre Duo."
+            "value": "Commencez fermé, puis ouvrez votre iPhone."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Empieza cerrado. Luego abre tu Duo."
+            "value": "Empieza cerrado. Luego abre tu iPhone."
           }
         },
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "Empieza cerrado. Luego abre tu Duo."
+            "value": "Empieza cerrado. Luego abre tu iPhone."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "閉じた状態からDuoを開いてください。"
+            "value": "閉じた状態からiPhoneを開いてください。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "닫힌 상태에서 Duo를 여세요."
+            "value": "닫힌 상태에서 iPhone를 여세요."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Comece fechado. Depois abra seu Duo."
+            "value": "Comece fechado. Depois abra seu iPhone."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "先合上 Duo，再打开。"
+            "value": "先合上 iPhone，再打开。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "先合上 Duo，再打開。"
+            "value": "先合上 iPhone，再打開。"
           }
         }
       }
     },
     "setup.noEvent": {
-      "comment": "Setup UI: No event yet. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "Setup UI: No event yet. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -9308,67 +9308,67 @@
       }
     },
     "setup.openDevice": {
-      "comment": "Setup UI: Open your Duo. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "Setup UI: Open your iPhone. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Open your Duo"
+            "value": "Open your iPhone"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Öffne dein Duo"
+            "value": "Öffne dein iPhone"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ouvrez votre Duo"
+            "value": "Ouvrez votre iPhone"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Abre tu Duo"
+            "value": "Abre tu iPhone"
           }
         },
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "Abre tu Duo"
+            "value": "Abre tu iPhone"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "Duoを開く"
+            "value": "iPhoneを開く"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "Duo를 여세요"
+            "value": "iPhone를 여세요"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Abra seu Duo"
+            "value": "Abra seu iPhone"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "打开你的 Duo"
+            "value": "打开你的 iPhone"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "打開你的 Duo"
+            "value": "打開你的 iPhone"
           }
         }
       }
@@ -9440,7 +9440,7 @@
       }
     },
     "setup.openingAutomation": {
-      "comment": "Setup UI: Track opening. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "Setup UI: Track opening. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -9506,7 +9506,7 @@
       }
     },
     "setup.start": {
-      "comment": "Setup UI: Set up tracking. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "Setup UI: Set up tracking. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -9572,139 +9572,139 @@
       }
     },
     "setup.startClosed": {
-      "comment": "Live Duo hinge/setup guidance. AI translations require native review.",
+      "comment": "Live iPhone hinge/setup guidance. AI translations require native review.",
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Close your Duo first."
+            "value": "Close your iPhone first."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Schließe zuerst dein Duo."
+            "value": "Schließe zuerst dein iPhone."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Fermez d’abord votre Duo."
+            "value": "Fermez d’abord votre iPhone."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Cierra tu Duo primero."
+            "value": "Cierra tu iPhone primero."
           }
         },
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "Cierra tu Duo primero."
+            "value": "Cierra tu iPhone primero."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "まずDuoを閉じてください。"
+            "value": "まずiPhoneを閉じてください。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "먼저 Duo를 닫으세요."
+            "value": "먼저 iPhone를 닫으세요."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Feche seu Duo primeiro."
+            "value": "Feche seu iPhone primeiro."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "请先合上 Duo。"
+            "value": "请先合上 iPhone。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "請先闔上 Duo。"
+            "value": "請先闔上 iPhone。"
           }
         }
       }
     },
     "setup.startOpen": {
-      "comment": "Live Duo hinge/setup guidance. AI translations require native review.",
+      "comment": "Live iPhone hinge/setup guidance. AI translations require native review.",
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Open your Duo first."
+            "value": "Open your iPhone first."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Öffne zuerst dein Duo."
+            "value": "Öffne zuerst dein iPhone."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ouvrez d’abord votre Duo."
+            "value": "Ouvrez d’abord votre iPhone."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Abre tu Duo primero."
+            "value": "Abre tu iPhone primero."
           }
         },
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "Abre tu Duo primero."
+            "value": "Abre tu iPhone primero."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "まずDuoを開いてください。"
+            "value": "まずiPhoneを開いてください。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "먼저 Duo를 여세요."
+            "value": "먼저 iPhone를 여세요."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Abra seu Duo primeiro."
+            "value": "Abra seu iPhone primeiro."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "请先展开 Duo。"
+            "value": "请先展开 iPhone。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "請先展開 Duo。"
+            "value": "請先展開 iPhone。"
           }
         }
       }
     },
     "setup.startTest": {
-      "comment": "Setup or profile UI: Start test Keep concise; preserve Duo and Shortcuts product names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "Setup or profile UI: Start test Keep concise; preserve iPhone and Shortcuts product names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -9770,7 +9770,7 @@
       }
     },
     "setup.starting": {
-      "comment": "Setup UI: Starting setup. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "Setup UI: Starting setup. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -9836,7 +9836,7 @@
       }
     },
     "setup.testPassed": {
-      "comment": "Setup UI: Test passed. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "Setup UI: Test passed. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -9902,7 +9902,7 @@
       }
     },
     "setup.testUnavailable": {
-      "comment": "Setup UI: Couldn’t check the test. Try again.. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "Setup UI: Couldn’t check the test. Try again.. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -10100,7 +10100,7 @@
       }
     },
     "setup.updating": {
-      "comment": "Setup UI: Updating setup. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "Setup UI: Updating setup. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -10166,7 +10166,7 @@
       }
     },
     "setup.waitingForShortcut": {
-      "comment": "Setup or profile UI: Waiting for Shortcuts Keep concise; preserve Duo and Shortcuts product names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "Setup or profile UI: Waiting for Shortcuts Keep concise; preserve iPhone and Shortcuts product names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -10232,7 +10232,7 @@
       }
     },
     "setup.welcome": {
-      "comment": "Setup UI: Every fold counts. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "Setup UI: Every fold counts. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -10298,73 +10298,73 @@
       }
     },
     "setup.welcomeDetail": {
-      "comment": "Setup UI: Connect Shortcuts, then test both directions.. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "Setup UI: Connect Shortcuts, then test both directions.. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Close your Duo to begin. Then add and test both Shortcuts automations."
+            "value": "Close your iPhone to begin. Then add and test both Shortcuts automations."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Schließe dein Duo. Richte dann beide Kurzbefehle-Automationen ein und teste sie."
+            "value": "Schließe dein iPhone. Richte dann beide Kurzbefehle-Automationen ein und teste sie."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Fermez votre Duo. Ajoutez puis testez les deux automatisations Raccourcis."
+            "value": "Fermez votre iPhone. Ajoutez puis testez les deux automatisations Raccourcis."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Cierra tu Duo. Después, añade y prueba las dos automatizaciones de Atajos."
+            "value": "Cierra tu iPhone. Después, añade y prueba las dos automatizaciones de Atajos."
           }
         },
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "Cierra tu Duo. Después, añade y prueba las dos automatizaciones de Atajos."
+            "value": "Cierra tu iPhone. Después, añade y prueba las dos automatizaciones de Atajos."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "Duoを閉じて開始します。次に両方のショートカットオートメーションを追加してテストします。"
+            "value": "iPhoneを閉じて開始します。次に両方のショートカットオートメーションを追加してテストします。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "Duo를 닫고 시작하세요. 그런 다음 두 단축어 자동화를 추가하고 테스트하세요."
+            "value": "iPhone를 닫고 시작하세요. 그런 다음 두 단축어 자동화를 추가하고 테스트하세요."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Feche o Duo para começar. Depois, adicione e teste as duas automações do Atalhos."
+            "value": "Feche o iPhone para começar. Depois, adicione e teste as duas automações do Atalhos."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "先合上 Duo，然后添加并测试两个快捷指令自动化。"
+            "value": "先合上 iPhone，然后添加并测试两个快捷指令自动化。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "先闔上 Duo，然後加入並測試兩個捷徑自動化。"
+            "value": "先闔上 iPhone，然後加入並測試兩個捷徑自動化。"
           }
         }
       }
     },
     "support.contact": {
-      "comment": "Support UI: Contact. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "Support UI: Contact. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -10430,7 +10430,7 @@
       }
     },
     "support.privacy": {
-      "comment": "Support UI: Privacy. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "Support UI: Privacy. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -10826,7 +10826,7 @@
       }
     },
     "tab.history": {
-      "comment": "Tab UI: History. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "Tab UI: History. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -10892,7 +10892,7 @@
       }
     },
     "tab.leaderboard": {
-      "comment": "Tab UI: Leaderboard. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "Tab UI: Leaderboard. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -10958,7 +10958,7 @@
       }
     },
     "tab.today": {
-      "comment": "Tab UI: Today. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "Tab UI: Today. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -11288,7 +11288,7 @@
       }
     },
     "tracking.unavailable": {
-      "comment": "Tracking UI: Tracking unavailable. Keep concise; preserve Duo and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "Tracking UI: Tracking unavailable. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -15056,61 +15056,61 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "My Duo is closed"
+            "value": "My iPhone is closed"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mein Duo ist geschlossen"
+            "value": "Mein iPhone ist geschlossen"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mon Duo est fermé"
+            "value": "Mon iPhone est fermé"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mi Duo está cerrado"
+            "value": "Mi iPhone está cerrado"
           }
         },
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mi Duo está cerrado"
+            "value": "Mi iPhone está cerrado"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "Duoを閉じました"
+            "value": "iPhoneを閉じました"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "Duo를 닫았습니다"
+            "value": "iPhone를 닫았습니다"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Meu Duo está fechado"
+            "value": "Meu iPhone está fechado"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "我的 Duo 已合上"
+            "value": "我的 iPhone 已合上"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "我的 Duo 已闔上"
+            "value": "我的 iPhone 已闔上"
           }
         }
       }

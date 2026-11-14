@@ -2,7 +2,7 @@ import AppIntents
 
 struct RecordOpeningIntent: AppIntent {
   static let title: LocalizedStringResource = LocalizedStringResource(
-    "intent.recordOpening.title", defaultValue: "Log Duo Opened")
+    "intent.recordOpening.title", defaultValue: "Log iPhone Opened")
   static let description = IntentDescription(
     LocalizedStringResource(
       "intent.recordOpening.detail", defaultValue: "Record an opening detected by your automation.")
@@ -19,7 +19,7 @@ struct RecordOpeningIntent: AppIntent {
 
 struct RecordClosingIntent: AppIntent {
   static let title: LocalizedStringResource = LocalizedStringResource(
-    "intent.recordClosing.title", defaultValue: "Log Duo Closed")
+    "intent.recordClosing.title", defaultValue: "Log iPhone Closed")
   static let description = IntentDescription(
     LocalizedStringResource(
       "intent.recordClosing.detail", defaultValue: "Record a closing detected by your automation."))
@@ -37,15 +37,15 @@ struct FoldingShortcuts: AppShortcutsProvider {
   static var appShortcuts: [AppShortcut] {
     AppShortcut(
       intent: RecordOpeningIntent(),
-      phrases: ["Log Duo Opened in \(.applicationName)"],
+      phrases: ["Log iPhone Opened in \(.applicationName)"],
       shortTitle: LocalizedStringResource(
-        "intent.recordOpening.title", defaultValue: "Log Duo Opened"),
+        "intent.recordOpening.title", defaultValue: "Log iPhone Opened"),
       systemImageName: "arrow.up.right")
     AppShortcut(
       intent: RecordClosingIntent(),
-      phrases: ["Log Duo Closed in \(.applicationName)"],
+      phrases: ["Log iPhone Closed in \(.applicationName)"],
       shortTitle: LocalizedStringResource(
-        "intent.recordClosing.title", defaultValue: "Log Duo Closed"),
+        "intent.recordClosing.title", defaultValue: "Log iPhone Closed"),
       systemImageName: "arrow.down.left")
   }
 }

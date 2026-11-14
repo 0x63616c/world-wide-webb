@@ -62,9 +62,9 @@ This keeps the fun distance idea without introducing an unreliable background se
 
 ## 3. Guided setup
 
-1. Show **Welcome to Folding** with the device closed. Require a closed hinge posture, or an explicit closed confirmation when hinge state is unavailable. Then show the opening automation and its exact Folding action, **Log Duo Opened**. Open Shortcuts, then let the user confirm they added it. Returning from Shortcuts alone does not start a test.
+1. Show **Welcome to Folding** with the device closed. Require a closed hinge posture, or an explicit closed confirmation when hinge state is unavailable. Then show the opening automation and its exact Folding action, **Log iPhone Opened**. Open Shortcuts, then let the user confirm they added it. Returning from Shortcuts alone does not start a test.
 2. Prompt the physical opening and confirm the event. Start checking automatically when a known hinge posture shows the Duo is ready. If hinge state is unavailable or setup resumes at this step, offer a single **Start test** action with the starting posture shown.
-3. Repeat for the closing automation, using **Log Duo Closed**.
+3. Repeat for the closing automation, using **Log iPhone Closed**.
 4. Show a brief success state and the Analytics screen.
 
 Do not ask for competition login or notification permission before tracking works. If iCloud is unavailable, explain that local tracking works and sync can resume later.

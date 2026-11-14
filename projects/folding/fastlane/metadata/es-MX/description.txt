@@ -1,4 +1,4 @@
-Registra los pliegues de tu iPhone Duo con Folding. Configura las automatizaciones de apertura y cierre en Atajos y descubre tus hábitos diarios.
+Registra los pliegues de tu iPhone con Folding. Configura las automatizaciones de apertura y cierre en Atajos y descubre tus hábitos diarios.
 
 • Registra pliegues y tiempo desplegado.
 • Explora tu historial y tus patrones de uso.
@@ -8,3 +8,5 @@ Registra los pliegues de tu iPhone Duo con Folding. Configura las automatizacion
 • Exporta el historial como paquete CSV o restablécelo en la app.
 
 Todas las funciones son gratis. Las propinas opcionales apoyan el desarrollo y no desbloquean funciones.
+
+Compatible con iPhone Duo.

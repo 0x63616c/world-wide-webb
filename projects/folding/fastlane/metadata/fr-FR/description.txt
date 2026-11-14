@@ -1,4 +1,4 @@
-Suivez les pliages de votre iPhone Duo avec Folding. Configurez les automatisations d’ouverture et de fermeture dans Raccourcis et découvrez vos habitudes.
+Suivez les pliages de votre iPhone avec Folding. Configurez les automatisations d’ouverture et de fermeture dans Raccourcis et découvrez vos habitudes.
 
 • Comptez vos pliages et le temps passé déplié.
 • Explorez votre historique et vos tendances d’utilisation.
@@ -8,3 +8,5 @@ Suivez les pliages de votre iPhone Duo avec Folding. Configurez les automatisati
 • Exportez votre historique en fichiers CSV ou réinitialisez-le dans l’app.
 
 Toutes les fonctions sont gratuites. Les pourboires facultatifs soutiennent le développement et ne débloquent rien.
+
+Compatible avec iPhone Duo.

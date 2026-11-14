@@ -986,7 +986,7 @@ private struct SetupScreen: View {
             if step == .welcome {
               Button(
                 hinge == nil
-                  ? String(localized: "setup.confirmClosed", defaultValue: "My Duo is closed")
+                  ? String(localized: "setup.confirmClosed", defaultValue: "My iPhone is closed")
                   : String(localized: "action.continue", defaultValue: "Continue")
               ) {
                 guard hinge == nil || hinge == .closed else { return }
@@ -1037,8 +1037,8 @@ private struct SetupScreen: View {
       .font(.subheadline).foregroundStyle(.secondary)
       Text(
         closing
-          ? String(localized: "intent.recordClosing.title", defaultValue: "Log Duo Closed")
-          : String(localized: "intent.recordOpening.title", defaultValue: "Log Duo Opened")
+          ? String(localized: "intent.recordClosing.title", defaultValue: "Log iPhone Closed")
+          : String(localized: "intent.recordOpening.title", defaultValue: "Log iPhone Opened")
       )
       .font(.headline)
       if showingAutomationInstructions {
@@ -1083,16 +1083,16 @@ private struct SetupScreen: View {
       hinge == nil || !shouldAutoTest
         ? String(localized: "setup.openingAutomation", defaultValue: "Track opening")
         : readyForTest
-          ? String(localized: "setup.openDevice", defaultValue: "Open your Duo")
-          : String(localized: "setup.startClosed", defaultValue: "Close your Duo first.")
+          ? String(localized: "setup.openDevice", defaultValue: "Open your iPhone")
+          : String(localized: "setup.startClosed", defaultValue: "Close your iPhone first.")
     case .closingReady:
       hinge == nil || !shouldAutoTest
         ? String(localized: "setup.closingAutomation", defaultValue: "Track closing")
         : readyForTest
-          ? String(localized: "setup.closeDevice", defaultValue: "Close your Duo")
-          : String(localized: "setup.startOpen", defaultValue: "Open your Duo first.")
-    case .awaitingOpening: String(localized: "setup.openDevice", defaultValue: "Open your Duo")
-    case .awaitingClosing: String(localized: "setup.closeDevice", defaultValue: "Close your Duo")
+          ? String(localized: "setup.closeDevice", defaultValue: "Close your iPhone")
+          : String(localized: "setup.startOpen", defaultValue: "Open your iPhone first.")
+    case .awaitingOpening: String(localized: "setup.openDevice", defaultValue: "Open your iPhone")
+    case .awaitingClosing: String(localized: "setup.closeDevice", defaultValue: "Close your iPhone")
     case .openingPassed, .closingPassed:
       String(localized: "setup.testPassed", defaultValue: "Test passed")
     case .openingRetry, .closingRetry:
@@ -1106,15 +1106,15 @@ private struct SetupScreen: View {
     case .welcome:
       String(
         localized: "setup.welcomeDetail",
-        defaultValue: "Close your Duo to begin. Then add and test both Shortcuts automations.")
+        defaultValue: "Close your iPhone to begin. Then add and test both Shortcuts automations.")
     case .openingInstructions, .closingInstructions: nil
     case .openingReady:
       hinge == nil
-        ? String(localized: "setup.manualOpen", defaultValue: "Start closed. Then open your Duo.")
+        ? String(localized: "setup.manualOpen", defaultValue: "Start closed. Then open your iPhone.")
         : nil
     case .closingReady:
       hinge == nil
-        ? String(localized: "setup.manualClose", defaultValue: "Start open. Then close your Duo.")
+        ? String(localized: "setup.manualClose", defaultValue: "Start open. Then close your iPhone.")
         : nil
     case .awaitingOpening, .awaitingClosing:
       String(localized: "setup.waitingForShortcut", defaultValue: "Waiting for Shortcuts")

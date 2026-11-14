@@ -1,1 +1,1 @@
-fold,hinge,duo,stats,tracker,leaderboard
+fold,hinge,foldable,stats,tracker,leaderboard,ranking

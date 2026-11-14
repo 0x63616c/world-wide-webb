@@ -1,6 +1,6 @@
 # Folding
 
-A free, native iPhone Duo folding tracker with personal statistics, guided
+A free, native iPhone folding tracker with personal statistics, guided
 Shortcuts setup, iCloud sync, widgets and optional competition. The app and its
 production Rust Worker are developed here; [getfolding.app](https://getfolding.app)
 is the public website. App Store and TestFlight status belongs in current delivery

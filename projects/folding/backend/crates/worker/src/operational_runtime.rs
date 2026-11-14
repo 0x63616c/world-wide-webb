@@ -13,9 +13,10 @@ pub(crate) struct Controls {
     pub revision: i64,
     pub notification_failure: Option<String>,
     pub minimum_ios_build: i64,
+    pub bot_simulation_enabled: i64,
 }
 pub(crate) async fn controls(db: &D1Database) -> std::result::Result<Controls, Failure> {
-    statement(db,"SELECT revision,notification_failure,minimum_ios_build FROM administrative_configuration WHERE singleton=1",&[])?.first(None).await.map_err(|_|Failure::unavailable())?.ok_or_else(Failure::unavailable)
+    statement(db,"SELECT revision,notification_failure,minimum_ios_build,bot_simulation_enabled FROM administrative_configuration WHERE singleton=1",&[])?.first(None).await.map_err(|_|Failure::unavailable())?.ok_or_else(Failure::unavailable)
 }
 #[derive(Template)]
 #[template(path = "operations.html")]
@@ -41,6 +42,7 @@ struct Change {
     expected_revision: i64,
     reason: String,
     minimum_ios_build: i64,
+    bot_simulation_enabled: Option<i64>,
 }
 pub(crate) async fn admin(
     request: &Request,
@@ -80,6 +82,9 @@ pub(crate) async fn admin(
     admin.check_csrf(request, &input.csrf_token, config)?;
     if input.expected_revision < 0
         || !(0..=i64::from(i32::MAX)).contains(&input.minimum_ios_build)
+        || input
+            .bot_simulation_enabled
+            .is_some_and(|enabled| !(0..=1).contains(&enabled))
         || !crate::admin_runtime::valid_reason(&input.reason)
         || input.reason.chars().any(|c| c.is_control() && c != '\n')
     {
@@ -115,9 +120,12 @@ pub(crate) async fn admin(
         revision: before.revision + 1,
         notification_failure: before.notification_failure.clone(),
         minimum_ios_build: input.minimum_ios_build,
+        bot_simulation_enabled: input
+            .bot_simulation_enabled
+            .unwrap_or(before.bot_simulation_enabled),
     };
     let guard = uuid()?;
-    db.batch(vec![statement(db,"INSERT INTO mutation_guards VALUES (?1,CASE WHEN EXISTS(SELECT 1 FROM administrative_configuration WHERE singleton=1 AND revision=?2) THEN 1 ELSE 0 END)",&[text(&guard),number(before.revision)])?,statement(db,"UPDATE administrative_configuration SET revision=revision+1,minimum_ios_build=?1 WHERE singleton=1",&[number(after.minimum_ios_build)])?,statement(db,"INSERT INTO operational_audit VALUES (?1,?2,?3,?4,?5,?6,?7)",&[text(input.operation_id.as_str()),text(&admin.actor),blob(&hash),text(&input.reason),text(&serde_json::to_string(&before).map_err(|_|Failure::unavailable())?),text(&serde_json::to_string(&after).map_err(|_|Failure::unavailable())?),number(now())])?,statement(db,"DELETE FROM mutation_guards WHERE guard_id=?1",&[text(&guard)])?]).await.map_err(|_|Failure::conflict())?;
+    db.batch(vec![statement(db,"INSERT INTO mutation_guards VALUES (?1,CASE WHEN EXISTS(SELECT 1 FROM administrative_configuration WHERE singleton=1 AND revision=?2) THEN 1 ELSE 0 END)",&[text(&guard),number(before.revision)])?,statement(db,"UPDATE administrative_configuration SET revision=revision+1,minimum_ios_build=?1,bot_simulation_enabled=?2 WHERE singleton=1",&[number(after.minimum_ios_build),number(after.bot_simulation_enabled)])?,statement(db,"INSERT INTO operational_audit VALUES (?1,?2,?3,?4,?5,?6,?7)",&[text(input.operation_id.as_str()),text(&admin.actor),blob(&hash),text(&input.reason),text(&serde_json::to_string(&before).map_err(|_|Failure::unavailable())?),text(&serde_json::to_string(&after).map_err(|_|Failure::unavailable())?),number(now())])?,statement(db,"DELETE FROM mutation_guards WHERE guard_id=?1",&[text(&guard)])?]).await.map_err(|_|Failure::conflict())?;
     crate::client_policy_runtime::invalidate();
     redirect()
 }

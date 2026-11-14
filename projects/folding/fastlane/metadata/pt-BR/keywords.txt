@@ -1,1 +1,1 @@
-dobras,duo,estatísticas,contador,ranking
+dobras,dobrável,estatísticas,contador,ranking

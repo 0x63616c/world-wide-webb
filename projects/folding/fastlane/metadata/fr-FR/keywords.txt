@@ -1,1 +1,1 @@
-pliage,duo,statistiques,compteur,classement
+pliage,pliable,statistiques,compteur,classement

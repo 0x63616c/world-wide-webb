@@ -30,6 +30,7 @@ mod avatar_admin;
 mod avatar_runtime;
 #[cfg(target_arch = "wasm32")]
 mod badge_push_runtime;
+pub mod bot_simulation;
 #[cfg(target_arch = "wasm32")]
 mod burst_limit;
 #[cfg(target_arch = "wasm32")]

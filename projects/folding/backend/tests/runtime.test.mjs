@@ -38,6 +38,7 @@ test("compiled Rust Worker fails closed and bounds untrusted bodies", async () =
   for (const migration of [
     "0013_operations.sql",
     "0020_admin_minimum_build.sql",
+    "0024_bot_simulation.sql",
   ])
     for (const sql of (await readFile(`${root}migrations/${migration}`, "utf8"))
       .split(";")
@@ -440,6 +441,7 @@ test("actual Worker issues bounded challenges and rotates encrypted sessions wit
     "0021_profile_milestones.sql",
     "0022_badge_notifications.sql",
     "0023_published_ios_builds.sql",
+    "0024_bot_simulation.sql",
   ]) {
     const source = await readFile(`${root}migrations/${migration}`, "utf8");
     for (const sql of source.split(";").filter((s) => s.trim()))
@@ -1552,6 +1554,7 @@ test("database minimum-build policy uses bounded cached reads and preserves reco
       for (const migration of [
         "0013_operations.sql",
         "0020_admin_minimum_build.sql",
+        "0024_bot_simulation.sql",
       ])
         for (const sql of (
           await readFile(`${root}migrations/${migration}`, "utf8")
