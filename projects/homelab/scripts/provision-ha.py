@@ -5,6 +5,8 @@ Host entrypoint runs this same implementation inside the pinned HA image. No
 host/guest mount paths, new volumes, credentials or live HA API are needed.
 """
 
+from datetime import datetime, timezone
+
 import hashlib
 import io
 import json
@@ -234,6 +236,31 @@ def atomic(path, content):
             temporary.unlink(missing_ok=True)
 
 
+def validate_asset_tree(target):
+    """Reject links and special files before moving an unowned asset aside."""
+    if target.is_symlink():
+        raise ProvisionError("Symlink in managed HA path")
+    if target.is_dir():
+        for path in target.rglob("*"):
+            if path.is_symlink():
+                raise ProvisionError("Symlink in managed HA path")
+            if not path.is_dir() and not path.is_file():
+                raise ProvisionError("Managed HA asset must contain only regular files and directories")
+    elif target.exists() and not target.is_file():
+        raise ProvisionError("Managed HA asset must be a regular file or directory")
+
+
+def adopted_backup(root, relative):
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S.%fZ")
+    base = safe_path(root, ".homelab-vacuum-backups/adopted-" + stamp)
+    suffix = 1
+    while base.exists():
+        base = safe_path(root, ".homelab-vacuum-backups/adopted-" + stamp + "-" + str(suffix))
+        suffix += 1
+    destination = safe_path(root, str(base.relative_to(root) / relative))
+    return destination
+
+
 def provision(root, bundle, fetch=download, modern_resources=True):
     import yaml
 
@@ -244,7 +271,9 @@ def provision(root, bundle, fetch=download, modern_resources=True):
     receipt = safe_path(root, ".homelab-vacuum.json")
     previous = json.loads(receipt.read_text()) if receipt.exists() else {}
     pending = safe_path(root, ".homelab-vacuum-pending.json")
-    pending_files = json.loads(pending.read_text()) if pending.exists() else {}
+    pending_record = json.loads(pending.read_text()) if pending.exists() else {}
+    pending_files = pending_record.get("files", pending_record)
+    pending_adoptions = pending_record.get("adoptions", {})
     old = previous.get("files", {})
     resource = {"url": RESOURCE, "type": "module"}
     resources = [resource]
@@ -262,6 +291,8 @@ def provision(root, bundle, fetch=download, modern_resources=True):
         relative = packages.value.rstrip("/") + "/homelab_vacuum.yaml"
         include = os.path.relpath("homelab-vacuum/vacuum.yaml", packages.value)
         files[relative] = ("!include " + include + "\n").encode()
+    adopted = []
+    adoption_destinations = dict(pending_adoptions)
     if previous.get("source") == fingerprint:
         for name in old:
             if name not in files:
@@ -273,27 +304,61 @@ def provision(root, bundle, fetch=download, modern_resources=True):
         for asset in bundle["assets"]:
             target = safe_path(root, asset["target"])
             owned = any(n == asset["target"] or n.startswith(asset["target"] + "/") for n in (old | pending_files))
-            if target.exists() and not owned:
-                raise ProvisionError(
-                    "Unmanaged HA asset exists; back it up and reconcile before retrying: " + asset["name"]
-                )
+            if target.exists():
+                validate_asset_tree(target)
+                if asset["target"] in pending_adoptions:
+                    adopted.append(asset["target"])
+                elif not owned:
+                    adopted.append(asset["target"])
+                    adoption_destinations[asset["target"]] = str(
+                        adopted_backup(root, asset["target"]).relative_to(root)
+                    )
             files.update(asset_files(asset, fetch(asset)))
+        for relative in pending_adoptions:
+            if relative not in adopted:
+                adopted.append(relative)
     # Preflight ALL conflicts before mutating any configuration or asset.
     for name in set(old) | set(files):
         target = safe_path(root, name)
-        if target.exists():
+        if target.exists() and not any(name == path or name.startswith(path + "/") for path in adopted):
+            if not target.is_file():
+                raise ProvisionError("Managed HA asset must be a regular file")
             current = digest(target.read_bytes())
             if current not in (old.get(name), pending_files.get(name), digest(files.get(name, b""))):
                 raise ProvisionError("HA file modified outside provisioning; refusing to overwrite: " + name)
-    changes = [n for n, b in files.items() if not safe_path(root, n).exists() or safe_path(root, n).read_bytes() != b]
+    changes = [
+        n
+        for n, b in files.items()
+        if any(n == path or n.startswith(path + "/") for path in adopted)
+        or not safe_path(root, n).exists()
+        or safe_path(root, n).read_bytes() != b
+    ]
     removed = set(old) - set(files)
     config_changed = config.read_bytes() != desired_config
     dirty = safe_path(root, ".homelab-vacuum-dirty")
-    if changes or removed or config_changed:
+    if changes or removed or config_changed or adopted:
         atomic(dirty, b"restart required\n")
         # Journal ownership before any write: an interrupted first install or
         # upgrade can resume without treating its own partial files as foreign.
-        atomic(pending, json.dumps({n: digest(b) for n, b in files.items()}, sort_keys=True).encode())
+        atomic(
+            pending,
+            json.dumps(
+                {
+                    "files": {n: digest(b) for n, b in files.items()},
+                    "adoptions": adoption_destinations,
+                },
+                sort_keys=True,
+            ).encode(),
+        )
+        for relative in adopted:
+            target = safe_path(root, relative)
+            backup = safe_path(root, adoption_destinations[relative])
+            if backup.exists():
+                continue
+            if not target.exists():
+                raise ProvisionError("Interrupted HA asset adoption lost both source and backup")
+            backup.parent.mkdir(parents=True, exist_ok=True)
+            os.rename(target, backup)
         # Private backup contains original configuration (potentially !secret refs).
         # Each content hash retains earlier versions; never replace a backup.
         for name in changes + sorted(removed) + (["configuration.yaml"] if config_changed else []):

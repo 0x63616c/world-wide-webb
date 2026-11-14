@@ -172,6 +172,154 @@ class ProvisionTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "asset changed"):
             provision.provision(self.root, data)
 
+    def test_unmanaged_assets_are_adopted_and_preserved_outside_ha_paths(self):
+        hacs_target = self.root / "custom_components/hacs"
+        hacs_target.mkdir(parents=True)
+        (hacs_target / "manifest.json").write_text('{"domain":"hacs"}')
+        (hacs_target / "old.py").write_text("old integration")
+        card_target = self.root / "www/community/card.js"
+        card_target.parent.mkdir(parents=True)
+        card_target.write_text("old card")
+        storage = self.root / ".storage"
+        storage.mkdir()
+        (storage / "hacs.data").write_bytes(b"private HACS state\x00")
+        (storage / "hacs.auth").write_bytes(b"private HACS authorization\x00")
+        (storage / "unrelated").write_bytes(b"other state")
+        storage_before = {p.name: p.read_bytes() for p in storage.iterdir()}
+        hacs = b"pinned hacs"
+        card = b"pinned card"
+        hacs_archive = io.BytesIO()
+        with zipfile.ZipFile(hacs_archive, "w") as archive:
+            archive.writestr("manifest.json", "pinned manifest")
+            archive.writestr("new.py", "pinned integration")
+        hacs = hacs_archive.getvalue()
+        data = bundle()
+        data["assets"] = [
+            {"name": "hacs", "url": "https://example.invalid/hacs.zip", "target": "custom_components/hacs", "sha256": hashlib.sha256(hacs).hexdigest()},
+            {"name": "card", "url": "https://example.invalid/card.js", "target": "www/community/card.js", "sha256": hashlib.sha256(card).hexdigest()},
+        ]
+
+        def fetch(asset):
+            if asset["name"] == "hacs":
+                return hacs
+            return card
+
+        self.assertTrue(provision.provision(self.root, data, fetch=fetch))
+        backups = list((self.root / ".homelab-vacuum-backups").glob("adopted-*/custom_components/hacs"))
+        card_backups = list((self.root / ".homelab-vacuum-backups").glob("adopted-*/www/community/card.js"))
+        self.assertEqual(len(backups), 1)
+        self.assertEqual((backups[0] / "old.py").read_text(), "old integration")
+        self.assertEqual((backups[0] / "manifest.json").read_text(), '{"domain":"hacs"}')
+        self.assertTrue(backups[0].relative_to(self.root / ".homelab-vacuum-backups").parts[0].startswith("adopted-"))
+        self.assertEqual(card_backups[0].read_text(), "old card")
+        self.assertEqual((self.root / "custom_components/hacs/new.py").read_text(), "pinned integration")
+        self.assertEqual((self.root / "www/community/card.js").read_bytes(), card)
+        record = json.loads((self.root / ".homelab-vacuum.json").read_text())
+        self.assertIn("custom_components/hacs/new.py", record["files"])
+        self.assertEqual({p.name: p.read_bytes() for p in storage.iterdir()}, storage_before)
+        (self.root / ".homelab-vacuum-dirty").unlink()
+        self.assertFalse(provision.provision(self.root, data, fetch=lambda _: self.fail("unexpected download")))
+        self.assertEqual({p.name: p.read_bytes() for p in storage.iterdir()}, storage_before)
+
+    def test_adoption_resumes_after_move_before_install(self):
+        target = self.root / "custom_components/hacs"
+        target.mkdir(parents=True)
+        (target / "old.py").write_text("original")
+        material = b"pinned"
+        archive = io.BytesIO()
+        with zipfile.ZipFile(archive, "w") as output:
+            output.writestr("manifest.json", "{}")
+            output.writestr("new.py", material)
+        content = archive.getvalue()
+        data = bundle()
+        data["assets"] = [{"name": "hacs", "url": "https://example.invalid/hacs.zip", "target": "custom_components/hacs", "sha256": hashlib.sha256(content).hexdigest()}]
+        real_atomic = provision.atomic
+        failed = False
+
+        def interrupted(path, bytes_):
+            nonlocal failed
+            if path.name == "manifest.json" and not failed:
+                failed = True
+                raise OSError("simulated stop after adoption")
+            real_atomic(path, bytes_)
+
+        with patch.object(provision, "atomic", side_effect=interrupted):
+            with self.assertRaises(OSError):
+                provision.provision(self.root, data, fetch=lambda _: content)
+        self.assertFalse(target.exists())
+        self.assertEqual(len(list((self.root / ".homelab-vacuum-backups").glob("adopted-*/custom_components/hacs/old.py"))), 1)
+        provision.provision(self.root, data, fetch=lambda _: content)
+        self.assertEqual((target / "new.py").read_bytes(), material)
+
+    def test_adoption_resumes_when_journal_precedes_move(self):
+        target = self.root / "www/card.js"
+        target.parent.mkdir(parents=True)
+        target.write_text("original card")
+        content = b"pinned card"
+        data = bundle()
+        data["assets"] = [{"name": "card", "url": "https://example.invalid/card.js", "target": "www/card.js", "sha256": hashlib.sha256(content).hexdigest()}]
+        with patch.object(provision.os, "rename", side_effect=OSError("simulated stop before move")):
+            with self.assertRaisesRegex(OSError, "before move"):
+                provision.provision(self.root, data, fetch=lambda _: content)
+        self.assertEqual(target.read_text(), "original card")
+        journal = json.loads((self.root / ".homelab-vacuum-pending.json").read_text())
+        self.assertIn("www/card.js", journal["adoptions"])
+        provision.provision(self.root, data, fetch=lambda _: content)
+        backups = list((self.root / ".homelab-vacuum-backups").glob("adopted-*/www/card.js"))
+        self.assertEqual(len(backups), 1)
+        self.assertEqual(backups[0].read_text(), "original card")
+        self.assertEqual(target.read_bytes(), content)
+
+    def test_adoption_resumes_when_journal_precedes_move(self):
+        target = self.root / "www/card.js"
+        target.parent.mkdir(parents=True)
+        target.write_text("original card")
+        content = b"pinned card"
+        data = bundle()
+        data["assets"] = [{"name": "card", "url": "https://example.invalid/card.js", "target": "www/card.js", "sha256": hashlib.sha256(content).hexdigest()}]
+        with patch.object(provision.os, "rename", side_effect=OSError("simulated stop before move")):
+            with self.assertRaisesRegex(OSError, "before move"):
+                provision.provision(self.root, data, fetch=lambda _: content)
+        self.assertEqual(target.read_text(), "original card")
+        journal = json.loads((self.root / ".homelab-vacuum-pending.json").read_text())
+        self.assertIn("www/card.js", journal["adoptions"])
+        provision.provision(self.root, data, fetch=lambda _: content)
+        backups = list((self.root / ".homelab-vacuum-backups").glob("adopted-*/www/card.js"))
+        self.assertEqual(len(backups), 1)
+        self.assertEqual(backups[0].read_text(), "original card")
+        self.assertEqual(target.read_bytes(), content)
+
+    def test_unmanaged_target_symlink_is_refused(self):
+        actual = self.root / "outside"
+        actual.write_text("do not move")
+        target = self.root / "www/card.js"
+        target.parent.mkdir()
+        target.symlink_to(actual)
+        data = bundle()
+        content = b"card"
+        data["assets"] = [{"name": "card", "url": "https://example.invalid/card.js", "target": "www/card.js", "sha256": hashlib.sha256(content).hexdigest()}]
+        with self.assertRaisesRegex(ValueError, "Symlink"):
+            provision.provision(self.root, data, fetch=lambda _: content)
+        self.assertEqual(actual.read_text(), "do not move")
+        self.assertTrue(target.is_symlink())
+
+    def test_symlink_inside_unmanaged_asset_is_refused(self):
+        target = self.root / "custom_components/hacs"
+        target.mkdir(parents=True)
+        outside = self.root / "outside.py"
+        outside.write_text("do not move")
+        (target / "linked.py").symlink_to(outside)
+        archive = io.BytesIO()
+        with zipfile.ZipFile(archive, "w") as output:
+            output.writestr("manifest.json", "{}")
+        zipped = archive.getvalue()
+        data = bundle()
+        data["assets"] = [{"name": "hacs", "url": "https://example.invalid/hacs.zip", "target": "custom_components/hacs", "sha256": hashlib.sha256(zipped).hexdigest()}]
+        with self.assertRaisesRegex(ValueError, "Symlink"):
+            provision.provision(self.root, data, fetch=lambda _: zipped)
+        self.assertTrue((target / "linked.py").is_symlink())
+        self.assertEqual(outside.read_text(), "do not move")
+
     def test_interrupted_upgrade_can_finish_removing_old_owned_files(self):
         material = b"fixture card"
         data = bundle()
