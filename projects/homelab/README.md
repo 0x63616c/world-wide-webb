@@ -44,7 +44,7 @@ activation. See [updates](docs/updates.md) and [releases](docs/releases.md).
 
 | Host | Current role |
 | --- | --- |
-| `homelab-macbook` | Disposable macOS and Linux runner guests; non-admin `coding` account. |
+| `homelab-macbook` | Disposable macOS and Linux runner guests for `world-wide-webb` and, temporarily, `Virtual-Outfit-Vault/vov` (pending, see [Linux runners](docs/linux-runners.md)); non-admin `coding` account. |
 | `homelab-mac-mini` | Production application services, including Control Center and monitoring. |
 
 The runner controller admits four jobs in total and at most two macOS guests.
