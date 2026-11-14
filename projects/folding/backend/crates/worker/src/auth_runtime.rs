@@ -199,6 +199,11 @@ pub async fn dispatch(
             crate::milestone_profiles::read(request, env, &db, &config, request_id).await?,
         ));
     }
+    if request.method() == Method::Get && request.path().starts_with("/v1/admin/participants/") {
+        let config = Configuration::load(env)?;
+        let db = env.d1("DB").map_err(|_| Failure::unavailable())?;
+        return Ok(Some(crate::community_reads::admin_participant(request, &db, &config, request_id).await?));
+    }
     if (request.method() == Method::Patch && request.path() == "/v1/profile/badge")
         || (request.method() == Method::Post && request.path() == "/v1/milestones/acknowledgments")
     {

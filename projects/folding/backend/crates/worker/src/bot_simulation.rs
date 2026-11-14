@@ -1,6 +1,7 @@
 //! Deterministic bot planning primitives. Bot event persistence is deliberately server-only;
 //! public DTOs do not include this module's types.
 use serde::Deserialize;
+use sha2::{Digest, Sha256};
 
 pub const LAUNCH_BOT_COUNT: usize = 50;
 pub const WEEKLY_JOIN_COUNT: usize = 2;
@@ -49,6 +50,28 @@ pub fn may_publish(
     top_real_score: Option<u64>,
 ) -> bool {
     proposed_bot_score >= current_bot_score && proposed_bot_score <= score_ceiling(top_real_score)
+}
+
+/// Domain-separated deterministic identifier material for bot identities. This value is never
+/// derived from an Apple subject and can be checked against the globally unique participant key.
+pub fn subject_hmac(seed: &[u8; 32], ordinal: u64) -> String {
+    let mut hash = Sha256::new();
+    hash.update(b"folding.bot.subject.v1\0");
+    hash.update(seed);
+    hash.update(ordinal.to_be_bytes());
+    format!("bot:v1:{}", crate::assertion::hex(&hash.finalize()))
+}
+
+pub fn day_seed(seed: &[u8; 32], day: i64) -> u64 {
+    let mut hash = Sha256::new();
+    hash.update(b"folding.bot.day.v1\0");
+    hash.update(seed);
+    hash.update(day.to_be_bytes());
+    u64::from_be_bytes(hash.finalize()[..8].try_into().expect("fixed digest"))
+}
+
+pub fn bot_score_allowed(current: u64, proposed: u64, real_top: Option<u64>) -> bool {
+    may_publish(current, proposed, real_top)
 }
 
 /// Plan local-day fold count and minute offsets for deterministic open/close observations.
@@ -172,5 +195,28 @@ mod tests {
                 .iter()
                 .all(|p| p.version > 0 && p.wake_hour < p.sleep_hour)
         );
+    }
+
+    #[test]
+    fn domain_separated_bot_subjects_are_unique_and_not_human_subjects() {
+        let seed = [42; 32];
+        let values: std::collections::BTreeSet<_> = (0..MAX_BOT_COUNT as u64)
+            .map(|n| subject_hmac(&seed, n))
+            .collect();
+        assert_eq!(values.len(), MAX_BOT_COUNT);
+        assert!(values.iter().all(|v| v.starts_with("bot:v1:")));
+        assert_ne!(
+            subject_hmac(&seed, 1),
+            format!("{}", crate::assertion::hex(&seed))
+        );
+    }
+
+    #[test]
+    fn score_cap_handles_ties_empty_boards_and_inactive_leaders() {
+        assert!(!bot_score_allowed(4, 10, Some(10)));
+        assert!(bot_score_allowed(4, 9, Some(10)));
+        assert!(!bot_score_allowed(0, 1, None));
+        // An inactive leader is still the real score ceiling: never pass it.
+        assert!(!bot_score_allowed(4, 11, Some(11)));
     }
 }

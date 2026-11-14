@@ -38,7 +38,7 @@ pub(crate) async fn read(
         let preferences =
             crate::notification_runtime::preferences(db, &session.participant_id).await?;
         return response(
-            &serde_json::json!({"profile":profile,"enrollment":enrollment,"preferences":preferences,"pending_operations":[],"request_id":request_id}),
+            &serde_json::json!({"profile":profile,"enrollment":enrollment,"preferences":preferences,"pending_operations":[],"is_admin":is_admin(db,&session.participant_id).await?,"request_id":request_id}),
         );
     }
     let path = request.path();
@@ -57,4 +57,21 @@ pub(crate) async fn read(
     let value: serde_json::Value =
         serde_json::from_str(&receipt.response_json).map_err(|_| Failure::unavailable())?;
     response(&value)
+}
+
+async fn is_admin(db:&D1Database, participant:&str)->std::result::Result<bool,Failure> {
+    #[derive(Deserialize)] struct Role { present:i64 }
+    Ok(statement(db,"SELECT EXISTS(SELECT 1 FROM participant_roles WHERE participant_id=?1 AND role='admin') AS present",&[text(participant)])?.first::<Role>(None).await.map_err(|_|Failure::unavailable())?.is_some_and(|r|r.present==1))
+}
+
+pub(crate) async fn admin_participant(request:&Request,db:&D1Database,config:&Configuration,request_id:&folding_domain::wire::Id)->std::result::Result<Response,Failure>{
+    let session=authenticated_session(request,db,config,false).await?;
+    if !is_admin(db,&session.participant_id).await? { return Err(Failure{status:404,code:"not_found",retryable:false}); }
+    let raw=request.path().strip_prefix("/v1/admin/participants/").ok_or_else(Failure::malformed)?;
+    let participant=folding_domain::wire::Id::parse(raw).map_err(|_|Failure::malformed())?;
+    let details=statement(db,"SELECT p.participant_id,f.nickname,f.avatar_id,p.membership,p.restriction,p.account_state,p.generation_revision,p.generation_id,p.epoch_id,e.joined_at_ms,e.device_id,r.revision,b.persona_id,b.persona_version,b.joined_at_ms AS bot_joined_at_ms,b.retired_at_ms,b.paused_at_ms,b.avatar_style FROM participants p JOIN profiles f ON f.participant_id=p.participant_id LEFT JOIN epochs e ON e.epoch_id=p.epoch_id LEFT JOIN participant_revisions r ON r.participant_id=p.participant_id LEFT JOIN bot_profiles b ON b.participant_id=p.participant_id WHERE p.participant_id=?1",&[text(participant.as_str())])?.first::<serde_json::Value>(None).await.map_err(|_|Failure::unavailable())?.ok_or(Failure{status:404,code:"not_found",retryable:false})?;
+    let mut value=details;
+    let is_bot=value.get("persona_id").is_some_and(|v|!v.is_null());
+    if let Some(object)=value.as_object_mut(){object.insert("is_bot".into(),serde_json::Value::Bool(is_bot));}
+    response(&serde_json::json!({"participant":value,"request_id":request_id}))
 }

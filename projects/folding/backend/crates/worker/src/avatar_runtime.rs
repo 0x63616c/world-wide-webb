@@ -275,7 +275,7 @@ pub(crate) fn purge_owned(
         )?,
     ])
 }
-async fn put_once(
+pub(crate) async fn put_once(
     bucket: &Bucket,
     key: &str,
     bytes: Vec<u8>,
