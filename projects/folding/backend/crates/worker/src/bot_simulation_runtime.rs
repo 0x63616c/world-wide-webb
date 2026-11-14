@@ -244,8 +244,16 @@ async fn create_roster(env: &Env, db: &D1Database, time: i64) -> Result<(), Fail
             0,
             true,
         )?);
+        // D1 batches are bounded; flush often enough that a 50-bot launch still commits.
+        if writes.len() >= 40 {
+            db.batch(std::mem::take(&mut writes))
+                .await
+                .map_err(|_| Failure::conflict())?;
+        }
     }
-    db.batch(writes).await.map_err(|_| Failure::conflict())?;
+    if !writes.is_empty() {
+        db.batch(writes).await.map_err(|_| Failure::conflict())?;
+    }
     Ok(())
 }
 

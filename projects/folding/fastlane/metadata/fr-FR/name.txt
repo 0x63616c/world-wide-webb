@@ -1,1 +1,1 @@
-Folding : compteur de plis
+Folding : compteur et rangs

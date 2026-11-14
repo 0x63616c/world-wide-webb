@@ -1,1 +1,1 @@
-Folding: contador de pliegues
+Folding: contador y ranking
