@@ -18,13 +18,17 @@ in
     zsh
     chezmoi
     gh
+    gitleaks
+    lefthook
     ripgrep
+    rustup
     starship
     wtp
     xcodes
     zsh-autosuggestions
     zsh-syntax-highlighting
     (import ../packages/claude-code.nix { inherit pkgs; })
+    (import ../packages/mise.nix { inherit pkgs; })
   ];
   # nix-darwin does not link arbitrary share directories into the system profile.
   environment.pathsToLink = [

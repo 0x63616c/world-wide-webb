@@ -1,7 +1,11 @@
 # Coding account
 
 The MacBook's non-admin `coding` account runs Rex and agents. `modules/coding.nix`
-installs Nix zsh, chezmoi, gh, ripgrep, Starship, wtp, xcodes, shell plugins and Claude Code.
+installs Nix zsh, chezmoi, gh, Gitleaks, Lefthook, ripgrep, rustup, Starship, wtp,
+xcodes, mise, shell plugins and Claude Code. wtp, Lefthook and rustup (for `cargo`)
+let `wtp add` run the repository's worktree hooks, and Gitleaks runs in its
+pre-commit checks; mise is the official release because
+the root `mise.toml` needs a newer version than nixpkgs ships.
 Git, curl and jq are already shared host tools. The Mini does not import this module.
 The account's login shell and Rex's new terminal shell use Nix zsh. Updating Rex's
 launch environment restarts its server, so finish any active remote tasks first.
