@@ -541,12 +541,15 @@ struct LeaderboardMemberLink: View {
   let actions: FoldingActions
   var body: some View {
     if entry.isBlocked {
-      LeaderboardRow(entry: entry, showAdminBotMarker: model.revealAdminBotMarker(for: entry.id)).foregroundStyle(.secondary)
+      LeaderboardRow(
+        entry: entry, showAdminBotMarker: model.revealAdminBotMarker(for: entry.id)
+      ).foregroundStyle(.secondary)
     } else {
       NavigationLink {
         ProfileDestinationScreen(participantID: entry.id, model: model, actions: actions)
       } label: {
-        LeaderboardRow(entry: entry, showAdminBotMarker: model.revealAdminBotMarker(for: entry.id))
+        LeaderboardRow(
+          entry: entry, showAdminBotMarker: model.revealAdminBotMarker(for: entry.id))
       }
       .contextMenu { ParticipantMenu(entry: entry, model: model, actions: actions) }
     }
