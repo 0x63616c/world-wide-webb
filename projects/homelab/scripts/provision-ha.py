@@ -5,8 +5,6 @@ Host entrypoint runs this same implementation inside the pinned HA image. No
 host/guest mount paths, new volumes, credentials or live HA API are needed.
 """
 
-from datetime import datetime, timezone
-
 import hashlib
 import io
 import json
@@ -17,6 +15,7 @@ import sys
 import tempfile
 import urllib.request
 import zipfile
+from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 
 
