@@ -1110,11 +1110,13 @@ private struct SetupScreen: View {
     case .openingInstructions, .closingInstructions: nil
     case .openingReady:
       hinge == nil
-        ? String(localized: "setup.manualOpen", defaultValue: "Start closed. Then open your iPhone.")
+        ? String(
+          localized: "setup.manualOpen", defaultValue: "Start closed. Then open your iPhone.")
         : nil
     case .closingReady:
       hinge == nil
-        ? String(localized: "setup.manualClose", defaultValue: "Start open. Then close your iPhone.")
+        ? String(
+          localized: "setup.manualClose", defaultValue: "Start open. Then close your iPhone.")
         : nil
     case .awaitingOpening, .awaitingClosing:
       String(localized: "setup.waitingForShortcut", defaultValue: "Waiting for Shortcuts")
@@ -1371,7 +1373,8 @@ struct LeaderboardScreen: View {
             NavigationLink {
               YourProfileScreen(model: model, actions: actions)
             } label: {
-              LeaderboardRow(entry: current, showAdminBotMarker: model.revealAdminBotMarker(for: current.id))
+              LeaderboardRow(
+                entry: current, showAdminBotMarker: model.revealAdminBotMarker(for: current.id))
             }.buttonStyle(.plain)
           }
         }

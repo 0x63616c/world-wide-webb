@@ -440,7 +440,12 @@ struct ParticipantProfileScreen: View {
           }
         }
       }
-    } catch { if request == requestID { value = nil; adminDetails = nil } }
+    } catch {
+      if request == requestID {
+        value = nil
+        adminDetails = nil
+      }
+    }
   }
 }
 
