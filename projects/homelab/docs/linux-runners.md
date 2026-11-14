@@ -117,6 +117,16 @@ approving the audit. GitHub can independently dispatch any matching queued job;
 controller discovery cannot protect an underspecified workflow after registration.
 The initial `world-wide-webb` static workflow audit passed at `242eb8f4a`.
 
+`Virtual-Outfit-Vault/vov` is a temporary second repository until it moves to
+hosted runners. Its static audit passed at `f4213cb33` (one job, `check.yml`,
+SHA-pinned actions and no reusable workflows). Its entry in
+`hosts/homelab-macbook.nix` stays commented out until the App installation ID is
+known and its trust review sets `trustApproved`. vov jobs must use exactly
+`[self-hosted, Linux, ARM64, homelab-linux]`: never `homelab-tart`,
+`homelab-operations` or generic labels alone. Re-run the audit when vov's
+workflows change. To remove it, first change vov's `runs-on` so no job waits on
+this pool, then delete the entry and uninstall the App from the org.
+
 Configure a validated profile in `hosts/homelab-macbook.nix`:
 
 ```nix

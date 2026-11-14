@@ -62,6 +62,15 @@
       runnerGroupId = 1;
       trustApproved = true;
     };
+    # Temporary: vov's check job uses this pool until vov moves to hosted runners.
+    # Routing audit passed at Virtual-Outfit-Vault/vov f4213cb (docs/linux-runners.md).
+    # Trust approved by Calum on 2026-11-13.
+    repositories."Virtual-Outfit-Vault/vov" = {
+      repositoryId = 1457346085;
+      installationId = 181800391;
+      runnerGroupId = 1;
+      trustApproved = true;
+    };
     # Xcode 27.2 candidate; promote only after the held-pool runtime canary.
     image = "ghcr.io/cirruslabs/macos-tahoe-xcode@sha256:f8315a2f627daf64ab2c4e11d29a4d267953902a16151ee28fcdd7185927c317";
     cpu = 4;
