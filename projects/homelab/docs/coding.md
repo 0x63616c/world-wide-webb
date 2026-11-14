@@ -1,7 +1,7 @@
 # Coding account
 
 The MacBook's non-admin `coding` account runs Rex and agents. `modules/coding.nix`
-installs Nix zsh, chezmoi, gh, ripgrep, Starship, shell plugins and Claude Code.
+installs Nix zsh, chezmoi, gh, ripgrep, Starship, xcodes, shell plugins and Claude Code.
 Git, curl and jq are already shared host tools. The Mini does not import this module.
 The account's login shell and Rex's new terminal shell use Nix zsh. Updating Rex's
 launch environment restarts its server, so finish any active remote tasks first.
@@ -33,6 +33,30 @@ manifest checksum and URL together through a normal homelab PR; never update all
 nixpkgs inputs just to change Claude. Provider sign-in is a separate interactive
 step: open a Rex terminal, run `claude`, and follow the login flow. A version/doctor
 check does not prove authentication or a model request has succeeded.
+
+## Xcode
+
+`modules/coding.nix` records the host's Xcode version in one `xcodeVersion`
+binding (currently 27.2.0, at `/Applications/Xcode-27.2.0.app`). Downloading
+Xcode needs the owner's interactive Apple ID and 2FA, so activation never
+downloads it. When the bundle exists, activation selects it, accepts the license
+and runs first launch, each only when needed. A missing bundle or iOS Simulator
+runtime prints a warning with the commands below; activation still succeeds.
+
+Install or bump, as `admin` on the MacBook (xcodes prompts for the Apple ID):
+
+```sh
+sudo /run/current-system/sw/bin/xcodes install 27.2.0 --directory /Applications --experimental-unxip --select
+sudo xcodebuild -license accept
+sudo xcodebuild -runFirstLaunch
+sudo xcodebuild -downloadPlatform iOS
+```
+
+Before the first deployment that adds xcodes, use `nix run nixpkgs#xcodes --`
+in place of the installed path. To bump, install the new version, then promptly
+change `xcodeVersion` and the version asserted by the `coding-account` check in
+`flake-outputs.nix` through a homelab PR; until it is promoted, each activation
+reselects the recorded version. Remove the old bundle by hand once unused.
 
 ## Development dependencies
 
