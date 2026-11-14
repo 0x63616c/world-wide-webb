@@ -56,7 +56,9 @@ module FoldingRelease
             raise "Unexpected en-US App Store name"
           end
           if field == "keywords" &&
-               text.split(",").any? { |keyword| keyword.strip.casecmp("duo").zero? }
+               text
+                 .split(",")
+                 .any? { |keyword| keyword.strip.casecmp("duo").zero? }
             raise "Apple trademark in keywords: #{locale["storefront_locale"]}"
           end
           if field == "description" && text.scan(/iPhone Duo/i).length != 1
