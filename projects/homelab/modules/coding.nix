@@ -20,6 +20,7 @@ in
     gh
     ripgrep
     starship
+    wtp
     xcodes
     zsh-autosuggestions
     zsh-syntax-highlighting

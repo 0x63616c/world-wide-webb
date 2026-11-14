@@ -111,6 +111,7 @@ in
       assert pkgs.lib.hasInfix "/Users/coding UniqueID" book.system.activationScripts.preActivation.text;
       assert pkgs.lib.hasInfix "-a coding -t user com.apple.access_ssh"
         book.system.activationScripts.users.text;
+      assert builtins.elem pkgs.wtp book.environment.systemPackages;
       assert builtins.elem pkgs.xcodes book.environment.systemPackages;
       assert pkgs.lib.hasInfix
         "/usr/bin/xcode-select -s /Applications/Xcode-27.2.0.app/Contents/Developer"

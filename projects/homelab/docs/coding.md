@@ -1,7 +1,7 @@
 # Coding account
 
 The MacBook's non-admin `coding` account runs Rex and agents. `modules/coding.nix`
-installs Nix zsh, chezmoi, gh, ripgrep, Starship, xcodes, shell plugins and Claude Code.
+installs Nix zsh, chezmoi, gh, ripgrep, Starship, wtp, xcodes, shell plugins and Claude Code.
 Git, curl and jq are already shared host tools. The Mini does not import this module.
 The account's login shell and Rex's new terminal shell use Nix zsh. Updating Rex's
 launch environment restarts its server, so finish any active remote tasks first.
