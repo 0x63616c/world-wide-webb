@@ -578,7 +578,9 @@ struct AdminParticipantDetails: Decodable, Sendable {
     // Drop IDs that left the current board only when this is a full refresh of current entries.
     let current = Set(ids)
     if !current.isEmpty {
-      adminBotIDs = adminBotIDs.union(discovered).filter { current.contains($0) || discovered.contains($0) }
+      adminBotIDs = adminBotIDs.union(discovered).filter {
+        current.contains($0) || discovered.contains($0)
+      }
     }
   }
 
