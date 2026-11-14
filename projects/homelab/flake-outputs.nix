@@ -69,6 +69,7 @@ in
     beszel-agent = import ./packages/beszel-agent.nix { inherit pkgs; };
     rex = import ./packages/rex.nix { inherit pkgs; };
     claude-code = import ./packages/claude-code.nix { inherit pkgs; };
+    mise = import ./packages/mise.nix { inherit pkgs; };
   };
   devShells.${system}.default = pkgs.mkShellNoCC {
     packages = with pkgs; [
@@ -111,6 +112,11 @@ in
       assert pkgs.lib.hasInfix "/Users/coding UniqueID" book.system.activationScripts.preActivation.text;
       assert pkgs.lib.hasInfix "-a coding -t user com.apple.access_ssh"
         book.system.activationScripts.users.text;
+      assert builtins.elem pkgs.wtp book.environment.systemPackages;
+      assert builtins.elem pkgs.lefthook book.environment.systemPackages;
+      assert builtins.elem pkgs.gitleaks book.environment.systemPackages;
+      assert builtins.elem pkgs.rustup book.environment.systemPackages;
+      assert builtins.elem self.packages.${system}.mise book.environment.systemPackages;
       assert builtins.elem pkgs.xcodes book.environment.systemPackages;
       assert pkgs.lib.hasInfix
         "/usr/bin/xcode-select -s /Applications/Xcode-27.2.0.app/Contents/Developer"
@@ -172,6 +178,7 @@ in
     beszel-agent = self.packages.${system}.beszel-agent;
     rex = self.packages.${system}.rex;
     claude-code = self.packages.${system}.claude-code;
+    mise = self.packages.${system}.mise;
     beszel-agent-settings =
       let
         options = self.darwinConfigurations.homelab-macbook.options.homelab.monitoring.agent;
