@@ -195,8 +195,18 @@ class ProvisionTests(unittest.TestCase):
         hacs = hacs_archive.getvalue()
         data = bundle()
         data["assets"] = [
-            {"name": "hacs", "url": "https://example.invalid/hacs.zip", "target": "custom_components/hacs", "sha256": hashlib.sha256(hacs).hexdigest()},
-            {"name": "card", "url": "https://example.invalid/card.js", "target": "www/community/card.js", "sha256": hashlib.sha256(card).hexdigest()},
+            {
+                "name": "hacs",
+                "url": "https://example.invalid/hacs.zip",
+                "target": "custom_components/hacs",
+                "sha256": hashlib.sha256(hacs).hexdigest(),
+            },
+            {
+                "name": "card",
+                "url": "https://example.invalid/card.js",
+                "target": "www/community/card.js",
+                "sha256": hashlib.sha256(card).hexdigest(),
+            },
         ]
 
         def fetch(asset):
@@ -232,7 +242,14 @@ class ProvisionTests(unittest.TestCase):
             output.writestr("new.py", material)
         content = archive.getvalue()
         data = bundle()
-        data["assets"] = [{"name": "hacs", "url": "https://example.invalid/hacs.zip", "target": "custom_components/hacs", "sha256": hashlib.sha256(content).hexdigest()}]
+        data["assets"] = [
+            {
+                "name": "hacs",
+                "url": "https://example.invalid/hacs.zip",
+                "target": "custom_components/hacs",
+                "sha256": hashlib.sha256(content).hexdigest(),
+            }
+        ]
         real_atomic = provision.atomic
         failed = False
 
@@ -247,7 +264,9 @@ class ProvisionTests(unittest.TestCase):
             with self.assertRaises(OSError):
                 provision.provision(self.root, data, fetch=lambda _: content)
         self.assertFalse(target.exists())
-        self.assertEqual(len(list((self.root / ".homelab-vacuum-backups").glob("adopted-*/custom_components/hacs/old.py"))), 1)
+        self.assertEqual(
+            len(list((self.root / ".homelab-vacuum-backups").glob("adopted-*/custom_components/hacs/old.py"))), 1
+        )
         provision.provision(self.root, data, fetch=lambda _: content)
         self.assertEqual((target / "new.py").read_bytes(), material)
 
@@ -257,7 +276,14 @@ class ProvisionTests(unittest.TestCase):
         target.write_text("original card")
         content = b"pinned card"
         data = bundle()
-        data["assets"] = [{"name": "card", "url": "https://example.invalid/card.js", "target": "www/card.js", "sha256": hashlib.sha256(content).hexdigest()}]
+        data["assets"] = [
+            {
+                "name": "card",
+                "url": "https://example.invalid/card.js",
+                "target": "www/card.js",
+                "sha256": hashlib.sha256(content).hexdigest(),
+            }
+        ]
         with patch.object(provision.os, "rename", side_effect=OSError("simulated stop before move")):
             with self.assertRaisesRegex(OSError, "before move"):
                 provision.provision(self.root, data, fetch=lambda _: content)
@@ -276,7 +302,14 @@ class ProvisionTests(unittest.TestCase):
         target.write_text("original card")
         content = b"pinned card"
         data = bundle()
-        data["assets"] = [{"name": "card", "url": "https://example.invalid/card.js", "target": "www/card.js", "sha256": hashlib.sha256(content).hexdigest()}]
+        data["assets"] = [
+            {
+                "name": "card",
+                "url": "https://example.invalid/card.js",
+                "target": "www/card.js",
+                "sha256": hashlib.sha256(content).hexdigest(),
+            }
+        ]
         with patch.object(provision.os, "rename", side_effect=OSError("simulated stop before move")):
             with self.assertRaisesRegex(OSError, "before move"):
                 provision.provision(self.root, data, fetch=lambda _: content)
@@ -297,7 +330,14 @@ class ProvisionTests(unittest.TestCase):
         target.symlink_to(actual)
         data = bundle()
         content = b"card"
-        data["assets"] = [{"name": "card", "url": "https://example.invalid/card.js", "target": "www/card.js", "sha256": hashlib.sha256(content).hexdigest()}]
+        data["assets"] = [
+            {
+                "name": "card",
+                "url": "https://example.invalid/card.js",
+                "target": "www/card.js",
+                "sha256": hashlib.sha256(content).hexdigest(),
+            }
+        ]
         with self.assertRaisesRegex(ValueError, "Symlink"):
             provision.provision(self.root, data, fetch=lambda _: content)
         self.assertEqual(actual.read_text(), "do not move")
@@ -314,7 +354,14 @@ class ProvisionTests(unittest.TestCase):
             output.writestr("manifest.json", "{}")
         zipped = archive.getvalue()
         data = bundle()
-        data["assets"] = [{"name": "hacs", "url": "https://example.invalid/hacs.zip", "target": "custom_components/hacs", "sha256": hashlib.sha256(zipped).hexdigest()}]
+        data["assets"] = [
+            {
+                "name": "hacs",
+                "url": "https://example.invalid/hacs.zip",
+                "target": "custom_components/hacs",
+                "sha256": hashlib.sha256(zipped).hexdigest(),
+            }
+        ]
         with self.assertRaisesRegex(ValueError, "Symlink"):
             provision.provision(self.root, data, fetch=lambda _: zipped)
         self.assertTrue((target / "linked.py").is_symlink())
