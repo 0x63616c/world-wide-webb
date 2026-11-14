@@ -41,14 +41,20 @@ symlinks. It adds marked blocks to existing `configuration.yaml`, preserving
 comments, includes and unrelated settings. It reuses an existing literal
 `homeassistant.packages` mapping or `!include_dir_named` directory; otherwise it
 adds the named package include. Existing include-file packages, flow mappings,
-conflicting dashboard/resource/module declarations, unmanaged installations of
-these assets, YAML anchors, or local edits to managed files stop provisioning for operator
-reconciliation. It never replaces those conflicts automatically. Preserve a private
-backup, then move a conflicting asset aside or merge the intended includes locally
-before retrying normal reconciliation. Never share configuration/backup contents.
+conflicting dashboard/resource/module declarations, YAML anchors, or local edits to
+managed files stop provisioning for operator reconciliation. On first install or
+upgrade, an existing unowned managed asset is adopted: provisioning moves its whole
+file or directory with `os.rename` into a timestamped
+`/config/.homelab-vacuum-backups/adopted-*` path, then installs the pinned release.
+These backups sit outside `custom_components`, so HA does not load the old copy.
+Symlinks and special files at or inside a managed asset still fail closed. The
+operation journal is written before moving anything, allowing an interrupted
+adoption to resume. `.storage` (including HACS authorization/state) is never
+modified. Never share configuration/backup contents.
 
 Original files are backed up privately by content hash under
-`/config/.homelab-vacuum-backups`; `.homelab-vacuum.json` records owned files.
+`/config/.homelab-vacuum-backups`; adopted assets use timestamped subdirectories
+there. `.homelab-vacuum.json` records owned files.
 A pending ownership journal allows retry after an interrupted install. Changes
 leave `.homelab-vacuum-dirty` until Compose recreates HA and reports healthy.
 Failures keep the marker for retry; unchanged reconciles do not restart HA.
@@ -84,7 +90,8 @@ To update, review the upstream stable release and compatibility notes, download
 the exact release asset, compute `sha256sum`, and update its version, URL and hash
 in `assets.json` together. For Dreame also resolve and record the tag's commit.
 Run provisioning tests and required checks. Do not use HACS to update these three
-repo-owned paths: local changes are intentionally detected as conflicts. Hashes
+repo-owned paths: upgrades replace them with the pinned release after preserving
+an unowned prior copy. Hashes
 must change only after reviewing real downloaded bytes; no checksum bypass exists.
 
 ## One-time setup
