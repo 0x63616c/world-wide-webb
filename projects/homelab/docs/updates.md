@@ -7,6 +7,14 @@ and `/var/lib/homelab-operations/last-success.json` before claiming deployment.
 
 Comin reads the `projects/homelab` flake from the promoted repository.
 
+## Retry HA provisioning after a failed activation
+
+If Comin has already marked a system out path deployed but its HA reconcile failed,
+bump `homelab.deployNonce` on the Mini and promote the change. The value appears in
+`/etc/homelab/deploy-nonce` and changes only HA's deployment-input configuration
+hash, selecting HA for local recovery and reconcile on the next system generation.
+Use a new descriptive value for each retry; do not use this for ordinary HA updates.
+
 ## Generation changes
 
 Evaluated per-application and shared inputs feed the pure deployment planner.

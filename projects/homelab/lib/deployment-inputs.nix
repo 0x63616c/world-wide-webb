@@ -101,6 +101,7 @@ in
               {
                 script = sourceHash ../scripts/provision-ha.py;
                 entities = sourceHash ../../control-center/server/config/vacuum.json;
+                deployNonce = cfg.deployNonce;
               }
             else
               null;
