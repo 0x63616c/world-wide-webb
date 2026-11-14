@@ -137,12 +137,30 @@ in
             ];
           }
         );
+        retry = inputsFor (
+          base.extendModules {
+            modules = [
+              ({ ... }: {
+                homelab.deployNonce = "fixture-ha-retry";
+              })
+            ];
+          }
+        );
       in
       assert original.inputs == monitor.inputs;
       assert
         original.inputs.services.control-center.configuration
         != worker.inputs.services.control-center.configuration;
       assert original.inputs.services.hindsight == worker.inputs.services.hindsight;
+      assert
+        original.inputs.services."home-assistant".configuration
+        != retry.inputs.services."home-assistant".configuration;
+      assert original.inputs.shared == retry.inputs.shared;
+      assert base.config.environment.etc."homelab/deploy-nonce".text == "";
+      assert
+        (base.extendModules {
+          modules = [ ({ ... }: { homelab.deployNonce = "fixture-ha-retry"; }) ];
+        }).config.environment.etc."homelab/deploy-nonce".text == "fixture-ha-retry";
       pkgs.runCommand "homelab-deployment-inputs-check" { } ''touch "$out"'';
     beszel-agent = self.packages.${system}.beszel-agent;
     rex = self.packages.${system}.rex;

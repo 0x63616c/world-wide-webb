@@ -14,6 +14,16 @@ in
       type = lib.types.int;
       default = 501;
     };
+    deployNonce = lib.mkOption {
+      type = lib.types.str;
+      default = "";
+      description = ''
+        Value written to /etc/homelab/deploy-nonce and included in Home Assistant's
+        deployment-input configuration hash. Bump it to force a new system toplevel
+        and reselect HA reconciliation after Comin marked an identical out path
+        deployed despite a failed activation reconcile.
+      '';
+    };
   };
   config = {
     nixpkgs.hostPlatform = "aarch64-darwin";
@@ -26,6 +36,7 @@ in
       "3bd68ef979a42070a44f8d82c205cfd8e8cca425d91253ec2c10a88179bb34aa"
     ];
     nix.enable = false;
+    environment.etc."homelab/deploy-nonce".text = cfg.deployNonce;
     time.timeZone = "America/Los_Angeles";
     # Let SSH sessions recognize Ghostty without installing its GUI application.
     environment.systemPackages =
