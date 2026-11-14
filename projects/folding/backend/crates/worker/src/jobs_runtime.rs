@@ -17,7 +17,7 @@ struct Job {
 // A single indexed existence query replaces unconditional dispatch writes.
 // Per-category domain dispatchers still enforce leases, privacy fences and retry times.
 pub const DUE_CATEGORIES_SQL: &str = r#"
-SELECT value AS kind FROM json_each('["avatar_cleanup","finalization","corrections","awards","deletion","recovery_revocation","retention","milestones"]')
+SELECT value AS kind FROM json_each('["avatar_cleanup","finalization","corrections","awards","deletion","recovery_revocation","retention","milestones","bot_simulation"]')
 WHERE CASE value
  WHEN 'avatar_cleanup' THEN (EXISTS(SELECT 1 FROM avatar_purge_jobs a WHERE lease_until_ms<=?1 AND NOT EXISTS(SELECT 1 FROM external_retry_state r WHERE r.kind='avatar_cleanup' AND r.work_key=a.object_key AND (r.state='failed' OR r.next_attempt_ms>?1)))
  OR (NOT EXISTS(SELECT 1 FROM jobs WHERE kind='avatar_cleanup' AND version>=?2)
@@ -33,6 +33,7 @@ WHERE CASE value
  WHEN 'retention' THEN (NOT EXISTS(SELECT 1 FROM jobs WHERE kind='retention' AND version>=?2)
  OR EXISTS(SELECT 1 FROM participants WHERE restriction='suspended' AND suspended_until_ms<=?1))
  WHEN 'milestones' THEN EXISTS(SELECT 1 FROM participants p LEFT JOIN milestone_state s ON s.participant_id=p.participant_id WHERE p.account_state='active' AND p.membership='joined' AND p.restriction='none' AND EXISTS(SELECT 1 FROM epochs e WHERE e.epoch_id=p.epoch_id AND e.participant_id=p.participant_id AND e.closed_at_ms IS NULL) AND (s.participant_id IS NULL OR s.state='building'))
+ WHEN 'bot_simulation' THEN (SELECT bot_simulation_enabled FROM administrative_configuration WHERE singleton=1)=1
  ELSE 0 END
 "#;
 pub const INSERT_CATEGORY_SQL: &str = r#"
@@ -62,7 +63,10 @@ pub(crate) async fn schedule(env: &Env, db: &D1Database) -> std::result::Result<
     .map_err(|_| Failure::unavailable())?;
     let mut writes = vec![];
     for category in categories {
-        let version = if category.kind == "milestones" || category.kind == "awards" {
+        let version = if category.kind == "milestones"
+            || category.kind == "awards"
+            || category.kind == "bot_simulation"
+        {
             time
         } else {
             time / 300000
@@ -131,6 +135,9 @@ async fn run(env: &Env, db: &D1Database, id: &Id) -> std::result::Result<(), Fai
             "recovery_revocation" => crate::deletion_runtime::revoke_recovery_grants(env, db).await,
             "monitoring" => crate::monitoring_runtime::dispatch(db).await,
             "milestones" => crate::milestone_runtime::dispatch(db).await,
+            "bot_simulation" => crate::bot_simulation_runtime::tick(env, db, false)
+                .await
+                .map(|_| ()),
             "retention" => crate::auth_maintenance::cleanup(db, now())
                 .await
                 .map_err(|_| Failure::unavailable()),

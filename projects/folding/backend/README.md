@@ -102,7 +102,7 @@ remain pending. Explicit correction previews/republishing are still required for
 
 Admin bindings: `ADMIN_ORIGIN` (canonical HTTPS origin), `ACCESS_TEAM_DOMAIN` (for example
 `https://team.cloudflareaccess.com`, no trailing slash), `ACCESS_AUDIENCE`, and
-`ADMIN_EMAIL_ALLOWLIST` (JSON array). No empty/default allowlist grants access. Pages and form commands
+`ADMIN_EMAIL_ALLOWLIST` (JSON array). No empty/default allowlist grants access. Optional `ADMIN_PARTICIPANT_IDS` is a comma-separated list of participant UUIDs that may use `/v1/admin/participants/{id}`; a missing binding is treated as an empty list (the `participant_roles` table can still grant the admin role). Pages and form commands
 verify Access independently, enforce same-origin/token-bound CSRF and use participant/report revisions.
 Name/report decisions and restriction/submission actions are audited. Custom names remain pending until
 approval. Profile/report/block routes and business rate limits are implemented. Avatars, correction

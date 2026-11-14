@@ -30,7 +30,7 @@ import XCTest
     var failure: Error?
     do { try await runtime.record(.open) } catch { failure = error }
     try await unlock.value
-    XCTAssertNil(failure, "Log Duo Opened must survive brief partition contention")
+    XCTAssertNil(failure, "Log iPhone Opened must survive brief partition contention")
     await runtime.replayCapturedObservations()
     let events = try await journal.retainedEvents()
     XCTAssertEqual(events.count, 1)

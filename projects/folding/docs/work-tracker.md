@@ -225,7 +225,7 @@ The original fourteen work orders now have 33 linked deliverable issues (#15–#
 ## Apple account bootstrap
 
 - Apple login is complete. The existing 1Password API key works through Fastlane; four production/staging app/widget bundle identifiers are registered.
-- Both App Store records are created and verified: production `6832059501` (Folding: Duo Fold Tracker), staging `6832060416` (Folding Staging). Plain Folding was unavailable. Both are Prepare for Submission, with no submitted build.
+- Both App Store records are created and verified: production `6832059501` (Folding), staging `6832060416` (Folding Staging). Plain Folding was unavailable. Both are Prepare for Submission, with no submitted build. Production listing name is now `Folding: Fold Tracker & Ranks`.
 - Fastlane now provides repeatable scoped inventory and idempotent bundle registration; public identifiers live in `fastlane/app-identifiers.json`. See [bootstrap evidence](experiments/apple-account-bootstrap.md).
 - #28 remains open for capabilities, groups/containers, signing/recovery, production entitlements and archive verification. CI remains owner-deferred.
 

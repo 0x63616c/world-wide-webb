@@ -63,6 +63,8 @@ extension FoldingPresentation {
     joinNickname = ""
     hiddenParticipantIDs = []
     hiddenParticipantNames = [:]
+    isAdmin = false
+    adminBotIDs = []
     dismissCompetitionSheets()
   }
 

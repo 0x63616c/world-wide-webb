@@ -275,6 +275,33 @@ struct TrackingSyncPresentation: Sendable {
 
 enum ExportChoice { case json, csv }
 
+struct AdminParticipantDetails: Decodable, Sendable {
+  struct Participant: Decodable, Sendable {
+    // swift-format-ignore: AlwaysUseLowerCamelCase
+    let participant_id: String
+    let nickname: String?
+    // swift-format-ignore: AlwaysUseLowerCamelCase
+    let is_bot: Bool?
+    // swift-format-ignore: AlwaysUseLowerCamelCase
+    let persona_id: String?
+    // swift-format-ignore: AlwaysUseLowerCamelCase
+    let persona_version: Int64?
+    // swift-format-ignore: AlwaysUseLowerCamelCase
+    let bot_joined_at_ms: Int64?
+    // swift-format-ignore: AlwaysUseLowerCamelCase
+    let retired_at_ms: Int64?
+    // swift-format-ignore: AlwaysUseLowerCamelCase
+    let paused_at_ms: Int64?
+    // swift-format-ignore: AlwaysUseLowerCamelCase
+    let avatar_style: String?
+    let membership: String?
+    let restriction: String?
+    // swift-format-ignore: AlwaysUseLowerCamelCase
+    let account_state: String?
+  }
+  let participant: Participant
+}
+
 /// All operations are supplied by the app composition. A nil optional command is unavailable,
 /// never a simulated success. Commands must return only after durable work has completed.
 @MainActor struct FoldingActions {
@@ -298,6 +325,7 @@ enum ExportChoice { case json, csv }
   var refreshCompetitionProfile: (() async throws -> CompetitionProfile)?
   var loadOwnerMilestones: (() async throws -> MilestoneOwnerLoad)?
   var loadParticipantProfile: ((String) async throws -> ParticipantProfileLoad)?
+  var loadAdminParticipant: ((String) async throws -> AdminParticipantDetails)?
   var featureMilestone:
     ((String, MilestoneBadge?, ResetGeneration) async throws -> OwnerMilestones)?
   var acknowledgeMilestones: ((String, MilestoneAcknowledgmentRequest) async throws -> Void)?
@@ -347,6 +375,8 @@ enum ExportChoice { case json, csv }
   var historyFailed = false
   var competitionRemoval: CompetitionRemovalState?
   var competitionAuthenticationRequired = false
+  var isAdmin = false
+  var adminBotIDs: Set<String> = []
   var competitionProfile: CompetitionProfile?
   var ownerMilestones: OwnerMilestones?
   var milestonesContext = UUID()
@@ -521,11 +551,37 @@ enum ExportChoice { case json, csv }
     }
   }
 
+  func revealAdminBotMarker(for id: String) -> Bool {
+    isAdmin && adminBotIDs.contains(id)
+  }
+
   func invalidateLeaderboardRequests() {
     competitionRequest = UUID()
     leaderboardLoadingMore = false
     leaderboardPageFailed = false
     leaderboardLoadedPeriod = nil
+  }
+
+  func refreshAdminBotMarkers(using actions: FoldingActions, ids: [String]) async {
+    guard isAdmin, let load = actions.loadAdminParticipant else {
+      if !isAdmin { adminBotIDs = [] }
+      return
+    }
+    var discovered: Set<String> = []
+    for id in ids {
+      if Task.isCancelled { break }
+      do {
+        if try await load(id).participant.is_bot == true { discovered.insert(id) }
+      } catch { continue }
+    }
+    adminBotIDs.formUnion(discovered)
+    // Drop IDs that left the current board only when this is a full refresh of current entries.
+    let current = Set(ids)
+    if !current.isEmpty {
+      adminBotIDs = adminBotIDs.union(discovered).filter {
+        current.contains($0) || discovered.contains($0)
+      }
+    }
   }
 
   func requestLeaderboard(using actions: FoldingActions, nextPage: Bool = false) async {
@@ -578,6 +634,7 @@ enum ExportChoice { case json, csv }
       competition = .loaded(value)
       leaderboardLoadedPeriod = period
       leaderboardLoadingMore = false
+      await refreshAdminBotMarkers(using: actions, ids: value.entries.map(\.id))
     } catch {
       guard request == competitionRequest, period == competitionPeriod else { return }
       leaderboardLoadingMore = false

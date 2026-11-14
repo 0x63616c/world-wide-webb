@@ -42,9 +42,9 @@ The final product name is **Folding**, selected by the owner. App Store registra
 
 **Proposed flow:**
 
-1. Show **Log Duo Opened** and open Shortcuts for its Display automation.
+1. Show **Log iPhone Opened** and open Shortcuts for its Display automation.
 2. On return, start checking automatically and ask the user to open the Duo.
-3. Repeat with **Log Duo Closed** and a physical closing.
+3. Repeat with **Log iPhone Closed** and a physical closing.
 4. Show successful setup and initial activity.
 
 Preserve progress across app switches and offer targeted recovery from failed checks. Do not make users tap Test or watch a countdown. Exact Shortcuts handoff behavior still needs physical-device acceptance.

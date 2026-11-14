@@ -38,6 +38,7 @@ test("compiled Rust Worker fails closed and bounds untrusted bodies", async () =
   for (const migration of [
     "0013_operations.sql",
     "0020_admin_minimum_build.sql",
+    "0024_bot_simulation.sql",
   ])
     for (const sql of (await readFile(`${root}migrations/${migration}`, "utf8"))
       .split(";")
@@ -440,6 +441,7 @@ test("actual Worker issues bounded challenges and rotates encrypted sessions wit
     "0021_profile_milestones.sql",
     "0022_badge_notifications.sql",
     "0023_published_ios_builds.sql",
+    "0024_bot_simulation.sql",
   ]) {
     const source = await readFile(`${root}migrations/${migration}`, "utf8");
     for (const sql of source.split(";").filter((s) => s.trim()))
@@ -501,23 +503,26 @@ test("actual Worker issues bounded challenges and rotates encrypted sessions wit
   assert.deepEqual(Buffer.from(persisted.nonce_hash), hash(issued.nonce));
   assert.equal(persisted.used, 0);
   assert.equal(persisted.expires_at_ms, issued.expires_at_ms);
-  for (let i = 1; i < 20; i++)
-    assert.equal(
-      (
-        await post(
-          "challenges",
-          { purpose: "sign_in" },
-          { "CF-Connecting-IP": "192.0.2.1" },
-        )
-      ).status,
-      200,
+  // 20 challenges are allowed per IP per 60s wall-clock window. If the
+  // window rolls mid-loop, start counting again rather than treating a
+  // fresh window's 200 as a failure.
+  let accepted = 1;
+  let limited;
+  for (let attempts = 0; attempts < 60; attempts++) {
+    const response = await post(
+      "challenges",
+      { purpose: "sign_in" },
+      { "CF-Connecting-IP": "192.0.2.1" },
     );
-  const limited = await post(
-    "challenges",
-    { purpose: "sign_in" },
-    { "CF-Connecting-IP": "192.0.2.1" },
-  );
-  assert.equal(limited.status, 429);
+    if (response.status === 429) {
+      assert.equal(accepted, 20);
+      limited = response;
+      break;
+    }
+    assert.equal(response.status, 200);
+    accepted = accepted >= 20 ? 1 : accepted + 1;
+  }
+  assert.ok(limited, "expected challenge issuance to become rate limited");
   assert.equal(limited.headers.get("Retry-After"), "60");
   assert.equal((await limited.json()).retry_after_seconds, 60);
   const timestamp = Date.now();
@@ -1036,6 +1041,11 @@ test("reset raw-history purge is atomic and preserves replay receipts and other 
   const purge = source.match(/const PURGE_OBSERVATIONS: &str = "([^"]+)"/)[1];
   await db
     .prepare(
+      "INSERT OR IGNORE INTO participants(participant_id,subject_hmac,membership,restriction,generation_revision,generation_id,epoch_id,active_device_id) VALUES ('auth-person','auth-subject','not_joined','none',0,'g',NULL,NULL)",
+    )
+    .run();
+  await db
+    .prepare(
       "INSERT INTO participants(participant_id,subject_hmac,membership,restriction,generation_revision,generation_id) VALUES ('reset-person','reset-subject','joined','none',0,'old')",
     )
     .run();
@@ -1552,6 +1562,7 @@ test("database minimum-build policy uses bounded cached reads and preserves reco
       for (const migration of [
         "0013_operations.sql",
         "0020_admin_minimum_build.sql",
+        "0024_bot_simulation.sql",
       ])
         for (const sql of (
           await readFile(`${root}migrations/${migration}`, "utf8")
@@ -1969,6 +1980,7 @@ test("admin root stays host-scoped and every admin view retains shared dark navi
     "/admin/jobs",
     "/admin/queue?kind=cases",
     "/admin/queue?kind=ban_reviews",
+    "/admin/bots",
   ];
   for (const path of pages) {
     const response = await authenticatedRuntime.dispatchFetch(
@@ -2706,4 +2718,467 @@ test("enrollment recovers an expired challenge after cleanup without treating it
   assert.equal(replay.status, 200);
   assert.match(replay.headers.get("X-Request-ID"), /^[0-9a-f-]{36}$/);
   assert.equal((await replay.json()).enrolled, true);
+});
+
+test("bot simulation stays off by default, hides the bot marker, and keeps admin details private", async () => {
+  const db = await authenticatedRuntime.getD1Database("DB");
+  const id = (n) => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
+  const adminId = id(91001);
+  const humanId = id(91002);
+  const botId = id(91003);
+  const device = id(91004);
+  const epoch = id(91005);
+  const time = Date.now();
+  const token = Buffer.alloc(32, 217);
+  const session = "bot-admin-capability-session-v2";
+  const hash = (value) => createHash("sha256").update(value).digest();
+  assert.equal(
+    await db
+      .prepare(
+        "SELECT bot_simulation_enabled FROM administrative_configuration WHERE singleton=1",
+      )
+      .first("bot_simulation_enabled"),
+    0,
+  );
+  const botsBefore = await db
+    .prepare("SELECT count(*) n FROM bot_profiles")
+    .first("n");
+  const worker = await authenticatedRuntime.getWorker();
+  await worker.scheduled({
+    cron: "* * * * *",
+    scheduledTime: time,
+  });
+  assert.equal(
+    await db.prepare("SELECT count(*) n FROM bot_profiles").first("n"),
+    botsBefore,
+  );
+  await db.batch([
+    db
+      .prepare(
+        "INSERT INTO participants(participant_id,subject_hmac,membership,restriction,generation_revision,generation_id,epoch_id,active_device_id) VALUES (?,?,'joined','none',0,'00000000-0000-0000-0000-000000000000',?,?)",
+      )
+      .bind(adminId, `admin-subject-${adminId}`, epoch, device),
+    db.prepare("INSERT INTO participant_revisions VALUES (?,0)").bind(adminId),
+    db
+      .prepare(
+        "INSERT INTO profiles VALUES (?,'Admin Folder',NULL,'approved','none')",
+      )
+      .bind(adminId),
+    db
+      .prepare(
+        "INSERT INTO epochs VALUES (?,?,?,0,'00000000-0000-0000-0000-000000000000',0,0,NULL)",
+      )
+      .bind(epoch, adminId, device),
+    db
+      .prepare("INSERT INTO sessions VALUES (?,?,?,'production',?,?,?,?,0)")
+      .bind(
+        session,
+        adminId,
+        device,
+        time,
+        time,
+        time + 86400000,
+        time + 86400000,
+      ),
+    db
+      .prepare("INSERT INTO access_tokens VALUES (?,?,?)")
+      .bind(hash(token), session, time + 86400000),
+    db
+      .prepare(
+        "INSERT INTO participants(participant_id,subject_hmac,membership,restriction,generation_revision,generation_id) VALUES (?,?,'joined','none',0,'00000000-0000-0000-0000-000000000000')",
+      )
+      .bind(humanId, `human-subject-${humanId}`),
+    db.prepare("INSERT INTO participant_revisions VALUES (?,0)").bind(humanId),
+    db
+      .prepare(
+        "INSERT INTO profiles VALUES (?,'Real Folder',NULL,'approved','none')",
+      )
+      .bind(humanId),
+    db
+      .prepare(
+        "INSERT INTO participants(participant_id,subject_hmac,membership,restriction,generation_revision,generation_id) VALUES (?,?,'joined','none',0,'00000000-0000-0000-0000-000000000000')",
+      )
+      .bind(botId, `bot-subject-${botId}`),
+    db.prepare("INSERT INTO participant_revisions VALUES (?,0)").bind(botId),
+    db
+      .prepare(
+        "INSERT INTO profiles VALUES (?,'Sim Folder',NULL,'approved','none')",
+      )
+      .bind(botId),
+    db
+      .prepare(
+        "INSERT INTO bot_profiles(participant_id,persona_id,persona_version,seed,joined_at_ms,avatar_style,created_at_ms) VALUES (?,'steady',1,?,?, 'initials',?)",
+      )
+      .bind(botId, Buffer.alloc(32, 3), time, time),
+  ]);
+  const headers = {
+    Authorization: "Bearer " + token.toString("base64url"),
+  };
+  const me = await authenticatedRuntime.dispatchFetch(
+    "https://api.example/v1/me",
+    { headers },
+  );
+  assert.equal(me.status, 200);
+  const meBody = await me.json();
+  assert.equal(meBody.is_admin, false);
+  assert.equal(meBody.profile.is_bot, undefined);
+  const denied = await authenticatedRuntime.dispatchFetch(
+    `https://api.example/v1/admin/participants/${botId}`,
+    { headers },
+  );
+  assert.equal(denied.status, 404);
+  const publicProfile = await authenticatedRuntime.dispatchFetch(
+    `https://api.example/v1/participants/${botId}`,
+    { headers },
+  );
+  assert.equal(publicProfile.status, 200, await publicProfile.clone().text());
+  const publicBody = await publicProfile.json();
+  const publicText = JSON.stringify(publicBody);
+  assert.equal(publicBody.profile?.is_bot, undefined);
+  assert.doesNotMatch(publicText, /"is_bot"/);
+  assert.doesNotMatch(publicText, /"persona_id"/);
+  await db
+    .prepare(
+      "INSERT INTO participant_roles(participant_id, role, granted_at_ms, granted_by) VALUES (?,'admin',?,'test')",
+    )
+    .bind(adminId, time)
+    .run();
+  const adminMe = await authenticatedRuntime.dispatchFetch(
+    "https://api.example/v1/me",
+    { headers },
+  );
+  assert.equal(adminMe.status, 200);
+  const adminMeBody = await adminMe.json();
+  assert.equal(adminMeBody.is_admin, true);
+  const details = await authenticatedRuntime.dispatchFetch(
+    `https://api.example/v1/admin/participants/${botId}`,
+    { headers },
+  );
+  assert.equal(details.status, 200);
+  const detailsBody = await details.json();
+  assert.equal(detailsBody.participant.is_bot, true);
+  assert.equal(detailsBody.participant.persona_id, "steady");
+  const jwt = appleToken({
+    iss: "https://folding-test.cloudflareaccess.com",
+    aud: ["local-admin"],
+    sub: "synthetic-admin",
+    email: "admin@example.test",
+    type: "app",
+  });
+  const page = await authenticatedRuntime.dispatchFetch(
+    "https://admin.example/admin/bots",
+    { headers: { "Cf-Access-Jwt-Assertion": jwt } },
+  );
+  assert.equal(page.status, 200, await page.clone().text());
+  const html = await page.text();
+  const csrf = html.match(/name="csrf_token" value="([^"]+)"/)[1];
+  const operation = html.match(/name="operation_id" value="([^"]+)"/)[1];
+  const watermarkBefore = await db
+    .prepare(
+      "SELECT watermark_ms, revision, cursor_participant_id FROM bot_simulation_state WHERE singleton=1",
+    )
+    .first();
+  const auditBefore = await db
+    .prepare("SELECT count(*) n FROM bot_simulation_audit")
+    .first("n");
+  const observationsBefore =
+    (await db
+      .prepare("SELECT count(*) n FROM observations WHERE participant_id=?")
+      .bind(botId)
+      .first("n")) ?? 0;
+  const dry = await authenticatedRuntime.dispatchFetch(
+    "https://admin.example/admin/bots",
+    {
+      method: "POST",
+      redirect: "manual",
+      headers: {
+        "Cf-Access-Jwt-Assertion": jwt,
+        Origin: "https://admin.example",
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        csrf_token: csrf,
+        operation_id: operation,
+        action: "dry_run",
+        expected_revision: "0",
+        participant_id: "",
+        reason: "Operations dry-run",
+      }),
+    },
+  );
+  assert.equal(dry.status, 303, await dry.text());
+  const watermarkAfter = await db
+    .prepare(
+      "SELECT watermark_ms, revision, cursor_participant_id FROM bot_simulation_state WHERE singleton=1",
+    )
+    .first();
+  assert.deepEqual(watermarkAfter, watermarkBefore);
+  assert.equal(
+    await db.prepare("SELECT count(*) n FROM bot_simulation_audit").first("n"),
+    auditBefore + 1,
+  );
+  assert.equal(
+    (await db
+      .prepare("SELECT count(*) n FROM observations WHERE participant_id=?")
+      .bind(botId)
+      .first("n")) ?? 0,
+    observationsBefore,
+  );
+});
+
+const botSimulationRuntime = new Miniflare(
+  convertV4MiniflareOptions({
+    workers: [
+      {
+        name: "folding-bot-simulation-local",
+        modules: [
+          { type: "ESModule", path: `${root}crates/worker/build/index.js` },
+          {
+            type: "CompiledWasm",
+            path: `${root}crates/worker/build/index_bg.wasm`,
+          },
+        ],
+        compatibilityDate: "2026-11-04",
+        queueProducers: {
+          JOBS: "folding-bot-sim-jobs",
+          JOBS_DEAD: "folding-bot-sim-dead",
+        },
+        queueConsumers: {
+          "folding-bot-sim-jobs": { maxBatchSize: 1, maxBatchTimeout: 0 },
+        },
+        bindings: {
+          WORKER_VERSION: "synthetic-bot-simulation-worker",
+          DEPLOYMENT: "production",
+        },
+        r2Buckets: { AVATARS: "folding-bot-sim-avatars" },
+        d1Databases: { DB: "folding-bot-simulation" },
+      },
+    ],
+  }),
+);
+after(() => botSimulationRuntime.dispose());
+
+function utcDay(ms) {
+  const d = new Date(ms);
+  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+}
+
+function periodIdsCovering(fromMs, toMs) {
+  const ids = new Set(["all"]);
+  for (let time = utcDay(fromMs); time <= toMs; time += 86400000) {
+    const weekday = (new Date(time).getUTCDay() + 6) % 7;
+    const weekStart = time - weekday * 86400000;
+    const monthStart = Date.UTC(
+      new Date(time).getUTCFullYear(),
+      new Date(time).getUTCMonth(),
+      1,
+    );
+    ids.add(`week:${weekStart}`);
+    ids.add(`month:${monthStart}`);
+  }
+  return [...ids];
+}
+
+async function applyBotSimulationMigrations(db) {
+  for (const migration of [
+    "0001_mutation_fences.sql",
+    "0002_sessions.sql",
+    "0003_auth_operations.sql",
+    "0004_sign_in.sql",
+    "0005_attestation_enrollment.sql",
+    "0006_competition.sql",
+    "0007_community_reads.sql",
+    "0008_privacy_lifecycle.sql",
+    "0009_period_finalization.sql",
+    "0010_moderation.sql",
+    "0011_avatars.sql",
+    "0012_notifications.sql",
+    "0013_operations.sql",
+    "0014_corrections.sql",
+    "0015_moderation_cases.sql",
+    "0016_monitoring.sql",
+    "0017_external_retries.sql",
+    "0018_entry_deletions.sql",
+    "0019_resource_protection.sql",
+    "0020_admin_minimum_build.sql",
+    "0021_profile_milestones.sql",
+    "0022_badge_notifications.sql",
+    "0023_published_ios_builds.sql",
+    "0024_bot_simulation.sql",
+  ]) {
+    const source = await readFile(`${root}migrations/${migration}`, "utf8");
+    for (const sql of source.split(";").filter((s) => s.trim()))
+      await db.prepare(sql).run();
+  }
+}
+
+async function runBotSimulationTick(db, label) {
+  const before =
+    (await db
+      .prepare(
+        "SELECT count(*) n FROM jobs WHERE kind='bot_simulation' AND state='completed'",
+      )
+      .first("n")) ?? 0;
+  const worker = await botSimulationRuntime.getWorker();
+  await worker.scheduled({ cron: "* * * * *", scheduledTime: Date.now() });
+  const deadline = Date.now() + 120000;
+  while (Date.now() < deadline) {
+    const row = await db
+      .prepare(
+        "SELECT state, last_error, job_id FROM jobs WHERE kind='bot_simulation' ORDER BY due_ms DESC, job_id DESC LIMIT 1",
+      )
+      .first();
+    const completed =
+      (await db
+        .prepare(
+          "SELECT count(*) n FROM jobs WHERE kind='bot_simulation' AND state='completed'",
+        )
+        .first("n")) ?? 0;
+    if (completed > before && row?.state === "completed") return;
+    if (row?.state === "failed") {
+      throw new Error(
+        `${label} failed: ${row.last_error || "execution_failed"}`,
+      );
+    }
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  const pending = await db
+    .prepare(
+      "SELECT job_id, state, last_error, attempts FROM jobs WHERE kind='bot_simulation' ORDER BY due_ms DESC",
+    )
+    .all();
+  throw new Error(
+    `${label} timed out: ${JSON.stringify(pending.results ?? pending)}`,
+  );
+}
+
+test("launch tick creates a 50-bot roster with observations and is watermark-idempotent", async () => {
+  const db = await botSimulationRuntime.getD1Database("DB");
+  await applyBotSimulationMigrations(db);
+  const human = "00000000-0000-4000-8000-000000009901";
+  const generation = "00000000-0000-0000-0000-000000000000";
+  const now = Date.now();
+  await db
+    .prepare(
+      "INSERT INTO participants(participant_id,subject_hmac,membership,restriction,generation_revision,generation_id) VALUES (?,?,'joined','none',0,?)",
+    )
+    .bind(human, `human-leader-${human}`, generation)
+    .run();
+  await db
+    .prepare("INSERT INTO participant_revisions VALUES (?,0)")
+    .bind(human)
+    .run();
+  await db
+    .prepare(
+      "INSERT INTO profiles VALUES (?,'Human Leader',NULL,'approved','none')",
+    )
+    .bind(human)
+    .run();
+  const periods = periodIdsCovering(now - 800 * 86400000, now + 86400000);
+  const inserts = periods.map((period) =>
+    db
+      .prepare(
+        "INSERT INTO live_scores(participant_id,generation_revision,generation_id,period_id,folds,revision) VALUES (?,0,?,?,10000,0)",
+      )
+      .bind(human, generation, period),
+  );
+  for (let i = 0; i < inserts.length; i += 40) {
+    await db.batch(inserts.slice(i, i + 40));
+  }
+  await db
+    .prepare(
+      "UPDATE administrative_configuration SET bot_simulation_enabled=1 WHERE singleton=1",
+    )
+    .run();
+  const botObservationCount = async () =>
+    (await db
+      .prepare(
+        "SELECT count(*) n FROM observations o JOIN bot_profiles b ON b.participant_id=o.participant_id",
+      )
+      .first("n")) ?? 0;
+  let ticks = 0;
+  let observations = 0;
+  while (ticks < 12) {
+    ticks += 1;
+    await runBotSimulationTick(db, `launch tick ${ticks}`);
+    if (ticks === 1) {
+      assert.equal(
+        await db.prepare("SELECT count(*) n FROM bot_profiles").first("n"),
+        50,
+      );
+    }
+    observations = await botObservationCount();
+    if (observations > 0) break;
+  }
+  assert.ok(
+    observations > 0,
+    `launch ticks should persist bot observations after ${ticks} ticks`,
+  );
+  const eventIds = (
+    await db
+      .prepare(
+        "SELECT o.event_id FROM observations o JOIN bot_profiles b ON b.participant_id=o.participant_id ORDER BY o.event_id",
+      )
+      .all()
+  ).results.map((row) => row.event_id);
+  const watermark = await db
+    .prepare(
+      "SELECT watermark_ms, cursor_participant_id, revision, launch_started_at_ms FROM bot_simulation_state WHERE singleton=1",
+    )
+    .first();
+  assert.ok(watermark.launch_started_at_ms > 0);
+  await db
+    .prepare(
+      "UPDATE bot_simulation_state SET watermark_ms=0, cursor_participant_id=NULL WHERE singleton=1",
+    )
+    .run();
+  for (let i = 1; i <= ticks; i++) {
+    await runBotSimulationTick(db, `replay tick ${i}`);
+  }
+  assert.equal(
+    await db.prepare("SELECT count(*) n FROM bot_profiles").first("n"),
+    50,
+  );
+  assert.equal(
+    (await db
+      .prepare(
+        "SELECT count(*) n FROM observations o JOIN bot_profiles b ON b.participant_id=o.participant_id",
+      )
+      .first("n")) ?? 0,
+    observations,
+  );
+  assert.deepEqual(
+    (
+      await db
+        .prepare(
+          "SELECT o.event_id FROM observations o JOIN bot_profiles b ON b.participant_id=o.participant_id ORDER BY o.event_id",
+        )
+        .all()
+    ).results.map((row) => row.event_id),
+    eventIds,
+  );
+  const replayed = await db
+    .prepare(
+      "SELECT watermark_ms, cursor_participant_id FROM bot_simulation_state WHERE singleton=1",
+    )
+    .first();
+  assert.equal(replayed.watermark_ms, watermark.watermark_ms);
+  assert.equal(replayed.cursor_participant_id, watermark.cursor_participant_id);
+  const leaders = (
+    await db
+      .prepare(
+        `SELECT s.period_id, s.participant_id, s.folds
+         FROM live_scores s
+         JOIN bot_profiles b ON b.participant_id=s.participant_id
+         WHERE s.folds>0 AND s.folds >= (
+           SELECT max(s2.folds) FROM live_scores s2 WHERE s2.period_id=s.period_id
+         )`,
+      )
+      .all()
+  ).results;
+  assert.deepEqual(
+    leaders,
+    [],
+    "no bot may be #1 or tied for first on any board",
+  );
 });

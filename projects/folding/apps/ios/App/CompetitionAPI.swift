@@ -18,6 +18,9 @@ struct CompetitionMe: Decodable, Sendable {
   let preferences: CompetitionResultPreferences?
   let profile: CompetitionWireProfile
   let enrollment: CompetitionWireEnrollment?
+  /// Present on current workers; older clients ignore the unknown key.
+  // swift-format-ignore: AlwaysUseLowerCamelCase
+  let is_admin: Bool?
 }
 struct CompetitionJoinResponse: Decodable, Sendable {
   let profile: CompetitionWireProfile
@@ -84,6 +87,10 @@ actor CompetitionAPI {
       throw CompetitionTransportError.invalidResponse
     }
     return value
+  }
+  func adminParticipant(_ id: String) async throws -> AdminParticipantDetails {
+    guard UUID(uuidString: id) != nil else { throw CompetitionTransportError.invalidResponse }
+    return try await transport.send("GET", path: "/v1/admin/participants/\(id)")
   }
   func featureBadge(_ request: FeaturedBadgeRequest) async throws -> FeaturedBadgeResponse {
     try await transport.send(
