@@ -63,17 +63,14 @@
     };
     # Temporary: vov's check job uses this pool until vov moves to hosted runners.
     # Routing audit passed at Virtual-Outfit-Vault/vov f4213cb (docs/linux-runners.md).
-    # Commented out because installationId must be a positive integer and the
-    # Virtual-Outfit-Vault installation of the runner App is not known yet.
-    # TODO(calum): set installationId once the App is installed on the org.
     # TODO(calum): set trustApproved = true only after reviewing vov's collaborators,
     # PR policy and runnable workflows; until then the controller ignores its jobs.
-    # repositories."Virtual-Outfit-Vault/vov" = {
-    #   repositoryId = 1457346085;
-    #   installationId = TODO;
-    #   runnerGroupId = 1;
-    #   trustApproved = false;
-    # };
+    repositories."Virtual-Outfit-Vault/vov" = {
+      repositoryId = 1457346085;
+      installationId = 181800391;
+      runnerGroupId = 1;
+      trustApproved = false;
+    };
     # Xcode 27.2 candidate; promote only after the held-pool runtime canary.
     image = "ghcr.io/cirruslabs/macos-tahoe-xcode@sha256:f8315a2f627daf64ab2c4e11d29a4d267953902a16151ee28fcdd7185927c317";
     cpu = 4;
