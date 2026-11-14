@@ -111,6 +111,13 @@ in
       assert pkgs.lib.hasInfix "/Users/coding UniqueID" book.system.activationScripts.preActivation.text;
       assert pkgs.lib.hasInfix "-a coding -t user com.apple.access_ssh"
         book.system.activationScripts.users.text;
+      assert builtins.elem pkgs.xcodes book.environment.systemPackages;
+      assert pkgs.lib.hasInfix
+        "/usr/bin/xcode-select -s /Applications/Xcode-27.2.0.app/Contents/Developer"
+        book.system.activationScripts.postActivation.text;
+      assert pkgs.lib.hasInfix "xcodes install 27.2.0 --directory /Applications"
+        book.system.activationScripts.postActivation.text;
+      assert !(pkgs.lib.hasInfix "Xcode-" mini.system.activationScripts.postActivation.text);
       assert !(mini.users.users ? coding) && mini.homelab.sshUsers == { };
       assert pkgs.lib.hasInfix "AllowUsers admin\n" mini.services.openssh.extraConfig;
       pkgs.runCommand "homelab-coding-account-check" { } ''touch "$out"'';
