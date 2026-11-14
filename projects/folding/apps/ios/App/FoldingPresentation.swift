@@ -275,9 +275,7 @@ struct TrackingSyncPresentation: Sendable {
 
 enum ExportChoice { case json, csv }
 
-/// All operations are supplied by the app composition. A nil optional command is unavailable,
-/// never a simulated success. Commands must return only after durable work has completed.
-@MainActor struct AdminParticipantDetails: Decodable, Sendable {
+struct AdminParticipantDetails: Decodable, Sendable {
   struct Participant: Decodable, Sendable {
     // swift-format-ignore: AlwaysUseLowerCamelCase
     let participant_id: String
@@ -304,7 +302,9 @@ enum ExportChoice { case json, csv }
   let participant: Participant
 }
 
-struct FoldingActions {
+/// All operations are supplied by the app composition. A nil optional command is unavailable,
+/// never a simulated success. Commands must return only after durable work has completed.
+@MainActor struct FoldingActions {
   var refresh: () async throws -> Void
   var setup: (SetupAction) async throws -> SetupProgress
   var savePreferences: (FoldingPreferences) async throws -> Void
