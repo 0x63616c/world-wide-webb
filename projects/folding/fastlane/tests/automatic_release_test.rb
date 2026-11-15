@@ -130,7 +130,7 @@ class AutomaticReleaseTest < Minitest::Test
     asc.define_singleton_method(:post) { |*| flunk "Draft must be reused" }
     client = Struct.new(:tunes_request_client).new(asc)
     planner = Object.new
-    planner.define_singleton_method(:plan) { |_, _| ["1.0.1", "rejected"] }
+    planner.define_singleton_method(:plan) { |_, _| %w[1.0.1 rejected] }
     FoldingRelease.stub(:clean_commit!, source) do
       FoldingRelease.stub(:client, client) do
         ReleaseSource.stub(:current!, nil) do
