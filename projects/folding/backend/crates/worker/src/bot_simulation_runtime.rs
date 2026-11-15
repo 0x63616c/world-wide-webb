@@ -20,6 +20,7 @@ struct State {
     watermark_ms: i64,
     revision: i64,
     cursor_participant_id: Option<String>,
+    launch_started_at_ms: Option<i64>,
 }
 #[derive(Deserialize)]
 struct Bot {
@@ -274,15 +275,40 @@ async fn replay_day(
         .ok_or_else(Failure::unavailable)?;
     let weekend = matches!(date.weekday(), chrono::Weekday::Sat | chrono::Weekday::Sun);
     let planned = policy::day_plan(persona, policy::day_seed(&seed, day), weekend);
-    let pairs = (planned.len() / 2).min(BATCH_EVENTS / 2);
-    if pairs == 0 {
+    // Only folds whose close time has already passed; today's slice fills in on later ticks.
+    let happened = planned
+        .chunks_exact(2)
+        .take_while(|pair| day_ms + i64::from(pair[1]) * 60000 <= received)
+        .count();
+    let pairs = happened.min(BATCH_EVENTS / 2);
+    #[derive(Deserialize)]
+    struct Recorded {
+        count: i64,
+    }
+    let first_sequence = day.max(0) * BATCH_EVENTS as i64 + 1;
+    let recorded = statement(
+        db,
+        "SELECT count(*) AS count FROM observations WHERE participant_id=?1 AND device_id=?2 AND sequence BETWEEN ?3 AND ?4",
+        &[
+            text(&bot.participant_id),
+            text(&bot.device_id),
+            number(first_sequence),
+            number(first_sequence + BATCH_EVENTS as i64 - 1),
+        ],
+    )?
+    .first::<Recorded>(None)
+    .await
+    .map_err(|_| Failure::unavailable())?
+    .map_or(0, |r| r.count.max(0) as usize);
+    let recorded_pairs = recorded / 2;
+    if pairs <= recorded_pairs {
         return Ok(0);
     }
     let generation = Generation {
         revision: 1,
         reset_id: Id::parse(&bot.generation_id).map_err(|_| Failure::unavailable())?,
     };
-    let event_count = pairs as u64 * 2;
+    let event_count = (pairs - recorded_pairs) as u64 * 2;
     let all = statement(
         db,
         "SELECT folds FROM live_scores WHERE participant_id=?1 AND period_id='all'",
@@ -309,7 +335,7 @@ async fn replay_day(
                 .saturating_sub(old),
         );
     }
-    let mut count = (allowed / 2).min(pairs as u64) as usize;
+    let mut count = (allowed / 2).min((pairs - recorded_pairs) as u64) as usize;
     // Re-read the source cap before every batch; no bot event is inserted before all three caps pass.
     if count == 0 {
         return Ok(0);
@@ -321,7 +347,7 @@ async fn replay_day(
         .ok_or_else(Failure::unavailable)?
         .and_utc()
         .timestamp_millis();
-    for i in 0..count * 2 {
+    for i in recorded_pairs * 2..(recorded_pairs + count) * 2 {
         events.push(Event {
             schema_version: 1,
             event_id: event_id(bot, day, i as u64),
@@ -448,12 +474,23 @@ pub(crate) async fn tick(env: &Env, db: &D1Database, dry_run: bool) -> Result<us
         return Ok(statement(db,"SELECT count(*) AS count FROM bot_profiles WHERE retired_at_ms IS NULL AND paused_at_ms IS NULL",&[])?.first::<Active>(None).await.map_err(|_|Failure::unavailable())?.map_or(0,|v|v.count.max(0) as usize));
     }
     create_roster(env, db, time).await?;
-    let state=statement(db,"SELECT watermark_ms,revision,cursor_participant_id FROM bot_simulation_state WHERE singleton=1",&[])?.first::<State>(None).await.map_err(|_|Failure::unavailable())?.ok_or_else(Failure::unavailable)?;
+    let state=statement(db,"SELECT watermark_ms,revision,cursor_participant_id,launch_started_at_ms FROM bot_simulation_state WHERE singleton=1",&[])?.first::<State>(None).await.map_err(|_|Failure::unavailable())?.ok_or_else(Failure::unavailable)?;
     let day = if state.watermark_ms == 0 {
         statement(db,"SELECT min(joined_at_ms) AS watermark_ms FROM bot_profiles WHERE retired_at_ms IS NULL",&[])?.first::<MinTime>(None).await.map_err(|_|Failure::unavailable())?.map_or(time,|v|v.watermark_ms).div_euclid(86400000)*86400000
     } else {
         state.watermark_ms
     };
+    // Bot join dates are backdated for display only; simulated folds begin on the launch day.
+    let launch_day = state
+        .launch_started_at_ms
+        .unwrap_or(time)
+        .div_euclid(86400000)
+        * 86400000;
+    let today = time.div_euclid(86400000) * 86400000;
+    let day = day.max(launch_day);
+    if day > today {
+        return Ok(0);
+    }
     let bots=statement(db,"SELECT b.participant_id,b.persona_id,b.persona_version,b.seed,b.joined_at_ms,p.active_device_id AS device_id,p.epoch_id,p.generation_id FROM bot_profiles b JOIN participants p ON p.participant_id=b.participant_id WHERE b.retired_at_ms IS NULL AND b.paused_at_ms IS NULL AND b.joined_at_ms<=?1 AND (?2 IS NULL OR b.participant_id>?2) ORDER BY b.participant_id LIMIT ?3",&[number(day+86400000),state.cursor_participant_id.as_deref().map(text).unwrap_or(wasm_bindgen::JsValue::NULL),number(BATCH_BOTS as i64)])?.all().await.map_err(|_|Failure::unavailable())?.results::<Bot>().map_err(|_|Failure::unavailable())?;
     let personas = policy::personas();
     let mut total = 0;
@@ -473,7 +510,8 @@ pub(crate) async fn tick(env: &Env, db: &D1Database, dry_run: bool) -> Result<us
     } else {
         None
     };
-    let next = if cursor.is_some() {
+    // Stay on today until it is over so later ticks add the folds that have happened since.
+    let next = if cursor.is_some() || day == today {
         day
     } else {
         day + 86400000
