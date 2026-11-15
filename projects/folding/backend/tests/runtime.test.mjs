@@ -39,6 +39,7 @@ test("compiled Rust Worker fails closed and bounds untrusted bodies", async () =
     "0013_operations.sql",
     "0020_admin_minimum_build.sql",
     "0024_bot_simulation.sql",
+    "0025_bot_simulation_always_on.sql",
   ])
     for (const sql of (await readFile(`${root}migrations/${migration}`, "utf8"))
       .split(";")
@@ -442,6 +443,7 @@ test("actual Worker issues bounded challenges and rotates encrypted sessions wit
     "0022_badge_notifications.sql",
     "0023_published_ios_builds.sql",
     "0024_bot_simulation.sql",
+    "0025_bot_simulation_always_on.sql",
   ]) {
     const source = await readFile(`${root}migrations/${migration}`, "utf8");
     for (const sql of source.split(";").filter((s) => s.trim()))
@@ -1406,7 +1408,7 @@ test("scheduler avoids empty categories, duplicate pending work and failed retry
     (
       await db.prepare(sql("DUE_CATEGORIES_SQL")).bind(time, firstHour).all()
     ).results.map((r) => r.kind);
-  assert.deepEqual(await due(), ["retention"]);
+  assert.deepEqual(await due(), ["retention", "bot_simulation"]);
   const insert = (id, kind, version = slot) =>
     db.prepare(sql("INSERT_CATEGORY_SQL")).bind(id, kind, version, time).run();
   await insert("hourly-retention", "retention");
@@ -1420,7 +1422,7 @@ test("scheduler avoids empty categories, duplicate pending work and failed retry
   await db
     .prepare("UPDATE jobs SET state='completed' WHERE kind='retention'")
     .run();
-  assert.deepEqual(await due(), []);
+  assert.deepEqual(await due(), ["bot_simulation"]);
   await db
     .prepare(
       "INSERT INTO avatar_purge_jobs VALUES ('synthetic-object','nobody',0,0)",
@@ -1563,6 +1565,7 @@ test("database minimum-build policy uses bounded cached reads and preserves reco
         "0013_operations.sql",
         "0020_admin_minimum_build.sql",
         "0024_bot_simulation.sql",
+        "0025_bot_simulation_always_on.sql",
       ])
         for (const sql of (
           await readFile(`${root}migrations/${migration}`, "utf8")
@@ -2720,7 +2723,7 @@ test("enrollment recovers an expired challenge after cleanup without treating it
   assert.equal((await replay.json()).enrolled, true);
 });
 
-test("bot simulation stays off by default, hides the bot marker, and keeps admin details private", async () => {
+test("bot simulation hides the bot marker, and keeps admin details private", async () => {
   const db = await authenticatedRuntime.getD1Database("DB");
   const id = (n) => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
   const adminId = id(91001);
@@ -2732,26 +2735,6 @@ test("bot simulation stays off by default, hides the bot marker, and keeps admin
   const token = Buffer.alloc(32, 217);
   const session = "bot-admin-capability-session-v2";
   const hash = (value) => createHash("sha256").update(value).digest();
-  assert.equal(
-    await db
-      .prepare(
-        "SELECT bot_simulation_enabled FROM administrative_configuration WHERE singleton=1",
-      )
-      .first("bot_simulation_enabled"),
-    0,
-  );
-  const botsBefore = await db
-    .prepare("SELECT count(*) n FROM bot_profiles")
-    .first("n");
-  const worker = await authenticatedRuntime.getWorker();
-  await worker.scheduled({
-    cron: "* * * * *",
-    scheduledTime: time,
-  });
-  assert.equal(
-    await db.prepare("SELECT count(*) n FROM bot_profiles").first("n"),
-    botsBefore,
-  );
   await db.batch([
     db
       .prepare(
@@ -3005,6 +2988,7 @@ async function applyBotSimulationMigrations(db) {
     "0022_badge_notifications.sql",
     "0023_published_ios_builds.sql",
     "0024_bot_simulation.sql",
+    "0025_bot_simulation_always_on.sql",
   ]) {
     const source = await readFile(`${root}migrations/${migration}`, "utf8");
     for (const sql of source.split(";").filter((s) => s.trim()))
@@ -3085,11 +3069,6 @@ test("launch tick creates a 50-bot roster with observations and is watermark-ide
   for (let i = 0; i < inserts.length; i += 40) {
     await db.batch(inserts.slice(i, i + 40));
   }
-  await db
-    .prepare(
-      "UPDATE administrative_configuration SET bot_simulation_enabled=1 WHERE singleton=1",
-    )
-    .run();
   const botObservationCount = async () =>
     (await db
       .prepare(

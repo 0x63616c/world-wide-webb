@@ -85,22 +85,6 @@ fn event_id(bot: &Bot, day: i64, seq: u64) -> Id {
     .unwrap()
 }
 
-async fn enabled(db: &D1Database) -> Result<bool, Failure> {
-    #[derive(Deserialize)]
-    struct Flag {
-        bot_simulation_enabled: i64,
-    }
-    Ok(statement(
-        db,
-        "SELECT bot_simulation_enabled FROM administrative_configuration WHERE singleton=1",
-        &[],
-    )?
-    .first::<Flag>(None)
-    .await
-    .map_err(|_| Failure::unavailable())?
-    .is_some_and(|v| v.bot_simulation_enabled == 1))
-}
-
 fn avatar_png(style: &str, seed: &[u8; 32]) -> Result<Vec<u8>, Failure> {
     use image::{ImageBuffer, ImageFormat, Rgb};
     let base = if style == "black" {
@@ -455,9 +439,6 @@ struct Decision {
 
 /// One resumable UTC-day slice. Replaying a slice is safe because event IDs and observation keys are deterministic.
 pub(crate) async fn tick(env: &Env, db: &D1Database, dry_run: bool) -> Result<usize, Failure> {
-    if !enabled(db).await? {
-        return Ok(0);
-    }
     let time = now();
     if dry_run {
         #[derive(Deserialize)]
