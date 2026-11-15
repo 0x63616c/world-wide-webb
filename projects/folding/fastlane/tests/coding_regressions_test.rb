@@ -575,6 +575,103 @@ class CodingRegressionsTest < Minitest::Test
     assert_equal 0, api.created
   end
 
+  def test_rejected_app_version_is_released_from_its_unresolved_submission
+    api = Apple.new
+    old_items = [
+      {
+        "id" => "rejected-item",
+        "attributes" => {
+          "state" => "REJECTED"
+        },
+        "relationships" => {
+          "appStoreVersion" => {
+            "data" => {
+              "id" => "app-update"
+            }
+          }
+        }
+      }
+    ]
+    old_state = "UNRESOLVED_ISSUES"
+    removed = []
+    original_all = api.method(:all)
+    api.define_singleton_method(:all) do |path|
+      if path.include?("UNRESOLVED_ISSUES")
+        [{ "id" => "old", "attributes" => { "state" => old_state } }]
+      elsif path.include?("/reviewSubmissions/old/items")
+        old_items
+      else
+        original_all.call(path)
+      end
+    end
+    original_request = api.method(:request)
+    api.define_singleton_method(:request) do |method, path, body: nil|
+      if method == "PATCH" && path == "/v1/reviewSubmissionItems/rejected-item"
+        removed << body.dig("data", "attributes", "removed")
+        old_items.first["attributes"]["state"] = "REMOVED"
+        old_state = "COMPLETE"
+        return { "data" => old_items.first }
+      end
+      if method == "GET" && path == "/v1/reviewSubmissions/old"
+        return(
+          {
+            "data" => {
+              "id" => "old",
+              "attributes" => {
+                "state" => old_state
+              }
+            }
+          }
+        )
+      end
+      original_request.call(method, path, body: body)
+    end
+    record = Record.new({ "asc_app_id" => "app" })
+    FoldingRelease::ReviewSubmission.prepare(record, "app-update", api: api)
+    assert_equal [true], removed
+    assert_equal 4, api.created
+    # A retry finds the old submission already released and changes nothing.
+    FoldingRelease::ReviewSubmission.prepare(record, "app-update", api: api)
+    assert_equal [true], removed
+    assert_equal 4, api.created
+  end
+
+  def test_unresolved_submission_with_pending_items_is_left_untouched
+    api = Apple.new
+    original_all = api.method(:all)
+    api.define_singleton_method(:all) do |path|
+      if path.include?("UNRESOLVED_ISSUES")
+        [{ "id" => "old", "attributes" => { "state" => "UNRESOLVED_ISSUES" } }]
+      elsif path.include?("/reviewSubmissions/old/items")
+        [
+          {
+            "id" => "pending-item",
+            "attributes" => {
+              "state" => "READY_FOR_REVIEW"
+            },
+            "relationships" => {
+              "appStoreVersion" => {
+                "data" => {
+                  "id" => "app-update"
+                }
+              }
+            }
+          }
+        ]
+      else
+        original_all.call(path)
+      end
+    end
+    assert_raises(RuntimeError) do
+      FoldingRelease::ReviewSubmission.prepare(
+        Record.new({ "asc_app_id" => "app" }),
+        "app-update",
+        api: api
+      )
+    end
+    assert_equal 0, api.created
+  end
+
   def test_approved_tips_are_not_resubmitted_with_an_app_update
     api = Apple.new
     original = api.method(:all)
