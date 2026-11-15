@@ -481,7 +481,11 @@ pub(crate) async fn tick(env: &Env, db: &D1Database, dry_run: bool) -> Result<us
         state.watermark_ms
     };
     // Bot join dates are backdated for display only; simulated folds begin on the launch day.
-    let launch_day = state.launch_started_at_ms.unwrap_or(time).div_euclid(86400000) * 86400000;
+    let launch_day = state
+        .launch_started_at_ms
+        .unwrap_or(time)
+        .div_euclid(86400000)
+        * 86400000;
     let today = time.div_euclid(86400000) * 86400000;
     let day = day.max(launch_day);
     if day > today {
