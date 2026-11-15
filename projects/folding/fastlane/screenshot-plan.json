@@ -40,7 +40,7 @@
       "id": "today",
       "order": 1,
       "appearance": "dark",
-      "title_key": "tab.today"
+      "title_key": "tab.analytics"
     },
     {
       "id": "history",
