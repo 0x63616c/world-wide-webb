@@ -37,6 +37,66 @@ module FoldingRelease
       supported.first
     end
 
+    # A rejected app version stays attached to its UNRESOLVED_ISSUES submission,
+    # and Apple refuses to add it to another one. Like the shared review-products
+    # lane, remove only the rejected items so that submission completes with its
+    # history intact; the caller then builds a fresh draft.
+    def self.release_rejected!(
+      api,
+      app_id,
+      expected,
+      sleeper: ->(seconds) { sleep seconds }
+    )
+      api
+        .all(
+          "/v1/reviewSubmissions?filter%5Bapp%5D=#{app_id}&filter%5Bplatform%5D=IOS&filter%5Bstate%5D=UNRESOLVED_ISSUES"
+        )
+        .select { |s| s.dig("attributes", "state") == "UNRESOLVED_ISSUES" }
+        .each do |submission|
+          id = submission.fetch("id")
+          active =
+            items(api, id).reject do |item|
+              item.dig("attributes", "state") == "REMOVED"
+            end
+          next if (active.map { |item| identity(item) } & expected).empty?
+          unless active.all? { |item|
+                   item.dig("attributes", "state") == "REJECTED"
+                 }
+            raise "Rejected submission #{id} has non-rejected items; reconcile Apple"
+          end
+          active.each do |item|
+            api.request(
+              "PATCH",
+              "/v1/reviewSubmissionItems/#{item.fetch("id")}",
+              body: {
+                "data" => {
+                  "type" => "reviewSubmissionItems",
+                  "id" => item.fetch("id"),
+                  "attributes" => {
+                    "removed" => true
+                  }
+                }
+              }
+            )
+          end
+          completed =
+            20.times.any? do
+              state =
+                api.request("GET", "/v1/reviewSubmissions/#{id}").dig(
+                  "data",
+                  "attributes",
+                  "state"
+                )
+              next true if state == "COMPLETE"
+              sleeper.call(3)
+              false
+            end
+          unless completed
+            raise "Rejected submission removal is still processing; rerun after it completes"
+          end
+        end
+    end
+
     def self.prepare(record, version_id, api: FoldingTipProducts::API.new)
       app_id = record.data.fetch("asc_app_id")
       products = api.all("/v1/apps/#{app_id}/inAppPurchasesV2?limit=200")
@@ -108,6 +168,7 @@ module FoldingRelease
       expected =
         [["appStoreVersion", version_id]] +
           selected.map { |p| ["inAppPurchaseVersion", p.fetch("version_id")] }
+      release_rejected!(api, app_id, expected)
       if (id = record.data["prepared_submission_id"])
         submission =
           api.request("GET", "/v1/reviewSubmissions/#{id}").fetch("data")
