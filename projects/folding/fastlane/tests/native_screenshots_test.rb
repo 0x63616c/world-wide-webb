@@ -132,7 +132,7 @@ class NativeScreenshotsTest < Minitest::Test
         scenes,
         { "app_locale" => "en" }
       ).first
-    assert_equal "Today", first.fetch("title")
+    assert_equal "Analytics", first.fetch("title")
   end
 
   def test_missing_localized_title_fails_before_capture
