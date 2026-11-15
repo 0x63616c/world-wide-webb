@@ -1,16 +1,15 @@
 # Leaderboard bot simulation
 
-The simulation is disabled by default. Migration `0024_bot_simulation.sql` adds a server-only
-`bot_profiles` marker (including pause, avatar style, and revision), a resumable watermark with
-cursor, `participant_roles`, `bot_simulation_audit`, and
-`administrative_configuration.bot_simulation_enabled` with a database default of `0`. Leave the flag
-off until Calum reviews this change and explicitly opts in. The audited Operations page exposes the
-flag; every change is revision-fenced and recorded in the existing operations audit.
+The simulation is always on. There is no enable flag or admin switch. Migration
+`0024_bot_simulation.sql` adds a server-only `bot_profiles` marker (including pause, avatar style,
+and revision), a resumable watermark with cursor, `participant_roles` and `bot_simulation_audit`.
+Migration `0025_bot_simulation_always_on.sql` drops the launch-era
+`administrative_configuration.bot_simulation_enabled` flag.
 
-Enabling the flag makes the existing jobs cron pick up a `bot_simulation` category and run
-`bot_simulation_runtime::tick`. The tick is a no-op while the flag is off. A dry-run from the admin
+The existing jobs cron schedules the `bot_simulation` category on every run and calls
+`bot_simulation_runtime::tick`. The first tick creates the launch roster. A dry-run from the admin
 Bots page returns the current active roster size and does not write observations, roster rows, or
-watermark updates.
+watermark updates. Use the Bots page to pause, resume, or retire individual bots.
 
 ## Roster, personas, and avatars
 
@@ -19,7 +18,7 @@ templates across the roster and stores each bot's concrete persona id, version, 
 persona version instead of changing an existing version's meaning; keep old definitions until bots
 using that version have been migrated or retired.
 
-Launch policy: 50 bots at first enable, two additional joins per week, cap of 150. Names come from
+Launch policy: 50 bots on the first tick, two additional joins per week, cap of 150. Names come from
 the approved lists in `backend/crates/worker/policies/names-v1.json`. Avatars are generated
 (`none`, `initials`, `illustrated`, `solid`, `black`). Photo-style avatars are a pluggable manifest
 at `backend/crates/worker/policies/photo-avatars.manifest.json` and ship empty. Do not add
@@ -73,5 +72,6 @@ npx wrangler d1 execute folding-production --remote --file \
   projects/folding/backend/scripts/purge-bots.sql
 ```
 
-The script leaves the administrative flag off and preserves the audit trail. It never deletes human
+The simulation recreates its roster on the next cron run, so deploy a revert of the simulation
+before purging. The script preserves the audit trail. It never deletes human
 rows. Take the normal approved database backup before using it.

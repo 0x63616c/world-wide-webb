@@ -33,7 +33,7 @@ WHERE CASE value
  WHEN 'retention' THEN (NOT EXISTS(SELECT 1 FROM jobs WHERE kind='retention' AND version>=?2)
  OR EXISTS(SELECT 1 FROM participants WHERE restriction='suspended' AND suspended_until_ms<=?1))
  WHEN 'milestones' THEN EXISTS(SELECT 1 FROM participants p LEFT JOIN milestone_state s ON s.participant_id=p.participant_id WHERE p.account_state='active' AND p.membership='joined' AND p.restriction='none' AND EXISTS(SELECT 1 FROM epochs e WHERE e.epoch_id=p.epoch_id AND e.participant_id=p.participant_id AND e.closed_at_ms IS NULL) AND (s.participant_id IS NULL OR s.state='building'))
- WHEN 'bot_simulation' THEN (SELECT bot_simulation_enabled FROM administrative_configuration WHERE singleton=1)=1
+ WHEN 'bot_simulation' THEN 1
  ELSE 0 END
 "#;
 pub const INSERT_CATEGORY_SQL: &str = r#"

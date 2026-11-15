@@ -60,11 +60,4 @@ SET
 WHERE
   singleton = 1;
 
-UPDATE administrative_configuration
-SET
-  bot_simulation_enabled = 0,
-  revision = revision + 1
-WHERE
-  singleton = 1;
-
 COMMIT;
