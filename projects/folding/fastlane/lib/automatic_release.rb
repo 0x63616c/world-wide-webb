@@ -36,6 +36,26 @@ module FoldingRelease
           "v1/apps/#{app_id}/appStoreVersions?filter[platform]=IOS&limit=50"
         )
       target, id = planner(source).plan(rows, configured)
+      draft = rows.find { |row| row["id"] == id }
+      # A rejected or unsubmitted draft keeps its old version string; Apple only
+      # accepts a build whose marketing version matches, so carry it forward.
+      if draft &&
+           ReleasePipeline::EDITABLE.include?(ReleasePipeline.state(draft)) &&
+           Gem::Version.new(configured) > Gem::Version.new(target)
+        asc.patch(
+          "v1/appStoreVersions/#{id}",
+          {
+            data: {
+              type: "appStoreVersions",
+              id: id,
+              attributes: {
+                versionString: configured
+              }
+            }
+          }
+        )
+        target = configured
+      end
       unless target == configured
         raise "Tagged version must match the processed beta; bump app.yml before building a new version"
       end

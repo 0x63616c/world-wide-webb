@@ -106,6 +106,54 @@ class AutomaticReleaseTest < Minitest::Test
     end
   end
 
+  def test_rejected_draft_is_renamed_to_the_configured_version
+    source = "a" * 40
+    rows = [
+      {
+        "id" => "rejected",
+        "attributes" => {
+          "versionString" => "1.0.1",
+          "appVersionState" => "REJECTED"
+        }
+      },
+      {
+        "id" => "live",
+        "attributes" => {
+          "versionString" => "1.0.0",
+          "appVersionState" => "READY_FOR_DISTRIBUTION"
+        }
+      }
+    ]
+    patches = []
+    asc = Object.new
+    asc.define_singleton_method(:patch) { |path, body| patches << [path, body] }
+    asc.define_singleton_method(:post) { |*| flunk "Draft must be reused" }
+    client = Struct.new(:tunes_request_client).new(asc)
+    planner = Object.new
+    planner.define_singleton_method(:plan) { |_, _| %w[1.0.1 rejected] }
+    FoldingRelease.stub(:clean_commit!, source) do
+      FoldingRelease.stub(:client, client) do
+        ReleaseSource.stub(:current!, nil) do
+          ReleasePipeline.stub(:all, rows) do
+            Release.stub(:planner, planner) do
+              Release.stub(:configured_version, "1.0.2") do
+                assert_equal "1.0.2", Release.plan
+              end
+              assert_equal 1, patches.length
+              assert_equal "v1/appStoreVersions/rejected", patches[0][0]
+              assert_equal "1.0.2",
+                           patches[0][1].dig(:data, :attributes, :versionString)
+              Release.stub(:configured_version, "1.0.1") do
+                assert_equal "1.0.1", Release.plan
+              end
+              assert_equal 1, patches.length
+            end
+          end
+        end
+      end
+    end
+  end
+
   def test_a_superseded_source_stops_before_backend_or_apple_operations
     record = Record.new({ "commit_sha" => "a" * 40 })
     ReleaseSource.stub(
