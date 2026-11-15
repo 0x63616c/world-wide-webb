@@ -7,7 +7,10 @@ Migration `0025_bot_simulation_always_on.sql` drops the launch-era
 `administrative_configuration.bot_simulation_enabled` flag.
 
 The existing jobs cron schedules the `bot_simulation` category on every run and calls
-`bot_simulation_runtime::tick`. The first tick creates the launch roster. A dry-run from the admin
+`bot_simulation_runtime::tick`. The first tick creates the launch roster. Bot join dates are backdated for display only. Simulated
+folds start on the launch day (`launch_started_at_ms`), never earlier. The tick then replays one UTC day at a time
+and stops at today. Today's slice records only folds whose close time has passed, and later ticks add
+the rest. A dry-run from the admin
 Bots page returns the current active roster size and does not write observations, roster rows, or
 watermark updates. Use the Bots page to pause, resume, or retire individual bots.
 

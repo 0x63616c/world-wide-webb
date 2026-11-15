@@ -3069,6 +3069,14 @@ test("launch tick creates a 50-bot roster with observations and is watermark-ide
   for (let i = 0; i < inserts.length; i += 40) {
     await db.batch(inserts.slice(i, i + 40));
   }
+  // Launch two days ago so the first ticks replay complete past days, independent of time of day.
+  const launchedAt = now - 2 * 86400000;
+  await db
+    .prepare(
+      "UPDATE bot_simulation_state SET launch_started_at_ms=? WHERE singleton=1",
+    )
+    .bind(launchedAt)
+    .run();
   const botObservationCount = async () =>
     (await db
       .prepare(
@@ -3159,5 +3167,29 @@ test("launch tick creates a 50-bot roster with observations and is watermark-ide
     leaders,
     [],
     "no bot may be #1 or tied for first on any board",
+  );
+  // Catch up past the launch days: the watermark stops at today and no future fold is recorded.
+  for (let i = 1; i <= 20; i++) {
+    await runBotSimulationTick(db, `catch-up tick ${i}`);
+  }
+  const caughtUp = Date.now();
+  assert.equal(
+    (
+      await db
+        .prepare(
+          "SELECT watermark_ms FROM bot_simulation_state WHERE singleton=1",
+        )
+        .first()
+    ).watermark_ms,
+    Math.floor(caughtUp / 86400000) * 86400000,
+  );
+  assert.equal(
+    await db
+      .prepare(
+        "SELECT count(*) n FROM observations o JOIN bot_profiles b ON b.participant_id=o.participant_id WHERE json_extract(o.event_json,'$.observed_at_ms') > ? OR json_extract(o.event_json,'$.observed_at_ms') < ?",
+      )
+      .bind(caughtUp, Math.floor(launchedAt / 86400000) * 86400000)
+      .first("n"),
+    0,
   );
 });
