@@ -75,7 +75,7 @@ import struct FoldingData.TrackingDiagnosticSnapshot
       setup: { action in try await self.runtime.setup(action) },
       savePreferences: { preferences in
         guard preferences.schemaVersion == 1, TimeZone(identifier: preferences.homeTimezone) != nil,
-          preferences.dailyLimit > 0, Set(preferences.metrics).count == preferences.metrics.count
+          preferences.dailyLimit > 0
         else { throw AnalyticsError.invalidRange }
         if preferences.homeTimezone != self.presentation.preferences.homeTimezone {
           try await self.saveRemoteNotificationPreferences(

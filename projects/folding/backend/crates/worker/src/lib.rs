@@ -30,6 +30,8 @@ mod avatar_admin;
 mod avatar_runtime;
 #[cfg(target_arch = "wasm32")]
 mod badge_push_runtime;
+// Read by the Wasm runtime and the host tests only.
+#[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
 mod bot_photos;
 pub mod bot_simulation;
 #[cfg(target_arch = "wasm32")]
@@ -73,6 +75,7 @@ mod milestone_profiles;
 pub mod milestone_projection;
 #[cfg(target_arch = "wasm32")]
 mod milestone_runtime;
+#[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
 mod milestone_sql;
 #[cfg(any(target_arch = "wasm32", test))]
 mod moderation_eligibility;

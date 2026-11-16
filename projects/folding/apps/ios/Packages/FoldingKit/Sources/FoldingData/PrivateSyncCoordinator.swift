@@ -13,6 +13,7 @@ public actor PrivateSyncCoordinator {
   private let mirror: PrivateCloudMirror
   private var running = false
   private var stopped = false
+  private var idleWaiters: [CheckedContinuation<Void, Never>] = []
   private var recovery: MirrorRecoverySnapshot?
 
   public init(journal: TrackingStore, mirror: PrivateCloudMirror) {
@@ -25,7 +26,11 @@ public actor PrivateSyncCoordinator {
     guard !stopped else { throw MirrorError.closed }
     guard !running else { return nil }
     running = true
-    defer { running = false }
+    defer {
+      running = false
+      for waiter in idleWaiters { waiter.resume() }
+      idleWaiters = []
+    }
     let storeID = mirror.storeID
     try await journal.prepareMirror(storeID: storeID)
     var imported = 0
@@ -111,9 +116,10 @@ public actor PrivateSyncCoordinator {
   /// Stop future work immediately; wait for any in-flight save before removing the account's mirror.
   public func stop() async throws {
     stopped = true
+    // In-flight work sees `stopped` at its next step. Wait for it without polling, so a
+    // cancelled caller neither spins nor closes the mirror under a save.
     while running {
-      try? await Task.sleep(for: .milliseconds(10))
-      await Task.yield()
+      await withCheckedContinuation { idleWaiters.append($0) }
     }
     recovery = nil
     try await mirror.close()

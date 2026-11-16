@@ -1,7 +1,7 @@
 # Folding
 
 A free, native iPhone folding tracker with personal statistics, guided
-Shortcuts setup, iCloud sync, widgets and optional competition. The app and its
+Shortcuts setup, iCloud sync, milestone badges and optional competition. The app and its
 production Rust Worker are developed here; [getfolding.app](https://getfolding.app)
 is the public website. App Store and TestFlight status belongs in current delivery
 receipts, not a pinned build number in this README.
@@ -34,8 +34,9 @@ Run `mise install` from the repository root for the shared Ruby/Bun/Node pins us
 by Folding's release bundle. Use `mise exec --` when mise is not activated in your
 shell. Xcode and the Duo simulator remain separate installed dependencies.
 
-`scripts/check` covers contracts, personal core, localization and formatting;
-`scripts/check-backend` covers the Worker. Use `scripts/format` for owned Swift
+`scripts/check` covers contracts, localization, the app icon set and the FoldingKit
+package tests; `scripts/check-backend` covers the Worker (configuration, clippy, tests
+and the local workerd suite). Use `scripts/format` for owned Swift
 and OpenTofu files. Native simulator verification runs through
 `bundle exec fastlane ios verify_app`. Root CI selects Folding app, backend and
 contract checks independently. Read the [root instructions](../../AGENTS.md) before live

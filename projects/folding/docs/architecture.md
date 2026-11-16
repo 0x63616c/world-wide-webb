@@ -1,6 +1,6 @@
 # Folding architecture and repository design
 
-Status: initial implementation is underway; FoldingDomain now implements the reducer and reset ordering. Other modules below remain planned. Product behavior remains in [review-spec.md](review-spec.md); build sequence is in [delivery-plan.md](delivery-plan.md). The [technical specifications](technical/README.md) now supply implementation contracts and agent work orders.
+Status: the modules below are implemented and shipping. This document records the design intent; the repository layout section reflects the tree as of November 15, 2026. Product behavior remains in [review-spec.md](review-spec.md); build sequence is in [delivery-plan.md](delivery-plan.md). The [technical specifications](technical/README.md) now supply implementation contracts and agent work orders.
 
 ## Design approach
 
@@ -12,52 +12,45 @@ These are engineering principles, not a requirement to use TypeScript, copy a fo
 
 ## Repository layout
 
-Create executable directories with their first working code, not empty placeholders. The planned structure is:
+The product lives under `projects/folding` in the WWW monorepo:
 
 ```text
-README.md
-GLOSSARY.md
-docs/
-  review-spec.md
-  delivery-plan.md
-  architecture.md
-  adr/
+README.md  GLOSSARY.md  app.yml
+Package.swift              # Host test package over the UIKit-free files in apps/ios/App
+HostTests/                 # Presentation, milestone and update-policy tests (macOS, no simulator)
 apps/ios/
-  Folding.xcodeproj/
-  Folding/                 # App composition, feature views, navigation, resources
-    Features/              # Setup, Today, History, Competition, Settings
-    Intents/               # Minimal platform entry points
-  FoldingWidgets/          # Widget views and timeline entry points
+  project.yml              # XcodeGen specification; Folding.xcodeproj is generated and ignored
+  App/                     # App composition, screens, intents, competition client, assets
+  Config/                  # Entitlements and privacy manifest
+  Branding/                # App icon sources
+  Screenshots/             # Storefront fixture app
+  StorefrontTests/         # UI-test runner that captures storefront screenshots
+  BuildTests/              # App-hosted tests that need the simulator
   Packages/FoldingKit/
     Sources/FoldingDomain/ # Deterministic personal tracking behavior
     Sources/FoldingData/   # Durable recording, read models, sync and upload queue
+    Sources/FoldingSQLite/ # SQLite shim
+    Sources/FoldingJournalProbe/
     Tests/
-  FoldingUITests/
 backend/
-  Cargo.toml
-  Cargo.lock
   crates/domain/           # Deterministic competition decisions
   crates/worker/           # Runtime, transactions, routes, jobs and admin HTML
-    templates/
-    assets/
-  migrations/
-contracts/
-  schemas/
-  fixtures/
-infra/
-  modules/
-  environments/staging/
-  environments/production/
-web/                       # Small public product/support/privacy site
-fastlane/
-  Fastfile
-  metadata/
-  fixtures/
-  screenshot-templates/
-scripts/
-.githooks/
-.github/workflows/
+  migrations/              # Applied D1 migrations
+  tests/                   # Local workerd/D1 runtime tests
+  watchdog/                # Dormant monitoring Worker
+cloudkit/                  # Sealed schemas and production readbacks
+contracts/                 # JSON schemas and shared fixtures
+design/                    # Brand sources and badge generation prompts
+infra/cloudflare/          # OpenTofu: bootstrap, modules, production, state verification
+site/                      # Static public site for getfolding.app
+fastlane/                  # Lanes, release library and tests, metadata, screenshot plan
+scripts/                   # Bootstrap, checks, formatting and release helpers
+docs/                      # Specifications, ADRs, work tracker and dated experiment receipts
 ```
+
+Workflows live in the repository root under `.github/workflows/` (`folding-ci.yml` and the shared
+delivery workflows). Repository hooks are the root lefthook configuration. There is no widget
+target; widgets were removed on November 12, 2026.
 
 Generate the shared Xcode project from `apps/ios/project.yml` with pinned XcodeGen 2.46.0; commit the specification and ignore the generated project. The November 7 build foundation uses this choice to keep targets, local package dependencies and shared schemes reproducible in local/Fastlane/CI builds without hand-editing project object IDs. Pin Swift packages, Cargo dependencies, Fastlane gems, and build-tool dependencies in their native lockfiles. Keep generated builds, screenshots, credentials, and infrastructure state out of source control. Publish release assets separately.
 
@@ -79,9 +72,9 @@ Separate private iCloud synchronization from public competition upload inside th
 
 Use actual temporary stores for persistence tests. Only add a fake store adapter if it serves a concrete consumer/test need; do not make a generic repository protocol for every entity. A fixed clock, deterministic network responses, and notification transport are legitimate variation points when used by real fixtures.
 
-### App, intents, and widgets
+### App and intents
 
-The app composes dependencies and presents feature views. Intents record through FoldingData and finish within the platform execution budget. Widgets consume snapshots/read models and request appropriate refreshes. Neither intents nor widgets independently implement counters, resets, or CloudKit writes.
+The app composes dependencies and presents feature views. Intents record through FoldingData and finish within the platform execution budget. Intents do not independently implement counters, resets, or CloudKit writes. Widgets were removed on November 12, 2026.
 
 Keep foreground hinge animation separate from event accounting. Feature view models are useful where state/async behavior needs an owner; do not require a view model for every trivial SwiftUI view. Use Swift access control and package target dependencies to prevent views from depending on persistence internals.
 

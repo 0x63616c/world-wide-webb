@@ -21,10 +21,10 @@ pub fn delta(before: &[(Id, u64)], after: &[(Id, u64)]) -> Result<Delta, DomainE
             if *time > MAX_SAFE_INTEGER {
                 return Err(DomainError::InvalidEnvelope);
             }
-            if let Some(old) = result.insert(id.clone(), *time) {
-                if old != *time {
-                    return Err(DomainError::IdentityConflict);
-                }
+            if let Some(old) = result.insert(id.clone(), *time)
+                && old != *time
+            {
+                return Err(DomainError::IdentityConflict);
             }
         }
         Ok(result)

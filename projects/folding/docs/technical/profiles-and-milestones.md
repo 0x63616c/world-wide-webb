@@ -2,7 +2,6 @@
 
 **Current owner amendment — #76/#77/#78:** badges are owner-only, featuring is disabled, existing eligible history is imported when joining (and backfilled for existing accounts), direct photo/name edits replace Edit Profile, and optional grouped badge push is supported. See [the exact contracts and evidence](../experiments/owner-polish-2026-11-08.md). This supersedes conflicting earlier feature-plan wording; live rollout and deferred device acceptance are separate.
 
-
 Owner-approved product direction: November 8, 2026. Planning is complete; implementation and acceptance remain open. Deliverable: [#71](https://github.com/0x63616c/folding/issues/71), **In progress**, under F07 (#8), with existing leaderboard/profile work in #34/#35.
 
 ## One release
@@ -124,7 +123,7 @@ No step is a separate feature launch. Implementation is delivered in internal Te
 - [x] Verify the integrated service/client feature with linked commit, local/staging evidence and one release manifest covering all parts. Keep deferred CI/storefront/visual/submission checks explicit; do not claim them passed.
 - [x] Add feature-specific physical-device checks to #47/F13, retaining the owner-approved post-submission deferral. Six unchecked hardware checks are tracked there; broader shipping remains incomplete until those checks and resulting fixes are done.
 
-References: [Product](../review-spec.md), [UI](ui.md), [HTTP](http-contracts.md), [Security](backend-and-security.md), [Tracking](storage-and-tracking.md), [deferred shipping](../deferred-shipping-work.md).
+References: [Product](../review-spec.md), [UI](ui.md), [HTTP](http-contracts.md), [Security](backend-and-security.md), [Tracking](storage-and-tracking.md), [deferred shipping](../work-tracker.md).
 
 Implementation/internal distribution are complete at `091b09f` in 0.1.13 (14). #71 remains open as Deferred only for the two formal acceptance criteria above; original requirements remain tracked in #25/#47. See [release evidence](../experiments/profile-milestones-implementation-2026-11-08.md#single-integrated-internal-release).
 

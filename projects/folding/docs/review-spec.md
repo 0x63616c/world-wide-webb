@@ -2,8 +2,6 @@
 
 **Owner update November 8 (#76/#77/#78):** the follow-up implementation makes badges private and pauses featuring; adds optional grouped badge push; imports original eligible pre-join history for new/existing accounts; edits profile photo/name directly; and applies the dashboard/leaderboard refinements recorded in `docs/experiments/owner-polish-2026-11-08.md`. These decisions supersede conflicting no-pre-join/public-badge/no-new-push wording below. Main merge is separate from provider/TestFlight and deferred device acceptance.
 
-
-
 ## Owner-approved execution update — November 7, 2026
 
 The owner has authorized implementation through submission/publication and reports Apple account agreements/tax/banking requirements complete. Verify actual App Store Connect state when used; do not request these again unless a concrete account prompt contradicts that report.
@@ -236,7 +234,6 @@ Use the private `0x63616c/folding` monorepo. The [architecture plan](architectur
 - `infra/`: Cloudflare infrastructure definitions and environment configuration.
 - `fastlane/`: lanes, localized metadata, screenshot capture configuration, and review assets.
 - `scripts/`: bootstrap, formatting, checks, and release helpers.
-- `.githooks/`: versioned local hooks, installed by the bootstrap script.
 - `.github/workflows/`: PR, release, and infrastructure workflows.
 - `docs/`: specification, architecture decisions, delivery plan, and operational instructions.
 - `GLOSSARY.md`: consistent domain terminology.
@@ -249,7 +246,6 @@ Provide one format command for Swift, Rust (`cargo fmt`), infrastructure, and su
 Fastlane is required for signing/build/TestFlight/listing/screenshot/submission orchestration, invoked by GitHub Actions. Use official APIs only to fill documented fastlane gaps, not replace the agreed workflow.
 
 The owner already has an Apple Developer account and stores credentials in 1Password. Once a final name is chosen, the owner has authorized logging in and performing the account/project setup needed for this app. Use securely scoped credential references and CI secrets; never commit credentials or expose them in logs. User intervention may still be needed for MFA or an account action that cannot be delegated. The name is now selected: Folding. Account/project setup can proceed under this authorization; this is not authorization to purchase an unspecified domain.
-
 
 The repository owns source, tests, localized strings, infrastructure, migrations, workflows, fastlane configuration, App Store metadata, screenshot fixtures/templates, review notes, and release instructions. Credentials and signing keys live in protected secrets.
 

@@ -1419,23 +1419,6 @@ private struct SettingsStatusValue: View {
   }
 }
 
-private struct InformationSheet: View {
-  let title: String
-  let text: String
-  @Environment(\.dismiss) private var dismiss
-  var body: some View {
-    NavigationStack {
-      Text(text).padding(24).frame(maxWidth: 520)
-        .navigationTitle(title).navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-          ToolbarItem(placement: .confirmationAction) {
-            Button(String(localized: "action.done", defaultValue: "Done")) { dismiss() }
-          }
-        }
-    }.presentationDetents([.medium])
-  }
-}
-
 struct NotificationSettingsScreen: View {
   @Bindable var model: FoldingPresentation
   let actions: FoldingActions

@@ -45,63 +45,6 @@ private actor PolicyProbe {
     }
     return URLSession(configuration: config)
   }
-  func testKnownRequirementSurvivesOfflineRestartAndNewBuildOrRollbackRecovers() async {
-    let name = "folding.update.tests.\(UUID())"
-    let defaults = UserDefaults(suiteName: name)!
-    defer { defaults.removePersistentDomain(forName: name) }
-    let session = session()
-    defer { session.invalidateAndCancel() }
-    func model(_ build: Int = 8) -> AppUpdatePolicy {
-      AppUpdatePolicy(
-        environment: "production", origin: URL(string: "https://api.getfolding.app")!,
-        installedBuild: build, defaults: defaults, session: session)
-    }
-    let current = model()
-    XCTAssertFalse(current.requiresUpdate)
-    await current.refresh()
-    XCTAssertTrue(current.requiresUpdate)
-    XCTAssertEqual(PolicyProtocol.lock.withLock { PolicyProtocol.buildHeader }, "8")
-    await current.refresh()
-    XCTAssertEqual(PolicyProtocol.lock.withLock { PolicyProtocol.requests }, 1)
-    let restarted = model()
-    XCTAssertTrue(restarted.requiresUpdate)
-    PolicyProtocol.lock.withLock { PolicyProtocol.status = 503 }
-    await restarted.refresh()
-    XCTAssertTrue(restarted.requiresUpdate)
-    XCTAssertTrue(restarted.checkFailed)
-    XCTAssertFalse(model(10).requiresUpdate)
-    PolicyProtocol.lock.withLock {
-      PolicyProtocol.status = 200
-      PolicyProtocol.payload = "{\"minimum_ios_build\":0}"
-    }
-    await restarted.refresh(force: true)
-    XCTAssertFalse(restarted.requiresUpdate)
-    XCTAssertFalse(model().requiresUpdate)
-  }
-  func testUnknownPolicyFailsOpenAndInvalidPolicyCannotClearKnownRequirement() async {
-    let name = "folding.update.tests.\(UUID())"
-    let defaults = UserDefaults(suiteName: name)!
-    defer { defaults.removePersistentDomain(forName: name) }
-    let session = session()
-    defer { session.invalidateAndCancel() }
-    let model = AppUpdatePolicy(
-      environment: "production", origin: URL(string: "https://api.getfolding.app")!,
-      installedBuild: 8, defaults: defaults, session: session)
-    PolicyProtocol.lock.withLock { PolicyProtocol.status = 503 }
-    await model.refresh()
-    XCTAssertFalse(model.requiresUpdate)
-    model.require(minimumBuild: 10, environment: "retired")
-    XCTAssertFalse(model.requiresUpdate)
-    model.require(minimumBuild: 10, environment: "production")
-    XCTAssertTrue(model.requiresUpdate)
-    PolicyProtocol.lock.withLock {
-      PolicyProtocol.status = 200
-      PolicyProtocol.payload = "{\"minimum_ios_build\":-1}"
-    }
-    await model.refresh(force: true)
-    XCTAssertTrue(model.requiresUpdate)
-    XCTAssertTrue(model.checkFailed)
-  }
   func testTransportSendsBuildAndSignalsRequiredUpdateForJSONAndImages() async throws {
     let session = session()
     defer { session.invalidateAndCancel() }

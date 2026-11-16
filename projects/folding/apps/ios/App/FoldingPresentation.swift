@@ -23,93 +23,35 @@ enum FoldingAppearance: String, Codable, CaseIterable, Identifiable {
   }
 }
 
-enum FoldingShape {
-  static let cornerRadius: CGFloat = 20
-}
-
-enum FoldingSurface {
-  static let background = Color(
-    uiColor: UIColor { traits in
-      traits.userInterfaceStyle == .dark
-        ? .black : UIColor(white: 0.89, alpha: 1)
-    })
-  static let card = Color(
-    uiColor: UIColor { traits in
-      traits.userInterfaceStyle == .dark
-        ? UIColor(white: 0.065, alpha: 1) : .secondarySystemGroupedBackground
-    })
-}
-
-enum FoldingTint {
-  static let color = Color(
-    uiColor: UIColor { traits in
-      traits.userInterfaceStyle == .dark ? .white : .black
-    })
-  static let onTint = Color(
-    uiColor: UIColor { traits in
-      traits.userInterfaceStyle == .dark ? .black : .white
-    })
-}
-
-enum SummaryMetric: String, Codable, CaseIterable, Identifiable {
-  case folds, timeUnfolded, trend, opens, closes, cycles, lifetimeFolds,
-    competitionComparison
-  var id: Self { self }
-  var title: String {
-    switch self {
-    case .competitionComparison:
-      String(localized: "profile.competition", defaultValue: "Competition")
-    case .timeUnfolded: String(localized: "metric.timeUnfolded", defaultValue: "Time unfolded")
-    case .trend: String(localized: "metric.trend", defaultValue: "Last 7 days")
-    case .opens: String(localized: "metric.opens", defaultValue: "Opens")
-    case .closes: String(localized: "metric.closes", defaultValue: "Closes")
-    case .cycles: String(localized: "metric.cycles", defaultValue: "Cycles")
-    case .lifetimeFolds: String(localized: "metric.lifetimeFolds", defaultValue: "All-time folds")
-    case .folds: String(localized: "metric.folds", defaultValue: "Folds")
-    }
-  }
-}
-
 struct FoldingPreferences: Codable, Equatable {
   var schemaVersion = 1
   var appearance: FoldingAppearance = .system
-  var metrics: [SummaryMetric] = [.timeUnfolded, .trend]
   var homeTimezone = TimeZone.current.identifier
   var dailyLimit = 100
-  var cardOrder: [SummaryMetric]? = nil
   var phoneNames: [String: String] = [:]
   init() {}
   enum CodingKeys: String, CodingKey {
-    case schemaVersion, appearance, metrics, homeTimezone, dailyLimit, cardOrder, phoneNames
+    case schemaVersion, appearance, metrics, homeTimezone, dailyLimit, phoneNames
   }
+  // Stored values from earlier builds may carry retired keys (metrics, cardOrder, accent,
+  // travelUnit); they are ignored without discarding the timezone or other saved choices.
   init(from decoder: Decoder) throws {
     let values = try decoder.container(keyedBy: CodingKeys.self)
     schemaVersion = try values.decode(Int.self, forKey: .schemaVersion)
     appearance = try values.decode(FoldingAppearance.self, forKey: .appearance)
-    // Discard retired/unknown metrics without discarding timezone or other saved choices.
-    metrics = try values.decode([String].self, forKey: .metrics)
-      .compactMap(SummaryMetric.init(rawValue:)).filter { $0 != .folds }
     homeTimezone = try values.decode(String.self, forKey: .homeTimezone)
     dailyLimit = try values.decode(Int.self, forKey: .dailyLimit)
     phoneNames = try values.decodeIfPresent([String: String].self, forKey: .phoneNames) ?? [:]
-    cardOrder = try values.decodeIfPresent([String].self, forKey: .cardOrder)?
-      .compactMap(SummaryMetric.init(rawValue:))
   }
-  var orderedCards: [SummaryMetric] {
-    let enabled = [.folds] + metrics
-    var seen = Set<SummaryMetric>()
-    return ((cardOrder ?? []) + enabled).filter {
-      enabled.contains($0) && seen.insert($0).inserted
-    }
-  }
-  mutating func moveCard(_ card: SummaryMetric, to target: SummaryMetric) {
-    var order = orderedCards
-    guard card != target, let source = order.firstIndex(of: card),
-      let destination = order.firstIndex(of: target)
-    else { return }
-    order.remove(at: source)
-    order.insert(card, at: destination)
-    cardOrder = order
+  func encode(to encoder: Encoder) throws {
+    var values = encoder.container(keyedBy: CodingKeys.self)
+    try values.encode(schemaVersion, forKey: .schemaVersion)
+    try values.encode(appearance, forKey: .appearance)
+    // Earlier builds require this key; keep it so a rollback still reads these preferences.
+    try values.encode([String](), forKey: .metrics)
+    try values.encode(homeTimezone, forKey: .homeTimezone)
+    try values.encode(dailyLimit, forKey: .dailyLimit)
+    try values.encode(phoneNames, forKey: .phoneNames)
   }
 }
 

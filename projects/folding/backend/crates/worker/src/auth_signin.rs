@@ -210,17 +210,16 @@ pub(crate) async fn sign_in(
     }
     for _ in 0..3 {
         let existing = participant(db, &digests).await?;
-        if let Some(expected) = &input.existing_participant_id {
-            if existing
+        if let Some(expected) = &input.existing_participant_id
+            && existing
                 .as_ref()
                 .is_none_or(|owner| owner.participant_id != expected.as_str())
-            {
-                return Err(Failure {
-                    status: 404,
-                    code: "not_found",
-                    retryable: false,
-                });
-            }
+        {
+            return Err(Failure {
+                status: 404,
+                code: "not_found",
+                retryable: false,
+            });
         }
         if input.existing_account_only && existing.is_none() {
             return Err(Failure {

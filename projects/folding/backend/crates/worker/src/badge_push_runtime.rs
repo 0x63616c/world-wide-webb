@@ -169,15 +169,14 @@ pub(crate) async fn dispatch(
             {
                 state = "failed";
                 error = "invalid_token";
-                if let Some(destination) = &destination {
-                    if outcome.status != 410
+                if let Some(destination) = &destination
+                    && (outcome.status != 410
                         || outcome
                             .error
                             .timestamp
-                            .is_some_and(|t| t >= destination.registered_at_ms)
-                    {
-                        statement(db,"UPDATE push_installations SET enabled=0 WHERE participant_id=?1 AND device_id=?2 AND token_hash=?3 AND registered_at_ms=?4",&[text(&job.participant_id),text(&destination.device_id),blob(&destination.token_hash),number(destination.registered_at_ms)])?.run().await.map_err(|_|Failure::unavailable())?;
-                    }
+                            .is_some_and(|t| t >= destination.registered_at_ms))
+                {
+                    statement(db,"UPDATE push_installations SET enabled=0 WHERE participant_id=?1 AND device_id=?2 AND token_hash=?3 AND registered_at_ms=?4",&[text(&job.participant_id),text(&destination.device_id),blob(&destination.token_hash),number(destination.registered_at_ms)])?.run().await.map_err(|_|Failure::unavailable())?;
                 }
             } else if outcome.status == 403 {
                 crate::operational_runtime::record_notification_failure(

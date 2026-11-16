@@ -1,6 +1,5 @@
 # Release, infrastructure, and operations contract
 
-
 ## Owner-approved execution update — November 7, 2026
 
 The owner has authorized implementation through submission/publication and reports Apple account agreements/tax/banking requirements complete. Verify actual App Store Connect state when used; do not request these again unless a concrete account prompt contradicts that report.
@@ -35,10 +34,9 @@ Use Xcode's Swift formatter (`swift format`) from the pinned toolchain, `cargo f
 
 Expose stable scripts:
 
-- `scripts/bootstrap`: check/install supported development tools using pinned versions, resolve dependencies, and install `.githooks` idempotently. Do not read secrets or provision cloud resources.
+- `scripts/bootstrap`: check/install supported development tools using pinned versions, resolve dependencies, and install the shared repository hooks (lefthook) idempotently. Do not read secrets or provision cloud resources.
 - `scripts/format`: format intended working-tree source files; never stage changes.
 - `scripts/check`: formatting check, domain/contract checks, and local Rust validation; clearly report simulator/device checks that were not run.
-- `scripts/check-staged`: extract staged blob contents into an isolated temporary tree and check formatting there; never overwrite working files or alter the Git index. Report paths and the format command.
 - `scripts/check-prepush`: focused domain/contract tests; full simulator matrix remains CI work.
 - `scripts/release-preflight`: read-only validation of the selected manifest, local artifact hashes, Apple prerequisites, and backend compatibility.
 

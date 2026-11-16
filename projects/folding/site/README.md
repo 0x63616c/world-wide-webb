@@ -18,7 +18,7 @@ Production includes canonical URLs and a sitemap; unmatched URLs serve the 404 p
 
 ## Launch state and follow-through
 
-- Product availability intentionally says **Coming soon**. There is no invented App Store ID, download count, testimonial, screenshot, or fake subscription form. Replace availability with the actual approved listing URL at release.
+- The pages make no availability claim and carry no App Store link, download count, testimonial, screenshot, or subscription form. Add the approved listing URL once the owner confirms it.
 - Support, deletion assistance and appeals open the user's email client at `support@getfolding.app`. These pages do not submit an authenticated account mutation or claim a request has been processed. Future service forms must enforce the backend authentication/deletion contracts.
 - Privacy copy follows the approved 7-day avatar-original, 30-day deletion-recovery, 90-day closed-case and active-ban retention policies. Before publication, reconcile it with deployed behavior and confirm the operator's required business/contact disclosures and support-correspondence retention; these were not invented from unavailable account details.
 - Source is English. App/storefront localization is separate; translated website policies are not claimed by this batch.

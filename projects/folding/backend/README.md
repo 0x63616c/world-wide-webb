@@ -7,10 +7,10 @@ The workspace has two crates: `folding-domain` owns deterministic wire validatio
 ```sh
 rustup toolchain install 1.99.1 --profile minimal --component clippy --component rustfmt --target wasm32-unknown-unknown
 RUSTUP_TOOLCHAIN=1.99.1 cargo install worker-build --version 0.8.7 --locked
-backend/scripts/check
+scripts/check-backend
 ```
 
-Use Node 26.13.0. The check script explicitly selects the Rust pin so an inherited `RUSTUP_TOOLCHAIN` cannot silently change the compiler. Cargo and npm dependencies are locked. `worker-build` produces the Worker module/Wasm in `crates/worker/build`, which is ignored. Generated packaging uses `--no-opt` to avoid an unpinned wasm-opt download; release size/CPU optimization is a later measured gate. Keep Cargo `strip = "debuginfo"`: stripping all sections removes `target_features` required by the pinned wasm-bindgen packager.
+Run it from `projects/folding` with Node 26.13.0 and Bun (`bun install --frozen-lockfile` in `backend/`). The check script selects the Rust pin from `backend/tool-versions.json`, then runs the Worker configuration test, clippy for the host and Wasm targets, the workspace tests, the release Worker build and the local workerd suite. Cargo and Bun dependencies are locked. `worker-build` produces the Worker module/Wasm in `crates/worker/build`, which is ignored. Generated packaging uses `--no-opt` to avoid an unpinned wasm-opt download; release size/CPU optimization is a later measured gate. Keep Cargo `strip = "debuginfo"`: stripping all sections removes `target_features` required by the pinned wasm-bindgen packager.
 
 The Miniflare 5 beta is the exact version used by Wrangler 4.158.0 at this checkpoint. The older stable Miniflare tag had high-severity dependency advisories; the selected lockfile audited clean. Tests use its explicit v4-option conversion and enumerate JS/Wasm modules. No automatic CI, remote D1 binding, account token or deploy command is configured.
 
@@ -34,19 +34,19 @@ Apply **all migrations in order**. Schedule the single exported dispatcher every
 
 ### Required Worker bindings
 
-| Binding | Storage | Meaning |
-| --- | --- | --- |
-| `DB` | D1 binding | This deployment's database |
-| `DEPLOYMENT` | Variable | `production` only |
-| `AUTH_ENCRYPTION_KEY_VERSION` | Variable | Current version in the encryption key ring |
-| `AUTH_ENCRYPTION_KEYS` | Secret | JSON object mapping versions to base64url 32-byte AES keys |
-| `AUTH_NETWORK_HMAC_KEY` | Secret | Base64url 32-byte network rate-limit digest key |
-| `AUTH_SUBJECT_HMAC_KEY_VERSION` | Variable | Current version in the subject key ring |
-| `AUTH_SUBJECT_HMAC_KEYS` | Secret | JSON object mapping versions to base64url 32-byte subject HMAC keys |
-| `APPLE_SIGN_IN_CLIENT_ID` | Variable | Deployment's registered native bundle identifier |
-| `APPLE_SIGN_IN_TEAM_ID` | Variable | Apple team identifier |
-| `APPLE_SIGN_IN_KEY_ID` | Variable | Sign in with Apple key identifier |
-| `APPLE_SIGN_IN_PRIVATE_KEY_PKCS8` | Secret | Base64url DER PKCS#8 encoding of the Apple P-256 private key |
+| Binding                           | Storage    | Meaning                                                             |
+| --------------------------------- | ---------- | ------------------------------------------------------------------- |
+| `DB`                              | D1 binding | This deployment's database                                          |
+| `DEPLOYMENT`                      | Variable   | `production` only                                                   |
+| `AUTH_ENCRYPTION_KEY_VERSION`     | Variable   | Current version in the encryption key ring                          |
+| `AUTH_ENCRYPTION_KEYS`            | Secret     | JSON object mapping versions to base64url 32-byte AES keys          |
+| `AUTH_NETWORK_HMAC_KEY`           | Secret     | Base64url 32-byte network rate-limit digest key                     |
+| `AUTH_SUBJECT_HMAC_KEY_VERSION`   | Variable   | Current version in the subject key ring                             |
+| `AUTH_SUBJECT_HMAC_KEYS`          | Secret     | JSON object mapping versions to base64url 32-byte subject HMAC keys |
+| `APPLE_SIGN_IN_CLIENT_ID`         | Variable   | Deployment's registered native bundle identifier                    |
+| `APPLE_SIGN_IN_TEAM_ID`           | Variable   | Apple team identifier                                               |
+| `APPLE_SIGN_IN_KEY_ID`            | Variable   | Sign in with Apple key identifier                                   |
+| `APPLE_SIGN_IN_PRIVATE_KEY_PKCS8` | Secret     | Base64url DER PKCS#8 encoding of the Apple P-256 private key        |
 
 The primary agent provisions bindings from approved secret storage; no keys belong in Git, command literals or logs. Retain old encryption keys until their ciphertext is migrated/purged. Retain old subject HMAC keys until every associated identity/active-ban digest is migrated or expires through the reviewed policy. Login searches all configured subject keys and migrates the matching participant's digest without changing membership or restriction. The key rings accept at most eight concurrent versions; never remove old active-ban keys to make room without migration. Key values differ between deployments and between encryption, subject and network purposes.
 
@@ -82,7 +82,6 @@ multilingual nickname detection/approval, preferences, frozen period finalizatio
 publication/consumption, rate enforcement for business operations, scalable replay/read models, and the
 final workerd/D1 and device validation gates. Current `/me` preferences are the immutable opt-out defaults until
 the preference mutation is implemented. Live week/month/all boards are implemented; finalized historical boards remain unavailable.
-
 
 Migrations 0007–0008 add blocks, one-use reauthentication proofs, deletion receipts/capabilities and
 leased revocation work. Reset, leave, account deletion and recovery now have runtime handlers. `/me`
