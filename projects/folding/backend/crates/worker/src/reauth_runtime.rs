@@ -1,11 +1,10 @@
 //! Same-subject native reauthentication and deletion-status recovery. Neither creates a session.
 use crate::{
-    auth_runtime::{
-        Configuration, Failure, authenticated_session, blob, decode, now, number, random, response,
-        session_guard, statement, text, uuid,
-    },
+    auth_runtime::{authenticated_session, session_guard},
     auth_wire::{AppleExchangeRequest, AuthPurpose},
+    config::Configuration,
     lifecycle_runtime::PRIVACY_GUARD,
+    support::{Failure, blob, decode, now, number, random, response, statement, text, uuid},
 };
 use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 use folding_domain::wire::Id;

@@ -1,11 +1,10 @@
 //! Sign in is independent of App Attest. Only a verified Apple exchange can create a session.
 use crate::{
-    auth_runtime::{
-        Configuration, Failure, blob, now, number, random, response, statement, text, uuid,
-    },
     auth_wire::{AppleExchangeRequest, AuthPurpose},
+    config::Configuration,
     secrets::KeyRing,
     session,
+    support::{Failure, blob, now, number, random, response, statement, text, uuid},
 };
 use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 use folding_domain::wire::Id;
@@ -85,7 +84,7 @@ pub(crate) async fn sign_in(
     body: &[u8],
     request_id: &Id,
 ) -> std::result::Result<Response, Failure> {
-    let input: AppleExchangeRequest = crate::auth_runtime::decode(body)?;
+    let input: AppleExchangeRequest = crate::support::decode(body)?;
     if !input.validate() {
         return Err(Failure::malformed());
     }

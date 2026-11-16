@@ -3,10 +3,9 @@ use crate::{
     assertion::{Binding, client_data_hash, verify_assertion_with_policy},
     attestation::AppPolicy,
     attestation_runtime::{AttestationConfiguration, nonce_context},
-    auth_runtime::{
-        CommunitySession, Configuration, Failure, blob, community_session, now, number, statement,
-        text,
-    },
+    auth_runtime::{CommunitySession, community_session},
+    config::Configuration,
+    support::{Failure, blob, now, number, statement, text},
 };
 use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 use folding_domain::wire::Id;

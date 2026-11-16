@@ -37,7 +37,6 @@ backend/
   crates/worker/           # Runtime, transactions, routes, jobs and admin HTML
   migrations/              # Applied D1 migrations
   tests/                   # Local workerd/D1 runtime tests
-  watchdog/                # Dormant monitoring Worker
 cloudkit/                  # Sealed schemas and production readbacks
 contracts/                 # JSON schemas and shared fixtures
 design/                    # Brand sources and badge generation prompts

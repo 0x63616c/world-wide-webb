@@ -1,8 +1,8 @@
 //! Retrospective photo removal behind Access authorization.
 use crate::{
     admin_auth::Administrator,
-    admin_runtime::Command,
-    auth_runtime::{Failure, blob, now, number, statement, text, uuid},
+    admin_mutations::Command,
+    support::{Failure, blob, now, number, statement, text, uuid},
 };
 use serde::{Deserialize, Serialize};
 use worker::*;

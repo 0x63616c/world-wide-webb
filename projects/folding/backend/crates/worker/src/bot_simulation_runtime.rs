@@ -1,7 +1,7 @@
 //! Private scheduled bot roster and observation replay. This module has no HTTP ingestion entrypoint.
 use crate::{
-    auth_runtime::{Failure, blob, now, number, random, statement, text, uuid},
     bot_simulation::{self as policy, Persona},
+    support::{Failure, blob, now, number, random, statement, text, uuid},
 };
 use chrono::{Datelike, NaiveDate};
 use folding_domain::{

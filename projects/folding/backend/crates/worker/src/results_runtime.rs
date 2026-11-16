@@ -1,8 +1,7 @@
 //! Only atomically published frozen result versions are exposed. Privacy removal never reranks peers.
-use crate::auth_runtime::{
-    CommunitySession, Configuration, Failure, community_session, now, number, response, statement,
-    text,
-};
+use crate::auth_runtime::{CommunitySession, community_session};
+use crate::config::Configuration;
+use crate::support::{Failure, now, number, response, statement, text};
 use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 use folding_domain::wire::Id;
 use serde::{Deserialize, Serialize};
@@ -87,7 +86,7 @@ pub(crate) async fn fence(
     config: &Configuration,
     session: &CommunitySession,
 ) -> std::result::Result<(), Failure> {
-    let guard = crate::auth_runtime::uuid()?;
+    let guard = crate::support::uuid()?;
     db.batch(vec![
         crate::auth_runtime::session_guard(db, &guard, session, config, now())?,
         statement(

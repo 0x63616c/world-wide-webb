@@ -1,5 +1,5 @@
 //! Bounded operational counts only. Never persist request bodies, identities, URLs or credentials.
-use crate::auth_runtime::{Failure, now, number, statement, text};
+use crate::support::{Failure, now, number, statement, text};
 use serde::Deserialize;
 use worker::*;
 #[derive(Deserialize)]

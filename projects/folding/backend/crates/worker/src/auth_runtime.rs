@@ -1,168 +1,17 @@
 //! Actual Worker session handlers. All errors are mapped to the public safe error catalog.
 use crate::{
     auth_wire::{AuthChallengeRequest, AuthPurpose, LogoutRequest, RefreshRequest},
-    secrets::{KeyRing, keyed_digest},
+    config::Configuration,
+    secrets::keyed_digest,
     session::{self, RefreshDecision, RefreshState},
+    support::{Failure, blob, decode, now, number, random, response, statement, text, uuid},
 };
 use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 use folding_domain::wire::Id;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use wasm_bindgen::{JsCast, JsValue};
 use worker::*;
 
-pub struct Failure {
-    pub status: u16,
-    pub code: &'static str,
-    pub retryable: bool,
-}
-impl Failure {
-    pub(crate) fn unavailable() -> Self {
-        Self {
-            status: 503,
-            code: "temporarily_unavailable",
-            retryable: true,
-        }
-    }
-    pub(crate) fn unauthorized() -> Self {
-        Self {
-            status: 401,
-            code: "authentication_required",
-            retryable: false,
-        }
-    }
-    pub(crate) fn malformed() -> Self {
-        Self {
-            status: 422,
-            code: "invalid_input",
-            retryable: false,
-        }
-    }
-    pub(crate) fn conflict() -> Self {
-        Self {
-            status: 409,
-            code: "conflict",
-            retryable: true,
-        }
-    }
-}
-pub(crate) fn decode<T: serde::de::DeserializeOwned>(
-    body: &[u8],
-) -> std::result::Result<T, Failure> {
-    serde_json::from_slice(body).map_err(|error| {
-        if error.is_syntax() || error.is_eof() {
-            Failure {
-                status: 400,
-                code: "malformed_request",
-                retryable: false,
-            }
-        } else {
-            Failure::malformed()
-        }
-    })
-}
-pub(crate) fn blob(bytes: &[u8]) -> JsValue {
-    js_sys::Uint8Array::from(bytes).into()
-}
-pub(crate) fn text(value: &str) -> JsValue {
-    JsValue::from_str(value)
-}
-pub(crate) fn number(value: i64) -> JsValue {
-    JsValue::from_f64(value as f64)
-}
-pub(crate) fn now() -> i64 {
-    js_sys::Date::now() as i64
-}
-pub(crate) fn random<const N: usize>() -> std::result::Result<[u8; N], Failure> {
-    let scope = js_sys::global().unchecked_into::<web_sys::WorkerGlobalScope>();
-    let mut bytes = [0; N];
-    scope
-        .crypto()
-        .map_err(|_| Failure::unavailable())?
-        .get_random_values_with_u8_array(&mut bytes)
-        .map_err(|_| Failure::unavailable())?;
-    Ok(bytes)
-}
-pub(crate) fn uuid() -> std::result::Result<String, Failure> {
-    let scope = js_sys::global().unchecked_into::<web_sys::WorkerGlobalScope>();
-    Ok(scope
-        .crypto()
-        .map_err(|_| Failure::unavailable())?
-        .random_uuid())
-}
-pub(crate) fn statement(
-    db: &D1Database,
-    sql: &str,
-    args: &[JsValue],
-) -> std::result::Result<D1PreparedStatement, Failure> {
-    db.prepare(sql)
-        .bind(args)
-        .map_err(|_| Failure::unavailable())
-}
-pub(crate) fn response(value: &impl Serialize) -> std::result::Result<Response, Failure> {
-    let mut out = Response::from_json(value).map_err(|_| Failure::unavailable())?;
-    out.headers_mut()
-        .set("Cache-Control", "no-store")
-        .map_err(|_| Failure::unavailable())?;
-    out.headers_mut()
-        .set("X-Content-Type-Options", "nosniff")
-        .map_err(|_| Failure::unavailable())?;
-    Ok(out)
-}
-pub(crate) struct Configuration {
-    pub(crate) deployment: String,
-    pub(crate) keys: KeyRing,
-    pub(crate) network_key: [u8; 32],
-    pub(crate) admin_participant_ids: Vec<String>,
-}
-impl Configuration {
-    pub(crate) fn load(env: &Env) -> std::result::Result<Self, Failure> {
-        let deployment = env
-            .var("DEPLOYMENT")
-            .map_err(|_| Failure::unavailable())?
-            .to_string();
-        if deployment != "production" {
-            return Err(Failure::unavailable());
-        }
-        let version = env
-            .var("AUTH_ENCRYPTION_KEY_VERSION")
-            .map_err(|_| Failure::unavailable())?
-            .to_string();
-        let encoded = env
-            .secret("AUTH_ENCRYPTION_KEYS")
-            .map_err(|_| Failure::unavailable())?
-            .to_string();
-        let keys =
-            KeyRing::from_secret_json(&version, &encoded).map_err(|_| Failure::unavailable())?;
-        let network_key = URL_SAFE_NO_PAD
-            .decode(
-                env.secret("AUTH_NETWORK_HMAC_KEY")
-                    .map_err(|_| Failure::unavailable())?
-                    .to_string(),
-            )
-            .map_err(|_| Failure::unavailable())?
-            .try_into()
-            .map_err(|_| Failure::unavailable())?;
-        let admin_participant_ids = env
-            .var("ADMIN_PARTICIPANT_IDS")
-            .ok()
-            .map(|value| {
-                value
-                    .to_string()
-                    .split(',')
-                    .map(|id| id.trim().to_ascii_lowercase())
-                    .filter(|id| !id.is_empty())
-                    .collect()
-            })
-            .unwrap_or_default();
-        Ok(Self {
-            deployment,
-            keys,
-            network_key,
-            admin_participant_ids,
-        })
-    }
-}
 pub async fn dispatch(
     request: &Request,
     env: &Env,

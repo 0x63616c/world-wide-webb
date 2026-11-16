@@ -1,12 +1,11 @@
 //! Session-bound challenge issuance and full App Attest enrollment. No root/key verifier override.
 use crate::{
     attestation::{AppPolicy, verify_attestation},
-    auth_runtime::{
-        COMMUNITY_GUARD, CommunitySession, Configuration, Failure, blob, community_session, decode,
-        now, number, random, response, session_guard, statement, text, uuid,
-    },
+    auth_runtime::{COMMUNITY_GUARD, CommunitySession, community_session, session_guard},
     auth_wire::{AttestationChallengeRequest, AttestationPurpose, EnrollKeyRequest},
+    config::Configuration,
     secrets::keyed_digest,
+    support::{Failure, blob, decode, now, number, random, response, statement, text, uuid},
 };
 use base64::{
     Engine,

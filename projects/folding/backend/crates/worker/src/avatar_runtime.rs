@@ -1,11 +1,10 @@
 //! Private staged R2 uploads with bounded re-encoding, transactional visibility and durable purges.
 use crate::{
-    auth_runtime::{
-        Configuration, Failure, authenticated_session, blob, now, number, response, statement,
-        text, uuid,
-    },
+    auth_runtime::authenticated_session,
     competition_runtime::{cleanup, guards, receipt},
+    config::Configuration,
     protected_request,
+    support::{Failure, blob, now, number, response, statement, text, uuid},
 };
 use folding_domain::wire::Id;
 use serde::Deserialize;

@@ -1,8 +1,9 @@
 //! Explicit historical correction: frozen new version, preview digest, then audited publication.
 use crate::{
     admin_auth::Administrator,
-    auth_runtime::{Configuration, Failure, blob, now, number, statement, text, uuid},
+    config::Configuration,
     finalization_runtime::Period,
+    support::{Failure, blob, now, number, statement, text, uuid},
 };
 use askama::Template;
 use folding_domain::wire::Id;

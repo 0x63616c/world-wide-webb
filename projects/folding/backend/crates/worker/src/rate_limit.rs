@@ -1,4 +1,5 @@
-use crate::auth_runtime::{Configuration, Failure, blob, now, number, statement};
+use crate::config::Configuration;
+use crate::support::{Failure, blob, now, number, statement};
 use serde::Deserialize;
 use worker::D1Database;
 #[derive(Deserialize)]

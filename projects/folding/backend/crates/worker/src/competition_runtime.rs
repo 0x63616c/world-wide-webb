@@ -1,11 +1,10 @@
 //! Atomic authenticated event ingestion. Observation identity and scores are server owned.
 use crate::{
-    auth_runtime::{
-        COMMUNITY_GUARD, Configuration, Failure, blob, decode, now, number, response,
-        session_guard, statement, text, uuid,
-    },
+    auth_runtime::{COMMUNITY_GUARD, session_guard},
+    config::Configuration,
     ingestion::{StoredObservation, plan_batch_with_deletions},
     protected_request::{self, VerifiedRequest},
+    support::{Failure, blob, decode, now, number, response, statement, text, uuid},
 };
 use folding_domain::{
     competition::Enrollment,

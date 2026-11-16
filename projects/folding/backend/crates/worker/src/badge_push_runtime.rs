@@ -1,5 +1,6 @@
 //! Private, opt-in badge delivery. One persisted delivery groups up to six catalog awards.
-use crate::auth_runtime::{Configuration, Failure, blob, now, number, statement, text, uuid};
+use crate::config::Configuration;
+use crate::support::{Failure, blob, now, number, statement, text, uuid};
 use serde::Deserialize;
 use worker::*;
 

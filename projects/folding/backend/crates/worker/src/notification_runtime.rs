@@ -1,8 +1,7 @@
 //! Per-category preferences and encrypted APNs installation ownership.
-use crate::auth_runtime::{
-    COMMUNITY_GUARD, Configuration, Failure, authenticated_session, blob, decode, now, number,
-    random, response, session_guard, statement, text, uuid,
-};
+use crate::auth_runtime::{COMMUNITY_GUARD, authenticated_session, session_guard};
+use crate::config::Configuration;
+use crate::support::{Failure, blob, decode, now, number, random, response, statement, text, uuid};
 use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 use folding_domain::wire::Id;
 use serde::{Deserialize, Serialize};

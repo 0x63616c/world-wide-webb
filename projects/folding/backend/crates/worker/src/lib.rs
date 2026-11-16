@@ -3,6 +3,8 @@ pub mod access_identity;
 #[cfg(target_arch = "wasm32")]
 mod admin_auth;
 #[cfg(target_arch = "wasm32")]
+mod admin_mutations;
+#[cfg(target_arch = "wasm32")]
 mod admin_runtime;
 pub mod apns;
 #[cfg(target_arch = "wasm32")]
@@ -50,6 +52,8 @@ mod client_policy_runtime;
 mod community_reads;
 #[cfg(target_arch = "wasm32")]
 mod competition_runtime;
+#[cfg(target_arch = "wasm32")]
+mod config;
 #[cfg(target_arch = "wasm32")]
 mod correction_runtime;
 #[cfg(target_arch = "wasm32")]
@@ -106,6 +110,8 @@ mod results_runtime;
 mod retry_runtime;
 pub mod secrets;
 pub mod session;
+#[cfg(target_arch = "wasm32")]
+mod support;
 
 #[cfg(target_arch = "wasm32")]
 mod runtime;

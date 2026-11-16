@@ -1,7 +1,7 @@
 //! Authenticated owner reads. No leaderboard or history is disclosed before joined authorization.
-use crate::auth_runtime::{
-    Configuration, Failure, authenticated_session, response, statement, text,
-};
+use crate::auth_runtime::authenticated_session;
+use crate::config::Configuration;
+use crate::support::{Failure, response, statement, text};
 use serde::{Deserialize, Serialize};
 use worker::*;
 #[derive(Deserialize, Serialize)]

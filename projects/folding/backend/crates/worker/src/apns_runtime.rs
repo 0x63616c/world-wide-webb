@@ -1,5 +1,6 @@
 //! Durable award delivery. D1 owns eligibility and retry state; APNs is an external best-effort hop.
-use crate::auth_runtime::{Configuration, Failure, blob, now, number, random, statement, text};
+use crate::config::Configuration;
+use crate::support::{Failure, blob, now, number, random, statement, text};
 use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 use futures_util::StreamExt;
 use serde::Deserialize;

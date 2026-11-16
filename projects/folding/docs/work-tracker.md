@@ -52,8 +52,14 @@ Local and simulator tests do not substitute for this evidence.
 
 ### Operations
 
-- Watchdog Worker and operational alerts are provisioned but not activated. Activate or delete
-  (decision D4 in the [repository clean-up plan](../../../docs/plans/repo-cleanup-2026-11-15.md)).
+- The watchdog Worker source and its configuration generator are deleted (decision D4 in the
+  [repository clean-up plan](../../../docs/plans/repo-cleanup-2026-11-15.md)). Its live remains
+  still need an owner-run removal: the `folding-watchdog-production` D1 database, which
+  `infra/cloudflare/modules/monitoring` creates unconditionally with `prevent_destroy`, the
+  unscheduled `folding-watchdog-production` Worker that the
+  [November 7 receipt](experiments/live-integration-2026-11-07.md) records as deployed, and the
+  `--database-kind watchdog` option of `scripts/migrate-d1.py`. Until then the module, its
+  `monitoring_*` variables and the `monitoring_bindings` output stay in the production root.
 - The Worker still serves the results and results-share endpoints. Remove the share endpoint after
   request logs confirm no installed build calls it.
 - Measure resource use with realistic large histories and populations.
@@ -72,6 +78,3 @@ Local and simulator tests do not substitute for this evidence.
 - Competition transport, API and upload tests still need the simulator. `CompetitionAPI` and
   `CompetitionTransport` depend on types declared in UIKit files (`CompetitionSignIn.swift`,
   `PushRegistration.swift`) and on `TrackingRuntime`.
-- `TrackingDiagnosticEntry.Event` keeps `widgetSnapshotWritten` and `widgetFailed`. Stored
-  diagnostics decode as one array, so removing the cases would discard any stored history that
-  contains them. Remove them together with a decoder that skips unknown events.

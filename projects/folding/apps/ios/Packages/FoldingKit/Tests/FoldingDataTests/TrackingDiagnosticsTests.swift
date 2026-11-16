@@ -166,3 +166,17 @@ func foregroundRecoversOnlyProvenLegacyLocalBusyRetry(
   #expect(events[0]["at_utc"] as? String == "2026-11-10T02:49:17.624Z")
   #expect(events[0]["at_local"] as? String == "2026-11-09T18:49:17.624-08:00")
 }
+
+@Test func storedDiagnosticsSkipEntriesWithUnknownEvents() {
+  let raw = """
+    [{"atMS":1000,"event":"widget_failed"},{"atMS":2000,"event":"network","status":503},\
+    {"atMS":3000,"event":"not_yet_invented"},{"atMS":4000,"event":"foreground"}]
+    """
+  #expect(
+    TrackingDiagnosticEntry.stored(raw) == [
+      TrackingDiagnosticEntry(atMS: 2000, event: .network, status: 503),
+      TrackingDiagnosticEntry(atMS: 4000, event: .foreground),
+    ])
+  #expect(TrackingDiagnosticEntry.stored(nil).isEmpty)
+  #expect(TrackingDiagnosticEntry.stored("not json").isEmpty)
+}

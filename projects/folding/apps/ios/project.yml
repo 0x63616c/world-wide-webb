@@ -97,6 +97,14 @@ targets:
     sources:
       - path: Screenshots
       - path: App/FoldingScreens.swift
+      - path: App/TodayScreen.swift
+      - path: App/HistoryScreen.swift
+      - path: App/SettingsScreen.swift
+      - path: App/SetupScreen.swift
+      - path: App/LeaderboardScreen.swift
+      - path: App/NotificationSettingsScreen.swift
+      - path: App/TrackingPhoneScreen.swift
+      - path: App/ExportShareHost.swift
       - path: App/DiagnosticsScreen.swift
       - path: App/PatternsScreen.swift
       - path: App/FoldingPresentation.swift

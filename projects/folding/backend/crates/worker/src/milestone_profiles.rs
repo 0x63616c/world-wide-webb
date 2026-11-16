@@ -1,8 +1,7 @@
 //! Explicit public/owner projections and session-authorized badge commands.
-use crate::auth_runtime::{
-    CommunitySession, Configuration, Failure, blob, community_session, decode, now, number,
-    response, session_guard, statement, text, uuid,
-};
+use crate::auth_runtime::{CommunitySession, community_session, session_guard};
+use crate::config::Configuration;
+use crate::support::{Failure, blob, decode, now, number, response, statement, text, uuid};
 use folding_domain::{
     milestones::{BadgeId, progress},
     wire::{Generation, Id},

@@ -1,5 +1,5 @@
 //! Frozen-input period state machine. No published result is reduced from mutable live scores.
-use crate::auth_runtime::{Failure, now, number, statement, text, uuid};
+use crate::support::{Failure, now, number, statement, text, uuid};
 use folding_domain::{
     reducer,
     wire::{Event, Generation, Id},
