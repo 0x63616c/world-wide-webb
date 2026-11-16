@@ -49,14 +49,23 @@ impl ProgressStore {
                  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
              );",
         )?;
-        Ok(Self { conn: Mutex::new(conn) })
+        Ok(Self {
+            conn: Mutex::new(conn),
+        })
     }
 
     pub fn all(&self) -> Result<HashMap<String, Progress>> {
         let conn = self.conn.lock().expect("progress lock");
         let mut stmt = conn.prepare("SELECT id, seconds, watched, updated_at FROM progress")?;
         let rows = stmt.query_map([], |row| {
-            Ok((row.get::<_, String>(0)?, Progress { seconds: row.get(1)?, watched: row.get(2)?, updated_at: row.get(3)? }))
+            Ok((
+                row.get::<_, String>(0)?,
+                Progress {
+                    seconds: row.get(1)?,
+                    watched: row.get(2)?,
+                    updated_at: row.get(3)?,
+                },
+            ))
         })?;
         Ok(rows.collect::<rusqlite::Result<_>>()?)
     }
@@ -88,8 +97,26 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         let path = tmp.path().join("data/progress.sqlite");
         let store = ProgressStore::open(&path).unwrap();
-        store.set("a", Progress { seconds: 12.5, watched: false, updated_at: None }).unwrap();
-        store.set("a", Progress { seconds: -3.0, watched: true, updated_at: None }).unwrap();
+        store
+            .set(
+                "a",
+                Progress {
+                    seconds: 12.5,
+                    watched: false,
+                    updated_at: None,
+                },
+            )
+            .unwrap();
+        store
+            .set(
+                "a",
+                Progress {
+                    seconds: -3.0,
+                    watched: true,
+                    updated_at: None,
+                },
+            )
+            .unwrap();
         drop(store);
         let reopened = ProgressStore::open(&path).unwrap();
         let saved = reopened.all().unwrap()["a"].clone();

@@ -130,13 +130,34 @@ def ensure_internal_testers(app)
       .get_beta_groups(client: client)
       .find { |candidate| candidate.name == app["testflight_group"] }
   unless group
+    # Spaceship's create_beta_group also sends public-link attributes, which
+    # App Store Connect now rejects for internal groups.
     group =
-      record.create_beta_group(
-        client: client,
-        group_name: app["testflight_group"],
-        is_internal_group: true,
-        has_access_to_all_builds: true
-      )
+      client
+        .test_flight_request_client
+        .post(
+          "v1/betaGroups",
+          {
+            data: {
+              type: "betaGroups",
+              attributes: {
+                name: app["testflight_group"],
+                isInternalGroup: true,
+                hasAccessToAllBuilds: true
+              },
+              relationships: {
+                app: {
+                  data: {
+                    type: "apps",
+                    id: record.id
+                  }
+                }
+              }
+            }
+          }
+        )
+        .to_models
+        .first
     UI.message("Created internal group (group id #{group.id})")
   end
   unless group.is_internal_group

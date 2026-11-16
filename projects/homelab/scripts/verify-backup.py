@@ -17,6 +17,7 @@ PAYLOADS = {
     "beszel": {"beszel-data.tar.gz"},
     "cloudflared": set(),
     "penpot": {"penpot.dump", "penpot-assets.tar.gz", "penpot-valkey.tar.gz"},
+    "tapes": {"tapes-data.tar.gz"},
 }
 
 
@@ -37,6 +38,7 @@ CONTAINERS = {
         "penpot-penpot-postgres-1",
         "penpot-penpot-valkey-1",
     },
+    "tapes": {"tapes"},
 }
 CREDENTIALS = {
     "golink": {"environment"},
@@ -47,6 +49,7 @@ CREDENTIALS = {
     "cloudflared": {"TUNNEL_TOKEN"},
     "home-assistant": set(),
     "penpot": {"environment"},
+    "tapes": set(),
 }
 
 
@@ -91,8 +94,9 @@ def host_metadata(archive):
         required.update("credentials/" + service + "/" + name for name in CREDENTIALS[service])
     if any(service != "home-assistant" for service in services):
         required.add("containers.env")
-    if "control-center" in services:
-        required.add("compose/control-center/release.json")
+    for service in ("control-center", "tapes"):
+        if service in services:
+            required.add("compose/" + service + "/release.json")
     if "beszel" in services:
         required.add("compose/beszel/config.yml")
     if "penpot" in services:

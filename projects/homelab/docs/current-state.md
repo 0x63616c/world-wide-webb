@@ -26,6 +26,9 @@ assignment. `hosts/<name>.nix` holds each host's settings.
   The other services share the `services` Colima VM.
 - Local ports: Control Center `127.0.0.1:4202`, Bambuddy `127.0.0.1:8000`, Beszel
   `127.0.0.1:8090`, Hindsight `8888` and `9999` on all interfaces.
+- Tapes (`services/tapes`, LAN port `4300`, read-only NAS NFS library) is defined but
+  not yet assigned: it is added to `homelab.json` after its first `release.json` pin
+  and `tapes_data` volume exist ([tapes](tapes.md)).
 - Tailnet names: the Control Center apps use `https://homelab.tail8c014d.ts.net`
   ([access](control-center-access.md)), Bambuddy has its own node
   `bambuddy.tail8c014d.ts.net` and golink answers at `go.tail8c014d.ts.net`

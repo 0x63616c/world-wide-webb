@@ -41,6 +41,7 @@ NAMES = {
         ],
     ),
     "home-assistant": ("ha", ["www-home-assistant-home-assistant-1"]),
+    "tapes": ("services", ["tapes"]),
 }
 
 
@@ -299,6 +300,10 @@ def snapshot(destination, services, weekly_exports=False, control_center_online=
         # Stop the sole writer: links database and tsnet identity are one recovery unit.
         with stopped("services", "golink", destination, timings):
             container_files(destination / "golink-data.tar.gz", "services", "golink", "/home/nonroot")
+    if "tapes" in services:
+        # Progress SQLite only; the NFS library is the NAS's own data.
+        with stopped("services", "tapes", destination, timings):
+            container_files(destination / "tapes-data.tar.gz", "services", "tapes", "/app/data")
     if "beszel" in services:
         # PocketBase databases and the hub SSH identity form one recovery unit.
         with stopped("services", "beszel-beszel-1", destination, timings):

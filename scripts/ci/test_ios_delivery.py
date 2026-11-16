@@ -44,14 +44,16 @@ class DeliveryTests(unittest.TestCase):
 
     def test_main_selection_keeps_products_and_backend_independent(self):
         for candidates, expected in [
-            ([], (False, False, False)),
-            (["tendr.native"], (True, False, False)),
-            (["folding.native"], (False, True, False)),
-            (["folding.backend"], (False, True, True)),
-            (["callkeep.native", "homelab.config"], (False, False, False)),
+            ([], (False, False, False, False)),
+            (["tendr.native"], (True, False, False, False)),
+            (["tapes.native"], (False, True, False, False)),
+            (["tapes.server"], (False, False, False, False)),
+            (["folding.native"], (False, False, True, False)),
+            (["folding.backend"], (False, False, True, True)),
+            (["callkeep.native", "homelab.config"], (False, False, False, False)),
         ]:
             result = self.resolve_main(candidates)
-            self.assertEqual(tuple(result[key] for key in ("tendr", "folding", "backend")), expected)
+            self.assertEqual(tuple(result[key] for key in ("tendr", "tapes", "folding", "backend")), expected)
             self.assertEqual(result["source"], self.source)
             self.assertEqual(result["ci_run_url"], f"https://github.com/{self.repo}/actions/runs/11/attempts/2")
 

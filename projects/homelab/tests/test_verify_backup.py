@@ -40,6 +40,18 @@ class RestoreVerificationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "required service files"):
             verify.verify(self.root)
 
+    def test_tapes_recovery_requires_progress_data_and_release_pin_without_credentials(self):
+        self.host["services"] = ["tapes"]
+        self.images()
+        self.archive()
+        (self.root / "tapes-data.tar.gz").write_bytes(b"fixture progress archive")
+        self.manifest()
+        self.assertEqual(verify.verify(self.root)["services"], ["tapes"])
+        self.archive(omit="compose/tapes/release.json")
+        self.manifest()
+        with self.assertRaisesRegex(ValueError, "required service files"):
+            verify.verify(self.root)
+
     def images(self):
         containers = {
             "golink": ["golink"],
@@ -50,6 +62,7 @@ class RestoreVerificationTests(unittest.TestCase):
             "hindsight": ["hindsight"],
             "beszel": ["beszel-beszel-1"],
             "penpot": list(verify.CONTAINERS["penpot"]),
+            "tapes": ["tapes"],
         }
         images = {
             name: {"id": "sha256:" + "a" * 64, "repo_digests": ["example/image@sha256:" + "b" * 64]}
@@ -78,14 +91,16 @@ class RestoreVerificationTests(unittest.TestCase):
             ],
             "home-assistant": [],
             "penpot": ["environment"],
+            "tapes": [],
         }
         for service in self.host["services"]:
             for name in credentials[service]:
                 files["credentials/" + service + "/" + name] = b"fixture credential"
         if any(service != "home-assistant" for service in self.host["services"]):
             files["containers.env"] = b"fixture environment"
-        if "control-center" in self.host["services"]:
-            files["compose/control-center/release.json"] = b"fixture release"
+        for service in ("control-center", "tapes"):
+            if service in self.host["services"]:
+                files["compose/" + service + "/release.json"] = b"fixture release"
         if "beszel" in self.host["services"]:
             files["compose/beszel/config.yml"] = b"fixture systems inventory"
         if "penpot" in self.host["services"]:

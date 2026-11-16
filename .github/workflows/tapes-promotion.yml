@@ -1,0 +1,95 @@
+name: Promote Tapes image
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      ci_run_id:
+        description: Successful main CI run containing the tested immutable image
+        type: string
+        required: true
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: tapes-image-promotion
+  cancel-in-progress: false
+jobs:
+  source:
+    name: Tapes source
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'))
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 5
+    outputs:
+      sha: ${{ steps.source.outputs.sha }}
+      ci_run_id: ${{ steps.source.outputs.run_id }}
+      ci_attempt: ${{ steps.source.outputs.attempt }}
+      image: ${{ steps.image.outputs.image }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - id: source
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ inputs.ci_run_id || github.event.workflow_run.id }}
+        run: python3 projects/control-center/tools/ci_release_source.py "$RUN_ID"
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: repository-selection
+          path: ${{ runner.temp }}/selection
+          run-id: ${{ steps.source.outputs.run_id }}
+          github-token: ${{ github.token }}
+      - id: selection
+        run: |
+          python3 - "$RUNNER_TEMP/selection/ci-selection.json" <<'PY' >> "$GITHUB_OUTPUT"
+          import json, sys
+          print("image=" + str("tapes.server" in json.load(open(sys.argv[1]))["delivery_candidates"]).lower())
+          PY
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        if: steps.selection.outputs.image == 'true'
+        with:
+          name: tapes-image
+          path: ${{ runner.temp }}/image
+          run-id: ${{ steps.source.outputs.run_id }}
+          github-token: ${{ github.token }}
+      - id: image
+        if: steps.selection.outputs.image == 'true'
+        env:
+          SOURCE_SHA: ${{ steps.source.outputs.sha }}
+        run: |
+          python3 - "$RUNNER_TEMP/image/tapes-image.json" <<'PY' >> "$GITHUB_OUTPUT"
+          import json, os, re, sys
+          value = json.load(open(sys.argv[1]))
+          assert value["sha"] == os.environ["SOURCE_SHA"], "image was built from another revision"
+          assert re.fullmatch(r"ghcr\.io/0x63616c/www-tapes@sha256:[a-f0-9]{64}", value["image"])
+          print("image=" + value["image"])
+          PY
+  promote:
+    name: Tapes image pin
+    needs: source
+    if: needs.source.outputs.image != ''
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 10
+    environment: production
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          filter: blob:none
+          ssh-key: ${{ secrets.CONTROL_CENTER_PROMOTION_DEPLOY_KEY }}
+          persist-credentials: true
+      - uses: ./.github/actions/github-cli
+      - uses: ./.github/actions/install-sops
+      - name: Propose the tested image in homelab desired state
+        env:
+          SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
+          IMAGE: ${{ needs.source.outputs.image }}
+          REVISION: ${{ needs.source.outputs.sha }}
+          CI_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ needs.source.outputs.ci_run_id }}/attempts/${{ needs.source.outputs.ci_attempt }}
+        run: python3 scripts/homelab/promote_control_center.py --service tapes --source "$REVISION" --image "$IMAGE" --ci-run-url "$CI_RUN_URL"

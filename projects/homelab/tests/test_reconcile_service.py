@@ -218,6 +218,22 @@ class DeliveryTests(unittest.TestCase):
         self.assertEqual(env["WWW_IMAGE"], release["image"])
         self.assertNotIn("POSTGRES_IMAGE", env)
 
+    @patch.object(reconcile.subprocess, "run")
+    def test_tapes_uses_only_the_validated_git_release_image(self, run):
+        compose = self.root / "compose"
+        (compose / "tapes").mkdir(parents=True)
+        image = "ghcr.io/0x63616c/www-tapes@sha256:" + "b" * 64
+        release = {"schemaVersion": 1, "sourceRepository": "0x63616c/world-wide-webb", "sourceRevision": "a" * 40}
+        (compose / "tapes/release.json").write_text(json.dumps({**release, "image": image}))
+        with patch.dict(os.environ, {"TAPES_IMAGE": "unreviewed:latest"}):
+            reconcile.reconcile("tapes", self.source, self.runtime, compose, self.root / "compose.env")
+        self.assertEqual(run.call_args.kwargs["env"]["TAPES_IMAGE"], image)
+        (compose / "tapes/release.json").write_text(
+            json.dumps({**release, "image": "ghcr.io/0x63616c/www-tapes:latest"})
+        )
+        with self.assertRaises(ValueError):
+            reconcile.reconcile("tapes", self.source, self.runtime, compose, self.root / "compose.env")
+
 
 if __name__ == "__main__":
     unittest.main()

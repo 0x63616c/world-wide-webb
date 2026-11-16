@@ -3,7 +3,7 @@
 import re
 
 SERVICES = frozenset(
-    ("control-center", "bambuddy", "hindsight", "cloudflared", "penpot", "beszel", "golink", "home-assistant")
+    ("control-center", "bambuddy", "hindsight", "cloudflared", "penpot", "beszel", "golink", "home-assistant", "tapes")
 )
 
 

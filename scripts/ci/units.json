@@ -232,6 +232,51 @@
         "projects/control-center/tools/test_state_backend.py"
       ]
     },
+    "tapes.native": {
+      "paths": ["scripts/ci/with-match-signing.sh", "projects/tapes/**"],
+      "exclude": ["projects/tapes/server/**", "projects/tapes/openapi.json"],
+      "delivery": "testflight",
+      "delivery_paths": [
+        "projects/tapes/Sources/**",
+        "projects/tapes/Resources/**",
+        "projects/tapes/TapesAPI/Sources/**",
+        "projects/tapes/TapesAPI/Package.swift",
+        "projects/tapes/Info.plist",
+        "projects/tapes/project.yml",
+        "projects/tapes/app.yml"
+      ],
+      "delivery_exclude": [
+        "**/Tests/**",
+        "**/tests/**",
+        "**/test_*",
+        "**/*_test.*",
+        "**/fixtures/**",
+        "**/BuildTests/**",
+        "**/ScreenshotTests/**",
+        "**/StorefrontTests/**"
+      ]
+    },
+    "tapes.server": {
+      "paths": ["projects/tapes/server/**", "projects/tapes/openapi.json"],
+      "delivery": "container",
+      "delivery_paths": [
+        "projects/tapes/server/src/**",
+        "projects/tapes/server/Cargo.*",
+        "projects/tapes/server/rust-toolchain.toml",
+        "projects/tapes/server/Dockerfile",
+        "projects/tapes/server/.dockerignore"
+      ],
+      "delivery_exclude": [
+        "**/Tests/**",
+        "**/tests/**",
+        "**/test_*",
+        "**/*_test.*",
+        "**/fixtures/**",
+        "**/BuildTests/**",
+        "**/ScreenshotTests/**",
+        "**/StorefrontTests/**"
+      ]
+    },
     "sites.folding": {
       "paths": ["projects/folding/site/**"],
       "delivery": "site",
@@ -432,12 +477,14 @@
     ".github/workflows/tendr-ci.yml": ["tendr.native", "repo.tooling"],
     ".github/workflows/testflight.yml": [
       "tendr.native",
+      "tapes.native",
       "folding.tooling",
       "repo.tooling"
     ],
     ".github/workflows/iap.yml": ["tendr.native", "repo.tooling"],
     ".github/workflows/release.yml": [
       "tendr.native",
+      "tapes.native",
       "folding.tooling",
       "repo.tooling"
     ],
@@ -458,10 +505,14 @@
     ".github/workflows/tendr-delivery.yml": ["tendr.native", "repo.tooling"],
     ".github/actions/match-access/action.yml": [
       "tendr.native",
+      "tapes.native",
       "callkeep.native",
       "folding.tooling",
       "repo.tooling"
-    ]
+    ],
+    ".github/workflows/tapes-ci.yml": ["tapes.server"],
+    ".github/workflows/tapes-delivery.yml": ["tapes.native"],
+    ".github/workflows/tapes-promotion.yml": ["tapes.server"]
   },
   "checks": {
     "homelab.operations": {

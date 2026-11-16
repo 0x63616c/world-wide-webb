@@ -63,6 +63,7 @@ class DispatchTests(unittest.TestCase):
                 "control-center",
                 "folding",
                 "tendr",
+                "tapes",
                 "callkeep",
                 "golink",
                 "minecraft",
@@ -87,3 +88,24 @@ class DispatchTests(unittest.TestCase):
         selected["folding"]["result"] = "failure"
         with self.assertRaises(ValueError):
             verify(selected)
+
+    def test_tapes_runs_its_server_checks_and_the_standard_ios_build(self):
+        self.assertEqual(dispatch(["projects/tapes/server/src/api.rs"], CONFIGURATION)["products"], ["tapes"])
+        self.assertEqual(dispatch(["projects/tapes/Sources/Browse.swift"], CONFIGURATION)["products"], ["tapes"])
+        needs = {
+            name: {"result": "skipped"}
+            for name in ("control-center", "folding", "callkeep", "golink", "minecraft", "homelab", "sites")
+        }
+        needs.update(
+            {name: {"result": "skipped"} for name in ("typecheck", "test-unit", "security")},
+            changes={
+                "result": "success",
+                "outputs": {"products": '["tapes"]', "tooling": "false", "security_languages": "[]"},
+            },
+            tapes={"result": "success"},
+            tendr={"result": "skipped"},
+        )
+        with self.assertRaises(ValueError):
+            verify(needs)
+        needs["tendr"]["result"] = "success"
+        verify(needs)

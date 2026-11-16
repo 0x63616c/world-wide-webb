@@ -24,3 +24,7 @@ start duplicated HA automations or a duplicated Bambuddy Tailscale identity on t
 Control Center now uses native Rust/SQLite, an external persistent SQLite volume and
 preserved media. Its image is pinned in `control-center/release.json`; host transactional
 activation supplies backup/update locking. Do not introduce a second deployer or worker.
+
+Tapes is built in this repository (`projects/tapes/server`). Its image is pinned in
+`tapes/release.json` by promotion; progress lives on the external `tapes_data` volume
+and the library is a read-only NFS mount from the NAS ([tapes](../docs/tapes.md)).

@@ -14,6 +14,7 @@ def verify(needs):
         "control-center",
         "folding",
         "tendr",
+        "tapes",
         "callkeep",
         "golink",
         "minecraft",
@@ -24,6 +25,9 @@ def verify(needs):
         "security",
     ):
         selected = name in products
+        if name == "tendr":
+            # The Standard iOS job builds every standard_ios app, Tapes included.
+            selected = bool({"tendr", "tapes"}.intersection(products))
         if name in {"typecheck", "test-unit"}:
             selected = outputs["tooling"] == "true"
         elif name == "security":

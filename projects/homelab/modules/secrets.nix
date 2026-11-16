@@ -65,7 +65,8 @@ in
             }) wwwNames
           )
         ))
-        (lib.mkIf (selected "control-center") {
+        # Private GHCR images: Control Center and Tapes.
+        (lib.mkIf (selected "control-center" || selected "tapes") {
           "registry/config.json" = containerSecret "services/registry/docker-config";
         })
         (lib.mkIf (selected "hindsight") {

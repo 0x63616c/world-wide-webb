@@ -26,7 +26,12 @@ pub struct AppState {
 
 impl AppState {
     pub fn new(root: PathBuf, store: ProgressStore) -> Arc<Self> {
-        Arc::new(Self { root, store, library: RwLock::new(None), last_error: RwLock::new(None) })
+        Arc::new(Self {
+            root,
+            store,
+            library: RwLock::new(None),
+            last_error: RwLock::new(None),
+        })
     }
 
     /// Rescans the folder. On failure the previous library stays, so a share that drops
@@ -62,9 +67,23 @@ impl AppState {
 
 #[derive(OpenApi)]
 #[openapi(
-    info(title = "Tapes", version = "1", description = "Personal media library."),
+    info(
+        title = "Tapes",
+        version = "1",
+        description = "Personal media library."
+    ),
     paths(get_library, get_media, get_art, put_progress, rescan, health),
-    components(schemas(LibraryResponse, Movie, Show, Episode, DjSet, Progress, Health, ApiError, RescanResult))
+    components(schemas(
+        LibraryResponse,
+        Movie,
+        Show,
+        Episode,
+        DjSet,
+        Progress,
+        Health,
+        ApiError,
+        RescanResult
+    ))
 )]
 pub struct ApiDoc;
 
@@ -86,7 +105,13 @@ pub struct ApiError {
 }
 
 fn error(status: StatusCode, message: impl Into<String>) -> Response {
-    (status, Json(ApiError { error: message.into() })).into_response()
+    (
+        status,
+        Json(ApiError {
+            error: message.into(),
+        }),
+    )
+        .into_response()
 }
 
 #[derive(Serialize, Deserialize, ToSchema, Debug)]
@@ -227,18 +252,28 @@ async fn get_library(State(state): State<Arc<AppState>>) -> Response {
     .into_response()
 }
 
+#[allow(clippy::result_large_err)] // handlers return the error response directly
 fn entry_dir(state: &AppState, id: &str) -> Result<PathBuf, Response> {
     let Some(library) = state.library() else {
-        return Err(error(StatusCode::SERVICE_UNAVAILABLE, "library unavailable"));
+        return Err(error(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "library unavailable",
+        ));
     };
-    library.find(id).map(|e| e.dir.clone()).ok_or_else(|| error(StatusCode::NOT_FOUND, "no such item"))
+    library
+        .find(id)
+        .map(|e| e.dir.clone())
+        .ok_or_else(|| error(StatusCode::NOT_FOUND, "no such item"))
 }
 
 async fn serve(path: PathBuf, content_type: &'static str, request: Request) -> Response {
     if !tokio::fs::try_exists(&path).await.unwrap_or(false) {
         return error(StatusCode::NOT_FOUND, "file missing");
     }
-    match ServeFile::new_with_mime(path, &content_type.parse().unwrap()).oneshot(request).await {
+    match ServeFile::new_with_mime(path, &content_type.parse().unwrap())
+        .oneshot(request)
+        .await
+    {
         Ok(response) => response.into_response(),
         Err(e) => error(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()),
     }
@@ -250,7 +285,11 @@ async fn serve(path: PathBuf, content_type: &'static str, request: Request) -> R
     (status = 206, description = "Part of the video file"),
     (status = 404, body = ApiError)
 ))]
-async fn get_media(State(state): State<Arc<AppState>>, Path(id): Path<String>, request: Request) -> Response {
+async fn get_media(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+    request: Request,
+) -> Response {
     match entry_dir(&state, &id) {
         Ok(dir) => serve(dir.join(VIDEO), "video/mp4", request).await,
         Err(response) => response,
@@ -279,9 +318,16 @@ async fn get_art(
         Err(response) => return response,
     };
     let small = dir.join(ART_SMALL);
-    let path = if query.size.as_deref() == Some("small") && small.is_file() { small } else { dir.join(ART) };
+    let path = if query.size.as_deref() == Some("small") && small.is_file() {
+        small
+    } else {
+        dir.join(ART)
+    };
     let mut response = serve(path, "image/jpeg", request).await;
-    response.headers_mut().insert(header::CACHE_CONTROL, "public, max-age=300".parse().unwrap());
+    response.headers_mut().insert(
+        header::CACHE_CONTROL,
+        "public, max-age=300".parse().unwrap(),
+    );
     response
 }
 
@@ -342,11 +388,19 @@ pub struct Health {
 #[utoipa::path(get, path = "/health", responses((status = 200, body = Health), (status = 500, body = ApiError)))]
 async fn health(State(state): State<Arc<AppState>>) -> Response {
     if let Err(e) = state.store.check() {
-        return error(StatusCode::INTERNAL_SERVER_ERROR, format!("progress database: {e:#}"));
+        return error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("progress database: {e:#}"),
+        );
     }
     Json(Health {
         status: "ok".into(),
-        library: if state.available() { "available" } else { "unavailable" }.into(),
+        library: if state.available() {
+            "available"
+        } else {
+            "unavailable"
+        }
+        .into(),
         items: state.library().map_or(0, |l| l.len()),
         build: option_env!("BUILD_HASH").unwrap_or("local").into(),
         problem: state.last_error.read().unwrap().clone(),
@@ -378,11 +432,24 @@ mod tests {
         (tmp, state, movie.id)
     }
 
-    async fn call(state: &Arc<AppState>, request: axum::http::Request<Body>) -> (StatusCode, axum::http::HeaderMap, Vec<u8>) {
+    async fn call(
+        state: &Arc<AppState>,
+        request: axum::http::Request<Body>,
+    ) -> (StatusCode, axum::http::HeaderMap, Vec<u8>) {
         let response = router(state.clone()).oneshot(request).await.unwrap();
         let status = response.status();
         let headers = response.headers().clone();
-        (status, headers, response.into_body().collect().await.unwrap().to_bytes().to_vec())
+        (
+            status,
+            headers,
+            response
+                .into_body()
+                .collect()
+                .await
+                .unwrap()
+                .to_bytes()
+                .to_vec(),
+        )
     }
 
     fn get(uri: &str) -> axum::http::Request<Body> {
@@ -392,7 +459,10 @@ mod tests {
     #[tokio::test]
     async fn library_lists_playable_items_with_progress() {
         let (_tmp, state, id) = fixture();
-        assert_eq!(call(&state, get("/library")).await.0, StatusCode::SERVICE_UNAVAILABLE);
+        assert_eq!(
+            call(&state, get("/library")).await.0,
+            StatusCode::SERVICE_UNAVAILABLE
+        );
         state.rescan().unwrap();
 
         let put = axum::http::Request::put(format!("/progress/{id}"))
@@ -414,14 +484,23 @@ mod tests {
     async fn media_supports_ranges_and_art_has_a_small_size() {
         let (_tmp, state, id) = fixture();
         state.rescan().unwrap();
-        let ranged = axum::http::Request::get(format!("/media/{id}")).header("range", "bytes=2-4").body(Body::empty()).unwrap();
+        let ranged = axum::http::Request::get(format!("/media/{id}"))
+            .header("range", "bytes=2-4")
+            .body(Body::empty())
+            .unwrap();
         let (status, headers, body) = call(&state, ranged).await;
         assert_eq!(status, StatusCode::PARTIAL_CONTENT);
         assert_eq!(body, b"234");
         assert_eq!(headers["content-type"], "video/mp4");
-        assert_eq!(call(&state, get(&format!("/art/{id}?size=small"))).await.2, b"small");
+        assert_eq!(
+            call(&state, get(&format!("/art/{id}?size=small"))).await.2,
+            b"small"
+        );
         assert_eq!(call(&state, get(&format!("/art/{id}"))).await.2, b"big");
-        assert_eq!(call(&state, get("/media/nope")).await.0, StatusCode::NOT_FOUND);
+        assert_eq!(
+            call(&state, get("/media/nope")).await.0,
+            StatusCode::NOT_FOUND
+        );
     }
 
     #[tokio::test]
@@ -431,12 +510,17 @@ mod tests {
         std::fs::remove_file(tmp.path().join(crate::library::MARKER)).unwrap();
         assert!(state.rescan().is_err());
 
-        let library: LibraryResponse = serde_json::from_slice(&call(&state, get("/library")).await.2).unwrap();
+        let library: LibraryResponse =
+            serde_json::from_slice(&call(&state, get("/library")).await.2).unwrap();
         assert!(!library.available);
         assert_eq!(library.movies.len(), 1);
         let (status, _, body) = call(&state, get("/health")).await;
         assert_eq!(status, StatusCode::OK);
-        assert!(String::from_utf8(body).unwrap().contains("\"library\":\"unavailable\""));
+        assert!(
+            String::from_utf8(body)
+                .unwrap()
+                .contains("\"library\":\"unavailable\"")
+        );
     }
 
     #[tokio::test]

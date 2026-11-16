@@ -16,7 +16,11 @@ use utoipa::OpenApi;
 use library::{Info, Kind};
 
 #[derive(Parser)]
-#[command(name = "tapes", version, about = "Personal media library server and import tool")]
+#[command(
+    name = "tapes",
+    version,
+    about = "Personal media library server and import tool"
+)]
 struct Cli {
     /// Print machine-readable JSON.
     #[arg(long, global = true)]
@@ -114,7 +118,11 @@ struct ImportCommon {
     #[arg(long)]
     max_height: Option<u32>,
     /// Server to ask for a rescan afterwards.
-    #[arg(long, env = "TAPES_SERVER", default_value = "http://homelab-mac-mini.local:4300")]
+    #[arg(
+        long,
+        env = "TAPES_SERVER",
+        default_value = "http://homelab-mac-mini.local:4300"
+    )]
     server: String,
 }
 
@@ -161,35 +169,73 @@ enum ImportCmd {
 fn main() -> Result<()> {
     let cli = Cli::parse();
     match cli.command {
-        Cmd::Serve { lib, listen, database, rescan_seconds } => serve(lib.library, listen, database, rescan_seconds),
+        Cmd::Serve {
+            lib,
+            listen,
+            database,
+            rescan_seconds,
+        } => serve(lib.library, listen, database, rescan_seconds),
         Cmd::Healthcheck { listen } => healthcheck(&listen),
         Cmd::Import { what } => run_import(what, cli.json),
         Cmd::List { lib } => list(&lib.library, cli.json),
-        Cmd::Edit { lib, id, title, year, years, date, djs, season, number } => {
+        Cmd::Edit {
+            lib,
+            id,
+            title,
+            year,
+            years,
+            date,
+            djs,
+            season,
+            number,
+        } => {
             let (dir, mut info) = find(&lib.library, &id)?;
-            if let Some(v) = title { info.title = v }
-            if year.is_some() { info.year = year }
-            if years.is_some() { info.years = years }
-            if let Some(v) = date { info.date = Some(check_date(&v)?) }
-            if !djs.is_empty() { info.djs = djs }
-            if season.is_some() { info.season = season }
-            if number.is_some() { info.number = number }
+            if let Some(v) = title {
+                info.title = v
+            }
+            if year.is_some() {
+                info.year = year
+            }
+            if years.is_some() {
+                info.years = years
+            }
+            if let Some(v) = date {
+                info.date = Some(check_date(&v)?)
+            }
+            if !djs.is_empty() {
+                info.djs = djs
+            }
+            if season.is_some() {
+                info.season = season
+            }
+            if number.is_some() {
+                info.number = number
+            }
             library::write_info(&dir, &info)?;
-            print(cli.json, &json!({"edited": info}), || format!("Saved {}", info.title));
+            print(cli.json, &json!({"edited": info}), || {
+                format!("Saved {}", info.title)
+            });
             Ok(())
         }
         Cmd::Remove { lib, id, yes } => {
             let (dir, info) = find(&lib.library, &id)?;
             if !yes {
-                bail!("this deletes {} and its video; run again with --yes", dir.display());
+                bail!(
+                    "this deletes {} and its video; run again with --yes",
+                    dir.display()
+                );
             }
             std::fs::remove_dir_all(&dir)?;
-            print(cli.json, &json!({"removed": info.id, "dir": dir}), || format!("Removed {}", info.title));
+            print(cli.json, &json!({"removed": info.id, "dir": dir}), || {
+                format!("Removed {}", info.title)
+            });
             Ok(())
         }
         Cmd::Init { lib } => {
             library::write_marker(&lib.library)?;
-            print(cli.json, &json!({"library": lib.library}), || format!("Library ready at {}", lib.library.display()));
+            print(cli.json, &json!({"library": lib.library}), || {
+                format!("Library ready at {}", lib.library.display())
+            });
             Ok(())
         }
         Cmd::Openapi => {
@@ -209,7 +255,13 @@ fn print(json: bool, value: &serde_json::Value, text: impl FnOnce() -> String) {
 
 fn check_date(date: &str) -> Result<String> {
     let ok = date.len() == 10
-        && date.bytes().enumerate().all(|(i, b)| if i == 4 || i == 7 { b == b'-' } else { b.is_ascii_digit() });
+        && date.bytes().enumerate().all(|(i, b)| {
+            if i == 4 || i == 7 {
+                b == b'-'
+            } else {
+                b.is_ascii_digit()
+            }
+        });
     if !ok {
         bail!("date must be YYYY-MM-DD");
     }
@@ -218,13 +270,19 @@ fn check_date(date: &str) -> Result<String> {
 
 fn find(root: &Path, id: &str) -> Result<(PathBuf, Info)> {
     let lib = library::scan(root)?;
-    let entry = lib.find(id).with_context(|| format!("no item with id {id}"))?;
+    let entry = lib
+        .find(id)
+        .with_context(|| format!("no item with id {id}"))?;
     Ok((entry.dir.clone(), entry.info.clone()))
 }
 
 fn run_import(what: ImportCmd, json: bool) -> Result<()> {
     let (common, info, dir) = match what {
-        ImportCmd::Movie { common, title, year } => {
+        ImportCmd::Movie {
+            common,
+            title,
+            year,
+        } => {
             let root = ready(&common.lib.library)?;
             let mut info = Info::new(Kind::Movie, &title);
             info.year = year;
@@ -232,12 +290,26 @@ fn run_import(what: ImportCmd, json: bool) -> Result<()> {
             let dir = library::free_dir(&root.join("movies"), &name);
             (common, info, dir)
         }
-        ImportCmd::Episode { common, show, season, number, title, years } => {
+        ImportCmd::Episode {
+            common,
+            show,
+            season,
+            number,
+            title,
+            years,
+        } => {
             let root = ready(&common.lib.library)?;
             let lib = library::scan(&root)?;
-            let show_dir = match lib.shows.iter().find(|(s, _)| s.info.title.eq_ignore_ascii_case(&show)) {
+            let show_dir = match lib
+                .shows
+                .iter()
+                .find(|(s, _)| s.info.title.eq_ignore_ascii_case(&show))
+            {
                 Some((existing, episodes)) => {
-                    if episodes.iter().any(|e| e.info.season == Some(season) && e.info.number == Some(number)) {
+                    if episodes
+                        .iter()
+                        .any(|e| e.info.season == Some(season) && e.info.number == Some(number))
+                    {
                         bail!("{show} S{season}E{number} is already in the library");
                     }
                     existing.dir.clone()
@@ -257,7 +329,12 @@ fn run_import(what: ImportCmd, json: bool) -> Result<()> {
             let dir = library::free_dir(&show_dir, &format!("s{season:02}e{number:02}"));
             (common, info, dir)
         }
-        ImportCmd::Set { common, djs, title, date } => {
+        ImportCmd::Set {
+            common,
+            djs,
+            title,
+            date,
+        } => {
             let root = ready(&common.lib.library)?;
             let mut info = Info::new(Kind::Set, &title);
             let name = format!("{} {}", djs.join(" b2b "), title);
@@ -268,9 +345,19 @@ fn run_import(what: ImportCmd, json: bool) -> Result<()> {
         }
     };
     let title = info.title.clone();
-    let outcome = import::import(&common.source, &dir, info, common.max_height, common.dry_run)?;
+    let outcome = import::import(
+        &common.source,
+        &dir,
+        info,
+        common.max_height,
+        common.dry_run,
+    )?;
     // A new show takes its artwork from its first episode until a poster is added beside it.
-    if !outcome.dry_run && let Some(show_dir) = dir.parent().filter(|p| p.join(library::INFO).is_file() && p != &dir) {
+    if !outcome.dry_run
+        && let Some(show_dir) = dir
+            .parent()
+            .filter(|p| p.join(library::INFO).is_file() && p != &dir)
+    {
         for name in [library::ART, library::ART_SMALL] {
             if !show_dir.join(name).exists() {
                 std::fs::copy(dir.join(name), show_dir.join(name))?;
@@ -283,18 +370,36 @@ fn run_import(what: ImportCmd, json: bool) -> Result<()> {
         for warning in &outcome.plan.warnings {
             eprintln!("warning: {warning}");
         }
-        let verb = if outcome.dry_run { "Would import" } else { "Imported" };
-        println!("{verb} {title} ({}) into {}", outcome.id, outcome.dir.display());
+        let verb = if outcome.dry_run {
+            "Would import"
+        } else {
+            "Imported"
+        };
+        println!(
+            "{verb} {title} ({}) into {}",
+            outcome.id,
+            outcome.dir.display()
+        );
         if outcome.dry_run {
             println!("ffmpeg {}", outcome.ffmpeg.join(" "));
         }
     }
     if !outcome.dry_run {
         let rescan = std::process::Command::new("curl")
-            .args(["-fsS", "-m", "10", "-X", "POST", &format!("{}/rescan", common.server.trim_end_matches('/'))])
+            .args([
+                "-fsS",
+                "-m",
+                "10",
+                "-X",
+                "POST",
+                &format!("{}/rescan", common.server.trim_end_matches('/')),
+            ])
             .output();
         if !rescan.is_ok_and(|o| o.status.success()) {
-            eprintln!("warning: could not ask {} to rescan; it will notice within five minutes", common.server);
+            eprintln!(
+                "warning: could not ask {} to rescan; it will notice within five minutes",
+                common.server
+            );
         }
     }
     Ok(())
@@ -304,7 +409,11 @@ fn run_import(what: ImportCmd, json: bool) -> Result<()> {
 /// unmounted share does not get a new, separate library.
 fn ready(root: &Path) -> Result<PathBuf> {
     if !root.join(library::MARKER).is_file() {
-        bail!("{} is not a Tapes library (no {}); run `tapes init` once for a new one", root.display(), library::MARKER);
+        bail!(
+            "{} is not a Tapes library (no {}); run `tapes init` once for a new one",
+            root.display(),
+            library::MARKER
+        );
     }
     Ok(root.to_path_buf())
 }
@@ -316,21 +425,47 @@ fn list(root: &Path, json: bool) -> Result<()> {
         println!("{}", json!({"items": infos, "problems": lib.problems}));
         return Ok(());
     }
-    let minutes = |i: &Info| i.seconds.map_or(String::new(), |s| format!(" {}m", (s / 60.0).round()));
+    let minutes = |i: &Info| {
+        i.seconds
+            .map_or(String::new(), |s| format!(" {}m", (s / 60.0).round()))
+    };
     println!("Movies ({})", lib.movies.len());
     for m in &lib.movies {
-        println!("  {}  {}{}{}", m.info.id, m.info.title, m.info.year.map_or(String::new(), |y| format!(" ({y})")), minutes(&m.info));
+        println!(
+            "  {}  {}{}{}",
+            m.info.id,
+            m.info.title,
+            m.info.year.map_or(String::new(), |y| format!(" ({y})")),
+            minutes(&m.info)
+        );
     }
     println!("Shows ({})", lib.shows.len());
     for (s, eps) in &lib.shows {
         println!("  {}  {} — {} episodes", s.info.id, s.info.title, eps.len());
         for e in eps {
-            println!("    {}  S{}E{} {}{}", e.info.id, e.info.season.unwrap_or(0), e.info.number.unwrap_or(0), e.info.title, minutes(&e.info));
+            println!(
+                "    {}  S{}E{} {}{}",
+                e.info.id,
+                e.info.season.unwrap_or(0),
+                e.info.number.unwrap_or(0),
+                e.info.title,
+                minutes(&e.info)
+            );
         }
     }
-    println!("DJ sets ({}, {} DJs)", lib.sets.len(), library::sets_by_dj(&lib).len());
+    println!(
+        "DJ sets ({}, {} DJs)",
+        lib.sets.len(),
+        library::sets_by_dj(&lib).len()
+    );
     for s in &lib.sets {
-        println!("  {}  {} — {}{}", s.info.id, s.info.djs.join(" b2b "), s.info.title, minutes(&s.info));
+        println!(
+            "  {}  {} — {}{}",
+            s.info.id,
+            s.info.djs.join(" b2b "),
+            s.info.title,
+            minutes(&s.info)
+        );
     }
     for p in &lib.problems {
         eprintln!("problem: {p}");
@@ -353,11 +488,19 @@ fn healthcheck(listen: &str) -> Result<()> {
 }
 
 #[tokio::main]
-async fn serve(root: PathBuf, listen: String, database: PathBuf, rescan_seconds: u64) -> Result<()> {
+async fn serve(
+    root: PathBuf,
+    listen: String,
+    database: PathBuf,
+    rescan_seconds: u64,
+) -> Result<()> {
     tracing_subscriber::fmt()
-        .with_env_filter(tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()))
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()),
+        )
         .init();
-    let store = progress::ProgressStore::open(&database).with_context(|| format!("opening {}", database.display()))?;
+    let store = progress::ProgressStore::open(&database)
+        .with_context(|| format!("opening {}", database.display()))?;
     let state = api::AppState::new(root, store);
     let scanner = state.clone();
     tokio::spawn(async move {
@@ -375,7 +518,9 @@ async fn serve(root: PathBuf, listen: String, database: PathBuf, rescan_seconds:
     tracing::info!(%listen, "serving");
     axum::serve(listener, app)
         .with_graceful_shutdown(async {
-            let mut term = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()).expect("SIGTERM handler");
+            let mut term =
+                tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+                    .expect("SIGTERM handler");
             tokio::select! { _ = tokio::signal::ctrl_c() => {}, _ = term.recv() => {} }
         })
         .await?;

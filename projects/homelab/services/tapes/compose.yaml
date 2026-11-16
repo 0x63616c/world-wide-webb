@@ -1,0 +1,49 @@
+# Tapes media server. The image is pinned by reviewed promotion in release.json.
+# LAN-published for Apple TV clients; the NAS library is mounted read-only.
+name: tapes
+services:
+  tapes:
+    image: ${TAPES_IMAGE:?Pin the tested Tapes image in release.json}
+    container_name: tapes
+    user: "10001:10001"
+    command: [serve]
+    environment:
+      TAPES_LIBRARY: /library
+      TAPES_DATABASE: /app/data/progress.sqlite
+      TAPES_LISTEN: 0.0.0.0:4300
+    ports:
+      - "4300:4300"
+    volumes:
+      - tapes_data:/app/data
+      - library:/library:ro
+    healthcheck:
+      test: [CMD, tapes, healthcheck]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    restart: unless-stopped
+    stop_grace_period: 30s
+    mem_limit: 256m
+    cpus: 1.0
+    pids_limit: 128
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=16m,mode=1777
+    logging:
+      driver: json-file
+      options: { max-size: 5m, max-file: "2" }
+volumes:
+  tapes_data:
+    # Initialize once before assignment; subsequent missing state must fail closed.
+    external: true
+    name: tapes_data
+  library:
+    # Synology export allows 192.168.0.0/24 read-only with all_squash.
+    driver: local
+    driver_opts:
+      type: nfs
+      o: addr=192.168.0.218,ro,nfsvers=4,soft
+      device: ":/volume1/Tapes"

@@ -419,7 +419,7 @@ gate = release_jobs.fetch("verify")
 unless gate.fetch("runs-on") == "ubuntu-24.04-arm"
   raise "source verification must run outside the Mac pool"
 end
-%w[tendr folding].each do |app|
+%w[tendr tapes folding].each do |app|
   unless release_jobs.fetch(app).fetch("needs") == "verify"
     raise "publisher must depend on source verification"
   end

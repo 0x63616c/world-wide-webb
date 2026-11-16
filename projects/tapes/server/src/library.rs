@@ -107,7 +107,11 @@ impl Library {
     pub fn entries(&self) -> impl Iterator<Item = &Entry> {
         self.movies
             .iter()
-            .chain(self.shows.iter().flat_map(|(show, eps)| std::iter::once(show).chain(eps)))
+            .chain(
+                self.shows
+                    .iter()
+                    .flat_map(|(show, eps)| std::iter::once(show).chain(eps)),
+            )
             .chain(self.sets.iter())
     }
 
@@ -141,9 +145,11 @@ pub fn scan(root: &Path) -> Result<Library> {
         if seen.insert(entry.info.id.clone()) {
             Some(entry)
         } else {
-            library
-                .problems
-                .push(format!("{}: duplicate id {}", entry.dir.display(), entry.info.id));
+            library.problems.push(format!(
+                "{}: duplicate id {}",
+                entry.dir.display(),
+                entry.info.id
+            ));
             None
         }
     };
@@ -156,8 +162,12 @@ pub fn scan(root: &Path) -> Result<Library> {
         }
     }
     for dir in subdirs(&root.join("shows"))? {
-        let Some(show) = read_entry(&dir, Kind::Show, &mut library.problems) else { continue };
-        let Some(show) = check(show, &mut library) else { continue };
+        let Some(show) = read_entry(&dir, Kind::Show, &mut library.problems) else {
+            continue;
+        };
+        let Some(show) = check(show, &mut library) else {
+            continue;
+        };
         let mut episodes = Vec::new();
         for ep_dir in subdirs(&dir)? {
             if let Some(e) = read_entry(&ep_dir, Kind::Episode, &mut library.problems)
@@ -176,15 +186,23 @@ pub fn scan(root: &Path) -> Result<Library> {
             library.sets.push(e);
         }
     }
-    library.movies.sort_by(|a, b| sort_title(&a.info.title).cmp(&sort_title(&b.info.title)));
-    library.shows.sort_by(|a, b| sort_title(&a.0.info.title).cmp(&sort_title(&b.0.info.title)));
-    library.sets.sort_by(|a, b| b.info.date.cmp(&a.info.date).then(a.info.title.cmp(&b.info.title)));
+    library.movies.sort_by_key(|a| sort_title(&a.info.title));
+    library.shows.sort_by_key(|a| sort_title(&a.0.info.title));
+    library.sets.sort_by(|a, b| {
+        b.info
+            .date
+            .cmp(&a.info.date)
+            .then(a.info.title.cmp(&b.info.title))
+    });
     Ok(library)
 }
 
 fn sort_title(title: &str) -> String {
     let lower = title.to_lowercase();
-    lower.strip_prefix("the ").map(str::to_string).unwrap_or(lower)
+    lower
+        .strip_prefix("the ")
+        .map(str::to_string)
+        .unwrap_or(lower)
 }
 
 fn subdirs(dir: &Path) -> Result<Vec<PathBuf>> {
@@ -216,7 +234,11 @@ fn read_entry(dir: &Path, expected: Kind, problems: &mut Vec<String>) -> Option<
             dir: dir.to_path_buf(),
         }),
         Ok(info) => {
-            problems.push(format!("{}: expected {expected:?}, found {:?}", path.display(), info.kind));
+            problems.push(format!(
+                "{}: expected {expected:?}, found {:?}",
+                path.display(),
+                info.kind
+            ));
             None
         }
         Err(error) => {
@@ -324,9 +346,20 @@ mod tests {
         add(root, "shows/the-office/s01e01", &e1, true);
 
         let library = scan(root).unwrap();
-        let titles: Vec<_> = library.movies.iter().map(|m| m.info.title.as_str()).collect();
+        let titles: Vec<_> = library
+            .movies
+            .iter()
+            .map(|m| m.info.title.as_str())
+            .collect();
         assert_eq!(titles, ["Drive", "The Heat"]);
-        assert_eq!(library.shows[0].1.iter().map(|e| e.info.title.as_str()).collect::<Vec<_>>(), ["One", "Two"]);
+        assert_eq!(
+            library.shows[0]
+                .1
+                .iter()
+                .map(|e| e.info.title.as_str())
+                .collect::<Vec<_>>(),
+            ["One", "Two"]
+        );
         assert_eq!(library.problems.len(), 1);
         assert!(library.find(&e1.id).is_some());
         assert_eq!(library.len(), 5);

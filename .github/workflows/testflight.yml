@@ -10,6 +10,7 @@ jobs:
     timeout-minutes: 10
     outputs:
       tendr: ${{ steps.source.outputs.tendr }}
+      tapes: ${{ steps.source.outputs.tapes }}
       folding: ${{ steps.source.outputs.folding }}
       backend: ${{ steps.source.outputs.backend }}
       source: ${{ steps.source.outputs.source }}
@@ -52,6 +53,19 @@ jobs:
       ci_run_attempt: ${{ needs.verify.outputs.ci_run_attempt }}
       ci_run_url: ${{ needs.verify.outputs.ci_run_url }}
       receipt_run_id: ${{ needs.verify.outputs.receipt_run_id }}
+    secrets: inherit
+  tapes:
+    name: Tapes
+    needs: verify
+    if: needs.verify.outputs.tapes == 'true' && needs.verify.outputs.channel == 'beta'
+    permissions:
+      contents: read
+      actions: read
+    uses: ./.github/workflows/tapes-delivery.yml
+    with:
+      source: ${{ needs.verify.outputs.source }}
+      ci_run_id: ${{ needs.verify.outputs.ci_run_id }}
+      ci_run_attempt: ${{ needs.verify.outputs.ci_run_attempt }}
     secrets: inherit
   folding:
     name: Folding
