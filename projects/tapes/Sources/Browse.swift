@@ -187,6 +187,11 @@ private struct Shelf<Content: View>: View {
       }
       .scrollClipDisabled()
     }
+    #if os(tvOS)
+      // Up and down move between shelves even when nothing sits directly above or below,
+      // as with a short shelf under the Play button.
+      .focusSection()
+    #endif
   }
 }
 
