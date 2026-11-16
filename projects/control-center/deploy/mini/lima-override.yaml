@@ -1,3 +1,0 @@
-networks:
-  - socket: /opt/homebrew/var/run/socket_vmnet
-    interface: ha0

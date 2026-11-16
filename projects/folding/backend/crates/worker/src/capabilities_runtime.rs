@@ -1,5 +1,5 @@
 //! Supported API operations. Device/provider acceptance is tracked separately.
-use crate::auth_runtime::{Failure, response};
+use crate::support::{Failure, response};
 use folding_domain::wire::Id;
 use worker::*;
 const IMPLEMENTED: &[&str] = &[

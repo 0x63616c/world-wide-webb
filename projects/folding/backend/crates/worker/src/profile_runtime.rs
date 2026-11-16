@@ -1,8 +1,7 @@
 //! Session-authorized profile, report and presentation-only block commands.
-use crate::auth_runtime::{
-    COMMUNITY_GUARD, Configuration, Failure, blob, community_session, decode, now, number,
-    response, session_guard, statement, text, uuid,
-};
+use crate::auth_runtime::{COMMUNITY_GUARD, community_session, session_guard};
+use crate::config::Configuration;
+use crate::support::{Failure, blob, decode, now, number, response, statement, text, uuid};
 use folding_domain::wire::Id;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};

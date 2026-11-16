@@ -1,9 +1,9 @@
 //! Live board snapshots: ranking includes blocked rows; presentation anonymizes them after ranking.
 use crate::{
-    auth_runtime::{
-        Configuration, Failure, community_session, now, number, response, statement, text,
-    },
+    auth_runtime::community_session,
+    config::Configuration,
     secrets::{keyed_digest, verify_keyed_digest},
+    support::{Failure, now, number, response, statement, text},
 };
 use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 use folding_domain::{competition::rank_scores, wire::Id};
@@ -204,7 +204,7 @@ pub(crate) async fn board(
         .find(|e| e["participant_id"] == session.participant_id);
     let descriptor = serde_json::json!({"id":period,"kind":kind,"start_ms":window.map(|w|w.start_ms),"end_ms":window.map(|w|w.end_ms),"state":"open"});
     // Recheck current access/revision before disclosing this snapshot.
-    let guard = crate::auth_runtime::uuid()?;
+    let guard = crate::support::uuid()?;
     db.batch(vec![
         crate::auth_runtime::session_guard(db, &guard, &session, config, time)?,
         statement(

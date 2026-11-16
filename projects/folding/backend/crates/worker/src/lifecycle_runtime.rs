@@ -1,10 +1,9 @@
 //! Public history reset. Local/private CloudKit erasure remains the native app's command.
 use crate::{
-    auth_runtime::{
-        Configuration, Failure, blob, decode, now, number, response, statement, text, uuid,
-    },
     competition_runtime::{cleanup, guards, receipt},
+    config::Configuration,
     protected_request,
+    support::{Failure, blob, decode, now, number, response, statement, text, uuid},
 };
 use folding_domain::wire::{Generation, Id, ResetRequest};
 use serde::Deserialize;

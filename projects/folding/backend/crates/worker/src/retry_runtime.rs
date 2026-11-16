@@ -1,5 +1,5 @@
 //! Bounded retries for external cleanup work. Failure never changes the privacy fence or destroys credentials.
-use crate::auth_runtime::{Failure, now, number, random, statement, text, uuid};
+use crate::support::{Failure, now, number, random, statement, text, uuid};
 use serde::Deserialize;
 use worker::*;
 pub(crate) async fn ready(

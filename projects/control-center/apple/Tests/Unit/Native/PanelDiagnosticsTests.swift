@@ -55,14 +55,6 @@ import XCTest
         attachment.removeFromSuperview()
         XCTAssertNil(attachment.recognizer.view)
     }
-    func testOnlyClockIsInformationalWhileWeatherOpensItsApp() {
-        for tile in [HomeTile.clock] {
-            XCTAssertTrue(PanelHomePresentation.isInformationalFace(tile))
-        }
-        for tile in [HomeTile.alarm, .climate, .calendar, .sound, .wifi, .weather, .hourly] {
-            XCTAssertFalse(PanelHomePresentation.isInformationalFace(tile))
-        }
-    }
 }
 
 private actor SecretDiagnosticsTransport: PanelTransport {

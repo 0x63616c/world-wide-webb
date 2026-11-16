@@ -1,6 +1,5 @@
 # Folding implementation specifications
 
-
 ## Owner-approved execution update — November 7, 2026
 
 The owner has authorized implementation through submission/publication and reports Apple account agreements/tax/banking requirements complete. Verify actual App Store Connect state when used; do not request these again unless a concrete account prompt contradicts that report.
@@ -16,7 +15,7 @@ Read in order:
 1. [Product specification](../review-spec.md): intended user behavior.
 2. [Storage and tracking](storage-and-tracking.md): types, local transactions, iCloud replication, counting, reset, and setup tests.
 3. [Backend and security](backend-and-security.md): HTTP operations, authorization, D1 operations, competition and moderation.
-4. [UI](ui.md): view/state ownership, exact screens, setup, widgets, accessibility, and localization.
+4. [UI](ui.md): view/state ownership, exact screens, setup, accessibility, and localization (the widget section is retired).
 5. [Release and operations](release-and-operations.md): pinned tooling, infrastructure, CI, screenshot and release flow.
 6. [Agent work orders](work-orders.md): dependency order, file ownership, acceptance evidence, and prohibited shortcuts.
 7. [Review record](review.md): independent review findings and resolutions.
@@ -30,7 +29,7 @@ One execution agent builds substantial feature batches; no execution subagents. 
 
 ## Authority and change control
 
-The product specification controls user-visible behavior. These technical specifications control implementation defaults and supersede earlier *implementation recommendations* in architecture/delivery notes where explicitly recorded in an ADR. If they conflict on product behavior, fix the inconsistency before implementation; do not silently pick a different interpretation. Contracts and their examples must agree with both.
+The product specification controls user-visible behavior. These technical specifications control implementation defaults and supersede earlier _implementation recommendations_ in architecture/delivery notes where explicitly recorded in an ADR. If they conflict on product behavior, fix the inconsistency before implementation; do not silently pick a different interpretation. Contracts and their examples must agree with both.
 
 An agent may choose private names and helper functions. It must not independently change public schemas, count definitions, retention, eligibility, privacy behavior, production trust, or the release gate. Propose those changes as a small contract/ADR change first. A reviewer can approve routine engineering corrections; owner input is needed only for a material product tradeoff or external account/legal fact.
 

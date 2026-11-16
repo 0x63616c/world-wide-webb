@@ -1,4 +1,3 @@
-import RDesign
 import SwiftUI
 
 struct WeightEditor: View {
@@ -66,8 +65,7 @@ struct WeightEditor: View {
           initialized = true
           unit = store.journal.unit
           if let entry {
-            amount = unit.display(entry.kilograms).formatted(
-              .number.grouping(.never).precision(.fractionLength(0...8)))
+            amount = unit.editableText(entry.kilograms)
             date = entry.date
             note = entry.note
           }
@@ -100,10 +98,7 @@ struct DoseEditor: View {
   @State private var noteExpanded = false
   @State private var status = DoseEntry.Status.taken
   @State private var side: InjectionSide? = .right
-  @State private var mode = "mg"
   @State private var vialID: UUID?
-  @State private var confirmedU100 = false
-  @State private var preferences = false
   @State private var localError: String?
   var vial: Vial? { store.journal.vials.first { $0.id == vialID } }
   var concentration: Double? {
@@ -112,15 +107,7 @@ struct DoseEditor: View {
   var milligrams: Double? {
     if status == .skipped { return 0 }
     guard let value = parse(amount), value.isFinite, value > 0 else { return nil }
-    switch mode {
-    case "units":
-      guard confirmedU100, let concentration else { return nil }
-      return value / 100 * concentration
-    case "mL":
-      guard let concentration else { return nil }
-      return value * concentration
-    default: return value
-    }
+    return value
   }
   var body: some View {
     NavigationStack {
@@ -144,32 +131,13 @@ struct DoseEditor: View {
           }
           if status != .skipped {
             VStack(spacing: 16) {
-              if FeatureFlags.syringeUnits {
-                Picker("Input unit", selection: Binding(get: { mode }, set: { changeMode($0) })) {
-                  Text("mg").tag("mg")
-                  Text("mL").tag("mL")
-                  Text("Units").tag("units")
-                }.pickerStyle(.segmented)
-              }
               ZStack(alignment: .trailing) {
                 TextField("0", text: $amount).keyboardType(.decimalPad).font(
                   .system(size: 54, weight: .medium, design: .rounded)
                 ).multilineTextAlignment(.center).accessibilityLabel("Dose amount")
                   .accessibilityIdentifier("doseAmount")
-                Text(mode).font(.title3).foregroundStyle(.secondary)
+                Text("mg").font(.title3).foregroundStyle(.secondary)
               }.padding(.vertical, 10)
-              if mode != "mg", let mg = milligrams {
-                Text(
-                  "\(number(mg, digits: 4)) mg · \(number((parse(amount) ?? 0) / (mode == "units" ? 100 : 1), digits: 4)) mL"
-                ).font(.subheadline.weight(.medium)).foregroundStyle(Theme.pine)
-              }
-              if mode == "units" && store.journal.syringeUnitsPerML != 100 {
-                Button("Set up your syringe") { preferences = true }.font(.subheadline)
-              }
-              if mode != "mg" && concentration == nil {
-                Text("Add a vial with its concentration to log in \(mode).").font(.subheadline)
-                  .foregroundStyle(Theme.pine)
-              }
             }.card()
             if entry == nil && !store.journal.vials.isEmpty {
               VStack(alignment: .leading, spacing: 12) {
@@ -253,18 +221,12 @@ struct DoseEditor: View {
             }
           }
         }
-        .sheet(
-          isPresented: $preferences,
-          onDismiss: { confirmedU100 = store.journal.syringeUnitsPerML == 100 }
-        ) { DosePreferencesEditor().tendrSheet() }
         .onAppear {
           guard !initialized else { return }
           initialized = true
-          confirmedU100 = store.journal.syringeUnitsPerML == 100
           if let entry {
-            amount = number(entry.syringeUnits ?? entry.milligrams, digits: 4)
-            mode = entry.syringeUnits != nil ? "units" : "mg"
-            confirmedU100 = entry.syringeUnitsPerML == 100 || confirmedU100
+            // Entries recorded in syringe units or mL open showing their stored mg.
+            amount = number(entry.milligrams, digits: 4)
             // A planned dose being logged gets the suggestion; an unknown historical side stays unknown until chosen.
             date = entry.date
             status = entry.status
@@ -278,43 +240,12 @@ struct DoseEditor: View {
                   startOn: store.journal.injectionStartSide) : nil)
           } else {
             vialID = store.journal.vials.sorted { $0.received > $1.received }.first?.id
-            mode = store.journal.doseInputUnit ?? (confirmedU100 && vialID != nil ? "units" : "mg")
             side = InjectionSide.suggestedNext(
               in: store.journal.doses, startOn: store.journal.injectionStartSide)
-          }
-          // mg-only entry: entries recorded in units or mL open showing their stored mg.
-          if !FeatureFlags.syringeUnits {
-            mode = "mg"
-            if let entry { amount = number(entry.milligrams, digits: 4) }
           }
           noteExpanded = !note.isEmpty
         }
     }
-  }
-  func changeMode(_ newMode: String) {
-    let original = milligrams
-    mode = newMode
-    guard let original else {
-      amount = ""
-      return
-    }
-    let converted: Double
-    switch newMode {
-    case "mL":
-      guard let concentration, concentration > 0 else {
-        amount = ""
-        return
-      }
-      converted = original / concentration
-    case "units":
-      guard confirmedU100, let concentration, concentration > 0 else {
-        amount = ""
-        return
-      }
-      converted = original / concentration * 100
-    default: converted = original
-    }
-    amount = converted.formatted(.number.grouping(.never).precision(.fractionLength(0...8)))
   }
   func save() {
     guard let mg = milligrams else { return }
@@ -325,21 +256,13 @@ struct DoseEditor: View {
       side: status == .skipped ? nil : side)
     if let entry { updated.id = entry.id }
     updated.vialID = vialID
-    if mode == "units" && status != .skipped {
-      updated.syringeUnits = parse(amount)
-      updated.syringeUnitsPerML = 100
-    }
-    // Keep a previously recorded syringe reading while its mg amount is unchanged, so it can return with the feature.
-    if !FeatureFlags.syringeUnits, let entry, entry.syringeUnits != nil,
-      abs(entry.milligrams - mg) < 1e-9
-    {
+    // Doses are entered in mg. Keep a syringe reading recorded by an earlier version while its mg
+    // amount is unchanged, so editing other fields does not drop stored data.
+    if let entry, entry.syringeUnits != nil, abs(entry.milligrams - mg) < 1e-9 {
       updated.syringeUnits = entry.syringeUnits
       updated.syringeUnitsPerML = entry.syringeUnitsPerML
     }
-    if store.save(
-      dose: updated,
-      inputUnit: FeatureFlags.syringeUnits && entry == nil && status != .skipped ? mode : nil)
-    {
+    if store.save(dose: updated) {
       dismiss()
     } else {
       localError = store.error
@@ -532,53 +455,6 @@ struct DeleteEntryButton: View {
       Button("Delete", role: .destructive) { if delete() { dismiss() } }
     } message: {
       Text("This cannot be undone.")
-    }
-  }
-}
-
-struct DosePreferencesEditor: View {
-  @State private var initialized = false
-  @Environment(Store.self) private var store
-  @Environment(\.dismiss) private var dismiss
-  @State private var unit = "mg"
-  @State private var u100 = false
-  var body: some View {
-    NavigationStack {
-      Form {
-        Section("Preferred unit") {
-          Picker("Input unit", selection: $unit) {
-            Text("mg").tag("mg")
-            Text("mL").tag("mL")
-            Text("Units").tag("units")
-          }.pickerStyle(.segmented)
-        }
-        Section {
-          Toggle("I use a U-100 syringe", isOn: $u100)
-        } header: {
-          Text("Syringe")
-        } footer: {
-          Text("Check your syringe marking. U-100 means 100 units per mL.")
-        }
-      }.navigationTitle("Dose entry").navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-          ToolbarItem(placement: .cancellationAction) {
-            Button("Cancel", systemImage: "xmark") { dismiss() }
-          }
-          ToolbarItem(placement: .confirmationAction) {
-            Button("Save", systemImage: "checkmark") {
-              var next = store.journal
-              next.doseInputUnit = unit
-              next.syringeUnitsPerML = u100 ? 100 : nil
-              if store.commit(next) { dismiss() }
-            }
-          }
-        }
-        .onAppear {
-          guard !initialized else { return }
-          initialized = true
-          u100 = store.journal.syringeUnitsPerML == 100
-          unit = store.journal.doseInputUnit ?? (u100 ? "units" : "mg")
-        }
     }
   }
 }

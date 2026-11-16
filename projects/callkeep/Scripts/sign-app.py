@@ -13,7 +13,7 @@ if len(sys.argv) > 3:
 components = {
     path
     for path in (app / "Contents" / "Frameworks").rglob("*")
-    if not path.is_symlink() and (path.suffix in {".framework", ".app", ".xpc"} or path.name == "Autoupdate")
+    if not path.is_symlink() and path.suffix in {".framework", ".app"}
 }
 components.update((app / "Contents" / "MacOS").glob("*.dylib"))
 for component in sorted(components, key=lambda path: (-len(path.parts), str(path))):

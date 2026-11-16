@@ -1,5 +1,5 @@
 //! Transactional D1 outbox. Queue messages contain only opaque job IDs, never authorization or user data.
-use crate::auth_runtime::{Failure, now, number, random, statement, text, uuid};
+use crate::support::{Failure, now, number, random, statement, text, uuid};
 use folding_domain::wire::Id;
 use serde::{Deserialize, Serialize};
 use worker::*;

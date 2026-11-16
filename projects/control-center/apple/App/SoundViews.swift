@@ -89,5 +89,3 @@ struct SoundFace: View {
 private func isCoordinator(_ room: SoundRoom, rooms: [SoundRoom]) -> Bool {
     room.name == room.coordinator && rooms.filter { $0.coordinator == room.name }.count > 1
 }
-
-#Preview("Sound System", traits: .fixedLayout(width: 1366, height: 1024)) { ControllerPreview(tile: .sound) }

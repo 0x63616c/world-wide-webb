@@ -1,6 +1,7 @@
 use crate::{
     admin_auth::Administrator,
-    auth_runtime::{Configuration, Failure, now, number, statement, text, uuid},
+    config::Configuration,
+    support::{Failure, now, number, statement, text, uuid},
 };
 use askama::Template;
 use folding_domain::wire::Id;

@@ -3,6 +3,8 @@ pub mod access_identity;
 #[cfg(target_arch = "wasm32")]
 mod admin_auth;
 #[cfg(target_arch = "wasm32")]
+mod admin_mutations;
+#[cfg(target_arch = "wasm32")]
 mod admin_runtime;
 pub mod apns;
 #[cfg(target_arch = "wasm32")]
@@ -30,6 +32,8 @@ mod avatar_admin;
 mod avatar_runtime;
 #[cfg(target_arch = "wasm32")]
 mod badge_push_runtime;
+// Read by the Wasm runtime and the host tests only.
+#[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
 mod bot_photos;
 pub mod bot_simulation;
 #[cfg(target_arch = "wasm32")]
@@ -48,6 +52,8 @@ mod client_policy_runtime;
 mod community_reads;
 #[cfg(target_arch = "wasm32")]
 mod competition_runtime;
+#[cfg(target_arch = "wasm32")]
+mod config;
 #[cfg(target_arch = "wasm32")]
 mod correction_runtime;
 #[cfg(target_arch = "wasm32")]
@@ -73,6 +79,7 @@ mod milestone_profiles;
 pub mod milestone_projection;
 #[cfg(target_arch = "wasm32")]
 mod milestone_runtime;
+#[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
 mod milestone_sql;
 #[cfg(any(target_arch = "wasm32", test))]
 mod moderation_eligibility;
@@ -103,6 +110,8 @@ mod results_runtime;
 mod retry_runtime;
 pub mod secrets;
 pub mod session;
+#[cfg(target_arch = "wasm32")]
+mod support;
 
 #[cfg(target_arch = "wasm32")]
 mod runtime;

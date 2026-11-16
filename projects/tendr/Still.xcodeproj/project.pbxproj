@@ -16,9 +16,11 @@
 		3140DE520D3F985B4C17E938 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88C298B25AA8A1BB4ECED06C /* RootView.swift */; };
 		3157D1456611C3680162E340 /* GoalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6B2E4421F97B007948FB5D9 /* GoalView.swift */; };
 		35792DA535D37370294116D2 /* ScreenshotFixture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40EB9A059C63CE10B59BAC86 /* ScreenshotFixture.swift */; };
-		3790162DD90FB0D2B7307DAF /* RDesign in Frameworks */ = {isa = PBXBuildFile; productRef = E2B49149A315DE107C103B67 /* RDesign */; };
+		44C29E744289B6D925CAACAF /* TipJar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54A1A9CDD3AC8EAC6BBFC428 /* TipJar.swift */; };
+		7298A614349991774303DAF7 /* Layout.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD3B3C0C65D3DDCCD6F9521A /* Layout.swift */; };
+		8F3464BE34C087610FE521FB /* Tokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = A124812E6D8079FB49A929DC /* Tokens.swift */; };
+		A2C602EA1DEFFF7A8E140095 /* Settings.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3EB5A4B5C21E3D871DC9F2E /* Settings.swift */; };
 		3CD4A7C29B6D56C13CBAE5BC /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D5B2539898EB583763A28A42 /* Assets.xcassets */; };
-		3D74D214CB3686FCADF7C2FA /* DiscoverView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 662E21DA06EBAF4ACE103502 /* DiscoverView.swift */; };
 		424F9B28AA57366C1B375868 /* HealthKitWeightStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03E0EFE505FE380DEF4BEB01 /* HealthKitWeightStore.swift */; };
 		4322E19FD46674AFE347A37C /* Editors.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2087DBA256BFFEE06713F93D /* Editors.swift */; };
 		5143590FA51C5A4C25D3EA51 /* EntryValidation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66C02DC719DFE58F082CE559 /* EntryValidation.swift */; };
@@ -27,11 +29,9 @@
 		5833A4D6715DD9868B0D6652 /* JournalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94A35FC06520E46B3E0B1274 /* JournalView.swift */; };
 		590788E6635BD9FD18FF2A88 /* Vial.swift in Sources */ = {isa = PBXBuildFile; fileRef = F91707FF75831793AF9F34D2 /* Vial.swift */; };
 		6F6D0EF2C198DA7ACE962775 /* WeightGoal.swift in Sources */ = {isa = PBXBuildFile; fileRef = B716B1A6D87CF82AF4D5C204 /* WeightGoal.swift */; };
-		7A5EBAAD1DCBE8F3AE838370 /* PolishScreenshots.swift in Sources */ = {isa = PBXBuildFile; fileRef = 465396C3C4C01BE553B940BC /* PolishScreenshots.swift */; };
 		8977D2CCBBFBC92F397AFA6C /* Store.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE7C6EB976A31E0351C41446 /* Store.swift */; };
 		9324DE3D56A383088DE1FEE3 /* DuoScreenshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C94B47A4D9ACCAA7DB282709 /* DuoScreenshotTests.swift */; };
 		974312F3351A76E7FC00B72C /* TreatmentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17C74C889016FEBBA601994F /* TreatmentView.swift */; };
-		9D9BBA82477A78A62E3E8CFC /* AssistantPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 442027E54FD77E3C6477DD6F /* AssistantPreview.swift */; };
 		A2684679232FBCDC19AB92D0 /* VialViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE8E9F8D5F9A8A8CADA99485 /* VialViews.swift */; };
 		A8C59A57C1A00788AEBAC3F6 /* TendrLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB994A776152331F717FB223 /* TendrLayout.swift */; };
 		ADC60342778EA19EB546C959 /* StillApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B5DF07AF9BACBF2DFAEE064 /* StillApp.swift */; };
@@ -70,15 +70,15 @@
 		193593C1E058E2D289F796C2 /* Still.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Still.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		2087DBA256BFFEE06713F93D /* Editors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Editors.swift; sourceTree = "<group>"; };
 		25CCB5F8523EE87381CD1978 /* MedicationLevel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MedicationLevel.swift; sourceTree = "<group>"; };
-		2871F4D499D82E6785C9A096 /* RDesign */ = {isa = PBXFileReference; lastKnownFileType = folder; name = RDesign; path = Packages/RDesign; sourceTree = SOURCE_ROOT; };
+		54A1A9CDD3AC8EAC6BBFC428 /* TipJar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TipJar.swift; sourceTree = "<group>"; };
+		A124812E6D8079FB49A929DC /* Tokens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Tokens.swift; sourceTree = "<group>"; };
+		BD3B3C0C65D3DDCCD6F9521A /* Layout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Layout.swift; sourceTree = "<group>"; };
+		C3EB5A4B5C21E3D871DC9F2E /* Settings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Settings.swift; sourceTree = "<group>"; };
 		323ADF87AE41C667CBFCBFD1 /* JournalDoseRowSnapshots.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JournalDoseRowSnapshots.swift; sourceTree = "<group>"; };
 		3B5DF07AF9BACBF2DFAEE064 /* StillApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StillApp.swift; sourceTree = "<group>"; };
 		40EB9A059C63CE10B59BAC86 /* ScreenshotFixture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotFixture.swift; sourceTree = "<group>"; };
-		442027E54FD77E3C6477DD6F /* AssistantPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssistantPreview.swift; sourceTree = "<group>"; };
-		465396C3C4C01BE553B940BC /* PolishScreenshots.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PolishScreenshots.swift; sourceTree = "<group>"; };
 		54DDE2E02A8333A5609BA3E0 /* ComponentGallery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComponentGallery.swift; sourceTree = "<group>"; };
 		5B7496B141560502A633D1DF /* GallerySnapshots.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GallerySnapshots.swift; sourceTree = "<group>"; };
-		662E21DA06EBAF4ACE103502 /* DiscoverView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiscoverView.swift; sourceTree = "<group>"; };
 		66C02DC719DFE58F082CE559 /* EntryValidation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EntryValidation.swift; sourceTree = "<group>"; };
 		70A255FAD4D2F211E5EA8D78 /* Tracking.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Tracking.swift; sourceTree = "<group>"; };
 		76AB8C929B38B5C4144D9B93 /* StillUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StillUITests.swift; sourceTree = "<group>"; };
@@ -104,31 +104,11 @@
 		FE8E9F8D5F9A8A8CADA99485 /* VialViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VialViews.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
-/* Begin PBXFrameworksBuildPhase section */
-		45495BB43ED526720BED18E0 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				3790162DD90FB0D2B7307DAF /* RDesign in Frameworks */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXFrameworksBuildPhase section */
-
 /* Begin PBXGroup section */
-		006F6DA65EC0486D70C47AC8 /* Packages */ = {
-			isa = PBXGroup;
-			children = (
-				2871F4D499D82E6785C9A096 /* RDesign */,
-			);
-			path = Packages;
-			sourceTree = "<group>";
-		};
 		01FD8AD78A9B70EB2FD086BF = {
 			isa = PBXGroup;
 			children = (
 				9A47D10A3BB1FBAA00C6F2CB /* Tendr.storekit */,
-				006F6DA65EC0486D70C47AC8 /* Packages */,
 				1AD6987513E67B5BBC1578E8 /* Still */,
 				15DEE9889C87148E8C08D367 /* StillSnapshots */,
 				9A301BD77B68AE8BFEFBB73F /* StillUITests */,
@@ -166,9 +146,21 @@
 				3B5DF07AF9BACBF2DFAEE064 /* StillApp.swift */,
 				EE7C6EB976A31E0351C41446 /* Store.swift */,
 				234F336CB0C1CBD580FBC97C /* Core */,
+				6C5BA38C759D7197350665D1 /* Design */,
 				8B17C10B5A4CE388082BC117 /* Features */,
 			);
 			path = Still;
+			sourceTree = "<group>";
+		};
+		6C5BA38C759D7197350665D1 /* Design */ = {
+			isa = PBXGroup;
+			children = (
+				BD3B3C0C65D3DDCCD6F9521A /* Layout.swift */,
+				C3EB5A4B5C21E3D871DC9F2E /* Settings.swift */,
+				54A1A9CDD3AC8EAC6BBFC428 /* TipJar.swift */,
+				A124812E6D8079FB49A929DC /* Tokens.swift */,
+			);
+			path = Design;
 			sourceTree = "<group>";
 		};
 		234F336CB0C1CBD580FBC97C /* Core */ = {
@@ -208,7 +200,6 @@
 		8B17C10B5A4CE388082BC117 /* Features */ = {
 			isa = PBXGroup;
 			children = (
-				A3163AFEF080F7066FA1A7B4 /* Discover */,
 				3A79F72C9900C357EAED6D02 /* Home */,
 				FB260A79805A3451CCFBD77A /* Journal */,
 				0DF162E28A0A94221C852B6B /* Progress */,
@@ -221,22 +212,12 @@
 			isa = PBXGroup;
 			children = (
 				C94B47A4D9ACCAA7DB282709 /* DuoScreenshotTests.swift */,
-				465396C3C4C01BE553B940BC /* PolishScreenshots.swift */,
 				E867EAA2BF32AD2A87F4F8BA /* PRScreenshotTests.swift */,
 				8050AA757F821DD957ED59C6 /* ScreenshotTests.swift */,
 				76AB8C929B38B5C4144D9B93 /* StillUITests.swift */,
 				88CF7E20C755A7CBDE3CF517 /* TipJarTests.swift */,
 			);
 			path = StillUITests;
-			sourceTree = "<group>";
-		};
-		A3163AFEF080F7066FA1A7B4 /* Discover */ = {
-			isa = PBXGroup;
-			children = (
-				442027E54FD77E3C6477DD6F /* AssistantPreview.swift */,
-				662E21DA06EBAF4ACE103502 /* DiscoverView.swift */,
-			);
-			path = Discover;
 			sourceTree = "<group>";
 		};
 		B246576C00ECB04299C54DC7 /* Treatment */ = {
@@ -304,7 +285,6 @@
 			buildPhases = (
 				3D1C61EA36E4EC1CC23E6DCF /* Sources */,
 				0F60371C912BD1BBA21918FA /* Resources */,
-				45495BB43ED526720BED18E0 /* Frameworks */,
 			);
 			buildRules = (
 			);
@@ -312,7 +292,6 @@
 			);
 			name = Still;
 			packageProductDependencies = (
-				E2B49149A315DE107C103B67 /* RDesign */,
 			);
 			productName = Still;
 			productReference = 193593C1E058E2D289F796C2 /* Still.app */;
@@ -348,9 +327,6 @@
 			);
 			mainGroup = 01FD8AD78A9B70EB2FD086BF;
 			minimizedProjectReferenceProxies = 1;
-			packageReferences = (
-				3A82C7E245E5CF319ED2D0BD /* XCLocalSwiftPackageReference "Packages/RDesign" */,
-			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 840A35E61B17558FC8F6BA24 /* Products */;
 			projectDirPath = "";
@@ -388,14 +364,16 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				9D9BBA82477A78A62E3E8CFC /* AssistantPreview.swift in Sources */,
-				3D74D214CB3686FCADF7C2FA /* DiscoverView.swift in Sources */,
 				4322E19FD46674AFE347A37C /* Editors.swift in Sources */,
 				5143590FA51C5A4C25D3EA51 /* EntryValidation.swift in Sources */,
 				3157D1456611C3680162E340 /* GoalView.swift in Sources */,
 				424F9B28AA57366C1B375868 /* HealthKitWeightStore.swift in Sources */,
 				01A20BFD238D2EFD9811910E /* Journal.swift in Sources */,
 				5833A4D6715DD9868B0D6652 /* JournalView.swift in Sources */,
+				7298A614349991774303DAF7 /* Layout.swift in Sources */,
+				A2C602EA1DEFFF7A8E140095 /* Settings.swift in Sources */,
+				44C29E744289B6D925CAACAF /* TipJar.swift in Sources */,
+				8F3464BE34C087610FE521FB /* Tokens.swift in Sources */,
 				E13D4453B9589D60BEA30624 /* MedicationCard.swift in Sources */,
 				54A3F4BEE4EC1464A9F6E37B /* MedicationLevel.swift in Sources */,
 				3140DE520D3F985B4C17E938 /* RootView.swift in Sources */,
@@ -429,7 +407,6 @@
 			files = (
 				9324DE3D56A383088DE1FEE3 /* DuoScreenshotTests.swift in Sources */,
 				26D85B19CF1BB54B2C6DACCB /* PRScreenshotTests.swift in Sources */,
-				7A5EBAAD1DCBE8F3AE838370 /* PolishScreenshots.swift in Sources */,
 				B31D5DCD2FC6FAA369F6FB0C /* ScreenshotTests.swift in Sources */,
 				1878A28B539F99DD562844CC /* StillUITests.swift in Sources */,
 				B59452CFE6181914227E1047 /* TipJarTests.swift in Sources */,
@@ -737,20 +714,6 @@
 			defaultConfigurationName = Debug;
 		};
 /* End XCConfigurationList section */
-
-/* Begin XCLocalSwiftPackageReference section */
-		3A82C7E245E5CF319ED2D0BD /* XCLocalSwiftPackageReference "Packages/RDesign" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = Packages/RDesign;
-		};
-/* End XCLocalSwiftPackageReference section */
-
-/* Begin XCSwiftPackageProductDependency section */
-		E2B49149A315DE107C103B67 /* RDesign */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = RDesign;
-		};
-/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = F4966E9BE9D7D1ABED65BFF6 /* Project object */;
 }

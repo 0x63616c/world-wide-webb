@@ -171,49 +171,7 @@ actor CompetitionAPI {
   }
 }
 
-// swift-format-ignore: AlwaysUseLowerCamelCase
-struct CompetitionWireResult: Decodable, Sendable {
-  let period_id: String
-  let kind: String
-  let start_ms: Int64
-  let end_ms: Int64
-  let version: Int
-  let finalized_at_ms: Int64
-  let folds: Int
-  let rank: Int
-  let population: Int
-  let medal: String?
-}
-struct CompetitionWireShare: Decodable, Sendable {
-  // swift-format-ignore: AlwaysUseLowerCamelCase
-  struct Profile: Decodable, Sendable {
-    let nickname: String
-    let avatar_id: String?
-  }
-  let result: CompetitionWireResult
-  let profile: Profile
-}
-
 extension CompetitionAPI {
-  func results(kind: String, cursor: String?) async throws -> CompetitionWirePage<
-    CompetitionWireResult
-  > {
-    guard ["week", "month"].contains(kind) else { throw CompetitionTransportError.invalidResponse }
-    var query = URLComponents()
-    query.queryItems = [
-      URLQueryItem(name: "kind", value: kind), URLQueryItem(name: "limit", value: "30"),
-    ]
-    if let cursor { query.queryItems?.append(URLQueryItem(name: "cursor", value: cursor)) }
-    return try await transport.send("GET", path: "/v1/results?" + (query.percentEncodedQuery ?? ""))
-  }
-  func share(periodID: String) async throws -> CompetitionWireShare {
-    guard !periodID.isEmpty, periodID.count < 128,
-      periodID.unicodeScalars.allSatisfy({
-        CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-_:")).contains($0)
-      })
-    else { throw CompetitionTransportError.invalidResponse }
-    return try await transport.send("GET", path: "/v1/results/\(periodID)/share")
-  }
   func report(participantID: String, reason: String) async throws {
     guard UUID(uuidString: participantID) != nil,
       ["abusive_name", "abusive_avatar", "suspected_cheating", "other"].contains(reason)

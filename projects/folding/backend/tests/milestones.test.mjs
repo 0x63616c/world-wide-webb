@@ -1,60 +1,41 @@
 import { createHash, generateKeyPairSync, sign } from "node:crypto";
-import { readFile, readdir } from "node:fs/promises";
-import { fileURLToPath } from "node:url";
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
-import { Miniflare, convertV4MiniflareOptions } from "miniflare";
+import { applyMigrations, localWorker } from "./harness.mjs";
 import { performance } from "node:perf_hooks";
 
 // Isolated local workerd/D1. All token material is deliberately synthetic.
-const root = fileURLToPath(new URL("../", import.meta.url));
-const runtime = new Miniflare(
-  convertV4MiniflareOptions({
-    workers: [
-      {
-        name: "milestones-local",
-        modules: [
-          { type: "ESModule", path: `${root}crates/worker/build/index.js` },
-          {
-            type: "CompiledWasm",
-            path: `${root}crates/worker/build/index_bg.wasm`,
-          },
-        ],
-        compatibilityDate: "2026-11-04",
-        ratelimits: Object.fromEntries(
-          [
-            "API_NETWORK_BURST",
-            "AUTH_NETWORK_BURST",
-            "API_CREDENTIAL_BURST",
-          ].map((name, i) => [
-            name,
-            {
-              namespace_id: String(1400 + i),
-              simple: { limit: 100000, period: 60 },
-            },
-          ]),
-        ),
-        bindings: {
-          APP_ATTEST_APP_ID: "TEAM123456.app.test.Folding",
-          APP_ATTEST_ENVIRONMENT: "production",
-          APP_ATTEST_BUNDLE_VERSIONS: '["1"]',
-          WORKER_VERSION: "milestones-local",
-          DEPLOYMENT: "production",
-          AUTH_ENCRYPTION_KEY_VERSION: "test-v1",
-          AUTH_ENCRYPTION_KEYS: JSON.stringify({
-            "test-v1": Buffer.alloc(32, 7).toString("base64url"),
-          }),
-          AUTH_NETWORK_HMAC_KEY: Buffer.alloc(32, 8).toString("base64url"),
+const runtime = localWorker({
+  name: "milestones-local",
+  ratelimits: Object.fromEntries(
+    ["API_NETWORK_BURST", "AUTH_NETWORK_BURST", "API_CREDENTIAL_BURST"].map(
+      (name, i) => [
+        name,
+        {
+          namespace_id: String(1400 + i),
+          simple: { limit: 100000, period: 60 },
         },
-        d1Databases: { DB: "milestones-local" },
-        queueProducers: {
-          JOBS: "milestones-test-jobs",
-          JOBS_DEAD: "milestones-test-dead",
-        },
-      },
-    ],
-  }),
-);
+      ],
+    ),
+  ),
+  bindings: {
+    APP_ATTEST_APP_ID: "TEAM123456.app.test.Folding",
+    APP_ATTEST_ENVIRONMENT: "production",
+    APP_ATTEST_BUNDLE_VERSIONS: '["1"]',
+    WORKER_VERSION: "milestones-local",
+    DEPLOYMENT: "production",
+    AUTH_ENCRYPTION_KEY_VERSION: "test-v1",
+    AUTH_ENCRYPTION_KEYS: JSON.stringify({
+      "test-v1": Buffer.alloc(32, 7).toString("base64url"),
+    }),
+    AUTH_NETWORK_HMAC_KEY: Buffer.alloc(32, 8).toString("base64url"),
+  },
+  d1Databases: { DB: "milestones-local" },
+  queueProducers: {
+    JOBS: "milestones-test-jobs",
+    JOBS_DEAD: "milestones-test-dead",
+  },
+});
 after(() => runtime.dispose());
 const nil = "00000000-0000-0000-0000-000000000000";
 const uuid = (n) => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
@@ -63,13 +44,7 @@ let db;
 async function setup() {
   if (db) return;
   db = await runtime.getD1Database("DB");
-  for (const name of (await readdir(`${root}migrations`))
-    .filter((n) => n.endsWith(".sql"))
-    .sort())
-    for (const sql of (await readFile(`${root}migrations/${name}`, "utf8"))
-      .split(";")
-      .filter((s) => s.trim()))
-      await db.prepare(sql).run();
+  await applyMigrations(db);
 }
 async function person(n, folds = 0) {
   const participant = uuid(n),

@@ -1,7 +1,7 @@
 //! Private scheduled bot roster and observation replay. This module has no HTTP ingestion entrypoint.
 use crate::{
-    auth_runtime::{Failure, blob, now, number, random, statement, text, uuid},
     bot_simulation::{self as policy, Persona},
+    support::{Failure, blob, now, number, random, statement, text, uuid},
 };
 use chrono::{Datelike, NaiveDate};
 use folding_domain::{
@@ -291,14 +291,19 @@ async fn replay_day(
         .ok_or_else(Failure::unavailable)?
         .and_utc()
         .timestamp_millis();
-    for i in recorded_pairs * 2..(recorded_pairs + count) * 2 {
+    let first = recorded_pairs * 2;
+    for (offset, &minute) in planned[first..(recorded_pairs + count) * 2]
+        .iter()
+        .enumerate()
+    {
+        let i = first + offset;
         events.push(Event {
             schema_version: 1,
             event_id: event_id(bot, day, i as u64),
             device_id: Id::parse(&bot.device_id).map_err(|_| Failure::unavailable())?,
             sequence: day.max(0) as u64 * DAY_EVENTS as u64 + i as u64 + 1,
             generation: generation.clone(),
-            observed_at_ms: (base + planned[i] as i64 * 60000).max(0) as u64,
+            observed_at_ms: (base + minute as i64 * 60000).max(0) as u64,
             timezone_id: persona.timezone.clone(),
             transition: if i % 2 == 0 {
                 Transition::Open

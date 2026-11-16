@@ -33,7 +33,7 @@ pub async fn cleanup(db: &D1Database, timestamp: i64) -> Result<()> {
 pub async fn scheduled(_event: ScheduledEvent, env: Env, _context: ScheduleContext) {
     let result = match env.d1("DB") {
         Ok(db) => crate::jobs_runtime::schedule(&env, &db).await,
-        Err(_) => Err(crate::auth_runtime::Failure::unavailable()),
+        Err(_) => Err(crate::support::Failure::unavailable()),
     };
     if result.is_err() {
         console_error!("background_dispatch_failed");

@@ -1,5 +1,6 @@
 //! Access JWT plus explicit allowlist, canonical origin and token-bound CSRF on every admin request.
-use crate::auth_runtime::{Configuration, Failure, now};
+use crate::config::Configuration;
+use crate::support::{Failure, now};
 use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 use futures_util::StreamExt;
 use sha2::{Digest, Sha256};

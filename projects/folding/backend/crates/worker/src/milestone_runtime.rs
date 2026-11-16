@@ -1,5 +1,5 @@
 //! Revision-fenced, bounded reward backfill and incremental score projections.
-use crate::auth_runtime::{Failure, now, number, statement, text, uuid};
+use crate::support::{Failure, now, number, statement, text, uuid};
 use crate::{milestone_projection, milestone_sql as sql};
 use folding_domain::{
     milestones::{BadgeId, Track, UTC_DAY_MS},

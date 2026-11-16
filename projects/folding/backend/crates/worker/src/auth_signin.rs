@@ -1,11 +1,10 @@
 //! Sign in is independent of App Attest. Only a verified Apple exchange can create a session.
 use crate::{
-    auth_runtime::{
-        Configuration, Failure, blob, now, number, random, response, statement, text, uuid,
-    },
     auth_wire::{AppleExchangeRequest, AuthPurpose},
+    config::Configuration,
     secrets::KeyRing,
     session,
+    support::{Failure, blob, now, number, random, response, statement, text, uuid},
 };
 use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 use folding_domain::wire::Id;
@@ -85,7 +84,7 @@ pub(crate) async fn sign_in(
     body: &[u8],
     request_id: &Id,
 ) -> std::result::Result<Response, Failure> {
-    let input: AppleExchangeRequest = crate::auth_runtime::decode(body)?;
+    let input: AppleExchangeRequest = crate::support::decode(body)?;
     if !input.validate() {
         return Err(Failure::malformed());
     }
@@ -210,17 +209,16 @@ pub(crate) async fn sign_in(
     }
     for _ in 0..3 {
         let existing = participant(db, &digests).await?;
-        if let Some(expected) = &input.existing_participant_id {
-            if existing
+        if let Some(expected) = &input.existing_participant_id
+            && existing
                 .as_ref()
                 .is_none_or(|owner| owner.participant_id != expected.as_str())
-            {
-                return Err(Failure {
-                    status: 404,
-                    code: "not_found",
-                    retryable: false,
-                });
-            }
+        {
+            return Err(Failure {
+                status: 404,
+                code: "not_found",
+                retryable: false,
+            });
         }
         if input.existing_account_only && existing.is_none() {
             return Err(Failure {

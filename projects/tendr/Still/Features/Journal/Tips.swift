@@ -1,5 +1,4 @@
 import Foundation
-import RDesign
 
 /// Tendr's optional tips. Must match Tendr.storekit and `tips` in projects/tendr/app.yml.
 extension RTipJar {

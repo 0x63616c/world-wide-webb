@@ -1,7 +1,4 @@
 delivery_handler: standard_ios
-standard_ios: true
-uses: []
-paths: []
 # Per-app configuration read by fastlane/Fastfile, scripts/app-config.rb and the CI workflows.
 name: Tendr
 # Xcode project, generated from project.yml by XcodeGen (paths relative to this folder).

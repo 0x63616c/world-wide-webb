@@ -7,6 +7,12 @@ public enum WeightUnit: String, Codable, CaseIterable, Sendable {
     self == .kg ? kilograms : kilograms * 2.2046226218
   }
   public func kilograms(_ value: Double) -> Double { self == .kg ? value : value / 2.2046226218 }
+  /// The text a weight editor opens with: the stored kilograms converted once into this unit,
+  /// without grouping separators so `EntryValidation.number` reads it back.
+  public func editableText(_ kilograms: Double, locale: Locale = .current) -> String {
+    display(kilograms).formatted(
+      .number.grouping(.never).precision(.fractionLength(0...8)).locale(locale))
+  }
 }
 public struct Journal: Codable, Equatable, Sendable {
   public var version = 1

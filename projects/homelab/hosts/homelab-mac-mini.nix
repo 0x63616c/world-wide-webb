@@ -1,8 +1,8 @@
 { pkgs, ... }: {
   networking.hostName = "homelab-mac-mini";
-  # Fresh rebuild target. NEVER activate this over the existing production mini.
+  # Production Mini: runs the services assigned in homelab.json.
   homelab.updates.enable = true;
-  # Install the transactional updater while fresh enrollment has no services.
+  # Assigned services require the transactional updater and backups.
   homelab.updates.stateful.enable = true;
   # 8 GiB total: 4 GiB services + 3 GiB HA leaves 1 GiB for macOS; monitor pressure.
   homelab.containers.memoryGiB = 4;

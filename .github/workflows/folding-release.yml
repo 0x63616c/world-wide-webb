@@ -65,6 +65,7 @@ jobs:
         with:
           ref: ${{ inputs.source }}
           fetch-depth: 0
+          filter: blob:none
           persist-credentials: false
       - uses: ./.github/actions/folding-tools
         with:
@@ -79,7 +80,7 @@ jobs:
         env:
           DELIVERY_OPERATION: recheck
         run: python3 scripts/ios_delivery.py
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         if: inputs.channel == 'beta' && inputs.backend
         with:
           name: folding-worker-${{ inputs.source }}
@@ -135,7 +136,7 @@ jobs:
         env:
           DELIVERY_OPERATION: receipt
         run: python3 scripts/ios_delivery.py
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: inputs.channel == 'beta'
         with:
           name: ios-beta-folding-${{ inputs.source }}
@@ -143,7 +144,7 @@ jobs:
           retention-days: 90
           if-no-files-found: error
           overwrite: true
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         if: inputs.channel == 'store'
         with:
           name: ios-beta-folding-${{ inputs.source }}

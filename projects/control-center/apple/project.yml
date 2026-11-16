@@ -53,6 +53,10 @@ targets:
         SUPPORTS_MACCATALYST: NO
         SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD: NO
         SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD: NO
+      configs:
+        Release:
+          # Fixture data is read only by DEBUG launch modes and the Debug-hosted unit tests.
+          EXCLUDED_SOURCE_FILE_NAMES: Fixtures
   NextAlarmWidget:
     type: app-extension
     platform: iOS

@@ -3,7 +3,6 @@
 
 import argparse
 import importlib.util
-import fnmatch
 import json
 from pathlib import Path
 import subprocess
@@ -64,7 +63,6 @@ def main():
     parser.add_argument("base", nargs="?", default="")
     parser.add_argument("--intent", required=True, choices=["verify", "ship", "preview"])
     parser.add_argument("--force", action="store_true", help="Verify every standard product without publication")
-    parser.add_argument("--only", help="Keep apps with this enabled app.yml capability")
     parser.add_argument("--head", help="Compare this committed tree instead of HEAD and working-tree configuration")
     args = parser.parse_args()
     if args.force and args.intent not in {"verify", "preview"}:
@@ -83,118 +81,48 @@ def main():
         else sorted(ROOT.glob("projects/*/app.yml"))
     )
     for config_path in config_paths:
-        config = yaml.safe_load(
+        configs[config_path.parent.name] = yaml.safe_load(
             git("show", f"{head}:{config_path.relative_to(ROOT)}") if args.head else config_path.read_text()
         )
-        for key in ("uses", "paths"):
-            values = config.get(key, [])
-            if not isinstance(values, list) or not all(isinstance(v, str) and v for v in values):
-                parser.error(f"{config_path}: {key} must be a list of nonempty strings")
-        if config.get("uses"):
-            parser.error(
-                f"{config_path}: root packages/ are retired; keep shared code under the product and leave uses empty"
-            )
-        for pattern in config.get("paths", []):
-            if pattern.startswith("/") or ".." in pattern.split("/"):
-                parser.error(f"{config_path}: paths must be repo-relative globs")
-        configs[config_path.parent.name] = config
     base = resolve_base(args.base)
     files = git("diff", "--no-renames", "--name-only", "-z", base, head).decode().split("\0")
     files = [path for path in files if path and not ignored(path)]
-    if args.intent == "ship":
-        # Adding impact declarations does not change a binary. Other app.yml edits
-        # (version, signing, scheme, etc.) retain their existing shipping behavior.
-        for app in configs:
-            path = f"projects/{app}/app.yml"
-            if path not in files:
-                continue
-            try:
-                before = yaml.safe_load(git("show", f"{base}:{path}"))
-                after = yaml.safe_load(git("show", f"{head}:{path}"))
-            except subprocess.CalledProcessError:
-                continue  # A new app config is a real app change.
-            if all(isinstance(config, dict) for config in (before, after)):
-                binary_config = lambda config: {k: v for k, v in config.items() if k not in {"uses", "paths"}}
-                if binary_config(before) == binary_config(after):
-                    files.remove(path)
-    build_tooling = args.force or any(tooling(path) for path in files)
-    delivery_units = None
-    verification_units = []
-    preview_units = []
-    preview_tooling = False
-    selector = ROOT / "scripts/ci/select_units.py"
-    if selector.exists():
-        spec = importlib.util.spec_from_file_location("unit_selection", selector)
-        shared = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(shared)
-        manifest = (
-            yaml.safe_load(git("show", f"{head}:scripts/ci/units.json"))
-            if args.head
-            else json.loads(shared.CONFIG.read_text())
-        )
-        selected = shared.select(files, manifest, force=args.force)
-        delivery_units = selected["delivery_candidates"]
-        verification_units = selected["verify"]
-        preview_units = selected.get("previews", [])
-        preview_tooling = selected.get("standard_preview", False)
-        if args.intent == "verify":
-            standard_units = {
-                f"{app}.native"
-                for app, config in configs.items()
-                if config.get("delivery_handler", "standard_ios") == "standard_ios"
-            }
-            # Known host/custom-product tooling has its own checks. Preserve the
-            # conservative fallback for unknown/shared inputs and legacy repos.
-            build_tooling = bool(
-                args.force
-                or selected["shared_tooling"]
-                or selected["unmapped"]
-                or (build_tooling and standard_units.intersection(verification_units))
-            )
+    spec = importlib.util.spec_from_file_location("unit_selection", ROOT / "scripts/ci/select_units.py")
+    shared = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(shared)
+    manifest = (
+        yaml.safe_load(git("show", f"{head}:scripts/ci/units.json"))
+        if args.head
+        else json.loads(shared.CONFIG.read_text())
+    )
+    selected = shared.select(files, manifest, force=args.force)
+    standard_units = {
+        f"{app}.native" for app, config in configs.items() if config.get("delivery_handler") == "standard_ios"
+    }
+    # Shared tooling verifies the standard apps only when one of them is selected with it;
+    # repo.tooling and the other products' tooling have their own checks.
+    build_tooling = bool(
+        args.force
+        or selected["shared_tooling"]
+        or selected["unmapped"]
+        or (any(tooling(path) for path in files) and standard_units.intersection(selected["verify"]))
+    )
     apps = []
     for app, config in configs.items():
         # This is the standard iOS handler's resolver. Other products use the
         # repository unit selector and their own build/release state machines.
-        if config.get("delivery_handler", "standard_ios") != "standard_ios":
+        if config.get("delivery_handler") != "standard_ios":
             continue
-        if args.intent == "ship" and config.get("testflight") is not True:
-            continue
-        if (
-            args.intent == "ship"
-            and config.get("delivery_handler") == "standard_ios"
-            and delivery_units is not None
-            and f"{app}.native" not in delivery_units
-        ):
-            continue
-        if args.only and not config.get(args.only):
-            continue
-        patterns = [
-            f"projects/{app}/**",
-            *config.get("paths", []),
-        ]
-        direct = any(fnmatch.fnmatchcase(path, pattern) for path in files for pattern in patterns)
-        if args.intent == "preview" and not (
-            args.force or preview_tooling or f"{app}.native" in preview_units or direct
-        ):
-            continue
-        if (
-            args.intent == "preview"
-            or (args.intent == "verify" and build_tooling)
-            or any(fnmatch.fnmatchcase(path, pattern) for path in files for pattern in patterns)
-        ):
+        direct = any(path.startswith(f"projects/{app}/") for path in files)
+        if args.intent == "ship":
+            chosen = config.get("testflight") is True and f"{app}.native" in selected["delivery_candidates"] and direct
+        elif args.intent == "preview":
+            chosen = args.force or selected["standard_preview"] or f"{app}.native" in selected["previews"] or direct
+        else:
+            chosen = build_tooling or direct
+        if chosen:
             apps.append(app)
-    verify = args.intent == "verify"
-    rdesign = any(path.startswith("projects/tendr/Packages/RDesign/") for path in files)
-    print(
-        json.dumps(
-            {
-                "apps": apps,
-                "tooling": verify and build_tooling,
-                "rdesign": verify and (rdesign or build_tooling),
-            },
-            separators=(",", ":"),
-        )
-    )
+    print(json.dumps({"apps": apps}, separators=(",", ":")))
 
 
 if __name__ == "__main__":

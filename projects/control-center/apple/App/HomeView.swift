@@ -6,8 +6,6 @@ enum HomeTile: String, CaseIterable, Identifiable {
     case climate, clock, wifi, bedroom, livingRoom, ceiling, cabinet, fan, all
     // Existing controllers stay available by launch argument for later faces.
     case lamps, lights, weather, hourly, sound, alarm, tesla, calendar, sonosRooms, photos
-    static let homeFace: [HomeTile] = [.climate, .lamps, .weather, .tesla, .calendar, .sound, .fan]
-    static let controlsFace: [HomeTile] = [.photos, .sonosRooms, .clock, .ceiling, .cabinet, .wifi, .all]
     var id: String { rawValue }
     var title: String {
         switch self {
@@ -41,34 +39,6 @@ enum HomeTile: String, CaseIterable, Identifiable {
         case .lamps: .lamps
         case .lights: .lights
         default: nil
-        }
-    }
-    var cells: (x: Int, y: Int, w: Int, h: Int) {
-        switch self {
-        case .climate: (0, 0, 2, 2)
-        case .clock: (2, 0, 1, 1)
-        case .wifi: (2, 1, 1, 1)
-        case .bedroom: (0, 2, 1, 1)
-        case .livingRoom: (1, 2, 1, 1)
-        case .ceiling: (2, 2, 1, 1)
-        case .cabinet: (0, 2, 1, 1)
-        case .fan: (1, 2, 1, 1)
-        case .all: (2, 2, 1, 1)
-        case .weather: (0, 0, 2, 2)
-        case .tesla: (2, 0, 1, 1)
-        case .sound: (2, 1, 1, 1)
-        default: (0, 0, 1, 1)
-        }
-    }
-    @MainActor func fill(_ store: any HomeDataSource) -> Color {
-        switch self {
-        case .climate: store.climate.mode.color
-        case .all, .fan, .lamps, .lights, .bedroom, .livingRoom, .ceiling, .cabinet: Palette.amber
-        case .clock: Palette.teal
-        case .wifi: Palette.teal
-        case .weather, .hourly: Color.blue.mix(with: .black, by: 0.45)
-        case .sound: Color.purple.mix(with: .black, by: 0.65)
-        case .alarm, .tesla, .calendar, .sonosRooms, .photos: .black
         }
     }
 }
@@ -467,112 +437,7 @@ extension PanelAppFeature {
 }
 /// Pager order. The clock is the first face (WWW-68).
 enum HomeFacePage {
-    static let clock = 0, home = 1, controls = 2, music = 3
-    static let names = ["clock", "home", "controls", "music"]
-    static let labels = ["Clock face", "Home face", "Home more face", "Music face"]
-}
-struct PhoneFaceBar: View {
-    @Binding var selection: Int
-    var body: some View {
-        VStack(spacing: 6) {
-            FacePicker(selection: $selection)
-                .frame(width: 200, height: 56)
-                .glassEffect(.regular, in: .capsule)
-            Text("Fixture data").font(.system(size: 10)).foregroundStyle(.secondary)
-        }.frame(height: HomeFaceLayout.phonePagerBand)
-    }
-}
-// Shared by the live pager and the fast snapshot target; no duplicate visual layout.
-struct FacePicker: View {
-    @Environment(\.homeIntegration) private var integration
-    @Binding var selection: Int
-    @Environment(\.horizontalSizeClass) private var sizeClass
-    var body: some View {
-        HStack(spacing: sizeClass == .compact ? 4 : 10) {
-            ForEach(0..<4) { page in
-                Button {
-                    withAnimation(.easeInOut(duration: 0.25)) { selection = page }
-                } label: {
-                    Circle().fill(.white.opacity(selection == page ? 0.95 : 0.3))
-                        .frame(width: 8, height: 8).frame(width: 44, height: 44)
-                        .contentShape(.rect)
-                }.buttonStyle(.plain)
-                    .accessibilityLabel(HomeFacePage.labels[page])
-                    .accessibilityValue(selection == page ? "Selected" : "")
-                    .accessibilityIdentifier("face-page-\(page)")
-            }
-        }
-        .overlay(alignment: .trailing) {
-            if sizeClass != .compact {
-                Text(integration?.caption ?? "Fixture data").font(.system(size: 11)).foregroundStyle(.secondary)
-                    .fixedSize().offset(x: 110).allowsHitTesting(false)
-            }
-        }
-    }
-}
-struct HomeGlassFace: View {
-    let store: any HomeDataSource
-    let size: CGSize
-    let controls: Bool
-    var selected: HomeTile?
-    let zoom: Namespace.ID
-    let open: (HomeTile) -> Void
-    var faceSelection: Binding<Int> = .constant(0)
-    @Environment(\.horizontalSizeClass) private var sizeClass
-    var body: some View {
-        if sizeClass == .compact {
-            CompactFace(store: store, controls: controls, zoom: zoom, open: open, faceSelection: faceSelection)
-        } else {
-            GeometryReader { _ in
-                GlassEffectContainer(spacing: 12) {
-                    HomeFaceGrid(
-                        store: store, size: size, controls: controls, selected: selected, zoom: zoom, open: open)
-                }
-            }
-        }
-    }
-}
-struct HomeFaceGrid: View {
-    let store: any HomeDataSource
-    let size: CGSize
-    let controls: Bool
-    var selected: HomeTile?
-    let zoom: Namespace.ID
-    let open: (HomeTile) -> Void
-    var body: some View {
-        if HomeGrid.enabled {
-            GridHomeFace(store: store, size: size, page: controls ? 1 : 0, open: open, zoom: zoom)
-        } else {
-            legacy
-        }
-    }
-    private var legacy: some View {
-        let layout = HomeFaceLayout.panel(in: size, controls: controls)
-        return ZStack(alignment: .topLeading) {
-            HStack {
-                Text(controls ? "Home · More" : "Home").font(.system(size: 40, weight: .bold))
-                Spacer()
-                Text(fixtureTime(store.now, format: "EEEE, MMMM d")).font(.system(size: 22, weight: .medium))
-            }.frame(width: layout.header.width, height: layout.header.height)
-                .position(x: layout.header.midX, y: layout.header.midY)
-            ForEach(layout.items) { item in
-                MixedHomeTile(tile: item.tile, store: store, open: { open(item.tile) })
-                    .frame(width: item.frame.width, height: item.frame.height)
-                    .modifier(
-                        MixedTileMaterial(
-                            round: item.round, on: tileOn(item.tile),
-                            imageContent: [.weather, .photos].contains(item.tile))
-                    )
-                    .glassEffectID("\(controls)-\(item.id)", in: zoom)
-                    .matchedTransitionSource(id: "\(controls ? 1 : 0)-\(item.id)", in: zoom)
-                    .position(x: item.frame.midX, y: item.frame.midY)
-            }
-        }.frame(width: size.width, height: size.height)
-    }
-    private func tileOn(_ tile: HomeTile) -> Bool {
-        guard let key = tile.accessory else { return false }
-        return key == .fan ? store.climate.fanOn && store.climate.mode != .off : store.lamps.isOn(key)
-    }
+    static let clock = 0, home = 1
 }
 struct TileFace: View {
     let tile: HomeTile
@@ -792,7 +657,8 @@ enum DisplayCorners {
 }
 
 /// Hosts the caution tape in its own pass-through window above every sheet, alert and
-/// notification, on the same display as the panel.
+/// notification, on the same display as the panel. The window itself is hidden while Guided
+/// Access is on, so the tape cannot outlive a missed SwiftUI update.
 private struct CautionTapeWindow: UIViewRepresentable {
     let cornerRadius: CGFloat
 
@@ -806,12 +672,13 @@ private struct CautionTapeWindow: UIViewRepresentable {
 
     final class Anchor: UIView {
         private var overlay: UIWindow?
-        private var host: UIHostingController<CautionTapeOverlay>?
+        private var host: UIHostingController<CautionTapeBorder>?
         private var cornerRadius: CGFloat = 0
+        private var settle: Task<Void, Never>?
 
         func update(cornerRadius: CGFloat) {
             self.cornerRadius = cornerRadius
-            host?.rootView = CautionTapeOverlay(cornerRadius: cornerRadius)
+            host?.rootView = CautionTapeBorder(cornerRadius: cornerRadius)
         }
 
         override func didMoveToWindow() {
@@ -819,7 +686,7 @@ private struct CautionTapeWindow: UIViewRepresentable {
             guard let scene = window?.windowScene else { return tearDown() }
             guard overlay?.windowScene !== scene else { return }
             tearDown()
-            let host = UIHostingController(rootView: CautionTapeOverlay(cornerRadius: cornerRadius))
+            let host = UIHostingController(rootView: CautionTapeBorder(cornerRadius: cornerRadius))
             host.view.backgroundColor = .clear
             let overlay = UIWindow(windowScene: scene)
             overlay.windowLevel = .alert + 1
@@ -829,37 +696,55 @@ private struct CautionTapeWindow: UIViewRepresentable {
             host.view.accessibilityElementsHidden = true
             overlay.backgroundColor = .clear
             overlay.rootViewController = host
-            overlay.isHidden = false
+            overlay.isHidden = UIAccessibility.isGuidedAccessEnabled
             self.overlay = overlay
             self.host = host
+            // Starting or ending Guided Access also deactivates and reactivates the app, so
+            // activation re-reads the status in case its own notification was missed.
+            let center = Foundation.NotificationCenter.default
+            for name in [
+                UIAccessibility.guidedAccessStatusDidChangeNotification, UIApplication.didBecomeActiveNotification,
+            ] {
+                center.addObserver(self, selector: #selector(guidedAccessMayHaveChanged), name: name, object: nil)
+            }
         }
 
         func tearDown() {
+            Foundation.NotificationCenter.default.removeObserver(self)
+            settle?.cancel()
+            settle = nil
             overlay?.isHidden = true
             overlay = nil
             host = nil
         }
-    }
-}
 
-/// Shows the tape while Guided Access is off and follows its changes live.
-private struct CautionTapeOverlay: View {
-    let cornerRadius: CGFloat
-    @State private var guidedAccessOn = UIAccessibility.isGuidedAccessEnabled
-
-    var body: some View {
-        ZStack {
-            if !guidedAccessOn {
-                CautionTapeBorder(cornerRadius: cornerRadius).transition(.opacity)
+        @objc private func guidedAccessMayHaveChanged() {
+            applyGuidedAccess()
+            // The status can still read its old value while the change is being announced.
+            settle?.cancel()
+            settle = Task { [weak self] in
+                try? await Task.sleep(for: .seconds(1))
+                guard !Task.isCancelled else { return }
+                self?.applyGuidedAccess()
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .ignoresSafeArea()
-        .onReceive(
-            Foundation.NotificationCenter.default.publisher(
-                for: UIAccessibility.guidedAccessStatusDidChangeNotification)
-        ) { _ in
-            withAnimation(.easeInOut(duration: 0.25)) { guidedAccessOn = UIAccessibility.isGuidedAccessEnabled }
+
+        private func applyGuidedAccess() {
+            guard let overlay else { return }
+            let hide = UIAccessibility.isGuidedAccessEnabled
+            guard overlay.isHidden != hide else { return }
+            if hide {
+                UIView.animate(withDuration: 0.25) {
+                    overlay.alpha = 0
+                } completion: { _ in
+                    overlay.isHidden = UIAccessibility.isGuidedAccessEnabled
+                    overlay.alpha = 1
+                }
+            } else {
+                overlay.alpha = 0
+                overlay.isHidden = false
+                UIView.animate(withDuration: 0.25) { overlay.alpha = 1 }
+            }
         }
     }
 }

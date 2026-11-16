@@ -32,7 +32,7 @@ jobs:
           persist-credentials: false
       - run: python3 scripts/test-publish-site.py
       - run: scripts/build-site.sh "$RUNNER_TEMP/public-site"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: public-pages-${{ github.sha }}
           path: ${{ runner.temp }}/public-site
@@ -49,11 +49,11 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: 26.13.0
       - run: node projects/folding/site/build.mjs
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: folding-public-sites-${{ github.sha }}
           path: |
@@ -103,10 +103,10 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: 26.13.0
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           name: folding-public-sites-${{ github.sha }}
           path: projects/folding/site/dist
@@ -138,10 +138,11 @@ jobs:
         with:
           persist-credentials: true
           fetch-depth: 0
-      - uses: oven-sh/setup-bun@v2
+          filter: blob:none
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
         with:
           bun-version: "1.4.4"
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           name: public-pages-${{ github.sha }}
           path: ${{ runner.temp }}/public-site

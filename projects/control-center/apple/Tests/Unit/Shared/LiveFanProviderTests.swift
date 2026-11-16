@@ -159,13 +159,4 @@ private actor FanProviderTransport: PanelTransport {
         try await waitFor { await transport.requests.count == 3 && live.errorMessage != nil }
         XCTAssertEqual(live.fanOn, true)
     }
-
-    func testMockOffLabelAndToggle() async {
-        var climate = ClimateState()
-        climate.mode = .off
-        let mock = MockFanProvider(climate: climate)
-        XCTAssertEqual(mock.fanLabel, "Off")
-        await mock.toggle()
-        XCTAssertEqual(mock.fanOn, true)
-    }
 }

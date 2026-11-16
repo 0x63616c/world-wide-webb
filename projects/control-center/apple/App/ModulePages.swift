@@ -2,49 +2,6 @@ import AVKit
 import PanelKit
 import SwiftUI
 
-struct ModulePage: View {
-    let tile: HomeTile
-    let store: any HomeDataSource
-    let close: () -> Void
-    @Environment(\.horizontalSizeClass) private var sizeClass
-    private var compact: Bool { sizeClass == .compact }
-    var body: some View {
-        ZStack {
-            if tile == .photos {
-                PhotoRotation(provider: store.photos, now: store.now, fullScreen: true).ignoresSafeArea()
-                VStack {
-                    HStack {
-                        CircleButton(symbol: "xmark", label: "Close Photos", action: close)
-                        Spacer()
-                    }
-                    Spacer()
-                }.padding(compact ? 24 : 38).padding(.top, compact ? 34 : 0)
-            } else {
-                if tile == .weather { WeatherSky(condition: store.weather.condition).ignoresSafeArea() }
-                VStack(spacing: 0) {
-                    ZStack {
-                        Text(tile == .calendar ? "Calendar" : tile.title).font(
-                            .system(size: compact ? 20 : 25, weight: .semibold))
-                        HStack {
-                            CircleButton(symbol: "xmark", label: "Close", action: close)
-                            Spacer()
-                        }
-                    }.frame(height: 62).padding(.horizontal, compact ? 24 : 38).padding(.top, compact ? 56 : 30)
-                    Group {
-                        switch tile {
-                        case .weather: WeatherPage(weather: store.weather)
-                        case .calendar: CalendarPage(provider: store.calendar, now: store.now)
-                        case .sonosRooms: SonosRoomsPage(store: store)
-                        default: EmptyView()
-                        }
-                    }.frame(maxWidth: .infinity, maxHeight: .infinity)
-                    Text("Fixture data").font(.system(size: 12)).foregroundStyle(.secondary).padding(.bottom, 16)
-                }
-            }
-        }.foregroundStyle(.white).tint(.white)
-    }
-}
-
 struct WeatherPage: View {
     let weather: WeatherState
     @Environment(\.horizontalSizeClass) private var sizeClass

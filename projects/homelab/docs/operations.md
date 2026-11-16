@@ -16,8 +16,8 @@ to confirm the bedside lamps and Mirror respond. Other hosts leave the binding d
 `homelab-operation -- COMMAND ...` holds one host-wide exclusive lock while its
 child runs. General service reconciliation and HA Compose use this wrapper.
 Backup jobs and the update transaction also use this shared lock; creating an
-unrelated backup lock would not coordinate with these jobs. These paths remain
-disabled on the hosts pending deployment and recovery validation.
+unrelated backup lock would not coordinate with these jobs. The Mini has
+backups and the update transaction enabled; the MacBook has no services to reconcile.
 
 The lock lives at `/var/lib/homelab-operations/operation.lock`. Its parent is
 root-owned mode 0755; the file is root:`_containers` mode 0660. `_containers`

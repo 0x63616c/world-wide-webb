@@ -3,7 +3,6 @@ import SwiftUI
 struct NowPlayingView: View {
     let store: any HomeDataSource
     let close: () -> Void
-    var isFace = false
     // Defaults retain the prototype; Hybrid injects real playback, art and calibrated volume.
     var selectedRoomID: String? = nil
     var showsPlaybackPosition: (SoundRoom) -> Bool = { _ in true }
@@ -20,11 +19,11 @@ struct NowPlayingView: View {
         GeometryReader { proxy in
             if let room {
                 ZStack {
-                    if !isFace { Color.black.ignoresSafeArea() }
+                    Color.black.ignoresSafeArea()
                     VStack(spacing: 0) {
                         HStack {
                             CircleButton(
-                                symbol: isFace ? "house" : "xmark", label: isFace ? "Home" : "Close Sonos",
+                                symbol: "xmark", label: "Close Sonos",
                                 size: compact ? 44 : 64, action: close)
                             Spacer()
                             VStack(spacing: 5) {
@@ -94,7 +93,7 @@ struct NowPlayingView: View {
                             }.font(.system(size: 20, weight: .medium)).foregroundStyle(.primary)
                         }.frame(width: compact ? proxy.size.width - 48 : 440).padding(.top, 8)
                         Spacer(minLength: compact ? 16 : 24)
-                    }.padding(.bottom, isFace && !compact ? HomeFaceLayout.panelPagerBand : 0)
+                    }
                 }.frame(width: proxy.size.width, height: proxy.size.height)
             } else {
                 Color.black.overlay(Text("No rooms available").font(.largeTitle))

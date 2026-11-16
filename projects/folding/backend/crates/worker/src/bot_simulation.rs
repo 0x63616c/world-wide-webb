@@ -211,7 +211,7 @@ impl DayRandom {
     pub fn new(seed: u64) -> Self {
         Self(seed)
     }
-    pub fn next(&mut self) -> u64 {
+    pub fn next_u64(&mut self) -> u64 {
         self.0 = self.0.wrapping_add(0x9E3779B97F4A7C15);
         let mut z = self.0;
         z = (z ^ (z >> 30)).wrapping_mul(0xBF58476D1CE4E5B9);
@@ -219,7 +219,11 @@ impl DayRandom {
         z ^ (z >> 31)
     }
     pub fn below(&mut self, upper: u64) -> u64 {
-        if upper == 0 { 0 } else { self.next() % upper }
+        if upper == 0 {
+            0
+        } else {
+            self.next_u64() % upper
+        }
     }
 }
 
@@ -255,7 +259,7 @@ mod tests {
             .unwrap();
         let first = day_plan(&persona, 901, false);
         assert_eq!(first, day_plan(&persona, 901, false));
-        assert!(first.len() % 2 == 0);
+        assert!(first.len().is_multiple_of(2));
         assert!(
             first
                 .iter()
@@ -268,8 +272,8 @@ mod tests {
         let mut a = DayRandom::new(123);
         let mut b = DayRandom::new(123);
         assert_eq!(
-            (0..32).map(|_| a.next()).collect::<Vec<_>>(),
-            (0..32).map(|_| b.next()).collect::<Vec<_>>()
+            (0..32).map(|_| a.next_u64()).collect::<Vec<_>>(),
+            (0..32).map(|_| b.next_u64()).collect::<Vec<_>>()
         );
         assert!(
             personas()
@@ -286,10 +290,7 @@ mod tests {
             .collect();
         assert_eq!(values.len(), MAX_BOT_COUNT);
         assert!(values.iter().all(|v| v.starts_with("bot:v1:")));
-        assert_ne!(
-            subject_hmac(&seed, 1),
-            format!("{}", crate::assertion::hex(&seed))
-        );
+        assert_ne!(subject_hmac(&seed, 1), crate::assertion::hex(&seed));
     }
 
     #[test]

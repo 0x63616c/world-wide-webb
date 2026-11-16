@@ -36,14 +36,14 @@ class StandardDeliveryTests(unittest.TestCase):
                 target = repo / name
                 target.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(ROOT / name, target)
-            write("projects/tendr/app.yml", "testflight: true\ndelivery_handler: standard_ios\nuses: []\npaths: []\n")
+            write("projects/tendr/app.yml", "testflight: true\ndelivery_handler: standard_ios\n")
             write("projects/tendr/Still/Screen.swift", "screen")
             base = commit()
             for name, expected in [
                 ("projects/tendr/Tests/ImportTests.swift", []),
-                ("projects/tendr/Packages/RDesign/Tests/PaletteTests.swift", []),
+                ("projects/tendr/Tools/rframe/Sources/rframe/RFrame.swift", []),
                 ("projects/tendr/Still/Screen.swift", ["tendr"]),
-                ("projects/tendr/Packages/RDesign/Sources/Palette.swift", ["tendr"]),
+                ("projects/tendr/Still/Design/Tokens.swift", ["tendr"]),
             ]:
                 write(name, "changed")
                 source = commit()
@@ -63,9 +63,9 @@ class StandardDeliveryTests(unittest.TestCase):
                     [str(repo / "scripts/affected"), base, "--head", source, "--intent", "verify"], cwd=repo, text=True
                 )
             )
-            self.assertEqual(result, {"apps": [], "tooling": False, "rdesign": False})
+            self.assertEqual(result, {"apps": []})
             base = source
-            write("scripts/check-app-backends.py", "backend check")
+            write("scripts/release-pipeline.rb", "release tooling")
             source = commit()
             result = json.loads(
                 subprocess.check_output(
@@ -75,7 +75,7 @@ class StandardDeliveryTests(unittest.TestCase):
                 )
             )
             # Owned by repo.tooling via main CI selection; not a separate template product.
-            self.assertEqual(result, {"apps": [], "tooling": False, "rdesign": False})
+            self.assertEqual(result, {"apps": []})
 
 
 if __name__ == "__main__":

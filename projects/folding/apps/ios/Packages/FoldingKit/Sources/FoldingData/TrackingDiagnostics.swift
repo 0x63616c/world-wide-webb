@@ -35,8 +35,6 @@ public struct TrackingDiagnosticEntry: Codable, Equatable, Sendable {
     case uploadRetryScheduled = "upload_retry_scheduled"
     case captureQuarantined = "capture_quarantined"
     case network
-    case widgetSnapshotWritten = "widget_snapshot_written"
-    case widgetFailed = "widget_failed"
     case notificationCheck = "notification_check"
     case notificationAuthorization = "notification_authorization"
     case notificationScheduled = "notification_scheduled"
@@ -112,6 +110,21 @@ public struct TrackingDiagnosticEntry: Codable, Equatable, Sendable {
     if let retryDelayMS { parts.append("retry_delay_ms=\(retryDelayMS)") }
     if let requestID { parts.append("request_id=\(requestID.uuidString.lowercased())") }
     return parts.joined(separator: " ")
+  }
+}
+
+extension TrackingDiagnosticEntry {
+  private struct Stored: Decodable {
+    let entry: TrackingDiagnosticEntry?
+    init(from decoder: Decoder) throws { entry = try? TrackingDiagnosticEntry(from: decoder) }
+  }
+
+  /// Reads the stored `tracking_diagnostics_v1` history. An entry this build cannot decode, such
+  /// as a retired event case, is skipped so the remaining history survives.
+  static func stored(_ raw: String?) -> [TrackingDiagnosticEntry] {
+    guard let raw, let rows = try? JSONDecoder().decode([Stored].self, from: Data(raw.utf8))
+    else { return [] }
+    return rows.compactMap(\.entry)
   }
 }
 

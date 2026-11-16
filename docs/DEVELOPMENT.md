@@ -14,9 +14,24 @@ scripts/dev setup tendr
 scripts/dev doctor
 ```
 
-Worktrees live outside the main checkout. `wtp add` runs `tools/setup` and installs
-the repository's Lefthook pre-commit checks. If you created a worktree without
-`wtp`, run `lefthook install`.
+Worktrees live in `~/.worktrees/world-wide-webb`, outside the main checkout; the
+hourly worktree cleanup only looks there. `wtp add` runs
+`scripts/configure-worktree-upstream.sh` and `tools/setup`, then installs the
+repository's Lefthook pre-commit checks.
+
+`wtp` cannot expand `~`, so `.wtp.yml` reaches that directory with a path relative to
+the main checkout. It is correct only when the main checkout is at
+`~/Documents/ChatGPT/world-wide-webb`. From a checkout anywhere else (for example
+`~/coding/world-wide-webb`), create the worktree with Git and run the same hooks:
+
+```sh
+git worktree add ~/.worktrees/world-wide-webb/codex/my-change -b codex/my-change origin/main
+cd ~/.worktrees/world-wide-webb/codex/my-change
+bash scripts/configure-worktree-upstream.sh
+bash tools/setup
+lefthook install --force
+```
+
 Read the root `AGENTS.md` and product README before changing that area.
 
 Root `mise.toml` and `mise.lock` pin Bun, Node, Python, uv, Ruby, XcodeGen and
@@ -49,6 +64,12 @@ backend and native checks are separate. Run the affected checks while iterating,
 then the relevant integration and required CI checks for the completed change.
 Documentation-only edits need link and documentation checks, not app builds.
 
+Root tooling tests run in the `test-unit` job of `ci.yml` whenever root tooling changes. The
+job discovers them by name: `scripts/ci/test_*.py`, `scripts/test-*.py`, `scripts/test_*.py`,
+`scripts/test-*.rb`, `scripts/test-*.sh` and `.github/actions/*/test_*.py`. A new test file
+with one of those names runs without a workflow edit. `scripts/homelab` and
+`scripts/distribution` tests run in the Homelab and Callkeep workflows.
+
 ## From change to delivery
 
 1. Make a coherent change in its product area. Keep private records, credentials,
@@ -67,7 +88,7 @@ handlers own external writes; do not run multiple publishers for the same target
 
 ## Ownership and toolchains
 
-- Apps choose their SwiftUI components and architecture. Tendr's `RDesign`,
+- Apps choose their SwiftUI components and architecture. Tendr's `Still/Design`,
   Folding's `FoldingKit`, and Control Center's native packages remain local.
 - Fastlane handles Apple distribution. Tendr uses the root Ruby bundle; Folding
   keeps its product bundle. Callkeep and Control Center have their own handlers.

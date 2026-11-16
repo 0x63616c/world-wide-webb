@@ -8,7 +8,7 @@ Covered: weight chronology and future filtering, future taken-dose rejection, lo
 
 ## UI
 
-The Discover walkthrough passed (one test, zero failures; `build/DiscoverQA.xcresult`) on a separate iPhone 17 Pro Max simulator. It exercises navigation, dose sheet presentation, Progress, Journal, Discover filtering and opening a recipe. Further persistence and regression tests are recorded below.
+Persistence and regression UI tests are recorded below. The earlier Discover walkthrough was retired with the Discover feature.
 
 ## Coverage limits and remaining release work
 
@@ -25,11 +25,15 @@ Xcode 26.2's Swift 6.2.3 compiler crashed in IR generation with a direct method 
 
 Verification: targeted UI test passed with zero failures in `Test-Still-2026.09.05_20-26-19--0700.xcresult`; `swift test` also passed after the change.
 
+Dose entry has since become mg-only and the unit selector was deleted. The conversion itself (3 units = 0.15 mg at 5 mg/mL) stays covered by `testSyringeUnitsRequireScaleAndConvertUsingVialConcentration` in `Tests/TrackingTests.swift`.
+
 ## Kilogram editor regression
 
 After selecting kilograms in Settings, reopening the synthetic 88.5 kg journal entry displayed 40.14 kg. The UI test reproduced this exact mismatch. Initialization was triggering the unit-change observer and converting the loaded value twice. Conversion now occurs only through the unit picker's user-driven setter; loading an entry preserves its recorded amount. Editable weight values omit grouping separators and retain up to eight decimal places.
 
 Verification: the kilogram UI regression passed in `Test-Still-2026.09.05_20-32-11--0700.xcresult`.
+
+CI does not run UI tests, so the same rule now has host tests in `Tests/TrackingTests.swift`: `testWeightEditorTextConvertsStoredKilogramsExactlyOnce` and `testSwitchingWeightUnitConvertsForDisplayOnly`.
 
 ## Persistence journeys
 

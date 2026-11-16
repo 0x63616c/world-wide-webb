@@ -1,6 +1,6 @@
 use crate::moderation_eligibility::{Epoch, approval_eligible};
 // Provisional moderation replay; administrator's participant-revision guard commits this atomically.
-use crate::auth_runtime::{Failure, now, number, statement, text};
+use crate::support::{Failure, now, number, statement, text};
 use folding_domain::{
     reducer,
     wire::{Event, Generation, Id},

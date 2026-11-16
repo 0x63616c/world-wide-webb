@@ -18,6 +18,7 @@ keep remaining product acceptance deferrals distinct from the live delivery path
 - `FOLDING_TESTFLIGHT_GROUPS`: explicit comma-separated internal group names.
 
 The `beta` stage enables screenshot feedback for every configured TestFlight group in App Store Connect and confirms readback before recording distribution. The setting belongs to the group, not the app binary.
+
 - Review contact environment names are in `release-config.json`. Contact details are sent to Apple, never inserted into a public listing.
 
 `reserve` requires a clean committed checkout on trusted main history and authenticated draft artifact storage. Drafts must remain unpublished even after Apple releases the app; publishing a GitHub release would expose its artifacts in a public repository. Globally serialize all distribution workflows using `folding-release`, with cancellation disabled. The central immutable draft-release reservation ledger also rejects concurrent revision writes. Allocation is above both registered apps' Apple maximum and every prior ledger reservation. The same commit/version/configuration key belongs to one release tag; retries reuse that record. A different binary needs a new reservation and build number, never an overwritten IPA.
@@ -69,7 +70,7 @@ Each locale includes ten Duo images (five scenes across both displays) and five 
 
 - Reload the latest remote manifest after a conflict. Never overwrite revision files or use `gh release upload --clobber`.
 - If archive candidate hashes were recorded, `archive` resumes publishing the same local/remote files. If signing/building stopped before a candidate record, inspect the retained archive; the tool refuses an automatic rebuild under that reservation.
-- If a partially uploaded artifact already exists, compare its downloaded bytes before treating it as complete. Missing local *and* remote candidates are an explicit recovery error.
+- If a partially uploaded artifact already exists, compare its downloaded bytes before treating it as complete. Missing local _and_ remote candidates are an explicit recovery error.
 - A failed attempt retains the last stable state and attempt marker. Read Apple before retrying upload/submission. Automatic internal-beta recovery may allocate a new audited reservation after an interrupted compile. It never cancels Apple review, revokes a certificate or rebuilds a sealed candidate.
 - Keep signing recovery assets in 1Password/match and retain private release artifacts for the lifetime of the distributed version. Do not upload arbitrary workspaces or raw logs.
 
@@ -99,7 +100,7 @@ Submission prepares one Apple review submission containing the exact app version
 
 ## Native screen images
 
-`fastlane ios screenshots` captures Today, Patterns and Milestones in dark mode, and History and Leaderboard in light mode. The capture plan owns the actual simulator models, runtimes, display dimensions, scene order and appearances. Its validator rejects missing/duplicate images, wrong display sizes, changed source/configuration, modified RGB captures and mismatched Apple upload slots. Required native CI compiles the capture app and its UI-test runner without booting a simulator. Capture execution and visual fidelity are verified on the hosted runner.
+`fastlane ios screenshots` captures Analytics (scene id `today`), Patterns and Milestones in dark mode, and History and Leaderboard in light mode. The capture plan owns the actual simulator models, runtimes, display dimensions, scene order and appearances. Its validator rejects missing/duplicate images, wrong display sizes, changed source/configuration, modified RGB captures and mismatched Apple upload slots. Required native CI compiles the capture app and its UI-test runner without booting a simulator. Capture execution and visual fidelity are verified on the hosted runner.
 
 Show the completed set for visibility and proceed with the owner's already-authorized submission; screenshot approval is no longer a release gate.
 

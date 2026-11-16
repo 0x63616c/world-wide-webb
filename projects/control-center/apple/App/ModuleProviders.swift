@@ -76,11 +76,3 @@ struct PhotoItem: Identifiable, Equatable {
     let title: String
     let credit: String
 }
-@MainActor protocol PhotosProvider: AnyObject, Observable { var photos: [PhotoItem] { get } }
-@MainActor @Observable final class MockPhotosProvider: PhotosProvider {
-    let photos = [
-        PhotoItem(id: "photo_lake", asset: "LakeWallpaper", title: "Mountain lake", credit: "Luca Bravo"),
-        PhotoItem(id: "photo_forest", asset: "ForestPhoto", title: "Woodland light", credit: "Johannes Plenio"),
-        PhotoItem(id: "photo_coast", asset: "CoastPhoto", title: "Evening on the coast", credit: "Luca Bravo"),
-    ]
-}

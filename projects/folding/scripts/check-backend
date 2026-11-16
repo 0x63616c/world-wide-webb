@@ -6,6 +6,10 @@ cd "$(dirname "$0")/.."
 export PATH="$HOME/.cargo/bin:$PATH"
 RUSTUP_TOOLCHAIN=$(python3 -c 'import json,re; version=json.load(open("backend/tool-versions.json"))["rust"]; assert re.search(r"(?m)^channel\s*=\s*\""+re.escape(version)+r"\"\s*$", open("backend/rust-toolchain.toml").read()), "Align backend toolchain pins"; print(version)')
 export RUSTUP_TOOLCHAIN
+python3 scripts/test-worker-readiness.py
+cargo clippy --manifest-path backend/Cargo.toml --workspace --all-targets --locked -- -D warnings
+# Lint the Wasm-only runtime and binding paths that the native targets do not compile.
+cargo clippy --manifest-path backend/Cargo.toml -p folding-worker --target wasm32-unknown-unknown --locked -- -D warnings
 cargo test --manifest-path backend/Cargo.toml --workspace
 (cd backend/crates/worker && worker-build --release)
 (cd backend && bun run test:runtime)

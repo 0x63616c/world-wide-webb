@@ -123,24 +123,9 @@ Leave competition and Delete competition account are separate commands. Leave pr
 
 The tip jar uses StoreKit product metadata for actual localized prices; three unobtrusive buttons, no unlock claims or prompts elsewhere. Purchase progress/cancellation are local to that screen. The review prompt uses the system request mechanism only at the spec's eligibility point, and no satisfaction question.
 
-## 9. Widgets
+## 9. Widgets (retired)
 
-Use `AppIntentConfiguration` with a `WidgetConfigurationIntent` metric enum and `AppIntentTimelineProvider`. Declare only `.systemSmall`, `.systemMedium`, `.accessoryRectangular`, and `.accessoryCircular`. Configurations are per widget, not one global selection. [Apple configuration reference](https://developer.apple.com/documentation/widgetkit/appintentconfiguration)
-
-Supported combinations:
-
-- Small: folds, time unfolded, or daily-limit progress; one primary value.
-- Medium: folds, time unfolded, daily-limit progress, or seven-day trend; optional supporting label/value where space permits.
-- Rectangular Lock Screen: folds, time unfolded, or daily-limit progress; one compact value/label, no chart.
-- Circular Lock Screen: folds or daily-limit progress; no duration text or weekly chart squeezed into the circle.
-
-Filter unsupported configuration choices for each widget kind/family using the actual supported SDK facilities. If a saved metric becomes unsupported after an update, render folds and allow reconfiguration; never crash or silently show another metric under the wrong label. Daily-limit progress displays a bounded gauge with the actual count and never stops recording at 100%.
-
-Read one immutable snapshot from the App Group data interface. Include data timestamp, selected metric values, theme preference, and optional running-session anchor. Providers must not query the leaderboard, run CloudKit reconciliation, or mutate tracking state. Use system timer presentation for a valid running anchor only where supported and verified; otherwise display snapshot duration. Request timeline reload after relevant committed changes, without promising immediate redraw or scheduling per-second refreshes.
-
-Adapt to `widgetRenderingMode` and system tint/monochrome treatment; render accent only when permitted and retain non-color meaning. App light/dark overrides do not override Lock Screen appearance. Use system container backgrounds appropriate to the family. [Apple rendering guidance](https://developer.apple.com/documentation/widgetkit/preparing-widgets-for-additional-contexts-and-appearances)
-
-Use `widgetURL`/supported links for the allowlisted internal destinations. No “add fold” button, reset control, or manual-score interaction. Placeholder/gallery data is deterministic sample data and never written to real history. After a reset, invalidate relevant widget snapshots; stale system-rendered snapshots may persist temporarily and must not restore data.
+Widgets were removed from the app on November 12, 2026. There is no widget target, App Group snapshot or widget deep link. Widget references elsewhere in this document are historical; the original specification is in Git history.
 
 ## 10. Localization and visual acceptance gates
 
@@ -215,7 +200,6 @@ resume review without repeating Apple authorization. Apple provides no profile
 photo. Tip thanks/confetti only follow verified matching consumable transactions;
 recovery of old unfinished tips does not trigger celebration, and Reduce Motion
 keeps static thanks.
-
 
 ## Required-update screen — owner decision November 8
 

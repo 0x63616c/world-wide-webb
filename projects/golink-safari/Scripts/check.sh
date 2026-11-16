@@ -2,6 +2,11 @@
 set -euo pipefail
 root=$(cd "$(dirname "$0")/.." && pwd)
 cd "$root"
+version=$(sed -n 's/^ *MARKETING_VERSION: "\(.*\)"$/\1/p' project.yml)
+[[ -n $version && $version == "$(sed -n 's/^ *"version": "\(.*\)",$/\1/p' Extension/manifest.json)" ]] || {
+  echo 'project.yml MARKETING_VERSION must equal the Extension/manifest.json version' >&2
+  exit 1
+}
 bun test Tests
 case "${1:-all}" in
   javascript) ;;

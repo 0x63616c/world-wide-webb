@@ -25,17 +25,6 @@ class SelectionTests(unittest.TestCase):
         result = selection.select(["projects/folding/site/index.html"], CONFIG)
         self.assertNotIn("sites.pages", result["verify"])
 
-    def test_retired_app_deletions_do_not_select_unrelated_products(self):
-        result = selection.select(["projects/airmiles/app.yml", "projects/airmiles/App/AirMilesApp.swift"], CONFIG)
-        for key in ("verify", "checks", "previews", "delivery_candidates", "unmapped"):
-            self.assertEqual(result[key], [])
-        self.assertNotIn("airmiles.native", CONFIG["units"])
-        mixed = selection.select(
-            ["projects/airmiles/app.yml", "projects/folding/apps/ios/App/FoldingScreens.swift"], CONFIG
-        )
-        self.assertEqual(mixed["verify"], ["folding.native"])
-        self.assertEqual(mixed["delivery_candidates"], ["folding.native"])
-
     def test_safari_extension_isolated_from_apps_and_homelab_delivery(self):
         for path in ["projects/golink-safari/Extension/redirect.js", ".github/workflows/golink-safari-ci.yml"]:
             with self.subTest(path=path):
@@ -93,6 +82,22 @@ class SelectionTests(unittest.TestCase):
         for suffix in ["templates/admin.html", "policies/names-v1.json", "roots/apple.der", "build.rs"]:
             result = selection.select(["projects/folding/backend/crates/worker/" + suffix], CONFIG)
             self.assertEqual(result["delivery_candidates"], ["folding.backend"])
+
+    def test_standard_ios_workflows_run_the_root_tooling_tests_that_read_them(self):
+        for name in [
+            "workflows/tendr-ci.yml",
+            "workflows/tendr-delivery.yml",
+            "workflows/testflight.yml",
+            "workflows/release.yml",
+            "workflows/iap.yml",
+            "workflows/testers.yml",
+            "workflows/register-ids.yml",
+            "actions/match-access/action.yml",
+        ]:
+            with self.subTest(name=name):
+                result = selection.select([".github/" + name], CONFIG)
+                self.assertLessEqual({"repo.tooling", "tendr.native"}, set(result["verify"]))
+                self.assertEqual(result["delivery_candidates"], [])
 
     def test_tooling_verifies_but_does_not_ship(self):
         result = selection.select([".github/workflows/ci.yml"], CONFIG)

@@ -1,4 +1,4 @@
-use crate::{auth_runtime::Failure, client_policy::parse_build};
+use crate::{client_policy::parse_build, support::Failure};
 use folding_domain::wire::Id;
 use worker::*;
 
@@ -30,7 +30,7 @@ async fn minimum(env: &Env) -> std::result::Result<u32, Failure> {
         minimum_ios_build: u32,
     }
     let db = env.d1("DB").map_err(|_| Failure::unavailable())?;
-    let policy = crate::auth_runtime::statement(
+    let policy = crate::support::statement(
         &db,
         "SELECT minimum_ios_build FROM administrative_configuration WHERE singleton=1",
         &[],

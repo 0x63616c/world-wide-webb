@@ -3,12 +3,12 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 case "${1:-all}" in
   --staged)
-    python3 -m compileall -q tools deploy/mini scripts
+    python3 -m compileall -q tools scripts
     ;;
   lint)
-    ruff check tools deploy/mini scripts ../../.github/scripts
+    ruff check tools scripts ../../.github/scripts
     (cd ../.. && actionlint)
-    shellcheck --severity=warning tools/check tools/*.sh deploy/mini/*.sh
+    shellcheck --severity=warning tools/check tools/*.sh
     ;;
   rust)
     cargo clippy --workspace --all-targets -- -D warnings
@@ -18,7 +18,6 @@ case "${1:-all}" in
     bash tools/check_dependencies.sh
     ;;
   ops)
-    python3 -m unittest discover -s deploy/mini -p 'test_*.py'
     python3 -m unittest discover -s tools -p 'test_*.py'
     ;;
   apple)

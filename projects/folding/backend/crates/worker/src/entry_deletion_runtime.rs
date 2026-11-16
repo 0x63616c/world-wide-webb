@@ -1,8 +1,7 @@
 //! Authenticated, contribution-only user deletion. No client score is accepted.
-use crate::auth_runtime::{
-    Configuration, Failure, authenticated_session, decode, now, number, response, session_guard,
-    statement, text, uuid,
-};
+use crate::auth_runtime::{authenticated_session, session_guard};
+use crate::config::Configuration;
+use crate::support::{Failure, decode, now, number, response, statement, text, uuid};
 use folding_domain::{
     reducer,
     wire::{Event, Id},
@@ -231,7 +230,7 @@ pub(crate) async fn delete(
             text(&session.participant_id),
             text(input.operation_id.as_str()),
             text(route),
-            crate::auth_runtime::blob(&hash),
+            crate::support::blob(&hash),
             text(&out.to_string()),
         ],
     )?);

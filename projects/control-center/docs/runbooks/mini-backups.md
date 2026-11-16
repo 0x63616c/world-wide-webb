@@ -1,6 +1,9 @@
 # Mac mini backups
 
-`deploy/mini/backup.py` snapshots Control Center, Home Assistant, Bambuddy and
+> The backup implementation and schedules now belong to Homelab: `projects/homelab/scripts/backup.py`
+> and [its backup notes](../../../homelab/docs/backups.md). The former `deploy/mini` copies are removed.
+
+`backup.py` snapshots Control Center, Home Assistant, Bambuddy and
 Hindsight, then uploads to `/Homelab/backups/mac-mini/<UTC timestamp>` through
 Synology File Station. NFS is not required. The supplied LaunchAgent schedules
 04:15 local time. There are no new notifications or health alerts.

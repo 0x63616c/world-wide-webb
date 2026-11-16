@@ -1,23 +1,8 @@
 import Observation
 import PanelKit
 
-@MainActor protocol WifiProvider: AnyObject, Observable {
-    var wifi: WifiState { get }
-    var availability: LiveAvailability { get }
-    func refresh() async
-}
-
-/// Explicit opt-in; the existing home data source and previews remain mock-backed.
-@MainActor @Observable final class MockWifiProvider: WifiProvider {
-    var wifi: WifiState
-    let availability: LiveAvailability = .live
-
-    init(wifi: WifiState = WifiState()) { self.wifi = wifi }
-    func refresh() async {}
-}
-
 /// Fetch on demand. Never persists, logs, or includes a payload in an error.
-@MainActor @Observable final class LiveWifiProvider: WifiProvider {
+@MainActor @Observable final class LiveWifiProvider {
     private(set) var wifi: WifiState = .unconfigured
     /// Original validated server payload, retained only while current credentials are usable.
     private(set) var qrPayload: String?

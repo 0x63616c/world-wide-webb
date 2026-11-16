@@ -5,9 +5,12 @@ version: "1.0"
 # and gitignore scoping never get confused by a nested checkout. See
 # https://github.com/0x63616c/world-wide-webb/issues/182.
 defaults:
-  # Relative to the main checkout, which lives at ~/Documents/ChatGPT/world-wide-webb
-  # on every machine, so this is ~/.worktrees/world-wide-webb for each user.
-  # wtp does not expand ~ or $HOME here.
+  # Worktrees must land in ~/.worktrees/world-wide-webb: the hourly worktree
+  # cleanup only looks there. wtp does not expand ~ or $HOME, so this path is
+  # relative to the main checkout and is only correct when that checkout is
+  # three directories below the home directory (~/Documents/ChatGPT/world-wide-webb).
+  # From a checkout anywhere else `wtp add` resolves to the wrong place; use the
+  # `git worktree add` fallback in docs/DEVELOPMENT.md instead.
   base_dir: "../../../.worktrees/world-wide-webb"
 
 hooks:

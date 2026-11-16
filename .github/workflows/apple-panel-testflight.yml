@@ -20,7 +20,7 @@ jobs:
     outputs:
       apple: ${{ steps.selection.outputs.apple }}
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           name: ci-selection
           path: projects/control-center
@@ -43,7 +43,7 @@ jobs:
     timeout-minutes: 45
     environment: production
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
           persist-credentials: false
@@ -86,13 +86,13 @@ jobs:
           import json,os
           json.dump({'sha':os.environ['SOURCE_SHA'],'build':int(os.environ['PANEL_UPLOADED_BUILD'])},open('testflight-receipt.json','w'))
           PY
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: steps.receipt.outputs.uploaded != 'true'
         with:
           name: panel-testflight-${{ github.event.workflow_run.head_sha }}
           path: projects/control-center/testflight-receipt.json
           retention-days: 90
-      - uses: tailscale/github-action@v4
+      - uses: tailscale/github-action@064b10558093f38325e838ddea35486bdc6b1d5c
         with:
           oauth-client-id: ${{ secrets.HOMELAB_OPS_TS_CLIENT_ID }}
           oauth-secret: ${{ secrets.HOMELAB_OPS_TS_CLIENT_SECRET }}
@@ -101,4 +101,4 @@ jobs:
         env:
           SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
           WWW_RELEASE_ORIGIN: https://homelab.tail8c014d.ts.net
-        run: sops exec-env ../../secrets/vault.yaml 'python3 deploy/mini/publish-apple-release.py'
+        run: sops exec-env ../../secrets/vault.yaml 'python3 tools/publish-apple-release.py'

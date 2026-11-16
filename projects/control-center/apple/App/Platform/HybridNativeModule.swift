@@ -17,8 +17,7 @@ extension PanelModule {
     }
 }
 
-/// Reuses the design worker's leaf views, without its all-fixture HomeView or
-/// ControllerHost. Missing live data is handled by a native unavailable screen.
+/// Reuses the shared leaf views. Missing live data is handled by a native unavailable screen.
 struct HybridNativeModule: View {
     let module: PanelModule
     let store: LiveHomeDataSource

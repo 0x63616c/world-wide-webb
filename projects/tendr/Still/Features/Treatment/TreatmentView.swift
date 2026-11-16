@@ -1,4 +1,3 @@
-import RDesign
 import SwiftUI
 
 struct TreatmentView: View {

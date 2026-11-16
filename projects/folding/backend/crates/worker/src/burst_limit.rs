@@ -1,5 +1,5 @@
 //! Cheap, per-location burst protection. These counters are not global account quotas.
-use crate::auth_runtime::Failure;
+use crate::support::Failure;
 use sha2::{Digest, Sha256};
 use worker::{Env, Request};
 

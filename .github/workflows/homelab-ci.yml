@@ -21,7 +21,7 @@ jobs:
           persist-credentials: true
       - id: select
         uses: ./.github/actions/select
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: homelab-selection
           path: ${{ runner.temp }}/ci-selection.json
@@ -61,7 +61,7 @@ jobs:
         with:
           toolchain: 1.99.0
           components: rustfmt, clippy
-      - uses: actions/cache@v4
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
         with:
           path: |
             ~/.cargo/registry
@@ -87,10 +87,11 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
           fetch-depth: 0
+          filter: blob:none
           persist-credentials: false
       - uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a
         if: contains(fromJSON(needs.selection.outputs.checks), 'homelab.darwin')
-      - uses: actions/cache/restore@v4
+      - uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830
         if: contains(fromJSON(needs.selection.outputs.checks), 'homelab.darwin')
         id: nix-cache
         timeout-minutes: 2
@@ -117,7 +118,7 @@ jobs:
         with:
           toolchain: 1.99.0
           components: rustfmt, clippy
-      - uses: actions/cache@v4
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
         if: contains(fromJSON(needs.selection.outputs.checks), 'homelab.host')
         with:
           path: |
@@ -141,14 +142,14 @@ jobs:
         env:
           NIX_CI_CACHE_SIGNING_KEY: ${{ secrets.HOMELAB_CI_CACHE_SIGNING_KEY }}
         run: python3 scripts/ci/nix_cache.py export "$RUNNER_TEMP/homelab-nix-cache" --roots "$RUNNER_TEMP/nix-built-roots.json"
-      - uses: actions/cache/save@v4
+      - uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830
         if: steps.nix-export.outputs.ready == 'true' && steps.nix-cache.outputs.cache-hit != 'true'
         timeout-minutes: 2
         continue-on-error: true
         with:
           path: ${{ runner.temp }}/homelab-nix-cache
           key: ${{ steps.nix-cache.outputs.cache-primary-key }}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
           name: homelab-nix-timings
@@ -172,7 +173,7 @@ jobs:
         with:
           toolchain: 1.99.0
           components: rustfmt, clippy
-      - uses: actions/cache@v4
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
         with:
           path: |
             ~/.cargo/registry
@@ -207,7 +208,7 @@ jobs:
           cp README.md LICENSE build/artifact/share/homelab/
           tar -czf build/homelab-prebuilt.tar.gz -C build/artifact bin share
           shasum -a 256 build/homelab-prebuilt.tar.gz > build/SHA256SUMS
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: homelab-cli-${{ github.sha }}
           path: |

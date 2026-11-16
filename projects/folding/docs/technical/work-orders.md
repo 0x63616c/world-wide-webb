@@ -1,6 +1,5 @@
 # Agent work orders and handoff rules
 
-
 ## Owner-approved execution update — November 7, 2026
 
 The owner has authorized implementation through submission/publication and reports Apple account agreements/tax/banking requirements complete. Verify actual App Store Connect state when used; do not request these again unless a concrete account prompt contradicts that report.
@@ -36,7 +35,7 @@ No task may solve a failure by weakening verification, changing counting semanti
 
 ## F00 — Account and build foundation
 
-**Owns:** `.github/workflows/`, `.githooks/`, `scripts/`, `fastlane/`, `infra/`, root tool pins; account configuration references. Coordinator resolves any overlap with release work.
+**Owns:** `.github/workflows/`, `scripts/`, `fastlane/`, `infra/`, root tool pins; account configuration references. Coordinator resolves any overlap with release work.
 
 **Read:** release-and-operations.md; delivery M0/M1.
 
@@ -109,6 +108,8 @@ No task may solve a failure by weakening verification, changing counting semanti
 **Reject:** custom imitation system navigation; every view wrapped in a “manager”; permanent healthy-sync banners; error-swallowing empty states; fixture success used to mark physical setup tested.
 
 ## F06 — Widgets and daily reminders
+
+**Status:** the widget half of this work order is retired. Widgets were removed from the app on November 12, 2026; only the daily-reminder scope below still describes shipped behavior.
 
 **Owns:** widget target, widget configuration, local notification scheduling inside FoldingData.
 

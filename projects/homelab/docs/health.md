@@ -30,9 +30,8 @@ For Control Center, the command additionally requires:
 - `/trpc/health.buildHash` returns a successful HTTP status and the manifest's exact source revision.
 
 These application probes follow the existing `world-wide-webb` release script,
-verified against current GitHub source. The inspected live mini reports workers
-on. The new configuration defaults them off until the old production owner is
-stopped and ownership transfer is reviewed. The configured HA origin defaults
+verified against current GitHub source. The Mini enables workers; the
+option defaults to off. The configured HA origin defaults
 to the observed `http://192.168.0.130:8123`; isolated rehearsals must override it
 or keep integrations disabled so they cannot control real devices.
 
@@ -41,8 +40,7 @@ health data, exact Control Center identities, sidecar/tunnel readiness, bounded
 execution, private-output handling and malformed configuration. The checked
 JavaScript probe is exercised with synthetic HTTP replies, including failures;
 its requests have five-second abort signals. These tests do not substitute for
-target-machine checks. The live Control Center has advanced beyond the declared
-baseline; see the dated drift note in current-state.md before cutover.
+target-machine checks.
 Before deployment readiness, add authenticated HA entity/integration checks,
 Bambuddy printer/slicer and Tailscale identity checks, Hindsight API/data checks,
 tunnel origin checks, and host SSH/Tailscale/headless-boot checks. A passing

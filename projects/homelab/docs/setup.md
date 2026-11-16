@@ -92,43 +92,45 @@ not blindly create another key. Safe expired preparations can be renewed by the
 wizard; uncertain installation state is preserved for inspection.
 
 After reboot, the wizard verifies services, Git access and Tailscale connectivity
-before releasing the update hold. Comin then applies `main`. Administrator
+before releasing the update hold. Comin then follows `deploy/homelab`. Administrator
 authentication may be needed again; FileVault can require a local unlock after
 restart. See [updates](updates.md) for what future merges authorize.
 
 ## Add another host
 
 1. Add its entry to `homelab.json`, initially disabled, and its `hosts/<name>.nix`.
-2. Add the Darwin configuration in `projects/homelab/flake.nix` and review account/UID assumptions.
+2. Add the Darwin configuration in `projects/homelab/flake-outputs.nix` and review account/UID assumptions.
 3. Reload the repository in the CLI, select the new host and confirm its address.
 4. Review Begin setup and let the checklist complete; merge a PR if required.
 
-For key backup and rotation see [secrets](secrets.md). Never wipe the existing
-mini until replacement services and recovery have been verified and erasure is
-explicitly approved.
+For key backup and rotation see [secrets](secrets.md). Wiping either physical Mac
+always needs separate approval.
+
+## Credentials
+
+| Connection or purpose    | Credential                                                                             |
+| ------------------------ | -------------------------------------------------------------------------------------- |
+| Operator → GitHub        | Existing local GitHub CLI authentication                                               |
+| Operator → target        | Selected SSH key, including a local 1Password agent identity                           |
+| Recovery                 | Host and recovery age identities backed up and read back through client-side 1Password |
+| Tailscale enrollment     | Single-use auth key issued through the configured OAuth item                           |
+| Target → GitHub          | Target-generated, repository-scoped read-only SSH deploy key                           |
+| Target secret decryption | Host-specific age identity; recovery identity stays off the target                     |
+
+The wizard does not ask for manually pasted tokens. Password-manager access and
+reusable OAuth credentials stay on the operator. Private SSH keys are not copied
+from the operator to the target. Review configuration offline with
+`homelab config validate homelab.json`.
+
+## Interrupted setup
+
+Preserve operator state, target journals and receipts after a failure. Changed
+SSH host keys are blocked; uncertain privileged phases cannot restart blindly.
+A completed attempt can recheck its saved installation without choosing a new
+revision. Do not delete state to bypass a check.
 
 ## Repeatable testing
 
-The public CLI runs synthetic adapter and terminal journeys on disposable macOS
-CI, without your vault or hosts. Full install/reboot rehearsals need a disposable
-Mac VM. An earlier bootstrap rehearsal passed in a synthetic guest on the MacBook,
-including startup without an interactive login. The previously tested full enrollment,
-reboot, Comin handover and completed-wizard replay also passed with synthetic
-providers and Tailscale transport; real production policy remains untested.
-See [VM validation](vm-validation.md) for exact revisions and untested production
-workloads; this does not authorize deployment to a physical Mac.
-See the public [testing guide](https://github.com/0x63616c/homelab-cli/blob/main/docs/testing.md).
-
-## Saved setup repair
-
-The saved MacBook enrollment at `fdc8781` has an explicit configuration repair in
-`setup-repairs/`. Use the current local `hl-dev` build for this retry; the released
-0.4.0 CLI does not read repair descriptors. Select **homelab-macbook** and resume
-setup. Keep the existing profile and credentials—do not start a new enrollment.
-
-The repair removes the obsolete `activationReady` dependency. It preserves the
-manifest, encrypted secrets, recipients, lockfile and installer pin. The CLI freezes
-the repair commit locally, verifies it on the target, and adopts it only before a
-system build has been recorded or host identities have been installed. Completed
-Nix installation is verified and reused. No configuration was activated while
-preparing this repair.
+The CLI runs synthetic adapter and terminal journeys in CI, without your vault or
+hosts. Full install/reboot rehearsals need a disposable Mac VM and do not authorize
+deployment to a physical Mac. See the CLI's [testing guide](../cli/docs/testing.md).

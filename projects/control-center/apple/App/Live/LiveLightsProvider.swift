@@ -3,17 +3,8 @@ import OSLog
 import Observation
 import PanelKit
 
-@MainActor protocol LightsProvider: AnyObject, Observable {
-    var lamps: LampState { get }
-    var fanOn: Bool? { get }
-    var availability: LiveAvailability { get }
-    var pending: Set<String> { get }
-    func refresh() async
-    @discardableResult func send(_ command: HomeCommand) -> Bool
-}
-
 /// An opt-in adapter; initialization never starts networking or changes the mock app.
-@MainActor @Observable final class LiveLightsProvider: LightsProvider {
+@MainActor @Observable final class LiveLightsProvider {
     private(set) var lamps = LampState()
     private(set) var fanOn: Bool?
     private(set) var availability: LiveAvailability = .loading

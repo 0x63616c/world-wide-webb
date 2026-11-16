@@ -23,7 +23,7 @@ jobs:
           persist-credentials: true
       - id: selection
         uses: ./.github/actions/select
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: folding-selection
           path: ${{ runner.temp }}/ci-selection.json
@@ -83,7 +83,7 @@ jobs:
           names = ['index.js', 'index_bg.wasm', 'package.json', 'worker/shim.mjs']
           (root / 'artifact.json').write_text(json.dumps({'source_sha': os.environ['GITHUB_SHA'], 'files': {name: hashlib.sha256((root / name).read_bytes()).hexdigest() for name in names}}, sort_keys=True) + '\n')
           PYTHON
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: folding-worker-${{ github.sha }}
           path: projects/folding/backend/crates/worker/build
@@ -105,7 +105,7 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
           persist-credentials: false
-      - uses: actions/cache@v4
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
         with:
           path: |-
             projects/folding/apps/ios/Packages/FoldingKit/.build

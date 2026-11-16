@@ -12,7 +12,7 @@ Regular content is centered with a 760-point maximum, including the weight graph
 
 Medication chart selections survive folding. Explicitly switching away from Home and returning restores the live estimate, preserving the existing tab-navigation behavior without using appearance callbacks as a resize signal.
 
-RDesign surfaces use [ConcentricRectangle](https://developer.apple.com/documentation/swiftui/concentricrectangle) on iOS/macOS 26+, retaining the existing minimum corner radius and exposing the container shape to nested cards. Earlier systems retain rounded rectangles.
+Card surfaces (`Still/Design/Layout.swift`) use [ConcentricRectangle](https://developer.apple.com/documentation/swiftui/concentricrectangle) on iOS/macOS 26+, retaining the existing minimum corner radius and exposing the container shape to nested cards. Earlier systems retain rounded rectangles.
 
 The source audit found no device-idiom checks, orientation-based layout decisions, specific-screen-size comparisons or `UIScreen.main` calls. Remaining fixed widths are glyphs, touch targets, a compact vial illustration and a bounded information popover. There is no full-bleed photo/video/hero content; the shared app mark already uses aspect fit. UI test attachments capture every active `XCUIScreen` rather than assuming `.main` is the active display or cropping a rotated app window; `XCUIDevice` controls test rotation, not app layout.
 
@@ -76,4 +76,4 @@ simulator; app/test failures stop immediately and retain diagnostics.
 
 ## Portable checks
 
-`TendrLayoutTests` cover the trait matrix, nil-trait fallback, readable-width policy and compact-height chart sizing. Run `swift test --package-path projects/tendr` and `swift test --package-path projects/tendr/Packages/RDesign` wherever Swift is installed. The PR CI tooling job runs `scripts/test-duo-screenshots.py`: Xcode selection, capability parsing and the complete shell/helper handshake against mocked macOS tools, including both appearances, unsupported controls, paths with spaces, device overrides and stale-output cleanup after success or failure. Those mocks do not validate an actual Apple simulator interface.
+`TendrLayoutTests` cover the trait matrix, nil-trait fallback, readable-width policy and compact-height chart sizing. Run `swift test --package-path projects/tendr` wherever Swift is installed. The root CI `test-unit` job runs `scripts/test-duo-screenshots.py`: Xcode selection, capability parsing and the complete shell/helper handshake against mocked macOS tools, including both appearances, unsupported controls, paths with spaces, device overrides and stale-output cleanup after success or failure. Those mocks do not validate an actual Apple simulator interface.

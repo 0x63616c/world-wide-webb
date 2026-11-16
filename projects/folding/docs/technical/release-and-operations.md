@@ -1,6 +1,5 @@
 # Release, infrastructure, and operations contract
 
-
 ## Owner-approved execution update — November 7, 2026
 
 The owner has authorized implementation through submission/publication and reports Apple account agreements/tax/banking requirements complete. Verify actual App Store Connect state when used; do not request these again unless a concrete account prompt contradicts that report.
@@ -35,10 +34,9 @@ Use Xcode's Swift formatter (`swift format`) from the pinned toolchain, `cargo f
 
 Expose stable scripts:
 
-- `scripts/bootstrap`: check/install supported development tools using pinned versions, resolve dependencies, and install `.githooks` idempotently. Do not read secrets or provision cloud resources.
+- `scripts/bootstrap`: check/install supported development tools using pinned versions, resolve dependencies, and install the shared repository hooks (lefthook) idempotently. Do not read secrets or provision cloud resources.
 - `scripts/format`: format intended working-tree source files; never stage changes.
 - `scripts/check`: formatting check, domain/contract checks, and local Rust validation; clearly report simulator/device checks that were not run.
-- `scripts/check-staged`: extract staged blob contents into an isolated temporary tree and check formatting there; never overwrite working files or alter the Git index. Report paths and the format command.
 - `scripts/check-prepush`: focused domain/contract tests; full simulator matrix remains CI work.
 - `scripts/release-preflight`: read-only validation of the selected manifest, local artifact hashes, Apple prerequisites, and backend compatibility.
 
@@ -149,7 +147,7 @@ Use one scheduled dispatcher every five minutes to find due period finalizations
 
 The dispatcher selects categories with due domain work instead of creating nine jobs unconditionally. Retention, expired-avatar discovery and period catch-up run hourly; due finalization, cleanup, deletion, corrections and retries remain eligible every five minutes. Expired suspensions also trigger retention promptly. Feature-disabled outbound categories are not enqueued. Existing pending/failed category jobs prevent new category jobs from resetting their retry budget. Queue delivery batches up to ten identifiers while retaining per-message leases/acknowledgments and the two-consumer concurrency bound. Monitoring runs directly each tick and updates alert rows only when their values change. An idle installation with no domain work therefore creates at most one routine retention job per hour.
 
-Generated Worker configuration includes a 5,000 ms CPU limit per invocation and 10% head-sampled structured application logs, with automatic invocation logs disabled to avoid storing request headers/URLs. Route labels distinguish authentication and enrollment endpoints without including dynamic identifiers. CPU limits and sampling bound individual work and reduce logging overhead; they do not cap monthly spend. Existing administrative ingestion/avatar/notification switches remain the emergency controls. Billing alerts/watchdog activation retain their separate live-delivery acceptance requirements.
+Generated Worker configuration includes a 5,000 ms CPU limit per invocation and 10% head-sampled structured application logs, with automatic invocation logs disabled to avoid storing request headers/URLs. Route labels distinguish authentication and enrollment endpoints without including dynamic identifiers. CPU limits and sampling bound individual work and reduce logging overhead; they do not cap monthly spend. Existing administrative ingestion/avatar/notification switches remain the emergency controls. Billing alerts retain their separate live-delivery acceptance requirement.
 
 Default retry schedule for external transient failures: exponential backoff starting at 30 seconds, capped at one hour, with jitter and a maximum of 12 attempts before dead-letter/review. Authentication/configuration failures alert immediately and pause that job category. APNs expired/invalid tokens are removed; invalid payloads are dead-lettered without infinite retries. A queued identifier is not permission to send: recheck current account status, notification preferences, generation, result version, and eligibility immediately before dispatch.
 

@@ -5,7 +5,7 @@
   "name": "Minecraft Tuner",
   "description": "Live wheel and top-center HUD tuning for Minecraft 26.3.",
   "authors": ["Calum"],
-  "contact": { "sources": "https://github.com/0x63616c/minecraft" },
+  "contact": { "sources": "https://github.com/0x63616c/world-wide-webb" },
   "license": "CC0-1.0",
   "environment": "client",
   "entrypoints": { "client": ["dev.calum.mctuner.MinecraftTuner"] },

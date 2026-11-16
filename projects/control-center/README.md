@@ -17,8 +17,8 @@ directory; set `WORKER_CYCLES=off` to avoid physical-device actions.
 The app connects automatically over private Tailscale HTTPS. Devices must be connected to the Tailnet;
 no app login or credentials are required. The server container is published on loopback only.
 
-Deployment, backup and migration instructions are in
-[the cutover runbook](docs/runbooks/native-rust-cutover.md). User data, media and encrypted infrastructure
+Deployment and backups are owned by Homelab; see
+[release ownership](../homelab/docs/releases.md). User data, media and encrypted infrastructure
 state live outside Git and outside container images. Preserve existing IDs, SQLite WAL data,
 Photo Booth media, historical archives and independently owned home services during changes.
 Git retains the removed web/Expo/TypeScript/Pulumi history.

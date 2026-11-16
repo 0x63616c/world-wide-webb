@@ -104,14 +104,6 @@ import XCTest
         XCTAssertNil(provider.wifi.ssid)
     }
 
-    func testMockProviderRemainsOffline() async {
-        let provider = MockWifiProvider(wifi: .open)
-        await provider.refresh()
-        XCTAssertEqual(provider.wifi.ssid, WifiState.open.ssid)
-        XCTAssertNil(provider.wifi.password)
-        XCTAssertEqual(provider.availability, .live)
-    }
-
     private func makeProvider(_ transport: WifiProviderTransport) -> LiveWifiProvider {
         LiveWifiProvider(
             api: WifiAPI(

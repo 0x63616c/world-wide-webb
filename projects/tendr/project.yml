@@ -11,16 +11,11 @@ settings:
     MARKETING_VERSION: "1.1.0"
     CURRENT_PROJECT_VERSION: "29"
     ENABLE_USER_SCRIPT_SANDBOXING: YES
-packages:
-  RDesign:
-    path: Packages/RDesign
 targets:
   Still:
     type: application
     platform: iOS
     sources: [Still]
-    dependencies:
-      - package: RDesign
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.calumwebb.still

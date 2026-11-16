@@ -97,9 +97,18 @@ targets:
     sources:
       - path: Screenshots
       - path: App/FoldingScreens.swift
+      - path: App/TodayScreen.swift
+      - path: App/HistoryScreen.swift
+      - path: App/SettingsScreen.swift
+      - path: App/SetupScreen.swift
+      - path: App/LeaderboardScreen.swift
+      - path: App/NotificationSettingsScreen.swift
+      - path: App/TrackingPhoneScreen.swift
+      - path: App/ExportShareHost.swift
       - path: App/DiagnosticsScreen.swift
       - path: App/PatternsScreen.swift
       - path: App/FoldingPresentation.swift
+      - path: App/FoldingStyle.swift
       - path: App/CompetitionScreens.swift
       - path: App/ProfileIdentityEditor.swift
       - path: App/CompetitionPresentation.swift
@@ -111,8 +120,6 @@ targets:
       - path: App/MilestonePresentation.swift
       - path: App/MilestoneScreens.swift
       - path: App/Assets.xcassets
-      - path: BuildTests/Fixtures/ProfilePortraits.png
-        buildPhase: resources
       - path: App/TipJarContent.swift
       - path: ../../fastlane/tip-products.json
       - path: App/NotificationPreferences.swift
@@ -152,9 +159,6 @@ targets:
     sources:
       - path: BuildTests
         includes: ["*.swift"]
-      - path: ../../contracts/fixtures/milestones.json
-        buildPhase: resources
-      - path: BuildTests/Fixtures
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: app.getfolding.Folding.BuildTests
