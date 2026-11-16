@@ -150,26 +150,27 @@ struct PanelSettingsPage: View {
                     } else {
                         Form {
                             Group {
-                            if selection == .security {
-                                PanelConnectionSettings()
-                                Section("Panel PIN") {
-                                    if let api = integration?.panelPIN {
-                                        NavigationLink {
-                                            PanelPINChangePage(api: api)
-                                        } label: {
-                                            Label("Change PIN", systemImage: "key.fill")
-                                        }.accessibilityIdentifier("settings-change-pin")
-                                    } else {
-                                        Label(
-                                            "Connect to your panel server to change the PIN", systemImage: "wifi.slash"
-                                        )
-                                        .foregroundStyle(.secondary)
+                                if selection == .security {
+                                    PanelConnectionSettings()
+                                    Section("Panel PIN") {
+                                        if let api = integration?.panelPIN {
+                                            NavigationLink {
+                                                PanelPINChangePage(api: api)
+                                            } label: {
+                                                Label("Change PIN", systemImage: "key.fill")
+                                            }.accessibilityIdentifier("settings-change-pin")
+                                        } else {
+                                            Label(
+                                                "Connect to your panel server to change the PIN",
+                                                systemImage: "wifi.slash"
+                                            )
+                                            .foregroundStyle(.secondary)
+                                        }
                                     }
+                                } else {
+                                    PanelDisplaySettings()
+                                    PanelTimeZoneSettings()
                                 }
-                            } else {
-                                PanelDisplaySettings()
-                                PanelTimeZoneSettings()
-                            }
                             }.listRowBackground(PanelSettingsStyle.row)
                         }.formStyle(.grouped).scrollContentBackground(.hidden).background(Color.black)
                     }
