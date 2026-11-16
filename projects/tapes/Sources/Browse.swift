@@ -44,76 +44,11 @@ struct HomeView: View {
 
   var body: some View {
     ScrollView {
-      VStack(alignment: .leading, spacing: Metrics.spacing * 2) {
-        if !store.available {
-          Label(
-            "The library on the NAS can't be read right now. This is what was there last time.",
-            systemImage: "externaldrive.badge.exclamationmark"
-          )
-          .font(.footnote)
-          .foregroundStyle(.secondary)
-          .padding(.horizontal, Metrics.gutter)
-        }
-        if let first = store.continueWatching.first {
-          ContinueCard(item: first).padding(.horizontal, Metrics.gutter)
-        }
-        if store.continueWatching.count > 1 {
-          Shelf(title: "Continue Watching") {
-            ForEach(store.continueWatching.dropFirst()) { item in
-              Button {
-                store.play(item)
-              } label: {
-                WideCell(seed: item.artID, title: item.title, detail: item.detail, watchID: item.id)
-                  .frame(width: Metrics.wide)
-              }
-              .artworkButton()
-            }
-          }
-        }
-        if !store.movies.isEmpty {
-          Shelf(title: "Movies") {
-            ForEach(store.movies) { movie in
-              NavigationLink(value: movie) {
-                PosterCell(seed: movie.id, title: movie.title, watchID: movie.id).frame(
-                  width: Metrics.poster)
-              }
-              .artworkButton()
-              .zoomSource(movie.id, in: zoom)
-            }
-          }
-        }
-        if !store.shows.isEmpty {
-          Shelf(title: "Shows") {
-            ForEach(store.shows) { show in
-              NavigationLink(value: show) {
-                PosterCell(seed: show.id, title: show.title).frame(width: Metrics.poster)
-              }
-              .artworkButton()
-              .zoomSource(show.id, in: zoom)
-            }
-          }
-        }
-        if !store.sets.isEmpty {
-          Shelf(title: "DJ Sets") {
-            ForEach(store.sets) { set in
-              NavigationLink(value: set) {
-                WideCell(seed: set.id, title: set.djLine, detail: set.title, watchID: set.id)
-                  .frame(width: Metrics.wide)
-              }
-              .artworkButton()
-              .zoomSource(set.id, in: zoom)
-            }
-          }
-        }
-      }
-      .padding(.vertical, Metrics.spacing)
-    }
-    .overlay {
       if store.isEmpty {
-        ContentUnavailableView(
-          "Nothing Here Yet", systemImage: "film.stack",
-          description: Text(
-            "Movies, shows and DJ sets appear here once they are added to the library."))
+        // Inside the scroll view, filling the page, so pull to refresh still works.
+        LibraryEmpty().containerRelativeFrame([.horizontal, .vertical])
+      } else {
+        shelves
       }
     }
     .refreshable { await store.load() }
@@ -121,6 +56,83 @@ struct HomeView: View {
     #if !os(tvOS)
       .navigationTitle("Home")
     #endif
+  }
+
+  private var shelves: some View {
+    VStack(alignment: .leading, spacing: Metrics.spacing * 2) {
+      if !store.available {
+        Label(
+          "The library on the NAS can't be read right now. This is what was there last time.",
+          systemImage: "externaldrive.badge.exclamationmark"
+        )
+        .font(.footnote)
+        .foregroundStyle(.secondary)
+        .padding(.horizontal, Metrics.gutter)
+      }
+      if let first = store.continueWatching.first {
+        ContinueCard(item: first, eyebrow: "Continue Watching").padding(.horizontal, Metrics.gutter)
+      } else if let pick = store.featured() {
+        ContinueCard(item: pick, eyebrow: "From the Library").padding(.horizontal, Metrics.gutter)
+      }
+      if store.continueWatching.count > 1 {
+        Shelf(title: "Continue Watching") {
+          ForEach(store.continueWatching.dropFirst()) { item in
+            Button {
+              store.play(item)
+            } label: {
+              WideCell(seed: item.artID, title: item.title, detail: item.detail, watchID: item.id)
+                .frame(width: Metrics.wide)
+            }
+            .artworkButton()
+          }
+        }
+      }
+      if !store.movies.isEmpty {
+        Shelf(title: "Movies") {
+          ForEach(store.movies) { movie in
+            NavigationLink(value: movie) {
+              PosterCell(seed: movie.id, title: movie.title, watchID: movie.id).frame(
+                width: Metrics.poster)
+            }
+            .artworkButton()
+            .zoomSource(movie.id, in: zoom)
+          }
+        }
+      }
+      if !store.shows.isEmpty {
+        Shelf(title: "Shows") {
+          ForEach(store.shows) { show in
+            NavigationLink(value: show) {
+              PosterCell(seed: show.id, title: show.title).frame(width: Metrics.poster)
+            }
+            .artworkButton()
+            .zoomSource(show.id, in: zoom)
+          }
+        }
+      }
+      if !store.sets.isEmpty {
+        Shelf(title: "DJ Sets") {
+          ForEach(store.sets) { set in
+            NavigationLink(value: set) {
+              WideCell(seed: set.id, title: set.djLine, detail: set.title, watchID: set.id)
+                .frame(width: Metrics.wide)
+            }
+            .artworkButton()
+            .zoomSource(set.id, in: zoom)
+          }
+        }
+      }
+    }
+    .padding(.vertical, Metrics.spacing)
+  }
+}
+
+private struct LibraryEmpty: View {
+  var body: some View {
+    ContentUnavailableView(
+      "Nothing Here Yet", systemImage: "film.stack",
+      description: Text(
+        "Movies, shows and DJ sets appear here once they're imported into the library."))
   }
 }
 
@@ -140,11 +152,13 @@ private struct Shelf<Content: View>: View {
   }
 }
 
-/// The large card at the top of Home: the thing you were last watching.
+/// The large card at the top of Home: the thing you were last watching, or a pick from the
+/// library when nothing is in progress. `eyebrow` names which.
 private struct ContinueCard: View {
   @Environment(Store.self) private var store
   @Environment(\.horizontalSizeClass) private var sizeClass
   let item: ContinueItem
+  let eyebrow: String
 
   private var isWideArt: Bool {
     if case .set = item { return true }
@@ -213,7 +227,7 @@ private struct ContinueCard: View {
         .clipShape(.rect(cornerRadius: Metrics.corner))
         .shadow(radius: 20, y: 8)
       VStack(alignment: .leading, spacing: 20) {
-        Text("Continue Watching").font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
+        Text(eyebrow).font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
         text
         resume(fullWidth: false)
       }
@@ -234,49 +248,62 @@ struct SectionGrid: View {
 
   var body: some View {
     ScrollView {
-      Group {
-        switch section {
-        case .movies:
-          LazyVGrid(columns: posterColumns, spacing: Metrics.spacing) {
-            ForEach(store.movies) { movie in
-              NavigationLink(value: movie) {
-                PosterCell(seed: movie.id, title: movie.title, watchID: movie.id)
-              }
-              .artworkButton()
-              .zoomSource(movie.id, in: zoom)
-            }
-          }
-        case .shows:
-          LazyVGrid(columns: posterColumns, spacing: Metrics.spacing) {
-            ForEach(store.shows) { show in
-              NavigationLink(value: show) { PosterCell(seed: show.id, title: show.title) }
-                .artworkButton()
-                .zoomSource(show.id, in: zoom)
-            }
-          }
-        case .sets:
-          LazyVGrid(
-            columns: [GridItem(.adaptive(minimum: Metrics.wide * 0.75), spacing: Metrics.spacing)],
-            spacing: Metrics.spacing * 1.5
-          ) {
-            ForEach(store.sets) { set in
-              NavigationLink(value: set) {
-                WideCell(seed: set.id, title: set.djLine, detail: set.title, watchID: set.id)
-              }
-              .artworkButton()
-              .zoomSource(set.id, in: zoom)
-            }
-          }
-        }
+      if store.isEmpty(section) {
+        ContentUnavailableView(
+          section.emptyTitle, systemImage: section.symbol,
+          description: Text(section.emptyMessage)
+        )
+        .containerRelativeFrame([.horizontal, .vertical])
+      } else {
+        grid
       }
-      .padding(.horizontal, Metrics.gutter)
-      .padding(.vertical, Metrics.spacing)
     }
     .scrollClipDisabled()
+    .refreshable { await store.load() }
     .blackPage()
     #if !os(tvOS)
       .navigationTitle(section.rawValue)
     #endif
+  }
+
+  private var grid: some View {
+    Group {
+      switch section {
+      case .movies:
+        LazyVGrid(columns: posterColumns, spacing: Metrics.spacing) {
+          ForEach(store.movies) { movie in
+            NavigationLink(value: movie) {
+              PosterCell(seed: movie.id, title: movie.title, watchID: movie.id)
+            }
+            .artworkButton()
+            .zoomSource(movie.id, in: zoom)
+          }
+        }
+      case .shows:
+        LazyVGrid(columns: posterColumns, spacing: Metrics.spacing) {
+          ForEach(store.shows) { show in
+            NavigationLink(value: show) { PosterCell(seed: show.id, title: show.title) }
+              .artworkButton()
+              .zoomSource(show.id, in: zoom)
+          }
+        }
+      case .sets:
+        LazyVGrid(
+          columns: [GridItem(.adaptive(minimum: Metrics.wide * 0.75), spacing: Metrics.spacing)],
+          spacing: Metrics.spacing * 1.5
+        ) {
+          ForEach(store.sets) { set in
+            NavigationLink(value: set) {
+              WideCell(seed: set.id, title: set.djLine, detail: set.title, watchID: set.id)
+            }
+            .artworkButton()
+            .zoomSource(set.id, in: zoom)
+          }
+        }
+      }
+    }
+    .padding(.horizontal, Metrics.gutter)
+    .padding(.vertical, Metrics.spacing)
   }
 
   private var posterColumns: [GridItem] {
@@ -328,7 +355,11 @@ struct SearchResults: View {
     .blackPage()
     .overlay {
       if movies.isEmpty && shows.isEmpty && sets.isEmpty {
-        ContentUnavailableView.search(text: query)
+        if store.isEmpty {
+          LibraryEmpty()
+        } else {
+          ContentUnavailableView.search(text: query)
+        }
       }
     }
   }

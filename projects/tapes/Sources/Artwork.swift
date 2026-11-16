@@ -42,6 +42,7 @@ final class ImageCache {
   private var loading: [URL: Task<Image?, Never>] = [:]
 
   func cached(_ url: URL) -> Image? { images[url] }
+  func hasFailed(_ url: URL) -> Bool { failed.contains(url) }
 
   func image(for url: URL) async -> Image? {
     if let image = images[url] { return image }
@@ -68,8 +69,9 @@ final class ImageCache {
   func retryFailures() { failed.removeAll() }
 }
 
-/// The item's artwork, filling whatever frame it is given. Falls back to a flat tile with the title.
-/// `small` asks for the grid-sized image; detail pages use the full one.
+/// The item's artwork, filling whatever frame it is given. Shimmers while it downloads; with no
+/// artwork it falls back to a flat tile with the title. `small` asks for the grid-sized image;
+/// detail pages use the full one.
 struct Artwork: View {
   @Environment(Store.self) private var store
   let seed: String
@@ -77,6 +79,7 @@ struct Artwork: View {
   var alignment: Alignment = .center
   var small = true
   @State private var loaded: Image?
+  @State private var failed = false
 
   var body: some View {
     let url = store.server.artURL(seed, small: small)
@@ -85,14 +88,50 @@ struct Artwork: View {
         Color.clear
           .overlay(alignment: alignment) { image.resizable().scaledToFill() }
           .clipped()
-      } else {
+      } else if failed || ImageCache.shared.hasFailed(url) {
         Color(white: 0.14)
           .overlay {
             Text(title ?? "").font(.headline).multilineTextAlignment(.center).padding(8)
           }
+      } else {
+        Shimmer()
       }
     }
-    .task(id: url) { loaded = await ImageCache.shared.image(for: url) }
+    .task(id: url) {
+      failed = false
+      loaded = await ImageCache.shared.image(for: url)
+      failed = loaded == nil
+    }
+  }
+}
+
+/// The loading placeholder: the artwork tile's grey with a soft light sweeping across it.
+/// Holds still when Reduce Motion is on.
+struct Shimmer: View {
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
+  @State private var sweeping = false
+
+  var body: some View {
+    Color(white: 0.14)
+      .overlay {
+        if !reduceMotion {
+          GeometryReader { geo in
+            LinearGradient(
+              colors: [.clear, .white.opacity(0.07), .clear],
+              startPoint: .leading, endPoint: .trailing
+            )
+            .frame(width: geo.size.width)
+            .offset(x: sweeping ? geo.size.width : -geo.size.width)
+          }
+          .onAppear {
+            withAnimation(.linear(duration: 1.4).repeatForever(autoreverses: false)) {
+              sweeping = true
+            }
+          }
+        }
+      }
+      .clipped()
+      .accessibilityLabel("Loading")
   }
 }
 
