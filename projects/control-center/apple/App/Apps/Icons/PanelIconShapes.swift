@@ -9,19 +9,23 @@ enum PanelIconShape: Shape {
         var path = Path()
         switch self {
         case .cloud:
-            path.move(to: CGPoint(x: 314, y: 748))
-            path.addCurve(
-                to: CGPoint(x: 203, y: 646), control1: CGPoint(x: 249, y: 748), control2: CGPoint(x: 203, y: 708))
-            path.addCurve(
-                to: CGPoint(x: 310, y: 535), control1: CGPoint(x: 203, y: 584), control2: CGPoint(x: 250, y: 535))
-            path.addCurve(
-                to: CGPoint(x: 372, y: 550), control1: CGPoint(x: 334, y: 535), control2: CGPoint(x: 354, y: 540))
-            path.addCurve(
-                to: CGPoint(x: 603, y: 368), control1: CGPoint(x: 407, y: 437), control2: CGPoint(x: 491, y: 368))
-            path.addCurve(
-                to: CGPoint(x: 828, y: 570), control1: CGPoint(x: 727, y: 368), control2: CGPoint(x: 828, y: 450))
-            path.addCurve(
-                to: CGPoint(x: 638, y: 748), control1: CGPoint(x: 828, y: 675), control2: CGPoint(x: 751, y: 748))
+            // Three lobes on a flat base; the valleys between them are filleted.
+            path.move(to: CGPoint(x: 317.9, y: 763.8))
+            path.addArc(
+                center: CGPoint(x: 317.9, y: 648.0), radius: 115.7,
+                startAngle: .degrees(90), endAngle: .degrees(-111.3), clockwise: false)
+            path.addArc(
+                center: CGPoint(x: 250.2, y: 474.6), radius: 70.5,
+                startAngle: .degrees(68.7), endAngle: .degrees(18.8), clockwise: true)
+            path.addArc(
+                center: CGPoint(x: 478.9, y: 552.4), radius: 171.1,
+                startAngle: .degrees(-161.2), endAngle: .degrees(-28.1), clockwise: false)
+            path.addArc(
+                center: CGPoint(x: 691.9, y: 438.5), radius: 70.5,
+                startAngle: .degrees(151.9), endAngle: .degrees(105), clockwise: true)
+            path.addArc(
+                center: CGPoint(x: 639.9, y: 633.0), radius: 130.8,
+                startAngle: .degrees(-75), endAngle: .degrees(90), clockwise: false)
             path.closeSubpath()
         case .bulb:
             path.move(to: CGPoint(x: 400, y: 680))

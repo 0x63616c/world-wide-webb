@@ -6,29 +6,36 @@ struct CalendarIconArtwork: View {
     let side: CGFloat
     let parallax: CGSize
     var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: side * 0.055)
-                .fill(Color(hex: "#FFC5CC"))
-                .frame(width: side * 0.57, height: side * 0.60)
-                .rotationEffect(.degrees(-7))
-                .position(x: side * 0.46, y: side * 0.47)
-                .modifier(IconLayer(parallax: parallax, side: side, depth: 0.012))
-            TimelineView(.periodic(from: .now, by: 60)) { context in
-                VStack(spacing: side * 0.008) {
+        TimelineView(.periodic(from: .now, by: 60)) { context in
+            // Each line is placed by its baseline so the two sit on fixed optical lines.
+            Color.clear
+                .overlay(alignment: .top) {
                     Text(context.date.formatted(.dateTime.weekday(.abbreviated)).uppercased())
-                        .font(.system(size: side * 0.105, weight: .bold, design: .rounded))
-                        .foregroundStyle(Color(hex: "#EC3854"))
-                    Text(context.date.formatted(.dateTime.day()))
-                        .font(.system(size: side * 0.35, weight: .medium, design: .rounded))
-                        .foregroundStyle(Color(hex: "#273044"))
-                        .monospacedDigit()
+                        .font(.system(size: side * 0.165, weight: .heavy))
+                        .tracking(side * 0.011)
+                        .foregroundStyle(Color(hex: "#D2402E"))
+                        .modifier(IconBaseline(y: side * 0.347))
+                        .modifier(IconLayer(parallax: parallax, side: side, depth: 0.012))
                 }
-                .frame(width: side * 0.58, height: side * 0.61)
-                .background(.white, in: .rect(cornerRadius: side * 0.055))
-            }
-            .position(x: side * 0.53, y: side * 0.53)
-            .modifier(IconLayer(parallax: parallax, side: side, depth: 0.028))
+                .overlay(alignment: .top) {
+                    Text(context.date.formatted(.dateTime.day()))
+                        .font(.system(size: side * 0.475, weight: .bold))
+                        .tracking(-side * 0.009)
+                        .foregroundStyle(Color(hex: "#18181B"))
+                        .modifier(IconBaseline(y: side * 0.764))
+                        .modifier(IconLayer(parallax: parallax, side: side, depth: 0.028))
+                }
         }.frame(width: side, height: side)
+    }
+}
+
+/// Puts a text line's first baseline `y` points below the top of the view it overlays.
+/// An overlay never changes its host's size, so tall glyphs cannot shift the artwork.
+private struct IconBaseline: ViewModifier {
+    let y: CGFloat
+    func body(content: Content) -> some View {
+        content.lineLimit(1).fixedSize()
+            .alignmentGuide(.top) { $0[.firstTextBaseline] - y }
     }
 }
 
@@ -66,32 +73,32 @@ struct ClimateIconArtwork: View {
 struct WifiIconArtwork: View {
     let side: CGFloat
     let parallax: CGSize
+    private let ink = Color(hex: "#18181B")
     var body: some View {
+        let stroke = StrokeStyle(lineWidth: side * 0.067, lineCap: .round)
         ZStack {
-            IconSignalArc(radius: 0.425)
-                .stroke(.white, style: StrokeStyle(lineWidth: side * 0.063, lineCap: .round))
+            IconSignalArc(radius: 0.360).stroke(ink, style: stroke)
                 .modifier(IconLayer(parallax: parallax, side: side, depth: 0.012))
             ZStack {
-                IconSignalArc(radius: 0.28)
-                    .stroke(.white, style: StrokeStyle(lineWidth: side * 0.063, lineCap: .round))
-                IconSignalArc(radius: 0.135)
-                    .stroke(.white, style: StrokeStyle(lineWidth: side * 0.063, lineCap: .round))
-                Circle().fill(.white)
-                    .frame(width: side * 0.083, height: side * 0.083)
-                    .position(x: side * 0.50, y: side * 0.71)
+                IconSignalArc(radius: 0.242).stroke(ink, style: stroke)
+                IconSignalArc(radius: 0.124).stroke(ink, style: stroke)
+                Circle().fill(ink)
+                    .frame(width: side * 0.107, height: side * 0.107)
+                    .position(x: side * 0.50, y: side * IconSignalArc.centerY)
             }.modifier(IconLayer(parallax: parallax, side: side, depth: 0.028))
         }.frame(width: side, height: side)
     }
 }
 
 private struct IconSignalArc: Shape {
+    static let centerY: CGFloat = 0.681
     let radius: CGFloat
     func path(in rect: CGRect) -> Path {
         Path { path in
             path.addArc(
-                center: CGPoint(x: rect.midX, y: rect.minY + rect.height * 0.71),
+                center: CGPoint(x: rect.midX, y: rect.minY + rect.height * Self.centerY),
                 radius: rect.width * radius,
-                startAngle: .degrees(225), endAngle: .degrees(315), clockwise: false)
+                startAngle: .degrees(224), endAngle: .degrees(316), clockwise: false)
         }
     }
 }
@@ -101,43 +108,27 @@ struct SettingsIconArtwork: View {
     let parallax: CGSize
     var body: some View {
         ZStack {
-            Circle().fill(Color(hex: "#C7D9F0"))
-                .frame(width: side * 0.35, height: side * 0.35)
-                .modifier(IconLayer(parallax: parallax, side: side, depth: 0.012))
-            IconGearShape().fill(.white, style: FillStyle(eoFill: true))
-                .frame(width: side * 0.65, height: side * 0.65)
-                .modifier(IconLayer(parallax: parallax, side: side, depth: 0.028))
-            Circle().fill(Color(hex: "#6E86A7"))
-                .frame(width: side * 0.19, height: side * 0.19)
-                .modifier(IconLayer(parallax: parallax, side: side, depth: 0.012))
+            // Off: a muted track with a white knob.
+            ZStack {
+                Capsule().fill(Color(hex: "#AEB5C0"))
+                    .frame(width: side * 0.534, height: side * 0.215)
+                    .position(x: side * 0.50, y: side * 0.626)
+                Circle().fill(.white)
+                    .frame(width: side * 0.157, height: side * 0.157)
+                    .shadow(color: .black.opacity(0.2), radius: side * 0.007, y: side * 0.008)
+                    .position(x: side * 0.340, y: side * 0.626)
+            }.modifier(IconLayer(parallax: parallax, side: side, depth: 0.012))
+            // On: a white track with a knob in the tile colour.
+            ZStack {
+                Capsule()
+                    .fill(LinearGradient(colors: [.white, Color(hex: "#E6E9EE")], startPoint: .top, endPoint: .bottom))
+                    .frame(width: side * 0.534, height: side * 0.215)
+                    .shadow(color: .black.opacity(0.2), radius: side * 0.007, y: side * 0.008)
+                    .position(x: side * 0.50, y: side * 0.374)
+                Circle().fill(Color(hex: "#5E6572"))
+                    .frame(width: side * 0.157, height: side * 0.157)
+                    .position(x: side * 0.660, y: side * 0.374)
+            }.modifier(IconLayer(parallax: parallax, side: side, depth: 0.028))
         }.frame(width: side, height: side)
-    }
-}
-
-private struct IconGearShape: Shape {
-    func path(in rect: CGRect) -> Path {
-        let radius = min(rect.width, rect.height) / 2
-        func point(_ degrees: Double, _ scale: CGFloat) -> CGPoint {
-            let radians = degrees * .pi / 180
-            return CGPoint(
-                x: rect.midX + cos(radians) * radius * scale,
-                y: rect.midY + sin(radians) * radius * scale)
-        }
-        var path = Path()
-        for tooth in 0..<8 {
-            let angle = Double(tooth) * 45
-            let points = [
-                point(angle - 22.5, 0.79), point(angle - 13, 0.79),
-                point(angle - 10, 0.97), point(angle - 6, 1),
-                point(angle + 6, 1), point(angle + 10, 0.97),
-                point(angle + 13, 0.79), point(angle + 22.5, 0.79),
-            ]
-            for (index, point) in points.enumerated() {
-                if tooth == 0 && index == 0 { path.move(to: point) } else { path.addLine(to: point) }
-            }
-        }
-        path.closeSubpath()
-        path.addEllipse(in: rect.insetBy(dx: rect.width * 0.30, dy: rect.height * 0.30))
-        return path
     }
 }
