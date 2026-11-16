@@ -16,7 +16,7 @@ Actual iPhone 17 Pro Max simulator captures using synthetic data.
 
 ## Run
 
-Requires macOS, Xcode 26.2 or later and [XcodeGen](https://github.com/yonaskolb/XcodeGen).
+Requires macOS, Xcode 27.2 (the version CI builds with) and [XcodeGen](https://github.com/yonaskolb/XcodeGen).
 
 ```sh
 xcodegen generate
@@ -32,9 +32,11 @@ Launch with `--demo` for synthetic, in-memory sample data. Demo mode never write
 ```sh
 swift test
 xcodebuild -project Still.xcodeproj -scheme Still \
-  -destination 'platform=iOS Simulator,name=Tend QA Pro Max' test \
-  CODE_SIGNING_ALLOWED=NO
+  -destination 'generic/platform=iOS Simulator' -sdk iphonesimulator \
+  -configuration Debug CODE_SIGNING_ALLOWED=NO build
 ```
+
+These are the two checks CI runs: the Swift package tests and an unsigned simulator build. CI does not run the UI tests. To run them by hand, replace `build` with `test` and name a simulator you have installed, for example `-destination 'platform=iOS Simulator,name=iPhone 18 Pro Max'`.
 
 The Swift package tests cover calculations, validation, local calendar scheduling and file compatibility. UI tests exercise real simulator screens. See [architecture](docs/ARCHITECTURE.md), [user journeys](docs/USER-JOURNEYS.md) and [verification notes](docs/TESTING.md). Passing tests do not imply clinical validation or TestFlight publication.
 

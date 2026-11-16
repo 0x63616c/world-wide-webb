@@ -14,9 +14,24 @@ scripts/dev setup tendr
 scripts/dev doctor
 ```
 
-Worktrees live outside the main checkout. `wtp add` runs `tools/setup` and installs
-the repository's Lefthook pre-commit checks. If you created a worktree without
-`wtp`, run `lefthook install`.
+Worktrees live in `~/.worktrees/world-wide-webb`, outside the main checkout; the
+hourly worktree cleanup only looks there. `wtp add` runs
+`scripts/configure-worktree-upstream.sh` and `tools/setup`, then installs the
+repository's Lefthook pre-commit checks.
+
+`wtp` cannot expand `~`, so `.wtp.yml` reaches that directory with a path relative to
+the main checkout. It is correct only when the main checkout is at
+`~/Documents/ChatGPT/world-wide-webb`. From a checkout anywhere else (for example
+`~/coding/world-wide-webb`), create the worktree with Git and run the same hooks:
+
+```sh
+git worktree add ~/.worktrees/world-wide-webb/codex/my-change -b codex/my-change origin/main
+cd ~/.worktrees/world-wide-webb/codex/my-change
+bash scripts/configure-worktree-upstream.sh
+bash tools/setup
+lefthook install --force
+```
+
 Read the root `AGENTS.md` and product README before changing that area.
 
 Root `mise.toml` and `mise.lock` pin Bun, Node, Python, uv, Ruby, XcodeGen and

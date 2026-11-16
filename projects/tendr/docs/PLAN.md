@@ -9,12 +9,11 @@ A private, native GLP-1 treatment journal. No account, backend, ads, or telemetr
 - Schedule: chosen weekdays and local reminder time; actual dose date is independent from intended date. No inferred medical dosing advice.
 - Treatment: medication, vial concentration and volume, schedule and conditional reminder controls.
 - Settings: display weight unit, appearance and privacy.
-- Discover: original bundled articles and recipes, with the explicitly coming-soon assistant preview.
 
 Concentration is not a dose. Dose amount is entered independently in mg; do not infer a prescribed dose from the user's concentration example. Preserve medication and concentration snapshots on historical records.
 
 ## Visual direction
-True black in dark mode, neutral charcoal surfaces, restrained lavender and teal for tracking data. San Francisco text, native collapsing navigation titles, uneven dose/vial row and tappable charts. Discover uses flat editorial cards with strong typography. Decorative gradients and oversized article icons were rejected and removed. Light appearance is available through Settings.
+True black in dark mode, neutral charcoal surfaces, restrained lavender and teal for tracking data. San Francisco text, native collapsing navigation titles, uneven dose/vial row and tappable charts. Decorative gradients were rejected and removed. Light appearance is available through Settings.
 
 ## Test seams
 User authorization covers TDD for the complete app. Public behavioral seams: record validation and persistence round trips; chronologically correct analytics; schedule occurrences in local calendar time; actual/planned matching; UI create/edit/relaunch flows. Work one red/green slice at a time. Capture failures and passing results in docs/TESTING.md.

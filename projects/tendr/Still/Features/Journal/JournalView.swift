@@ -442,13 +442,6 @@ struct PrivacyView: View {
       Section("Help") {
         RHelpLinks(privacy: AppLinks.privacy, support: AppLinks.support)
       }
-      if FeatureFlags.assistantPreview {
-        Section("Assistant") {
-          Text(
-            "The assistant is a coming-soon preview. No chat service is connected and no journal data is sent to AI."
-          )
-        }
-      }
     }.navigationTitle("Privacy & About").navigationBarTitleDisplayMode(.inline)
   }
 }

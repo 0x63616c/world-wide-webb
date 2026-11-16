@@ -49,8 +49,9 @@ jobs:
         with:
           ref: ${{ inputs.source }}
           fetch-depth: 0
+          filter: blob:none
           persist-credentials: false
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         if: inputs.channel == 'store'
         with:
           name: ios-beta-tendr-${{ inputs.source }}
@@ -87,9 +88,9 @@ jobs:
         with:
           ruby-version: "3.4"
           bundler-cache: true
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:
-          python-version: "3.12"
+          python-version: 3.15.2
       - name: Install source validation dependencies
         run: |-
           export GITHUB_SHA="$SOURCE_SHA"
@@ -165,7 +166,7 @@ jobs:
         env:
           DELIVERY_OPERATION: receipt
         run: python3 scripts/ios_delivery.py
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: inputs.channel == 'beta'
         with:
           name: ios-beta-tendr-${{ inputs.source }}
@@ -184,7 +185,7 @@ jobs:
           bundle exec ruby scripts/review-status.rb tendr | tee build/review-status.txt
       - name: Retain submission result
         if: always() && inputs.channel == 'store'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: ios-store-tendr-${{ github.run_id }}
           path: |

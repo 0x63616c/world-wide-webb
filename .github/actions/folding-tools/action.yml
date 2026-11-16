@@ -29,13 +29,13 @@ runs:
         python3 -m venv .venv/contracts
         .venv/contracts/bin/python -m pip install -r scripts/requirements-contracts.txt
     - if: inputs.target == 'backend' || inputs.target == 'deploy'
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
       with:
         node-version: ${{ steps.pins.outputs.node }}
     - if: runner.os == 'Linux' && (inputs.target == 'backend' || inputs.target == 'deploy')
       uses: ./.github/actions/archive-tools
     - if: inputs.target == 'backend' || inputs.target == 'deploy'
-      uses: oven-sh/setup-bun@v2
+      uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
       with:
         bun-version: ${{ steps.pins.outputs.bun }}
     - if: inputs.target == 'backend'
@@ -45,7 +45,7 @@ runs:
         WORKER_BUILD_VERSION: ${{ steps.pins.outputs.worker_build }}
       run: |
         export PATH="$HOME/.cargo/bin:$PATH"
-        rustup toolchain install "$RUST_VERSION" --profile minimal --target wasm32-unknown-unknown
+        rustup toolchain install "$RUST_VERSION" --profile minimal --component clippy --target wasm32-unknown-unknown
         if ! worker-build --version 2>/dev/null | grep -Fq "$WORKER_BUILD_VERSION"; then
           cargo +"$RUST_VERSION" install worker-build --version "$WORKER_BUILD_VERSION" --locked
         fi

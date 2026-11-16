@@ -39,7 +39,7 @@ After adding secrets, merge to `main` (or dispatch TestFlight on `main`) and che
 
 [App Store release workflow](../../../.github/workflows/release.yml) prepares the App Store version and **stops before Submit for Review**. Run it from the Actions tab (**Run workflow**), or push a tag such as `app-store/1.0.0-1`. It:
 
-1. Calls the [screenshots workflow](../../../.github/workflows/screenshots.yml): `scripts/capture-screenshots.sh` boots a fresh iPhone 17 Pro Max simulator (1320×2868), overrides the status bar to 9:41 with full signal and battery, and runs `StillUITests/ScreenshotTests` against the `--demo --screenshots` fixture (`Still/ScreenshotFixture.swift`) in light and dark. `scripts/frame-screenshots.swift` then frames five light captures and the dark Home, with the device running off the bottom edge so the tab bar is cropped, in `fastlane/screenshots/en-US`. Artifacts: `app-store-screenshots` (the framed PNGs that get uploaded), `screenshots-overview` (all six side by side) and `screenshots-raw`.
+1. Calls the [screenshots workflow](../../../.github/workflows/screenshots.yml): `scripts/capture-screenshots.sh` boots a fresh iPhone 18 Pro Max simulator (1320×2868), overrides the status bar to 9:41 with full signal and battery, and runs `StillUITests/ScreenshotTests` against the `--demo --screenshots` fixture (`Still/ScreenshotFixture.swift`) in light and dark. `scripts/frame-screenshots.sh` (RDesign's `rframe`) then frames five light captures and the dark Home, with the device running off the bottom edge so the tab bar is cropped, in `fastlane/screenshots/en-US`. Artifacts: `app-store-screenshots` (the framed PNGs that get uploaded), `screenshots-overview` (all six side by side) and `screenshots-raw`.
 2. Runs `bundle exec fastlane ios prepare_review`:
    - `metadata` uploads `fastlane/metadata` (listing, URLs, category, copyright, review contact and notes) and replaces the screenshots with `deliver`. It never uploads a binary or submits.
    - `ensure_free_pricing` sets the price to Free only if no price exists yet.
@@ -48,7 +48,7 @@ After adding secrets, merge to `main` (or dispatch TestFlight on `main`) and che
 
 Choose **skip_screenshots** to upload only text changes. The workflow uses the same `ASC_*` secrets as TestFlight. Two optional secrets fill in the App Review contact: `ASC_REVIEW_PHONE` (Apple requires a phone number) and `ASC_REVIEW_EMAIL` (defaults to `review_information/email_address.txt`). Release notes are skipped for the first version.
 
-These items still need App Store Connect by hand: **Age Rating**, **App Privacy** (expected answer: Data Not Collected), the review contact phone number unless `ASC_REVIEW_PHONE` is set, and **Submit for Review**. The PR screenshots check reruns capture and framing whenever the fixture, the screenshot test or the scripts change. Locally, run `scripts/capture-screenshots.sh` and then the two `swiftc`/render commands from the workflow before running `fastlane ios metadata`.
+These items still need App Store Connect by hand: **Age Rating**, **App Privacy** (expected answer: Data Not Collected), the review contact phone number unless `ASC_REVIEW_PHONE` is set, and **Submit for Review**. No pull-request check captures screenshots; the screenshots workflow runs only when dispatched or called by the release workflow. Locally, run `scripts/capture-screenshots.sh tendr` and then `scripts/frame-screenshots.sh tendr` before running `fastlane ios metadata`.
 
 # Latest recorded uploaded build: Tendr 1.0.0 (17)
 

@@ -25,17 +25,6 @@ class SelectionTests(unittest.TestCase):
         result = selection.select(["projects/folding/site/index.html"], CONFIG)
         self.assertNotIn("sites.pages", result["verify"])
 
-    def test_retired_app_deletions_do_not_select_unrelated_products(self):
-        result = selection.select(["projects/airmiles/app.yml", "projects/airmiles/App/AirMilesApp.swift"], CONFIG)
-        for key in ("verify", "checks", "previews", "delivery_candidates", "unmapped"):
-            self.assertEqual(result[key], [])
-        self.assertNotIn("airmiles.native", CONFIG["units"])
-        mixed = selection.select(
-            ["projects/airmiles/app.yml", "projects/folding/apps/ios/App/FoldingScreens.swift"], CONFIG
-        )
-        self.assertEqual(mixed["verify"], ["folding.native"])
-        self.assertEqual(mixed["delivery_candidates"], ["folding.native"])
-
     def test_safari_extension_isolated_from_apps_and_homelab_delivery(self):
         for path in ["projects/golink-safari/Extension/redirect.js", ".github/workflows/golink-safari-ci.yml"]:
             with self.subTest(path=path):

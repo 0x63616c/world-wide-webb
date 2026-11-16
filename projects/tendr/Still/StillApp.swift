@@ -13,8 +13,6 @@ enum FeatureFlags {
   /// Syringe-unit and mL dose entry (units → mg conversion). Off for 1.0: doses are logged in mg only.
   /// Stored `syringeUnits` data is still decoded and kept; it is simply not shown or edited.
   static let syringeUnits = false
-  /// The "coming soon" assistant preview. Off until the assistant is real.
-  static let assistantPreview = false
 }
 
 @MainActor enum Theme {

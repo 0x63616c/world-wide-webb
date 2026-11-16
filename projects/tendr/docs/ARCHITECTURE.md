@@ -9,7 +9,6 @@ One native SwiftUI app, one Foundation-only core, no third-party runtime depende
 - `Still/Features/Treatment`: medication, vials, schedule and reminder presentation.
 - `Still/Features/Progress`: goals and analytics presentation.
 - `Still/Features/Journal`: record entry, editing and history.
-- `Still/Features/Discover`: editorial content and the future assistant preview.
 - `Still/Store.swift`: app state and coordinating persisted changes. Screens submit changes; they must not write files or schedule notifications directly.
 - `Tests`: core behaviour through public interfaces.
 - `StillUITests`: real user journeys through the running app.
@@ -32,7 +31,7 @@ CloudKit is technically available in TestFlight, but [Apple's review guideline 5
 
 ## Content growth
 
-Discover starts with bundled, original articles and recipes. Use stable content IDs, category, title, summary and structured article sections. Keep editorial content outside the health journal. Add a content-fetching adapter only when a real backend exists; preserve bundled content as an offline fallback. A CMS should deliver content, not executable screen layouts. Do not send personal tracking records to a content backend.
+The app ships no editorial content today; the Discover feature was removed. If articles or recipes return, start with bundled, original content. Use stable content IDs, category, title, summary and structured article sections. Keep editorial content outside the health journal. Add a content-fetching adapter only when a real backend exists; preserve bundled content as an offline fallback. A CMS should deliver content, not executable screen layouts. Do not send personal tracking records to a content backend.
 
 AI remains explicitly coming soon. A working assistant requires a separate decision about supported devices, availability, medical scope and consent. Do not build a chat backend as a prerequisite for tracking or reading content.
 

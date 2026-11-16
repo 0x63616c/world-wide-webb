@@ -6,8 +6,8 @@
 
 ## Progress
 
-- [x] **Blocker 1:** privacy and support pages (`site/`, GitHub Pages). The app links both from Settings → Privacy & About (`PrivacyView` in `JournalView.swift`). Still to do: add the URLs in App Store Connect.
-- [x] **Blocker 2:** assistant preview hidden behind `FeatureFlags.assistantPreview = false` (Discover link, Privacy & About section). `AssistantPreview.swift` stays in the tree.
+- [x] **Blocker 1:** privacy and support pages (`site/`, published to Cloudflare at `tendr.worldwidewebb.co`). The app links both from Settings → Privacy & About (`PrivacyView` in `JournalView.swift`). Still to do: add the URLs in App Store Connect.
+- [x] **Blocker 2:** the assistant preview is gone. It was first hidden behind `FeatureFlags.assistantPreview = false`; the flag, `AssistantPreview.swift`, the unreachable Discover screen and the Privacy & About section were later deleted.
 - [x] **Blocker 3:** mg-only for 1.0 behind `FeatureFlags.syringeUnits = false` (`StillApp.swift`). Hides the mg/mL/Units picker, the units→mg/mL readout, the Settings "Dose entry" sheet and the U-100 toggle in Treatment. Stored `syringeUnits` data still decodes; those entries open and display in mg, and the reading is kept while the mg amount is unchanged. The units UI tests were removed and can come back with the flag.
 - [x] **Blocker 4:** card retitled **"Estimated level"**, rounded to 2 decimals, with a "not a measured level or medical advice" caption. The method notes and paper links stay. `testLivePrecisionIsAlwaysSevenDecimals` was replaced by `testEstimatedLevelIsRoundedAndLabelled`.
 - [x] **Blocker 5:** the background-sync claim was removed. The footer now says Tendr checks Apple Health when you open it. No entitlement was added, because it needs a provisioning profile change. The unsupported observer registration was subsequently removed so it cannot overwrite a successful sync with “Background sync unavailable”. Tendr refreshes at launch, on foreground and on demand. Background delivery would require `com.apple.developer.healthkit.background-delivery`, an updated provisioning profile and device validation.
@@ -50,17 +50,13 @@ Privacy: <https://tendr.worldwidewebb.co/privacy/> · Support: <https://tendr.wo
 
 A HealthKit app must link a privacy policy, both in App Store Connect and inside the app. A support URL is required for every app. Guidelines 5.1.1 and 5.1.3.
 
-- **Plan:** host both pages on GitHub Pages. The assistant can write them. The privacy policy covers on-device storage only, read-only weight from Apple Health, no tracking, no data sent anywhere, and how to delete data.
+- **Plan (done; hosting later moved from GitHub Pages to Cloudflare):** host both pages on a public site. The privacy policy covers on-device storage only, read-only weight from Apple Health, no tracking, no data sent anywhere, and how to delete data.
 - Link the privacy policy from Settings in the app as well.
 
 ### 2. "Coming soon" assistant screen
 Reviewers reject placeholder or unfinished features under guideline 2.1 (app completeness).
 
-- `Still/Features/Discover/AssistantPreview.swift`, the whole screen
-- `Still/Features/Discover/DiscoverView.swift` ~67–72, the "A space to talk · Assistant · Coming soon" link
-- `Still/Features/Journal/JournalView.swift` ~191, the "Assistant" settings section
-
-**Plan:** hide all three for 1.0. Bring them back when the assistant is real.
+The assistant screen, its "A space to talk · Assistant · Coming soon" link in Discover and the "Assistant" section in Privacy & About were hidden for 1.0 and have since been deleted with the Discover feature.
 
 ### 3. Units → mg/mL converter (OPEN DECISION)
 The dose editor turns syringe units (U-100) or mL plus a vial concentration into mg. To a reviewer this looks like a dosage calculator, which is a risk under guideline 1.4.2.
@@ -130,14 +126,14 @@ The Settings footer says "Tendr stays up to date in the background when Apple He
 
 ## Proposed defaults (confirm when resuming)
 
-- Privacy and support pages: **GitHub Pages** (live, see blocker 1)
+- Privacy and support pages: **Cloudflare**, at `tendr.worldwidewebb.co` (live, see blocker 1)
 - Price: **Free**
 - Category: **Health & Fitness** (primary). Medical is possible but invites stricter review.
 - Name: **Tendr: Dose & Weight Journal**
 
 ## Needs from Calum
 
-1. ~~A privacy policy and support URL.~~ Done (GitHub Pages, see blocker 1).
+1. ~~A privacy policy and support URL.~~ Done (Cloudflare-hosted, see blocker 1).
 2. The units decision for blocker 3 (option A or B).
 3. Complete the **Age Rating** and **App Privacy** questionnaires in App Store Connect. Expected answer for App Privacy: **Data Not Collected**.
 4. Confirm the App Store Connect API key used in CI (`ASC_KEY_ID`) has the **App Manager** role or higher. `deliver` needs it to edit metadata.

@@ -8,7 +8,7 @@ Covered: weight chronology and future filtering, future taken-dose rejection, lo
 
 ## UI
 
-The Discover walkthrough passed (one test, zero failures; `build/DiscoverQA.xcresult`) on a separate iPhone 17 Pro Max simulator. It exercises navigation, dose sheet presentation, Progress, Journal, Discover filtering and opening a recipe. Further persistence and regression tests are recorded below.
+Persistence and regression UI tests are recorded below. The earlier Discover walkthrough was retired with the Discover feature.
 
 ## Coverage limits and remaining release work
 

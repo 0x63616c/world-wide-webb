@@ -1,7 +1,6 @@
 {
   "version": 1,
   "retired_paths": [
-    "projects/airmiles/**",
     ".config/aseprite/**",
     "apps/**",
     "homelab/**",
@@ -66,7 +65,6 @@
       "delivery": "testflight",
       "delivery_paths": [
         "projects/folding/apps/ios/App/**",
-        "projects/folding/apps/ios/Widgets/**",
         "projects/folding/apps/ios/Branding/**",
         "projects/folding/apps/ios/Config/**",
         "projects/folding/apps/ios/Packages/FoldingKit/Sources/**",
@@ -130,8 +128,6 @@
         "projects/folding/Gemfile",
         "projects/folding/Gemfile.lock",
         "projects/folding/design/**",
-        "projects/folding/.cursor/**",
-        "projects/folding/.githooks/**",
         "projects/folding/.editorconfig",
         "projects/folding/.gitignore",
         "projects/folding/app.yml"

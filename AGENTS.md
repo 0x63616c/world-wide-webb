@@ -12,7 +12,9 @@ existing Comin, SOPS and registry-auth setup.
 
 ## Working
 
-Use `wtp add -b codex/<task> origin/main` before edits; use absolute worktree paths.
+Use `wtp add -b codex/<task> origin/main` before edits; use absolute worktree paths. `wtp add`
+only resolves from `~/Documents/ChatGPT/world-wide-webb`; from any other checkout use the
+`git worktree add` fallback in `docs/DEVELOPMENT.md`.
 When resuming, check that the worktree path exists. Hourly cleanup removes clean merged
 worktrees and their branches; clean, fully pushed worktrees may be removed after 24 hours
 of observed inactivity while keeping their branches. From the main checkout, recreate a

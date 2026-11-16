@@ -20,7 +20,7 @@ jobs:
     outputs:
       publish: ${{ steps.select.outputs.publish }}
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           name: repository-selection
           run-id: ${{ github.event.workflow_run.id }}
@@ -63,7 +63,7 @@ jobs:
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
         with:
           python-version: 3.15.2
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           name: homelab-cli-${{ github.event.workflow_run.head_sha }}
           path: ${{ runner.temp }}/homelab-tested-build
@@ -99,7 +99,7 @@ jobs:
           git fetch origin main
           git show origin/main:Formula/homelab.rb > "$RUNNER_TEMP/homelab-confirmed.rb"
           cmp "$RUNNER_TEMP/homelab-confirmed.rb" "$RUNNER_TEMP/homelab-distribution/homelab.rb"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
           name: homelab-cli-delivery-${{ github.event.workflow_run.head_sha }}

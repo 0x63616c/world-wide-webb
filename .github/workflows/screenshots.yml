@@ -47,7 +47,7 @@ jobs:
       RELEASE_BUILD: ${{ inputs.release_build }}
       DUO_HOST_CONTROL: "1"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - name: Check hosted simulator runtime
         run: |
           xcodebuild -version
@@ -99,25 +99,25 @@ jobs:
           scripts/ci/apple-desktop.sh scripts/capture-duo-screenshots.sh "$APP"
           python3 scripts/stage-duo-screenshots.py "projects/$APP/screenshots.json" \
             "build/duo-screenshots/$APP/raw" "projects/$APP/fastlane/screenshots/en-US"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: app-store-screenshots-${{ inputs.app }}
           path: projects/${{ inputs.app }}/fastlane/screenshots/en-US/*.png
           if-no-files-found: error
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: inputs.device != 'duo'
         with:
           name: screenshots-overview-${{ inputs.app }}
           path: build/screenshots/${{ inputs.app }}/overview.png
           if-no-files-found: error
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: screenshots-raw-${{ inputs.app }}
           path: |
             build/screenshots/${{ inputs.app }}/raw
             build/duo-screenshots/${{ inputs.app }}/raw
           if-no-files-found: error
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: failure()
         with:
           name: screenshot-test-results-${{ inputs.app }}
