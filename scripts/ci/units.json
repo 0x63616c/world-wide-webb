@@ -1,6 +1,8 @@
 {
   "version": 1,
   "retired_paths": [
+    "projects/folding/.cursor/**",
+    "projects/folding/.githooks/**",
     ".config/aseprite/**",
     "apps/**",
     "homelab/**",
