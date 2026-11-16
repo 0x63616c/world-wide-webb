@@ -67,6 +67,20 @@ jobs:
         run: |
           xcodebuild -project "$(ruby scripts/app-config.rb "$APP" project_path)" -scheme "$(ruby scripts/app-config.rb "$APP" scheme)" \
             -destination 'generic/platform=iOS Simulator' -sdk iphonesimulator -configuration Debug CODE_SIGNING_ALLOWED=NO build -quiet
+      - name: Build the other platforms
+        timeout-minutes: 20
+        run: |
+          # app.yml `platforms` maps tvos/macos to the schemes that ship alongside the iOS app.
+          ruby -ryaml -e 'YAML.safe_load_file(ARGV[0]).fetch("platforms", {}).each { |p, s| puts "#{p} #{s}" }' "projects/$APP/app.yml" |
+            while read -r platform scheme; do
+              case "$platform" in
+                tvos) destination='generic/platform=tvOS Simulator' ;;
+                macos) destination='generic/platform=macOS' ;;
+                *) echo "::error::Unknown platform $platform in projects/$APP/app.yml"; exit 1 ;;
+              esac
+              xcodebuild -project "$(ruby scripts/app-config.rb "$APP" project_path)" -scheme "$scheme" \
+                -destination "$destination" -configuration Debug CODE_SIGNING_ALLOWED=NO build -quiet
+            done
   gate:
     name: Standard iOS checks
     if: always() && !cancelled()

@@ -29,6 +29,14 @@ struct Splash: View {
       // Without these the window shows a grey title strip above the black splash.
       .toolbar(removing: .title)
       .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
+      // An invisible item keeps the full-height toolbar the library window has, so the window
+      // buttons stay put when the splash gives way to the tabs instead of dropping down.
+      .toolbar {
+        ToolbarItem(placement: .navigation) {
+          Color.clear.frame(width: 1, height: 1).accessibilityHidden(true)
+        }
+        .sharedBackgroundVisibility(.hidden)
+      }
     #endif
   }
 }

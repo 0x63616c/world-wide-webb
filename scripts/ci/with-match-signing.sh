@@ -4,6 +4,8 @@ set +x
 
 product=$1
 shift
+branch=$product
+extra_certs=()
 case "$product" in
   tendr)
     type=appstore
@@ -16,6 +18,22 @@ case "$product" in
     platform=ios
     bundle_id=co.worldwidewebb.tapes
     extension=mobileprovision
+    ;;
+  tapes-tvos)
+    branch=tapes
+    type=appstore
+    platform=tvos
+    bundle_id=co.worldwidewebb.tapes
+    extension=mobileprovision
+    ;;
+  tapes-macos)
+    # Mac App Store uploads are installer packages, signed with a second certificate.
+    branch=tapes
+    type=appstore
+    platform=macos
+    bundle_id=co.worldwidewebb.tapes
+    extension=provisionprofile
+    extra_certs=(--additional_cert_types mac_installer_distribution)
     ;;
   callkeep)
     type=developer_id
@@ -73,9 +91,9 @@ subprocess.run(["security", "list-keychains", "-d", "user", "-s", sys.argv[1], *
 PY
 
 bundle exec fastlane match "$type" --readonly true --platform "$platform" \
-  --git_url https://github.com/0x63616c/certificates.git --git_branch "$product" \
+  --git_url https://github.com/0x63616c/certificates.git --git_branch "$branch" \
   --clone_branch_directly true --app_identifier "$bundle_id" --team_id X9E4HG27NK \
-  --keychain_name "$keychain" --output_path "$signing"
+  --keychain_name "$keychain" --output_path "$signing" ${extra_certs[@]+"${extra_certs[@]}"}
 shopt -s nullglob
 profiles=("$signing/"*."$extension")
 [[ "${#profiles[@]}" -eq 1 ]] || {
