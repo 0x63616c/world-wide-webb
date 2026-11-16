@@ -298,7 +298,10 @@ def publish_pending(config, transaction=None, wait=False, sleep=time.sleep):
                     except Exception as error:
                         if attempt == attempts:
                             raise
-                        print(publication_failure(destination, error) + f"; retry {attempt}/{attempts - 1}", file=sys.stderr)
+                        print(
+                            publication_failure(destination, error) + f"; retry {attempt}/{attempts - 1}",
+                            file=sys.stderr,
+                        )
                         sleep(TRANSACTION_PUBLISH_DELAY)
                 if receipt["scope"] in ("control-center-hourly", "deployment"):
                     nas = nas_client()
