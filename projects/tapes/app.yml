@@ -9,7 +9,7 @@ platforms:
   tvos: Tapes-tvOS
   macos: Tapes-macOS
 bundle_id: co.worldwidewebb.tapes
-version: 1.0.0
+version: 1.0.1
 testflight: true
 testflight_group: Owner Preview
 beta_description: Tapes plays your own movies, shows and DJ sets from the Mac mini at home.
