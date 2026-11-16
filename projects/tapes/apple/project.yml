@@ -1,0 +1,89 @@
+# Tapes for iPhone, Mac and Apple TV. Generate with `xcodegen generate`.
+# The `Tapes` scheme is iPhone only: the shared TestFlight lane archives one iOS scheme.
+name: Tapes
+options:
+  bundleIdPrefix: co.worldwidewebb
+  deploymentTarget:
+    iOS: "27.0"
+    tvOS: "27.0"
+    macOS: "27.0"
+packages:
+  TapesAPI:
+    path: TapesAPI
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
+    DEVELOPMENT_TEAM: X9E4HG27NK
+    MARKETING_VERSION: "1.0.0"
+    CURRENT_PROJECT_VERSION: "1"
+    PRODUCT_BUNDLE_IDENTIFIER: co.worldwidewebb.tapes
+    PRODUCT_NAME: Tapes
+    GENERATE_INFOPLIST_FILE: YES
+    INFOPLIST_FILE: Info.plist
+    INFOPLIST_KEY_CFBundleDisplayName: Tapes
+    INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.entertainment
+    INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
+    INFOPLIST_KEY_NSLocalNetworkUsageDescription: Tapes plays your movies, shows and DJ sets from the Mac mini at home.
+    INFOPLIST_KEY_UILaunchScreen_Generation: YES
+    INFOPLIST_KEY_UIUserInterfaceStyle: Dark
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+targetTemplates:
+  App:
+    type: application
+    sources:
+      - Sources
+      - Resources/Assets.xcassets
+      - path: Info.plist
+        buildPhase: none
+    dependencies:
+      - package: TapesAPI
+targets:
+  Tapes:
+    templates: [App]
+    platform: iOS
+    sources:
+      - path: Resources/AppIcon.icon
+        type: file
+        buildPhase: resources
+    settings:
+      base:
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        TARGETED_DEVICE_FAMILY: "1,2"
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+  Tapes-macOS:
+    templates: [App]
+    platform: macOS
+    sources:
+      - path: Resources/AppIcon.icon
+        type: file
+        buildPhase: resources
+    settings:
+      base:
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ENABLE_APP_SANDBOX: YES
+        ENABLE_OUTGOING_NETWORK_CONNECTIONS: YES
+        ENABLE_HARDENED_RUNTIME: YES
+  Tapes-tvOS:
+    templates: [App]
+    platform: tvOS
+    sources:
+      - Resources/TV.xcassets
+    settings:
+      base:
+        ASSETCATALOG_COMPILER_APPICON_NAME: App Icon & Top Shelf Image
+schemes:
+  Tapes:
+    build:
+      targets:
+        Tapes: all
+  Tapes-macOS:
+    build:
+      targets:
+        Tapes-macOS: all
+  Tapes-tvOS:
+    build:
+      targets:
+        Tapes-tvOS: all
