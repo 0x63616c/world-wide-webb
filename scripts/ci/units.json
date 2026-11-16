@@ -188,8 +188,7 @@
         "projects/control-center/Cargo.*",
         "projects/control-center/rust-toolchain.toml",
         "projects/control-center/Dockerfile",
-        "projects/control-center/.dockerignore",
-        "projects/control-center/deploy/**"
+        "projects/control-center/.dockerignore"
       ],
       "delivery": "container",
       "delivery_paths": [
@@ -197,8 +196,7 @@
         "projects/control-center/server/migrations/**",
         "projects/control-center/Cargo.*",
         "projects/control-center/Dockerfile",
-        "projects/control-center/.dockerignore",
-        "projects/control-center/deploy/mini/**"
+        "projects/control-center/.dockerignore"
       ],
       "delivery_exclude": [
         "**/Tests/**",
@@ -550,7 +548,6 @@
         "control-center.native"
       ],
       "paths": [
-        "projects/control-center/deploy/**",
         "projects/control-center/tools/**",
         "projects/control-center/scripts/**"
       ]
@@ -600,16 +597,10 @@
         "projects/control-center/rust-toolchain.toml",
         "projects/control-center/Dockerfile",
         "projects/control-center/.dockerignore",
-        "projects/control-center/deploy/mini/compose.yaml",
         "projects/control-center/tools/test_container.py",
-        "secrets/vault.yaml",
-        "projects/control-center/deploy/mini/**"
+        "secrets/vault.yaml"
       ],
-      "exclude": [
-        "projects/control-center/server/tests/**",
-        "projects/control-center/deploy/mini/test_*",
-        "projects/control-center/deploy/mini/penpot_*"
-      ]
+      "exclude": ["projects/control-center/server/tests/**"]
     },
     "homelab.host": {
       "units": ["homelab.config"],

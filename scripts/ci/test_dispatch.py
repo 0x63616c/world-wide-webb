@@ -39,7 +39,7 @@ class DispatchTests(unittest.TestCase):
             dispatch(["projects/folding/apps/ios/App/FoldingScreens.swift"], CONFIGURATION)["products"], ["folding"]
         )
         self.assertEqual(
-            dispatch(["projects/folding/backend/tests/runtime.test.mjs"], CONFIGURATION)["products"], ["folding"]
+            dispatch(["projects/folding/backend/tests/sessions.test.mjs"], CONFIGURATION)["products"], ["folding"]
         )
         self.assertEqual(dispatch(["scripts/ci/test_select.py"], CONFIGURATION)["products"], [])
 

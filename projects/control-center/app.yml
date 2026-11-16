@@ -4,5 +4,3 @@ platform: ios
 testflight: true
 ci_workflow: ci.yml
 release_workflow: apple-panel-testflight.yml
-uses: []
-paths: []
