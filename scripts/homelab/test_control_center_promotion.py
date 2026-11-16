@@ -172,3 +172,41 @@ class ControlCenterPromotionTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TapesPromotionTests(ControlCenterPromotionTests):
+    MANIFEST = "projects/homelab/services/tapes/release.json"
+
+    @staticmethod
+    def tapes_image(digit):
+        return "ghcr.io/0x63616c/www-tapes@sha256:" + digit * 64
+
+    def promote_tapes(self, source, digit):
+        return promotion.promote(self.repo, source, self.tapes_image(digit), self.CI, str(self.remote), service="tapes")
+
+    def test_first_pin_creates_the_manifest_and_later_pins_must_be_newer(self):
+        result = self.promote_tapes(self.a, "1")
+        self.assertEqual(result["status"], "pin-committed")
+        pin = json.loads(self.command(self.remote, "show", "main:" + self.MANIFEST))
+        self.assertEqual(
+            pin,
+            {
+                "schemaVersion": 1,
+                "sourceRepository": "0x63616c/world-wide-webb",
+                "sourceRevision": self.a,
+                "image": self.tapes_image("1"),
+            },
+        )
+        self.assertEqual(self.promote_tapes(self.a, "1")["status"], "already-pinned")
+        self.command(self.repo, "pull", "--ff-only", "origin", "main")
+        newer = self.commit("server.rs", "second tapes source")
+        self.command(self.repo, "push", "origin", "main")
+        self.assertEqual(self.promote_tapes(newer, "2")["status"], "pin-committed")
+        with self.assertRaises(promotion.PromotionError):
+            self.promote_tapes(self.a, "3")
+        # The Control Center pin is untouched.
+        self.assertEqual(self.pin()["image"], self.image("0"))
+
+    def test_control_center_image_is_rejected_for_tapes(self):
+        with self.assertRaises(ValueError):
+            promotion.promote(self.repo, self.a, self.image("1"), self.CI, str(self.remote), service="tapes")

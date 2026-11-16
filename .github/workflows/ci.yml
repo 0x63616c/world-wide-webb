@@ -145,8 +145,20 @@ jobs:
     if:
       always() && !cancelled() && needs.changes.result == 'success' && (needs.typecheck.result == 'success' || needs.typecheck.result
       == 'skipped') && (needs.test-unit.result == 'success' || needs.test-unit.result == 'skipped') && contains(fromJSON(needs.changes.outputs.products),
-      'tendr')
+      'tendr') || contains(fromJSON(needs.changes.outputs.products), 'tapes')
     uses: ./.github/workflows/tendr-ci.yml
+    secrets: inherit
+  tapes:
+    name: Tapes
+    needs:
+      - changes
+      - typecheck
+      - test-unit
+    if:
+      always() && !cancelled() && needs.changes.result == 'success' && (needs.typecheck.result == 'success' || needs.typecheck.result
+      == 'skipped') && (needs.test-unit.result == 'success' || needs.test-unit.result == 'skipped') && contains(fromJSON(needs.changes.outputs.products),
+      'tapes')
+    uses: ./.github/workflows/tapes-ci.yml
     secrets: inherit
   callkeep:
     name: Callkeep
@@ -230,6 +242,7 @@ jobs:
       - control-center
       - folding
       - tendr
+      - tapes
       - callkeep
       - golink
       - minecraft

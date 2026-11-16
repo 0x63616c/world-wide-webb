@@ -144,6 +144,22 @@ class SnapshotSafetyTests(unittest.TestCase):
         self.assertEqual(healthy.call_count, 2)
         healthy.assert_called_with("services", "golink")
 
+    @patch.object(snapshot, "container_files")
+    @patch.object(snapshot, "healthy")
+    @patch.object(snapshot, "run")
+    @patch.object(snapshot, "running_state", return_value={"Running": True})
+    def test_tapes_copies_progress_database_while_stopped(self, state, run, healthy, files):
+        from unittest.mock import Mock
+
+        run.side_effect = lambda args, **kwargs: Mock(stdout="[]" if "image" in args else "sha256:fixture")
+        files.side_effect = lambda *args: self.assertEqual(
+            run.call_args.args[0][-4:], ["stop", "--time", "120", "tapes"]
+        )
+        snapshot.snapshot(self.destination, ["tapes"])
+        files.assert_called_once_with(self.destination / "tapes-data.tar.gz", "services", "tapes", "/app/data")
+        self.assertEqual(run.call_args.args[0][-2:], ["start", "tapes"])
+        healthy.assert_called_with("services", "tapes")
+
     def test_hindsight_password_never_enters_command_arguments(self):
         metadata = dict(
             installation_dir="/postgres",

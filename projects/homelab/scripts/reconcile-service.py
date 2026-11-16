@@ -19,6 +19,7 @@ FILES = {
     "penpot": {"environment": "penpot-env"},
     "cloudflared": {"TUNNEL_TOKEN": "tunnel-token"},
     "bambuddy": {"environment": "bambuddy-environment"},
+    "tapes": {},
 }
 
 
@@ -53,20 +54,21 @@ def read_private_file(path):
 
 def compose_environment(service, destination, compose_root):
     env = os.environ.copy()
-    if service == "control-center":
+    if service in ("control-center", "tapes"):
         # Release versions are reviewed Git configuration, never secret-file
         # overrides. The independent promotion validator also checks CI input.
         release = json.loads((compose_root / service / "release.json").read_text())
         import importlib.util
 
-        spec = importlib.util.spec_from_file_location(
-            "promotion", Path(__file__).with_name("promote-control-center.py")
-        )
+        spec = importlib.util.spec_from_file_location("promotion", Path(__file__).with_name(f"promote-{service}.py"))
         promotion = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(promotion)
         promotion.validate(release)
-        env.update(WWW_IMAGE=release["image"])
-        env.pop("POSTGRES_IMAGE", None)
+        if service == "tapes":
+            env.update(TAPES_IMAGE=release["image"])
+        else:
+            env.update(WWW_IMAGE=release["image"])
+            env.pop("POSTGRES_IMAGE", None)
     # These paths contain only the selected service's files and are inside
     # Colima's service-user home mount; never expose the SOPS backing store.
     env.update(
@@ -87,6 +89,7 @@ def compose_environment(service, destination, compose_root):
                 "BAMBUDDY_ENV_FILE": str(destination / "environment"),
                 "BAMBUDDY_SERVE_CONFIG": str(destination / "serve.json"),
             },
+            "tapes": {},
         }[service]
     )
     return env

@@ -57,7 +57,7 @@ service data stay outside generated images and Git plaintext.
 
 - [Current state](docs/current-state.md), [operations](docs/operations.md) and [secrets](docs/secrets.md)
 - [Service updates](docs/updates.md), [backup and recovery](docs/restore-rehearsal.md)
-- [Golink](docs/golink.md), [monitoring](docs/beszel-plan.md) and [Control Center deployment](docs/releases.md)
+- [Golink](docs/golink.md), [Tapes](docs/tapes.md), [monitoring](docs/beszel-plan.md) and [Control Center deployment](docs/releases.md)
 - [Setup CLI](cli/README.md) and [configuration contract](cli/docs/configuration.md)
 
 Research notes and validation evidence remain under `docs/research/`; use current code,

@@ -32,6 +32,7 @@ pub enum Service {
     Cloudflared,
     HomeAssistant,
     Penpot,
+    Tapes,
 }
 
 #[derive(Debug, Deserialize)]
@@ -271,6 +272,8 @@ fn containers(service: Service) -> (&'static str, &'static [(&'static str, bool)
         Service::Golink => (SERVICES, &[("golink", false)]),
         Service::Beszel => (SERVICES, &[("beszel-beszel-1", true)]),
         Service::Hindsight => (SERVICES, &[("hindsight", true)]),
+        // The image's own `tapes healthcheck` probes HTTP /health.
+        Service::Tapes => (SERVICES, &[("tapes", true)]),
         Service::Cloudflared => (SERVICES, &[("www-tunnel-cloudflared-1", false)]),
         Service::Penpot => (
             SERVICES,
@@ -545,7 +548,7 @@ pub fn check_once(config: &Config, deadline: Instant) -> Result<(), HealthError>
                     ));
                 }
             }
-            Service::Beszel | Service::Hindsight => {}
+            Service::Beszel | Service::Hindsight | Service::Tapes => {}
         }
     }
     Ok(())

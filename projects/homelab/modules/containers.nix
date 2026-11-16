@@ -77,6 +77,7 @@ in
           "hindsight"
           "cloudflared"
           "penpot"
+          "tapes"
         ]
       );
       default = [ ];

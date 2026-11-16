@@ -1,0 +1,508 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Tapes",
+    "description": "Personal media library.",
+    "license": {
+      "name": "UNLICENSED",
+      "identifier": "UNLICENSED"
+    },
+    "version": "1"
+  },
+  "paths": {
+    "/art/{id}": {
+      "get": {
+        "tags": [],
+        "summary": "The item's artwork as JPEG.",
+        "operationId": "get_art",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "description": "`small` for the grid-sized image.",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Artwork",
+            "content": {
+              "image/jpeg": {}
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "tags": [],
+        "summary": "Server health. Stays 200 while the share is missing; `library` says so.",
+        "operationId": "health",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/library": {
+      "get": {
+        "tags": [],
+        "summary": "Everything in the library with its progress.",
+        "operationId": "get_library",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LibraryResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The library has never been read since start-up",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/media/{id}": {
+      "get": {
+        "tags": [],
+        "summary": "The item's MP4. Supports range requests.",
+        "operationId": "get_media",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The video file",
+            "content": {
+              "video/mp4": {}
+            }
+          },
+          "206": {
+            "description": "Part of the video file"
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/progress/{id}": {
+      "put": {
+        "tags": [],
+        "summary": "Saves the shared position and watched mark for one playable item.",
+        "operationId": "put_progress",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Progress"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Saved"
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rescan": {
+      "post": {
+        "tags": [],
+        "summary": "Reads the library folder again.",
+        "operationId": "rescan",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RescanResult"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ApiError": {
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "type": "string"
+          }
+        }
+      },
+      "DjSet": {
+        "type": "object",
+        "required": [
+          "id",
+          "djs",
+          "title",
+          "has_art"
+        ],
+        "properties": {
+          "date": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "ISO date (YYYY-MM-DD) when known."
+          },
+          "djs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "has_art": {
+            "type": "boolean"
+          },
+          "id": {
+            "type": "string"
+          },
+          "progress": {
+            "$ref": "#/components/schemas/Progress",
+            "description": "Absent until first played or marked."
+          },
+          "seconds": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double"
+          },
+          "title": {
+            "type": "string"
+          }
+        }
+      },
+      "Episode": {
+        "type": "object",
+        "required": [
+          "id",
+          "season",
+          "number",
+          "title",
+          "has_art"
+        ],
+        "properties": {
+          "has_art": {
+            "type": "boolean"
+          },
+          "id": {
+            "type": "string"
+          },
+          "number": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "progress": {
+            "$ref": "#/components/schemas/Progress",
+            "description": "Absent until first played or marked."
+          },
+          "season": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "seconds": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double"
+          },
+          "title": {
+            "type": "string"
+          }
+        }
+      },
+      "Health": {
+        "type": "object",
+        "required": [
+          "status",
+          "library",
+          "items",
+          "build"
+        ],
+        "properties": {
+          "build": {
+            "type": "string"
+          },
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "library": {
+            "type": "string",
+            "description": "`available` or `unavailable`."
+          },
+          "problem": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Why the library is unavailable, when it is."
+          },
+          "status": {
+            "type": "string"
+          }
+        }
+      },
+      "LibraryResponse": {
+        "type": "object",
+        "required": [
+          "available",
+          "movies",
+          "shows",
+          "sets"
+        ],
+        "properties": {
+          "available": {
+            "type": "boolean",
+            "description": "False when the last scan failed; the lists are then the last good scan."
+          },
+          "movies": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Movie"
+            }
+          },
+          "sets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DjSet"
+            }
+          },
+          "shows": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Show"
+            }
+          }
+        }
+      },
+      "Movie": {
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "badges",
+          "has_art"
+        ],
+        "properties": {
+          "badges": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "has_art": {
+            "type": "boolean"
+          },
+          "id": {
+            "type": "string"
+          },
+          "progress": {
+            "$ref": "#/components/schemas/Progress",
+            "description": "Absent until first played or marked."
+          },
+          "seconds": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double",
+            "description": "Running time in seconds."
+          },
+          "title": {
+            "type": "string"
+          },
+          "year": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "Progress": {
+        "type": "object",
+        "required": [
+          "seconds",
+          "watched"
+        ],
+        "properties": {
+          "seconds": {
+            "type": "number",
+            "format": "double",
+            "description": "Playback position in seconds."
+          },
+          "updated_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When it was last saved (set by the server; ignored when sent)."
+          },
+          "watched": {
+            "type": "boolean",
+            "description": "Marked as watched, either by finishing or by hand."
+          }
+        }
+      },
+      "RescanResult": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "Show": {
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "has_art",
+          "episodes"
+        ],
+        "properties": {
+          "episodes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Episode"
+            }
+          },
+          "has_art": {
+            "type": "boolean"
+          },
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "years": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

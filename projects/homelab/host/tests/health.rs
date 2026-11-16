@@ -60,6 +60,7 @@ impl Fixture {
             "penpot-penpot-mcp-1",
             "penpot-penpot-postgres-1",
             "penpot-penpot-valkey-1",
+            "tapes",
         ] {
             fixture.json(&format!("{name}.json"), json!({"running":true,"health":if ["bambuddy-tailscale","www-tunnel-cloudflared-1"].contains(&name) { Value::Null } else { json!("healthy") },"image":match name {"www-control-center-www-1" => image.clone(),"www-control-center-postgres-1" => postgres.clone(),_ => "fixture-image".into()}}));
         }
@@ -128,6 +129,7 @@ fn required_docker_health_is_not_optional_even_for_inherited_bambuddy_check() {
         (Service::Bambuddy, "bambu-studio-api"),
         (Service::Hindsight, "hindsight"),
         (Service::Beszel, "beszel-beszel-1"),
+        (Service::Tapes, "tapes"),
         (
             Service::HomeAssistant,
             "www-home-assistant-home-assistant-1",

@@ -96,7 +96,7 @@ def beta_receipt(repo, app, source, version):
 
 
 def resolve(event_name, event, repo, ref, source):
-    result = dict(tendr=False, folding=False, backend=False, receipt_run_id="", version="")
+    result = dict(tendr=False, tapes=False, folding=False, backend=False, receipt_run_id="", version="")
     if event_name == "workflow_run":
         ci = event["workflow_run"]
         source = ci["head_sha"]
@@ -112,6 +112,7 @@ def resolve(event_name, event, repo, ref, source):
         result.update(
             channel="beta",
             tendr="tendr.native" in candidates,
+            tapes="tapes.native" in candidates,
             folding=bool({"folding.native", "folding.backend"}.intersection(candidates)),
             backend="folding.backend" in candidates,
         )
@@ -155,7 +156,10 @@ def main():
     with open(os.environ["GITHUB_OUTPUT"], "a") as output:
         for key, value in result.items():
             output.write(f"{key}={str(value).lower() if isinstance(value, bool) else value}\n")
-    print(f"Selected {result['channel']} delivery for " + ", ".join(app for app in ("tendr", "folding") if result[app]))
+    print(
+        f"Selected {result['channel']} delivery for "
+        + ", ".join(app for app in ("tendr", "tapes", "folding") if result[app])
+    )
 
 
 if __name__ == "__main__":

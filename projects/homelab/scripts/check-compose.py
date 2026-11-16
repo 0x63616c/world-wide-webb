@@ -34,6 +34,7 @@ def check(root):
             "HINDSIGHT_CODEX_HOME": directory + "/codex-home",
             "BAMBUDDY_ENV_FILE": str(env_file),
             "BAMBUDDY_SERVE_CONFIG": directory + "/serve.json",
+            "TAPES_IMAGE": "ghcr.io/0x63616c/www-tapes@sha256:" + "c" * 64,
         }
         models = {}
         for path in sorted(root.glob("*/compose.yaml")):
@@ -67,6 +68,7 @@ def check(root):
             "home-assistant",
             "penpot",
             "golink",
+            "tapes",
         }
         golink = models["golink"]
         node = golink["services"]["golink"]
@@ -76,6 +78,21 @@ def check(root):
         assert golink["volumes"]["golink_data"]["external"] is True
         assert golink["volumes"]["golink_data"]["name"] == "golink_data"
         assert node["volumes"][0]["target"] == "/home/nonroot"
+        tapes = models["tapes"]
+        node = tapes["services"]["tapes"]
+        assert node["user"] == "10001:10001" and node["command"] == ["serve"]
+        assert node["cap_drop"] == ["ALL"] and node["read_only"] is True
+        assert node["security_opt"] == ["no-new-privileges:true"]
+        assert node["healthcheck"]["test"] == ["CMD", "tapes", "healthcheck"]
+        assert [(p["target"], p["published"]) for p in node["ports"]] == [(4300, "4300")]
+        assert tapes["volumes"]["tapes_data"]["external"] is True
+        assert tapes["volumes"]["tapes_data"]["name"] == "tapes_data"
+        library = tapes["volumes"]["library"]
+        assert library.get("external", False) is False and library["driver_opts"]["type"] == "nfs"
+        assert "ro" in library["driver_opts"]["o"].split(",")
+        mounts = {v["target"]: v for v in node["volumes"]}
+        assert mounts["/app/data"]["source"] == "tapes_data"
+        assert mounts["/library"]["source"] == "library" and mounts["/library"]["read_only"] is True
         bambuddy = models["bambuddy"]
         assert bambuddy["services"]["bambu-studio-api"]["platform"] == "linux/amd64"
         for volume in ("bambuddy_data", "tailscale_state", "bambu_studio_api_data"):
@@ -141,7 +158,7 @@ def check(root):
         assert "postgres" not in models["control-center"]["services"]
         assert models["penpot"]["volumes"]["assets"]["external"] is True
         assert models["penpot"]["volumes"]["postgres"]["external"] is True
-        for project in ("beszel", "control-center", "cloudflared", "hindsight", "penpot"):
+        for project in ("beszel", "control-center", "cloudflared", "hindsight", "penpot", "tapes"):
             path = root / project / "compose.yaml"
             result = subprocess.run(
                 ["docker-compose", "--project-directory", str(path.parent), "-f", str(path), "config", "--quiet"],
