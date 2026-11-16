@@ -89,7 +89,8 @@ module StorefrontStatus
           raise("Unexpected storefront URL")
         end
         response = fetch.call(uri)
-        body = response.body.to_s
+        # Net::HTTP returns bytes; the page and the "can’t be found" check are UTF-8.
+        body = response.body.to_s.dup.force_encoding(Encoding::UTF_8)
         unless response.is_a?(Net::HTTPSuccess) &&
                  body.include?(config.fetch("name")) &&
                  !body.include?("can't be found") &&

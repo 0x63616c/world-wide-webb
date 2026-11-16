@@ -99,6 +99,14 @@ class StorefrontStatusTest < Minitest::Test
     end
   end
 
+  def test_binary_page_bodies_are_read_as_utf8
+    page = "Tendr — Dose & Weight Journal".b
+    assert check(body: page).fetch(:idle)
+    assert_raises(RuntimeError) do
+      check(body: "Tendr — This app can’t be found".b)
+    end
+  end
+
   def test_review_is_reported_as_pending_and_cannot_resume_queue
     result = check(state: "IN_REVIEW")
     refute result.fetch(:idle)
