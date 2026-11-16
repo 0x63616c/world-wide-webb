@@ -1,5 +1,5 @@
 // swift-tools-version: 6.0
-// The Tapes API client, generated from ../../openapi.json by `scripts/generate-client`.
+// The Tapes API client, generated from ../openapi.json by `scripts/generate-client`.
 import PackageDescription
 
 let package = Package(

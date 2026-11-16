@@ -1,4 +1,4 @@
-// The Tapes server on the home network, through the client generated from `../openapi.json`.
+// The Tapes server on the home network, through the client generated from `openapi.json`.
 import Foundation
 import OpenAPIURLSession
 import TapesAPI

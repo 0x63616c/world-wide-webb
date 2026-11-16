@@ -11,6 +11,12 @@ case "$product" in
     bundle_id=com.calumwebb.still
     extension=mobileprovision
     ;;
+  tapes)
+    type=appstore
+    platform=ios
+    bundle_id=co.worldwidewebb.tapes
+    extension=mobileprovision
+    ;;
   callkeep)
     type=developer_id
     platform=macos
