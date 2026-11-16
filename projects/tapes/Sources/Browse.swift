@@ -43,19 +43,7 @@ struct HomeView: View {
   let zoom: Namespace.ID
 
   var body: some View {
-    ScrollView {
-      if store.isEmpty {
-        // Inside the scroll view, filling the page, so pull to refresh still works.
-        LibraryEmpty().containerRelativeFrame([.horizontal, .vertical])
-      } else {
-        shelves
-      }
-    }
-    .refreshable { await store.load() }
-    .blackPage()
-    #if !os(tvOS)
-      .navigationTitle("Home")
-    #endif
+    LibraryPage(title: "Home", empty: store.isEmpty ? .library : nil) { shelves }
   }
 
   private var shelves: some View {
@@ -127,12 +115,62 @@ struct HomeView: View {
   }
 }
 
-private struct LibraryEmpty: View {
+/// Every library page: a scroll view on the black page, with pull to refresh and the title. When
+/// `empty` is set it fills the page instead of `content`.
+private struct LibraryPage<Content: View>: View {
+  @Environment(Store.self) private var store
+  let title: String
+  let empty: EmptyState?
+  @ViewBuilder var content: Content
+
   var body: some View {
-    ContentUnavailableView(
-      "Nothing Here Yet", systemImage: "film.stack",
-      description: Text(
-        "Movies, shows and DJ sets appear here once they're imported into the library."))
+    ScrollView {
+      if let empty {
+        // Inside the scroll view, filling the page, so pull to refresh still works.
+        empty.containerRelativeFrame([.horizontal, .vertical])
+      } else {
+        content
+      }
+    }
+    .refreshable { await store.load() }
+    .blackPage()
+    #if !os(tvOS)
+      .navigationTitle(title)
+    #endif
+  }
+}
+
+/// An empty page with a Refresh button. Apple TV needs something on the page to focus, or the
+/// remote has nowhere to go and the sidebar can't be reopened.
+private struct EmptyState: View {
+  static let library = EmptyState(
+    title: "Nothing Here Yet", systemImage: "film.stack",
+    message: "Movies, shows and DJ sets appear here once they're imported into the library.")
+
+  init(title: String, systemImage: String, message: String) {
+    self.title = title
+    self.systemImage = systemImage
+    self.message = message
+  }
+
+  init(_ section: LibrarySection) {
+    self.init(
+      title: section.emptyTitle, systemImage: section.symbol, message: section.emptyMessage)
+  }
+
+  @Environment(Store.self) private var store
+  let title: String
+  let systemImage: String
+  let message: String
+
+  var body: some View {
+    ContentUnavailableView {
+      Label(title, systemImage: systemImage)
+    } description: {
+      Text(message)
+    } actions: {
+      Button("Refresh") { Task { await store.load() } }
+    }
   }
 }
 
@@ -247,23 +285,11 @@ struct SectionGrid: View {
   let zoom: Namespace.ID
 
   var body: some View {
-    ScrollView {
-      if store.isEmpty(section) {
-        ContentUnavailableView(
-          section.emptyTitle, systemImage: section.symbol,
-          description: Text(section.emptyMessage)
-        )
-        .containerRelativeFrame([.horizontal, .vertical])
-      } else {
-        grid
-      }
+    LibraryPage(title: section.rawValue, empty: store.isEmpty(section) ? EmptyState(section) : nil)
+    {
+      grid
     }
     .scrollClipDisabled()
-    .refreshable { await store.load() }
-    .blackPage()
-    #if !os(tvOS)
-      .navigationTitle(section.rawValue)
-    #endif
   }
 
   private var grid: some View {
@@ -356,7 +382,7 @@ struct SearchResults: View {
     .overlay {
       if movies.isEmpty && shows.isEmpty && sets.isEmpty {
         if store.isEmpty {
-          LibraryEmpty()
+          EmptyState.library
         } else {
           ContentUnavailableView.search(text: query)
         }
