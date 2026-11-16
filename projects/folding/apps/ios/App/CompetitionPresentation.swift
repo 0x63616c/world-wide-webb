@@ -131,6 +131,5 @@ extension FoldingPresentation {
       return board
     }
     if let board = competition.previous { competition = .loaded(project(board)) }
-    if blocked, case .tiedRank = sheet { sheet = nil }
   }
 }

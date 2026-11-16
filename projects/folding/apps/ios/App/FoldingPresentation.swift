@@ -206,7 +206,6 @@ enum CompetitionPresentation {
 
 enum PresentedSheet: Identifiable, Equatable {
   case settings, setup, patterns, trackingPhone
-  case tiedRank(Int)
   case export(UUID)
   case competition(CompetitionSheet)
   case milestoneUnlock([MilestoneBadge])
@@ -218,7 +217,6 @@ enum PresentedSheet: Identifiable, Equatable {
     case .trackingPhone: "tracking-phone"
     case .setup: "setup"
     case .patterns: "patterns"
-    case .tiedRank(let rank): "tie-\(rank)"
     case .export(let ticket): "export-\(ticket.uuidString)"
     }
   }

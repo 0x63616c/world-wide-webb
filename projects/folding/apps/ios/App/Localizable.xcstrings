@@ -2773,72 +2773,6 @@
         }
       }
     },
-    "leaderboard.tiedRank": {
-      "comment": "Leaderboard UI: Tied places. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tied places"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Geteilte Plätze"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Places ex æquo"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Puestos empatados"
-          }
-        },
-        "es-419": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Puestos empatados"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "同順位"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "공동 순위"
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Posições empatadas"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "并列排名"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "並列排名"
-          }
-        }
-      }
-    },
     "leaderboard.unavailable": {
       "comment": "Leaderboard UI: Leaderboard unavailable. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
@@ -2901,72 +2835,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "無法顯示排行榜"
-          }
-        }
-      }
-    },
-    "leaderboard.viewTies": {
-      "comment": "Leaderboard UI: View tied places. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "View tied places"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Geteilte Plätze anzeigen"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Voir les ex æquo"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ver puestos empatados"
-          }
-        },
-        "es-419": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ver puestos empatados"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "同順位を表示"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "공동 순위 보기"
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ver posições empatadas"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "查看并列排名"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "查看並列排名"
           }
         }
       }
@@ -8186,67 +8054,67 @@
       }
     },
     "settings.setupComplete": {
-      "comment": "Settings UI: Tested. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "comment": "Settings UI: Shortcuts automation status, Set up. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tested"
+            "value": "Set up"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Getestet"
+            "value": "Eingerichtet"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Testée"
+            "value": "Configuré"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Probada"
+            "value": "Configurado"
           }
         },
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "Probada"
+            "value": "Configurado"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "テスト済み"
+            "value": "設定済み"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "테스트 완료"
+            "value": "설정 완료"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Testada"
+            "value": "Configurado"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "已测试"
+            "value": "已设置"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "已測試"
+            "value": "已設定"
           }
         }
       }

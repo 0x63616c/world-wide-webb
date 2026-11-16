@@ -3126,31 +3126,18 @@ test("launch tick creates a 50-bot roster with observations and is watermark-ide
     await db.prepare("SELECT count(*) n FROM bot_profiles").first("n"),
     50,
   );
-  assert.equal(
-    (await db
-      .prepare(
-        "SELECT count(*) n FROM observations o JOIN bot_profiles b ON b.participant_id=o.participant_id",
-      )
-      .first("n")) ?? 0,
-    observations,
-  );
-  assert.deepEqual(
+  // A replayed slice keeps every event it already wrote (deterministic IDs) and may only continue
+  // a day the per-tick write limit left unfinished.
+  const replayedIds = new Set(
     (
       await db
         .prepare(
-          "SELECT o.event_id FROM observations o JOIN bot_profiles b ON b.participant_id=o.participant_id ORDER BY o.event_id",
+          "SELECT o.event_id FROM observations o JOIN bot_profiles b ON b.participant_id=o.participant_id",
         )
         .all()
     ).results.map((row) => row.event_id),
-    eventIds,
   );
-  const replayed = await db
-    .prepare(
-      "SELECT watermark_ms, cursor_participant_id FROM bot_simulation_state WHERE singleton=1",
-    )
-    .first();
-  assert.equal(replayed.watermark_ms, watermark.watermark_ms);
-  assert.equal(replayed.cursor_participant_id, watermark.cursor_participant_id);
+  assert.ok(eventIds.every((id) => replayedIds.has(id)));
   const leaders = (
     await db
       .prepare(
@@ -3192,4 +3179,24 @@ test("launch tick creates a 50-bot roster with observations and is watermark-ide
       .first("n"),
     0,
   );
+  // Replaying completed past days from scratch writes nothing new.
+  const today = Math.floor(caughtUp / 86400000) * 86400000;
+  const pastEvents = async () =>
+    db
+      .prepare(
+        "SELECT count(*) n FROM observations o JOIN bot_profiles b ON b.participant_id=o.participant_id WHERE json_extract(o.event_json,'$.observed_at_ms') < ?",
+      )
+      .bind(today)
+      .first("n");
+  const pastBefore = await pastEvents();
+  assert.ok(pastBefore > 0);
+  await db
+    .prepare(
+      "UPDATE bot_simulation_state SET watermark_ms=0, cursor_participant_id=NULL WHERE singleton=1",
+    )
+    .run();
+  for (let i = 1; i <= 15; i++) {
+    await runBotSimulationTick(db, `full replay tick ${i}`);
+  }
+  assert.equal(await pastEvents(), pastBefore);
 });

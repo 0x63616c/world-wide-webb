@@ -144,22 +144,6 @@ struct FoldingRootView: View {
           }
       }
     case .patterns: PatternsScreen(model: model, actions: actions)
-    case .tiedRank(let rank):
-      NavigationStack {
-        List(
-          model.competition.previous?.entries.filter {
-            $0.rank == rank
-          } ?? []
-        ) { entry in
-          LeaderboardMemberLink(entry: entry, model: model, actions: actions)
-        }
-        .navigationTitle(String(localized: "leaderboard.tiedRank", defaultValue: "Tied places"))
-        .toolbar {
-          ToolbarItem(placement: .confirmationAction) {
-            Button(String(localized: "action.done", defaultValue: "Done")) { model.sheet = nil }
-          }
-        }
-      }
     case .export(let ticket):
       ExportShareHost(ticket: ticket, model: model, actions: actions)
     case .setup: EmptyView()
@@ -682,9 +666,8 @@ private struct SettingsScreen: View {
             if model.needsSetup {
               Text(String(localized: "settings.setupRequired", defaultValue: "Not complete"))
             } else {
-              Image(systemName: "checkmark").foregroundStyle(.green)
-                .accessibilityLabel(
-                  String(localized: "settings.setupComplete", defaultValue: "Tested"))
+              SettingsStatusValue(
+                title: String(localized: "settings.setupComplete", defaultValue: "Set up"))
             }
           }
           if let last = model.lastEventAt {
@@ -714,11 +697,8 @@ private struct SettingsScreen: View {
           }
           LabeledContent(String(localized: "sync.iCloud", defaultValue: "iCloud")) {
             if model.syncStatus?.iCloud == .available {
-              Label(
-                String(localized: "sync.available", defaultValue: "Available"),
-                systemImage: "checkmark.circle.fill"
-              )
-              .foregroundStyle(.green)
+              SettingsStatusValue(
+                title: String(localized: "sync.available", defaultValue: "Available"))
             } else {
               Text(syncTitle(model.syncStatus?.iCloud ?? .checking))
             }
@@ -1295,14 +1275,6 @@ struct LeaderboardScreen: View {
                         Text(first.displayName).font(.caption).lineLimit(2)
                       }
                     }.buttonStyle(.plain).disabled(first.isBlocked)
-                    if entries.count > 1 {
-                      Button("+\((entries.count - 1).formatted())") {
-                        model.present(.tiedRank(rank))
-                      }
-                      .font(.caption).frame(minWidth: 44, minHeight: 44)
-                      .accessibilityLabel(
-                        String(localized: "leaderboard.viewTies", defaultValue: "View tied places"))
-                    }
                   }.frame(maxWidth: .infinity)
                 } else {
                   VStack(spacing: 8) {
@@ -1432,6 +1404,18 @@ private struct CompetitionAvatar: View {
       }
       .accessibilityLabel(
         medal?.title ?? String(localized: "profile.avatar", defaultValue: "Avatar"))
+  }
+}
+
+/// A completed settings status: the word first, then a green checkmark, at ordinary row height.
+private struct SettingsStatusValue: View {
+  let title: String
+  var body: some View {
+    HStack(spacing: 4) {
+      Text(title)
+      Image(systemName: "checkmark.circle.fill").accessibilityHidden(true)
+    }
+    .foregroundStyle(.green)
   }
 }
 

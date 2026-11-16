@@ -1,5 +1,710 @@
 {
-  "version": 1,
-  "description": "Optional licensed or illustrated photo-style avatars. Leave assets empty until reviewed licenses are attached. Do not add photographs of real people.",
-  "assets": []
+  "version": 2,
+  "description": "Licensed photo avatars for simulated players: CC0 or Public Domain Mark only, sourced via Openverse, reviewed by eye. No people, text, logos or brands.",
+  "assets": [
+    {
+      "id": "photo-001",
+      "file": "photo-001.jpg",
+      "subject": "golden retriever lying on grass",
+      "license": "cc0",
+      "creator": "unknown",
+      "source": "https://www.rawpixel.com/image/6038663/photo-image-public-domain-golden-dog"
+    },
+    {
+      "id": "photo-002",
+      "file": "photo-002.jpg",
+      "subject": "pumpkin field at sunset",
+      "license": "pdm",
+      "creator": "Bonnie Moreland (free images)",
+      "source": "https://www.flickr.com/photos/66741228@N05/52463957490"
+    },
+    {
+      "id": "photo-003",
+      "file": "photo-003.jpg",
+      "subject": "latte art in a white cup",
+      "license": "cc0",
+      "creator": "Drew Coffman",
+      "source": "https://stocksnap.io/photo/coffee-latte-D322D377AD"
+    },
+    {
+      "id": "photo-004",
+      "file": "photo-004.jpg",
+      "subject": "tabby cat on a porch rail",
+      "license": "cc0",
+      "creator": "AnnSophieQ",
+      "source": "https://www.flickr.com/photos/141281588@N05/54394950545"
+    },
+    {
+      "id": "photo-005",
+      "file": "photo-005.jpg",
+      "subject": "city skyline at night by the water",
+      "license": "cc0",
+      "creator": "unknown",
+      "source": "https://www.rawpixel.com/image/3302581/free-photo-image-architecture-asphalt-banister"
+    },
+    {
+      "id": "photo-006",
+      "file": "photo-006.jpg",
+      "subject": "yellow and red tulip",
+      "license": "pdm",
+      "creator": "Onasill - Bill Badzo - 149 Million Views - Thank Y",
+      "source": "https://www.flickr.com/photos/7156765@N05/51699108650"
+    },
+    {
+      "id": "photo-007",
+      "file": "photo-007.jpg",
+      "subject": "tennis ball on a clay court",
+      "license": "cc0",
+      "creator": "unknown",
+      "source": "https://www.rawpixel.com/image/5914383/photo-image-public-domain-line-red"
+    },
+    {
+      "id": "photo-008",
+      "file": "photo-008.jpg",
+      "subject": "lop-eared rabbit on grass",
+      "license": "cc0",
+      "creator": "Waranya Mooldee",
+      "source": "https://stocksnap.io/photo/rabbit-pet-K2CC58I877"
+    },
+    {
+      "id": "photo-009",
+      "file": "photo-009.jpg",
+      "subject": "northern lights over a lake",
+      "license": "pdm",
+      "creator": "Superior National Forest",
+      "source": "https://www.flickr.com/photos/53801642@N06/52102077965"
+    },
+    {
+      "id": "photo-010",
+      "file": "photo-010.jpg",
+      "subject": "homemade pizza with spinach and sausage",
+      "license": "cc0",
+      "creator": "cogdogblog",
+      "source": "https://www.flickr.com/photos/37996646802@N01/51583535053"
+    },
+    {
+      "id": "photo-011",
+      "file": "photo-011.jpg",
+      "subject": "border collie in a garden",
+      "license": "cc0",
+      "creator": "unknown",
+      "source": "https://www.rawpixel.com/image/6040717/photo-image-public-domain-border-dog"
+    },
+    {
+      "id": "photo-012",
+      "file": "photo-012.jpg",
+      "subject": "breaking ocean wave",
+      "license": "cc0",
+      "creator": "Matt Bango",
+      "source": "https://stocksnap.io/photo/ocean-waves-BXTIUT9WIH"
+    },
+    {
+      "id": "photo-013",
+      "file": "photo-013.jpg",
+      "subject": "acoustic guitar against a wall",
+      "license": "cc0",
+      "creator": "Paulina Lohunko",
+      "source": "https://stocksnap.io/photo/guitar-music-8N3NW8ZGRT"
+    },
+    {
+      "id": "photo-014",
+      "file": "photo-014.jpg",
+      "subject": "ginger cat looking up",
+      "license": "cc0",
+      "creator": "Alex Andrews",
+      "source": "https://stocksnap.io/photo/ginger-cat-G8YFG3OSZ4"
+    },
+    {
+      "id": "photo-015",
+      "file": "photo-015.jpg",
+      "subject": "sea of clouds at dusk",
+      "license": "cc0",
+      "creator": "Matt Flores",
+      "source": "https://stocksnap.io/photo/mountains-landscape-52TDQG1GNL"
+    },
+    {
+      "id": "photo-016",
+      "file": "photo-016.jpg",
+      "subject": "american robin in grass",
+      "license": "cc0",
+      "creator": "Matt Bango",
+      "source": "https://stocksnap.io/photo/robin-bird-YJ69LBQC3J"
+    },
+    {
+      "id": "photo-017",
+      "file": "photo-017.jpg",
+      "subject": "assorted glazed donuts",
+      "license": "cc0",
+      "creator": "joncutrer",
+      "source": "https://www.flickr.com/photos/47121680@N00/52537353720"
+    },
+    {
+      "id": "photo-018",
+      "file": "photo-018.jpg",
+      "subject": "red classic convertible car",
+      "license": "cc0",
+      "creator": "Ylanite Koppens",
+      "source": "https://stocksnap.io/photo/vintage-red-8QKIFL9ZUI"
+    },
+    {
+      "id": "photo-019",
+      "file": "photo-019.jpg",
+      "subject": "hamster on a white floor",
+      "license": "cc0",
+      "creator": "Ricky Kharawala",
+      "source": "https://stocksnap.io/photo/hamster-animals-1VK4P7JPG3"
+    },
+    {
+      "id": "photo-020",
+      "file": "photo-020.jpg",
+      "subject": "milky way over trees",
+      "license": "pdm",
+      "creator": "MrGuillermo",
+      "source": "https://www.flickr.com/photos/197894486@N04/54750019934"
+    },
+    {
+      "id": "photo-021",
+      "file": "photo-021.jpg",
+      "subject": "pale blue succulent",
+      "license": "cc0",
+      "creator": "Kelly Ishmael",
+      "source": "https://stocksnap.io/photo/succulent-plant-T57PJUYFWM"
+    },
+    {
+      "id": "photo-022",
+      "file": "photo-022.jpg",
+      "subject": "merle shepherd dog close-up",
+      "license": "cc0",
+      "creator": "unknown",
+      "source": "https://www.rawpixel.com/image/6025751/border-collie-dog-free-public-domain-cc0-photo"
+    },
+    {
+      "id": "photo-023",
+      "file": "photo-023.jpg",
+      "subject": "lighthouse on a rocky coast",
+      "license": "pdm",
+      "creator": "great.escape.photos",
+      "source": "https://www.flickr.com/photos/185575499@N08/51954782703"
+    },
+    {
+      "id": "photo-024",
+      "file": "photo-024.jpg",
+      "subject": "sushi platter",
+      "license": "cc0",
+      "creator": "Skitter Photo",
+      "source": "https://stocksnap.io/photo/sushi-rice-93VZ2AWQLV"
+    },
+    {
+      "id": "photo-025",
+      "file": "photo-025.jpg",
+      "subject": "worn football on grass",
+      "license": "cc0",
+      "creator": "unknown",
+      "source": "https://www.rawpixel.com/image/6037375/photo-image-public-domain-free-grass"
+    },
+    {
+      "id": "photo-026",
+      "file": "photo-026.jpg",
+      "subject": "great horned owl in a tree",
+      "license": "pdm",
+      "creator": "USFWS Pacific",
+      "source": "https://www.flickr.com/photos/52133016@N08/51904109965"
+    },
+    {
+      "id": "photo-027",
+      "file": "photo-027.jpg",
+      "subject": "siamese cat with blue eyes",
+      "license": "cc0",
+      "creator": "unknown",
+      "source": "https://www.rawpixel.com/image/5969535/siamese-cat"
+    },
+    {
+      "id": "photo-028",
+      "file": "photo-028.jpg",
+      "subject": "record player tonearm",
+      "license": "cc0",
+      "creator": "Markus Spiske",
+      "source": "https://stocksnap.io/photo/still-items-SBF5I57H4V"
+    },
+    {
+      "id": "photo-029",
+      "file": "photo-029.jpg",
+      "subject": "sunflower field at sunset",
+      "license": "pdm",
+      "creator": "Bonnie Moreland (free images)",
+      "source": "https://www.flickr.com/photos/66741228@N05/52300615479"
+    },
+    {
+      "id": "photo-030",
+      "file": "photo-030.jpg",
+      "subject": "ringneck parrot profile",
+      "license": "pdm",
+      "creator": "Bernard Spragg",
+      "source": "https://www.flickr.com/photos/88123769@N02/53786204190"
+    },
+    {
+      "id": "photo-031",
+      "file": "photo-031.jpg",
+      "subject": "croissants close-up",
+      "license": "cc0",
+      "creator": "Daria Nepriakhina",
+      "source": "https://stocksnap.io/photo/croissants-pastries-3D35639910"
+    },
+    {
+      "id": "photo-032",
+      "file": "photo-032.jpg",
+      "subject": "mossy forest waterfall",
+      "license": "cc0",
+      "creator": "Ted Moravec",
+      "source": "https://www.flickr.com/photos/189681306@N02/52362053380"
+    },
+    {
+      "id": "photo-033",
+      "file": "photo-033.jpg",
+      "subject": "dachshund looking up",
+      "license": "cc0",
+      "creator": "Studio 7042",
+      "source": "https://stocksnap.io/photo/dachshund-dog-4ZRQA6WGWF"
+    },
+    {
+      "id": "photo-034",
+      "file": "photo-034.jpg",
+      "subject": "white sneakers",
+      "license": "cc0",
+      "creator": "Kristin Hardwick",
+      "source": "https://stocksnap.io/photo/sneakers-shoes-U20YIXFQBC"
+    },
+    {
+      "id": "photo-035",
+      "file": "photo-035.jpg",
+      "subject": "golden sunset over a lake and mountain",
+      "license": "pdm",
+      "creator": "Bonnie Moreland (free images)",
+      "source": "https://www.flickr.com/photos/66741228@N05/52172044198"
+    },
+    {
+      "id": "photo-036",
+      "file": "photo-036.jpg",
+      "subject": "red fox portrait",
+      "license": "pdm",
+      "creator": "USFWSAlaska",
+      "source": "https://www.flickr.com/photos/54775250@N07/51357237877"
+    },
+    {
+      "id": "photo-037",
+      "file": "photo-037.jpg",
+      "subject": "pink and white roses",
+      "license": "cc0",
+      "creator": "Josh Felise",
+      "source": "https://stocksnap.io/photo/roses-flowers-ZNN96DDKLT"
+    },
+    {
+      "id": "photo-038",
+      "file": "photo-038.jpg",
+      "subject": "vintage movie camera",
+      "license": "cc0",
+      "creator": "Ethan Robertson",
+      "source": "https://stocksnap.io/photo/camera-vintage-EKLKJP8RVN"
+    },
+    {
+      "id": "photo-039",
+      "file": "photo-039.jpg",
+      "subject": "two kittens sleeping",
+      "license": "cc0",
+      "creator": "Ghost Presenter",
+      "source": "https://stocksnap.io/photo/cat-kitten-BY1YIGNS0Y"
+    },
+    {
+      "id": "photo-040",
+      "file": "photo-040.jpg",
+      "subject": "sand dunes below mountains",
+      "license": "pdm",
+      "creator": "Great Sand Dunes National Park and Preserve",
+      "source": "https://www.flickr.com/photos/94707653@N06/51876793544"
+    },
+    {
+      "id": "photo-041",
+      "file": "photo-041.jpg",
+      "subject": "strawberry cream cake",
+      "license": "cc0",
+      "creator": "joncutrer",
+      "source": "https://www.flickr.com/photos/47121680@N00/52592006287"
+    },
+    {
+      "id": "photo-042",
+      "file": "photo-042.jpg",
+      "subject": "budgie on a wooden ledge",
+      "license": "cc0",
+      "creator": "unknown",
+      "source": "https://www.rawpixel.com/image/6068412/free-public-domain-cc0-photo"
+    },
+    {
+      "id": "photo-043",
+      "file": "photo-043.jpg",
+      "subject": "city light trails at dusk",
+      "license": "cc0",
+      "creator": "Verne Ho",
+      "source": "https://stocksnap.io/photo/cityscape-skyline-KDOIQSH4ZW"
+    },
+    {
+      "id": "photo-044",
+      "file": "photo-044.jpg",
+      "subject": "wooden chess pieces",
+      "license": "cc0",
+      "creator": "unknown",
+      "source": "https://www.rawpixel.com/image/3293861/free-photo-image-chess-cc0-creative-commons"
+    },
+    {
+      "id": "photo-045",
+      "file": "photo-045.jpg",
+      "subject": "pug wrapped in a blanket",
+      "license": "cc0",
+      "creator": "Matthew Henry",
+      "source": "https://stocksnap.io/photo/pug-dog-JHPVE3XLUE"
+    },
+    {
+      "id": "photo-046",
+      "file": "photo-046.jpg",
+      "subject": "full moon over trees",
+      "license": "pdm",
+      "creator": "Bonnie Moreland (free images)",
+      "source": "https://www.flickr.com/photos/66741228@N05/52366657232"
+    },
+    {
+      "id": "photo-047",
+      "file": "photo-047.jpg",
+      "subject": "cup of tea from above",
+      "license": "cc0",
+      "creator": "Andrew E Weber",
+      "source": "https://stocksnap.io/photo/tea-cup-0ZS74TCOME"
+    },
+    {
+      "id": "photo-048",
+      "file": "photo-048.jpg",
+      "subject": "butterfly on a thistle",
+      "license": "pdm",
+      "creator": "USFWS Mountain Prairie",
+      "source": "https://www.flickr.com/photos/51986662@N05/52390827133"
+    },
+    {
+      "id": "photo-049",
+      "file": "photo-049.jpg",
+      "subject": "snowy mountains reflected in a lake",
+      "license": "cc0",
+      "creator": "Forest Service Alaska Region, USDA",
+      "source": "https://www.flickr.com/photos/58184989@N07/52503276323"
+    },
+    {
+      "id": "photo-050",
+      "file": "photo-050.jpg",
+      "subject": "cactus close-up",
+      "license": "cc0",
+      "creator": "cogdogblog",
+      "source": "https://www.flickr.com/photos/37996646802@N01/147328080"
+    },
+    {
+      "id": "photo-051",
+      "file": "photo-051.jpg",
+      "subject": "guinea pig on grass",
+      "license": "cc0",
+      "creator": "unknown",
+      "source": "https://www.rawpixel.com/image/5901965/photo-image-background-public-domain-nature"
+    },
+    {
+      "id": "photo-052",
+      "file": "photo-052.jpg",
+      "subject": "lightning storm at night",
+      "license": "cc0",
+      "creator": "Brandon Morgan",
+      "source": "https://stocksnap.io/photo/lightning-storm-3EPA01FY99"
+    },
+    {
+      "id": "photo-053",
+      "file": "photo-053.jpg",
+      "subject": "basketball hoop on an orange wall",
+      "license": "cc0",
+      "creator": "Steve Johnson",
+      "source": "https://stocksnap.io/photo/basketball-hoop-RJKY5WWS8V"
+    },
+    {
+      "id": "photo-054",
+      "file": "photo-054.jpg",
+      "subject": "cat lying on a blanket",
+      "license": "cc0",
+      "creator": "Ian Livesey",
+      "source": "https://stocksnap.io/photo/sleeping-cat-D828LPF94C"
+    },
+    {
+      "id": "photo-055",
+      "file": "photo-055.jpg",
+      "subject": "beach sunset with sea stacks",
+      "license": "pdm",
+      "creator": "Bonnie Moreland (free images)",
+      "source": "https://www.flickr.com/photos/66741228@N05/52350934529"
+    },
+    {
+      "id": "photo-056",
+      "file": "photo-056.jpg",
+      "subject": "noodle soup with egg",
+      "license": "cc0",
+      "creator": "Foodie Girl",
+      "source": "https://stocksnap.io/photo/ramen-noodles-KKMQPWQK6H"
+    },
+    {
+      "id": "photo-057",
+      "file": "photo-057.jpg",
+      "subject": "corgi resting its head",
+      "license": "cc0",
+      "creator": "unknown",
+      "source": "https://www.rawpixel.com/image/4022183/photo-image-wood-dog"
+    },
+    {
+      "id": "photo-058",
+      "file": "photo-058.jpg",
+      "subject": "palm trees against blue sky",
+      "license": "cc0",
+      "creator": "unknown",
+      "source": "https://www.rawpixel.com/image/3301366/free-photo-image-palm-tree-arecaceae-cc0"
+    },
+    {
+      "id": "photo-059",
+      "file": "photo-059.jpg",
+      "subject": "piano keys",
+      "license": "cc0",
+      "creator": "unknown",
+      "source": "https://www.rawpixel.com/image/5902755/piano-keys-free-public-domain-cc0-photo"
+    },
+    {
+      "id": "photo-060",
+      "file": "photo-060.jpg",
+      "subject": "white-tailed deer",
+      "license": "pdm",
+      "creator": "GlacierNPS",
+      "source": "https://www.flickr.com/photos/43288043@N04/43686171685"
+    },
+    {
+      "id": "photo-061",
+      "file": "photo-061.jpg",
+      "subject": "pile of lemons",
+      "license": "cc0",
+      "creator": "Thad Zajdowicz",
+      "source": "https://www.flickr.com/photos/40632439@N00/51427721961"
+    },
+    {
+      "id": "photo-062",
+      "file": "photo-062.jpg",
+      "subject": "old books on a shelf",
+      "license": "cc0",
+      "creator": "unknown",
+      "source": "https://www.rawpixel.com/image/5917107/free-old-books-stacked-messy-shelf-photo"
+    },
+    {
+      "id": "photo-063",
+      "file": "photo-063.jpg",
+      "subject": "goldfish",
+      "license": "cc0",
+      "creator": "JFGryphon",
+      "source": "https://www.flickr.com/photos/30484128@N03/52777908031"
+    },
+    {
+      "id": "photo-064",
+      "file": "photo-064.jpg",
+      "subject": "cherry blossom avenue",
+      "license": "cc0",
+      "creator": "Bonnie Moreland",
+      "source": "https://stocksnap.io/photo/cherry-blossom-NFZY0LCRS6"
+    },
+    {
+      "id": "photo-065",
+      "file": "photo-065.jpg",
+      "subject": "vintage microphone and radio",
+      "license": "cc0",
+      "creator": "Ryan McGuire",
+      "source": "https://stocksnap.io/photo/microphone-headphones-EA89EFBCDA"
+    },
+    {
+      "id": "photo-066",
+      "file": "photo-066.jpg",
+      "subject": "tabby cat curled up asleep",
+      "license": "cc0",
+      "creator": "AnnSophieQ",
+      "source": "https://www.flickr.com/photos/141281588@N05/54393692842"
+    },
+    {
+      "id": "photo-067",
+      "file": "photo-067.jpg",
+      "subject": "tent glowing at night in a canyon",
+      "license": "cc0",
+      "creator": "Ben Duchac",
+      "source": "https://stocksnap.io/photo/tent-camping-6PIG1JQLBY"
+    },
+    {
+      "id": "photo-068",
+      "file": "photo-068.jpg",
+      "subject": "pancakes with banana",
+      "license": "cc0",
+      "creator": "Marcin Milewski",
+      "source": "https://stocksnap.io/photo/breakfast-pancakes-RLOLDF9IQ4"
+    },
+    {
+      "id": "photo-069",
+      "file": "photo-069.jpg",
+      "subject": "grey heron in reeds",
+      "license": "cc0",
+      "creator": "ancientwma",
+      "source": "https://www.flickr.com/photos/193327022@N08/52206674619"
+    },
+    {
+      "id": "photo-070",
+      "file": "photo-070.jpg",
+      "subject": "autumn leaves on the ground",
+      "license": "pdm",
+      "creator": "Phlips photos",
+      "source": "https://www.flickr.com/photos/113045382@N02/52483307522"
+    },
+    {
+      "id": "photo-071",
+      "file": "photo-071.jpg",
+      "subject": "husky face with blue eyes",
+      "license": "cc0",
+      "creator": "unknown",
+      "source": "https://www.rawpixel.com/image/5927363/photo-image-background-face-public-domain"
+    },
+    {
+      "id": "photo-072",
+      "file": "photo-072.jpg",
+      "subject": "hot air balloon at sunset",
+      "license": "pdm",
+      "creator": "Bonnie Moreland (free images)",
+      "source": "https://www.flickr.com/photos/66741228@N05/51489651141"
+    },
+    {
+      "id": "photo-073",
+      "file": "photo-073.jpg",
+      "subject": "small plant in a white pot",
+      "license": "cc0",
+      "creator": "Studio 7042",
+      "source": "https://stocksnap.io/photo/houseplant-white-OG7ZU1AGUC"
+    },
+    {
+      "id": "photo-074",
+      "file": "photo-074.jpg",
+      "subject": "forest path",
+      "license": "pdm",
+      "creator": "wavesummit",
+      "source": "https://www.flickr.com/photos/78225097@N08/21731679465"
+    },
+    {
+      "id": "photo-075",
+      "file": "photo-075.jpg",
+      "subject": "ice cream with fruit crumble",
+      "license": "cc0",
+      "creator": "joncutrer",
+      "source": "https://www.flickr.com/photos/47121680@N00/51787829677"
+    },
+    {
+      "id": "photo-076",
+      "file": "photo-076.jpg",
+      "subject": "horse in a field",
+      "license": "pdm",
+      "creator": "nrcs-pia-enews",
+      "source": "https://www.flickr.com/photos/194676499@N06/52732384672"
+    },
+    {
+      "id": "photo-078",
+      "file": "photo-078.jpg",
+      "subject": "road bike against a brick wall",
+      "license": "cc0",
+      "creator": "unknown",
+      "source": "https://www.rawpixel.com/image/5906499/photo-image-light-public-domain-shadow"
+    },
+    {
+      "id": "photo-079",
+      "file": "photo-079.jpg",
+      "subject": "mushrooms on the forest floor",
+      "license": "cc0",
+      "creator": "unknown",
+      "source": "https://www.rawpixel.com/image/6034846/photo-image-public-domain-plant-nature"
+    },
+    {
+      "id": "photo-080",
+      "file": "photo-080.jpg",
+      "subject": "frosted tree in snow",
+      "license": "cc0",
+      "creator": "unknown",
+      "source": "https://www.rawpixel.com/image/6042940/snow-covered-tree-free-public-domain-cc0-photo"
+    },
+    {
+      "id": "photo-081",
+      "file": "photo-081.jpg",
+      "subject": "coral reef",
+      "license": "pdm",
+      "creator": "USFWS Pacific",
+      "source": "https://www.flickr.com/photos/52133016@N08/53525289494"
+    },
+    {
+      "id": "photo-082",
+      "file": "photo-082.jpg",
+      "subject": "seashell on a beach",
+      "license": "cc0",
+      "creator": "Andrew Pons",
+      "source": "https://stocksnap.io/photo/seashell-beach-GCLNI8L92T"
+    },
+    {
+      "id": "photo-083",
+      "file": "photo-083.jpg",
+      "subject": "spaniel swimming with a tennis ball",
+      "license": "cc0",
+      "creator": "JOHN K THORNE",
+      "source": "https://www.flickr.com/photos/89918055@N05/52174355781"
+    },
+    {
+      "id": "photo-084",
+      "file": "photo-084.jpg",
+      "subject": "lavender field",
+      "license": "pdm",
+      "creator": "Bonnie Moreland (free images)",
+      "source": "https://www.flickr.com/photos/66741228@N05/54746893091"
+    },
+    {
+      "id": "photo-085",
+      "file": "photo-085.jpg",
+      "subject": "canoe on a calm lake",
+      "license": "cc0",
+      "creator": "Aaron Burden",
+      "source": "https://stocksnap.io/photo/canoe-lake-9BXP9XA8VP"
+    },
+    {
+      "id": "photo-086",
+      "file": "photo-086.jpg",
+      "subject": "bonsai tree",
+      "license": "pdm",
+      "creator": "jeremyosborn",
+      "source": "https://www.flickr.com/photos/78334038@N00/52994663949"
+    },
+    {
+      "id": "photo-087",
+      "file": "photo-087.jpg",
+      "subject": "red train on railway tracks",
+      "license": "cc0",
+      "creator": "unknown",
+      "source": "https://www.rawpixel.com/image/5920451/photo-image-background-public-domain-free"
+    },
+    {
+      "id": "photo-088",
+      "file": "photo-088.jpg",
+      "subject": "horsehead nebula",
+      "license": "cc0",
+      "creator": "StephenGA",
+      "source": "https://www.flickr.com/photos/97839409@N00/52655393986"
+    },
+    {
+      "id": "photo-089",
+      "file": "photo-089.jpg",
+      "subject": "fishing reel by a lake",
+      "license": "cc0",
+      "creator": "unknown",
+      "source": "https://www.rawpixel.com/image/5921657/photo-image-public-domain-shape-summer"
+    }
+  ]
 }
