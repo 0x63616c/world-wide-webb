@@ -792,7 +792,8 @@ enum DisplayCorners {
 }
 
 /// Hosts the caution tape in its own pass-through window above every sheet, alert and
-/// notification, on the same display as the panel.
+/// notification, on the same display as the panel. The window itself is hidden while Guided
+/// Access is on, so the tape cannot outlive a missed SwiftUI update.
 private struct CautionTapeWindow: UIViewRepresentable {
     let cornerRadius: CGFloat
 
@@ -806,12 +807,13 @@ private struct CautionTapeWindow: UIViewRepresentable {
 
     final class Anchor: UIView {
         private var overlay: UIWindow?
-        private var host: UIHostingController<CautionTapeOverlay>?
+        private var host: UIHostingController<CautionTapeBorder>?
         private var cornerRadius: CGFloat = 0
+        private var settle: Task<Void, Never>?
 
         func update(cornerRadius: CGFloat) {
             self.cornerRadius = cornerRadius
-            host?.rootView = CautionTapeOverlay(cornerRadius: cornerRadius)
+            host?.rootView = CautionTapeBorder(cornerRadius: cornerRadius)
         }
 
         override func didMoveToWindow() {
@@ -819,7 +821,7 @@ private struct CautionTapeWindow: UIViewRepresentable {
             guard let scene = window?.windowScene else { return tearDown() }
             guard overlay?.windowScene !== scene else { return }
             tearDown()
-            let host = UIHostingController(rootView: CautionTapeOverlay(cornerRadius: cornerRadius))
+            let host = UIHostingController(rootView: CautionTapeBorder(cornerRadius: cornerRadius))
             host.view.backgroundColor = .clear
             let overlay = UIWindow(windowScene: scene)
             overlay.windowLevel = .alert + 1
@@ -829,37 +831,55 @@ private struct CautionTapeWindow: UIViewRepresentable {
             host.view.accessibilityElementsHidden = true
             overlay.backgroundColor = .clear
             overlay.rootViewController = host
-            overlay.isHidden = false
+            overlay.isHidden = UIAccessibility.isGuidedAccessEnabled
             self.overlay = overlay
             self.host = host
+            // Starting or ending Guided Access also deactivates and reactivates the app, so
+            // activation re-reads the status in case its own notification was missed.
+            let center = Foundation.NotificationCenter.default
+            for name in [
+                UIAccessibility.guidedAccessStatusDidChangeNotification, UIApplication.didBecomeActiveNotification,
+            ] {
+                center.addObserver(self, selector: #selector(guidedAccessMayHaveChanged), name: name, object: nil)
+            }
         }
 
         func tearDown() {
+            Foundation.NotificationCenter.default.removeObserver(self)
+            settle?.cancel()
+            settle = nil
             overlay?.isHidden = true
             overlay = nil
             host = nil
         }
-    }
-}
 
-/// Shows the tape while Guided Access is off and follows its changes live.
-private struct CautionTapeOverlay: View {
-    let cornerRadius: CGFloat
-    @State private var guidedAccessOn = UIAccessibility.isGuidedAccessEnabled
-
-    var body: some View {
-        ZStack {
-            if !guidedAccessOn {
-                CautionTapeBorder(cornerRadius: cornerRadius).transition(.opacity)
+        @objc private func guidedAccessMayHaveChanged() {
+            applyGuidedAccess()
+            // The status can still read its old value while the change is being announced.
+            settle?.cancel()
+            settle = Task { [weak self] in
+                try? await Task.sleep(for: .seconds(1))
+                guard !Task.isCancelled else { return }
+                self?.applyGuidedAccess()
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .ignoresSafeArea()
-        .onReceive(
-            Foundation.NotificationCenter.default.publisher(
-                for: UIAccessibility.guidedAccessStatusDidChangeNotification)
-        ) { _ in
-            withAnimation(.easeInOut(duration: 0.25)) { guidedAccessOn = UIAccessibility.isGuidedAccessEnabled }
+
+        private func applyGuidedAccess() {
+            guard let overlay else { return }
+            let hide = UIAccessibility.isGuidedAccessEnabled
+            guard overlay.isHidden != hide else { return }
+            if hide {
+                UIView.animate(withDuration: 0.25) {
+                    overlay.alpha = 0
+                } completion: { _ in
+                    overlay.isHidden = UIAccessibility.isGuidedAccessEnabled
+                    overlay.alpha = 1
+                }
+            } else {
+                overlay.alpha = 0
+                overlay.isHidden = false
+                UIView.animate(withDuration: 0.25) { overlay.alpha = 1 }
+            }
         }
     }
 }
