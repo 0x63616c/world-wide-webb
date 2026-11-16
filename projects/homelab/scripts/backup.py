@@ -260,7 +260,20 @@ def retain_weekly(root, destination):
         old.unlink()
 
 
-def publish_pending(config, transaction=None, wait=False):
+# A deployment's own publication rides out the same transient NAS failures the
+# minute-interval publisher absorbs; one failed attempt must not block the host.
+TRANSACTION_PUBLISH_ATTEMPTS = 5
+TRANSACTION_PUBLISH_DELAY = 60
+
+
+def publication_failure(destination, error):
+    # NasApiError carries only the DSM operation and numeric code; never echo other messages.
+    code = getattr(error, "code", None)
+    detail = "" if code is None else f" ({error})"
+    return "Pending publication failed: " + destination.name + ": " + type(error).__name__ + detail
+
+
+def publish_pending(config, transaction=None, wait=False, sleep=time.sleep):
     root = Path(config["root"])
     if root.is_symlink() or not root.is_dir() or root.stat().st_uid != os.geteuid() or root.stat().st_mode & 0o077:
         raise ValueError("Unsafe backup root")
@@ -277,7 +290,19 @@ def publish_pending(config, transaction=None, wait=False):
                 raise ValueError("Transaction has no accepted recovery point")
         for destination in destinations:
             try:
-                receipt = backup_publish.publish_set(destination, nas_client, verifier.verify)
+                attempts = TRANSACTION_PUBLISH_ATTEMPTS if transaction else 1
+                for attempt in range(1, attempts + 1):
+                    try:
+                        receipt = backup_publish.publish_set(destination, nas_client, verifier.verify)
+                        break
+                    except Exception as error:
+                        if attempt == attempts:
+                            raise
+                        print(
+                            publication_failure(destination, error) + f"; retry {attempt}/{attempts - 1}",
+                            file=sys.stderr,
+                        )
+                        sleep(TRANSACTION_PUBLISH_DELAY)
                 if receipt["scope"] in ("control-center-hourly", "deployment"):
                     nas = nas_client()
                     try:
@@ -297,7 +322,7 @@ def publish_pending(config, transaction=None, wait=False):
                     prune_verified(destination.parent, config["keepLocal"])
             except Exception as error:
                 failed += 1
-                print("Pending publication failed: " + destination.name + ": " + type(error).__name__, file=sys.stderr)
+                print(publication_failure(destination, error), file=sys.stderr)
         remaining = list(backup_publish.pending_sets(root))
         snapshot.durable.write_json(
             root / "publication-status.json",

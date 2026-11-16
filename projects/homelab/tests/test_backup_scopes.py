@@ -249,3 +249,55 @@ class HistoryTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TransactionPublicationTests(unittest.TestCase):
+    """A deployment's publication retries transient NAS failures instead of blocking the host."""
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name) / "backups"
+        self.root.mkdir(mode=0o700)
+        self.set = self.root / "deployment" / "20261114T044517Z-2dd26ee9"
+        self.set.mkdir(parents=True, mode=0o700)
+        (self.set / "LOCAL_VERIFIED.json").write_text(json.dumps({"transaction": "a" * 32}))
+        self.config = {"root": str(self.root), "host": "homelab-mac-mini", "keepLocal": 7}
+
+    def publish(self, outcomes):
+        nas_error = type("NasApiError", (RuntimeError,), {})
+
+        def attempt(*args):
+            outcome = outcomes.pop(0)
+            if outcome is not None:
+                error = nas_error("NAS SYNO.API.Auth.login error " + str(outcome))
+                error.code = outcome
+                raise error
+            return {"scope": "penpot"}
+
+        sleep = Mock()
+        with (
+            patch.object(backup.backup_publish, "pending_sets", return_value=[self.set]),
+            patch.object(backup.backup_publish, "publish_set", side_effect=attempt),
+            patch("sys.stderr") as stderr,
+        ):
+            try:
+                backup.publish_pending(self.config, "a" * 32, sleep=sleep)
+                error = None
+            except RuntimeError as raised:
+                error = raised
+        logged = "".join(call.args[0] for call in stderr.write.call_args_list)
+        return error, sleep, logged
+
+    def test_transient_nas_failure_is_retried_within_the_transaction(self):
+        error, sleep, logged = self.publish([407, 407, None])
+        self.assertIsNone(error)
+        self.assertEqual(sleep.call_count, 2)
+        self.assertIn("error 407", logged)
+
+    def test_persistent_failure_is_bounded_and_reports_the_nas_code(self):
+        attempts = backup.TRANSACTION_PUBLISH_ATTEMPTS
+        error, sleep, logged = self.publish([119] * attempts)
+        self.assertIsInstance(error, RuntimeError)
+        self.assertEqual(sleep.call_count, attempts - 1)
+        self.assertIn("NasApiError (NAS SYNO.API.Auth.login error 119)", logged)

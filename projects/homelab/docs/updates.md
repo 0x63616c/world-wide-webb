@@ -37,8 +37,16 @@ and bytes; NAS receipts record publication time. Successful receipt plus current
 profile agreement establishes host acceptance. Timings are observed work, not timeout
 budgets. Preserve interrupted transactions for inspection.
 
-For a failed **backup-phase** transaction whose local set was later published to NAS,
-use the candidate path and transaction ID from the root-owned journal:
+A deployment retries its own NAS publication up to five times, a minute apart, as the
+background publisher does; failures log the DSM operation and error code. If it still
+fails, the transaction stays in the backup phase. Nothing was activated, and the next
+update attempt releases it automatically through the same checks as `recover-backup`
+once the background publisher has verified that set on the NAS. Comin retries a release
+whose last deployment failed when it is submitted again (a Comin restart or a new
+`deploy/homelab` commit); it no longer treats a failed out path as deployed.
+
+To release a **backup-phase** transaction by hand (for example, to retry without a new
+commit), use the candidate path and transaction ID from the root-owned journal:
 
 ```sh
 homelab-activate-generation recover-backup --candidate PATH --transaction-id ID --check-only

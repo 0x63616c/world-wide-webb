@@ -56,7 +56,7 @@ in
         doCheck = true;
         checkPhase = ''
           runHook preCheck
-          go test ./internal/profile ./internal/executor -count=1
+          go test ./internal/profile ./internal/executor ./internal/deployer -count=1
           runHook postCheck
         '';
       });
