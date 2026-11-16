@@ -6,7 +6,7 @@ case "${1:-all}" in
     python3 -m compileall -q tools scripts
     ;;
   lint)
-    ruff check tools scripts ../../.github/scripts
+    ruff check tools scripts
     (cd ../.. && actionlint)
     shellcheck --severity=warning tools/check tools/*.sh
     ;;

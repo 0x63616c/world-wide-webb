@@ -18,6 +18,42 @@ last, after the deletions have shrunk the files involved.
 - Tick the box when the PR merges. Record anything skipped, and why, under the batch.
 - Each batch lists its own check. Documentation-only batches need the formatting check, not builds.
 
+## Status (2026-11-15)
+
+Merged in #1097 and its follow-up. Ticked batches below are complete. These are partly done:
+
+| Batch | Done                                                                    | Still open                                                                                |
+| ----- | ----------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| A5    | Constraint documented in `.wtp.yml`, `docs/DEVELOPMENT.md`, `AGENTS.md` | The path itself: the external hourly cleanup hard-codes `~/.worktrees/world-wide-webb`.   |
+| B7    | Actions pinned by commit, Python pin, Golink assertion, Minecraft       | Tendr and Callkeep `project.yml` versions: screenshots and local builds still read them.  |
+| D2    | Dead tile-grid UI, mocks, protocols, photos, unread fixtures removed    | `TileFace`, `AccessoryFace` and the Hybrid faces stay until D1. No server routes removed. |
+| D4    | Client code removed; watchdog crate and script deleted                  | The watchdog D1 is live and unconditional in OpenTofu; share endpoint untouched.          |
+| E1    | Host package 3 to 37 tests; `stop()` waits on completion                | Sleeper injection; transport and diagnostics tests still simulator-only.                  |
+| E6    | Shared harness; runtime tests split into five files                     | `sessions.test.mjs` (14 tests on one database) and the six SQL-scraping tests.            |
+| G5    | Three redundant checks dropped; five never-set options inlined          | `macbook-containers` stays until C2; `publicKey` and `homeAssistantURL` options kept.     |
+| H2    | Screens and controller split by file                                    | `FoldingActions` optional closures.                                                       |
+| H3    | `support.rs`, `config.rs`, `admin_mutations.rs` extracted               | Route table still inside `auth_runtime::dispatch`.                                        |
+| I2    | `current-state.md` rewritten; nine plans deleted                        | `docs/research/evidence/` is linked from two research documents.                          |
+| I3    | Migration tooling, retired runbooks and screenshots deleted             | `tools/test_cloudflare_transport.py` kept: it tests the live Cloudflare apply step.       |
+
+Not started, with the reason:
+
+- **A2, C2, D5 (migrations), G1:** need the live-state checks in the table below.
+- **C3:** a Folding release was in review; do this right after a completed release.
+- **D1, E3, G6:** change behaviour on the wall panel and physical lights; need checking on the device.
+- **C4, G2, G3, G4, E2, F1, F4, F5, H4, H5, H6, I1, I6, I7:** not yet attempted. F1 should land alone.
+
+Found while doing the work:
+
+- The tunnel watchdog LaunchAgent's source lived only in the deleted Control Center `deploy/mini`.
+  Confirm whether it is still loaded on the Mini.
+- A deployed `folding-watchdog-production` Worker and its D1 exist with no schedule. Retire them
+  through OpenTofu with a state backup, then remove the module and the `migrate-d1.py` option.
+- The committed `Still.xcodeproj` still names a deleted `StillSnapshots` target (see F5).
+- `LiveLightsProviderTests.testPollingStartsExplicitlyAndStops` failed once in CI on timing (E2).
+- Deleting a path and its `units.json` owner in one change leaves the path unmapped; add it to
+  `retired_paths` or remove the owner entry in a later change.
+
 ## Decisions needed from the owner
 
 Each has a recommended default. Batches that depend on one say so.
@@ -64,7 +100,7 @@ B (plain deletes)┼─> C (second owners) ─> D (dead app code) ─> E (tests 
 
 Small fixes. None needs a decision.
 
-- [ ] **A1 `fix(folding)`: site and README stop advertising widgets.**
+- [x] **A1 `fix(folding)`: site and README stop advertising widgets.**
   - Edit `projects/folding/site/src/pages.mjs` lines 7, 10, 13 and 29: remove "add a widget", "use
     widgets" and "Coming soon". Fix `projects/folding/README.md:4`.
   - Confirm first: `rg -i 'widget|coming soon' projects/folding/site projects/folding/README.md`.
@@ -75,44 +111,44 @@ Small fixes. None needs a decision.
     `infra/cloudflare/README.md:11`.
   - Precondition: the live-state check above. The plan must show no route changes.
   - Check: `tofu plan` for the production root shows no diff.
-- [ ] **A3 `fix(homelab)`: remove the MacBook `deployNonce`.**
+- [x] **A3 `fix(homelab)`: remove the MacBook `deployNonce`.**
   - Delete `homelab.deployNonce` from `hosts/homelab-macbook.nix:40`; the MacBook runs no services
     and the nonce only feeds the Home Assistant hash.
   - Check: Homelab Nix checks. Expect a new MacBook generation on promotion.
-- [ ] **A4 `docs(homelab)`: correct statements that contradict reality.**
+- [x] **A4 `docs(homelab)`: correct statements that contradict reality.**
   - `hosts/homelab-mac-mini.nix:3` ("NEVER activate this over the existing production mini") and
     `hosts/homelab-macbook.nix:38`; `docs/implementation-status.md:10`;
     `docs/restore-rehearsal.md:3-5`; `docs/management.md:3`; `docs/releases.md:41-46`.
   - Fix the three mangled URLs in `docs/current-state.md:150,176` and `docs/restore-rehearsal.md:102`.
   - The full rewrite of `current-state.md` is batch I2; this batch only removes false statements.
-- [ ] **A5 `fix(repo)`: `.wtp.yml` works from any checkout location.**
+- [x] **A5 `fix(repo)`: `.wtp.yml` works from any checkout location.**
   - `base_dir` assumes `~/Documents/ChatGPT/world-wide-webb`. Use a location that does not depend
     on checkout depth, or document the one supported path in `docs/DEVELOPMENT.md` and `AGENTS.md`.
   - Check: `wtp add -b codex/wtp-test origin/main` from `~/coding/world-wide-webb`, then remove it.
-- [ ] **A6 `ci(repo)`: blob filter on full-history checkouts.**
+- [x] **A6 `ci(repo)`: blob filter on full-history checkouts.**
   - 15 of 18 `fetch-depth: 0` checkouts download the whole 655 MB history. Add
     `filter: blob:none` to each, as `tendr-ci.yml` already does.
   - Confirm first: `git grep -n -A3 'fetch-depth: 0' -- .github`.
   - Check: one run of each touched workflow; compare checkout step time before and after.
-- [ ] **A7 `fix(callkeep)`: remove Sparkle leftovers.**
+- [x] **A7 `fix(callkeep)`: remove Sparkle leftovers.**
   - Delete `Resources/Sparkle-LICENSE.txt` and its project entry, the `Autoupdate` clause in
     `Scripts/sign-app.py:16`, and the Sparkle section of `docs/DEVELOPMENT.md` (lines 5, 62, 74-78).
   - Check: `scripts/dev check callkeep`.
 
 ## Phase B: deletions that need no decision
 
-- [ ] **B1 `chore(repo)`: delete orphaned root scripts.**
+- [x] **B1 `chore(repo)`: delete orphaned root scripts.**
   - `scripts/ci/benchmark.py`, `tools/measure_runner_job.py`, `scripts/capture-snapshots.sh`,
     `scripts/import-app.sh`, `.github/scripts/apple-toolchain.py`,
     `.github/scripts/apple-toolchain-test.py`.
   - Confirm first: `git grep -n 'benchmark\.py\|measure_runner_job\|capture-snapshots\|import-app\|apple-toolchain'`
     finds only the files themselves, historical plans and `runner-controller-plan.md`.
   - Remove the matching `units.json` path entries if any.
-- [ ] **B2 `test(repo)`: run or delete the two unrun root tests.**
+- [x] **B2 `test(repo)`: run or delete the two unrun root tests.**
   - `scripts/test-testflight-feedback.rb` and `scripts/test-check-no-personal-email.sh` are invoked
     by nothing. Add both to the root `test-unit` job in `ci.yml`. If either fails, fix or delete it
     in the same PR and say which.
-- [ ] **B3 `chore(folding)`: remove unwired entrypoints and the Cursor config.**
+- [x] **B3 `chore(folding)`: remove unwired entrypoints and the Cursor config.**
   - First add `cargo clippy -D warnings` to `scripts/check-backend`; it currently exists only in the
     stale script. Fix any warnings it raises.
   - Then delete `backend/scripts/check`, `.githooks/`, `scripts/check-staged.py`,
@@ -120,16 +156,16 @@ Small fixes. None needs a decision.
   - Run `scripts/test-worker-readiness.py` in the backend job beside its siblings, or delete it.
   - Remove `projects/folding/.githooks/**` and `apps/ios/Widgets/**` from `scripts/ci/units.json`
     and the `Widgets` glob from `scripts/check-localization.py:31`. Fix `README.md:37`.
-- [ ] **B4 `chore(folding)`: remove dead binary assets.**
+- [x] **B4 `chore(folding)`: remove dead binary assets.**
   - Delete `apps/ios/BuildTests/Fixtures/ProfilePortraits.png` and its two `project.yml` entries.
   - Delete `design/badges/legacy/` and `scripts/generate-milestone-badges.py`.
   - Downscale the six badge PNGs from 1254 px to 512 px (they are drawn at 128 pt).
   - Check: Folding native build; regenerate storefront screenshots once and compare.
-- [ ] **B5 `chore(tendr)`: remove orphaned screenshots and one-off tests.**
+- [x] **B5 `chore(tendr)`: remove orphaned screenshots and one-off tests.**
   - Delete the 13 unreferenced PNGs in `docs/screenshots/` and the byte-identical
     `dose-polish-edit-vial.png`; delete `StillUITests/PolishScreenshots.swift`.
   - Confirm first: for each file, `git grep -F <basename>` returns nothing.
-- [ ] **B6 `chore(homelab)`: remove dead files and duplicate fixtures.**
+- [x] **B6 `chore(homelab)`: remove dead files and duplicate fixtures.**
   - Delete `scripts/cutover.py`, `tests/test_cutover.py` and `setup-repairs/*.json`.
   - Point `cli/tests/fixtures/vm-config/comin-darwin-profile.patch` and `github_known_hosts` at the
     real files, or leave them for G3.
@@ -148,7 +184,7 @@ Small fixes. None needs a decision.
 
 ## Phase C: retire stale second owners
 
-- [ ] **C1 `refactor(control-center)`: delete `deploy/`, keeping the one live script.**
+- [x] **C1 `refactor(control-center)`: delete `deploy/`, keeping the one live script.**
   - `deploy/mini/publish-apple-release.py` is run by `apple-panel-testflight.yml:104`. Move it (and
     its test) to `projects/control-center/tools/` and update the workflow.
   - Delete the rest of `deploy/mini` and `deploy/penpot` (about 3,900 lines, 9 test files).
@@ -218,7 +254,7 @@ Small fixes. None needs a decision.
     no client: `/api/v1/settings`, `/notifications/stream`, `/diagnostics`, `/weather/daily`.
   - Check after each: `scripts/dev check control-center`; launch on the iPad simulator and open
     every launcher app once.
-- [ ] **D3 `refactor(tendr)`: remove unreachable features.**
+- [x] **D3 `refactor(tendr)`: remove unreachable features.**
   - D3a: delete `Features/Discover/` and the `assistantPreview` flag with its `PrivacyView` section.
   - D3b (depends on D5): remove the `syringeUnits` UI branches in `Editors.swift` and
     `JournalView.swift`. Keep the Codable fields so existing journals decode; add a test that
@@ -270,10 +306,10 @@ completion point instead of sleeping or yielding.
 - [ ] **E3 `fix(control-center)`: alarms are not fetched every second.**
   - Poll at the normal module interval and reconcile ringing locally from `nextFireAt`.
   - Check: an alarm set one minute ahead rings on time on the simulator.
-- [ ] **E4 `test(tendr)`: port logic regressions out of the UI suite.**
+- [x] **E4 `test(tendr)`: port logic regressions out of the UI suite.**
   - Move unit switching and the kilogram double-conversion checks into `Tests/TrackingTests.swift`.
   - Per D6: keep `ScreenshotTests`, `DuoScreenshotTests/testMainScreens` and a few smoke tests.
-- [ ] **E5 `test(golink-safari)`: required check makes no network request.**
+- [x] **E5 `test(golink-safari)`: required check makes no network request.**
   - Keep the offline legs of `Tests/WebKitSmoke.swift`. Decide the "ordinary search is allowed" case
     at policy time rather than loading Google. Replace the fixed 2 s sleep with awaiting the first
     `ensure-redirect-rules` reply.
@@ -296,7 +332,7 @@ completion point instead of sleeping or yielding.
     cases in `scripts/ci/test_select.py`, `test_standard_gate.py` and `scripts/test-changed-apps.py`.
   - Risk: this is required-check plumbing. Land it alone, and verify with one PR per product that
     the same jobs are selected as before.
-- [ ] **F2 `ci(tendr)`: Tendr CI runs Tendr checks only.** Depends on D2 (decision).
+- [x] **F2 `ci(tendr)`: Tendr CI runs Tendr checks only.** Depends on D2 (decision).
   - Remove from `tendr-ci.yml` everything `ci.yml` already runs (actionlint, `scripts/ci` tests,
     `check-release.rb`, `test-changed-apps.py`) and the tests that belong elsewhere
     (`scripts/distribution`, `ghcr-login/test_login.py`).
@@ -305,7 +341,7 @@ completion point instead of sleeping or yielding.
   - Delete unused knobs: `uses` and `paths` in `app.yml` and `scripts/affected`, `--only`,
     `snapshot_test`, the "legacy repos" fallback, `check-app-backends.py` if no app has a backend.
   - If `scripts/affected` then only answers "did Tendr change", replace it with the shared selector.
-- [ ] **F3 `refactor(tendr)`: fold `RDesign` into the app.**
+- [x] **F3 `refactor(tendr)`: fold `RDesign` into the app.**
   - Move the views the app uses into `Still/Design/`; delete the unused API (`RFont`, `rEyebrow`,
     `rRow`, `RSplash`, unused tokens); collapse the `Theme` alias layer.
   - Keep `rframe` and `FrameConfig` as a small tool-only package; update
@@ -363,7 +399,7 @@ completion point instead of sleeping or yielding.
 
 Mechanical, no behaviour change. Do each only after the deletions in its file have landed.
 
-- [ ] **H1 `refactor(folding)`:** split `TrackingStore.swift` into same-module extensions (capture,
+- [x] **H1 `refactor(folding)`:** split `TrackingStore.swift` into same-module extensions (capture,
       setup, daily limit, competition upload, mirror, entry deletion, diagnostics).
 - [ ] **H2 `refactor(folding)`:** one file per screen from `FoldingScreens.swift`; split
       `AppController.swift` by concern; make the `FoldingActions` closures that production always
@@ -395,10 +431,10 @@ Per D8, completed plans and retired runbooks are deleted; Git keeps them.
       `tools/test_cloudflare_transport.py` with their tests, `docs/runbooks/mac-mini-migration.md`,
       `pg-backup.md`, `native-rust-cutover.md` and the four unreferenced screenshots. Update stale
       tRPC and Access comments.
-- [ ] **I4 `docs(folding)`:** cut `work-tracker.md` to current scope and open items; fold in
+- [x] **I4 `docs(folding)`:** cut `work-tracker.md` to current scope and open items; fold in
       `deferred-shipping-work.md`; delete or mark `work-orders.md` and `delivery-plan.md`; rewrite
       the tree in `architecture.md`; retire the widget sections in `technical/ui.md`.
-- [ ] **I5 `docs(tendr)`:** fix the Xcode version and test destination in `README.md:35`; correct
+- [x] **I5 `docs(tendr)`:** fix the Xcode version and test destination in `README.md:35`; correct
       the hosting statements in `app-store-readiness.md`; fix script names in `RELEASE.md`; remove
       the Discover walkthrough from `TESTING.md`; rename or delete `PLAN.md`.
 - [ ] **I6 `docs(infra)`:** rewrite `infra/cloudflare/home/README.md` in the present tense; remove
