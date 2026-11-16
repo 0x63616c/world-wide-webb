@@ -84,7 +84,7 @@ public actor PanelAlarmCoordinator {
         guard at > Date() else { throw PanelAlarmError.invalidDate }
         let body = try JSONSerialization.data(withJSONObject: [
             "label": label,
-            "at": ISO8601DateFormatter().string(from: at), "timeZone": TimeZone.current.identifier,
+            "at": ISO8601DateFormatter().string(from: at), "timeZone": PanelTimeZone.current.identifier,
         ])
         // Reuse this key if the response is lost; the server deduplicates the insert.
         let key = UUID().uuidString

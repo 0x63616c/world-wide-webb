@@ -43,7 +43,7 @@ enum ClimateMode: String, CaseIterable {
         }
     }
 }
-struct ClimateState {
+struct ClimateState: Equatable {
     var mode: ClimateMode = .cool
     var target = 70
     var low = 68
@@ -79,7 +79,7 @@ enum PartySpeed: String, CaseIterable {
         }
     }
 }
-struct LampState {
+struct LampState: Equatable {
     // Same membership as Controls. Kitchen Lamp deliberately belongs to Living Room.
     static let names = [
         "Bed Left", "Bed Right", "Mirror", "Globe", "Corner Lamp", "Floor Lamp", "Desk", "Kitchen Lamp",
@@ -122,20 +122,20 @@ struct LampState {
         }
     }
 }
-struct WifiState {
+struct WifiState: Equatable {
     var ssid: String? = "WWW-Guest"
     var password: String? = "fixture-password-123"
     static let open = WifiState(ssid: "WWW-Guest", password: nil)
     static let unconfigured = WifiState(ssid: nil, password: nil)
 }
-struct HourForecast: Identifiable {
+struct HourForecast: Identifiable, Equatable {
     let id: Int
     let time: String
     let temperature: Int
     let feels: Int
     let symbol: String
 }
-struct WeatherState {
+struct WeatherState: Equatable {
     var sunrise: Date? = nil
     var sunset: Date? = nil
     var nextSunrise: Date? = nil
@@ -261,10 +261,10 @@ struct UpcomingAlarm {
     // One day around the perimeter. Longer schedules remain full until the final day.
     func ringFraction(at now: Date) -> Double { min(1, remaining(at: now) / 86_400) }
 }
-struct SoundRoom: Identifiable {
+struct SoundRoom: Identifiable, Equatable {
     /// nil preserves prototype fixtures; a supplied value (including nil metadata)
     /// is authoritative for live rooms and keeps identity separate from display names.
-    struct Metadata {
+    struct Metadata: Equatable {
         let id: String
         let title: String?
         let artist: String?

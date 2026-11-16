@@ -25,6 +25,10 @@ public struct ControlsLampState: Decodable, Sendable, Equatable {
     public let activeScene: ActiveLampScene?
     public let whiteKelvin: Int
     public let savedColors: [SavedLampColor]
+    /// The saved colour every lamp currently shows, when there is one.
+    public let colorSlot: LampColorSlot?
+    /// Reported only while party is the active scene.
+    public let speed: LampModeSpeed?
 }
 
 public struct ControlGroupState: Decodable, Sendable, Equatable {

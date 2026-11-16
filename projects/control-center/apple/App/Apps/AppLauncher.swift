@@ -34,8 +34,14 @@ struct AppLauncher: View {
                             } label: {
                                 VStack(spacing: 14) {
                                     LauncherAppIcon(app: app, side: iconSide)
-                                        .matchedTransitionSource(id: app.id, in: namespace) { source in
-                                            source.clipShape(.rect(cornerRadius: iconSide * 0.25, style: .continuous))
+                                        // Zoom from an empty icon-sized source so the app grows out of the
+                                        // icon's spot without stretching the coloured icon artwork.
+                                        .overlay {
+                                            Color.clear
+                                                .matchedTransitionSource(id: app.id, in: namespace) { source in
+                                                    source.clipShape(
+                                                        .rect(cornerRadius: iconSide * 0.25, style: .continuous))
+                                                }
                                         }
                                         .frame(width: iconFrameSide, height: iconFrameSide)
                                     Text(app.name).font(.system(size: layout.labelSize, weight: .medium))
@@ -79,11 +85,17 @@ struct AppLauncher: View {
 
 /// Native Liquid Glass above the clock.
 /// The inset and concentric corners leave a slim, uninterrupted rim of the dial.
+/// Settings lists use a near-black row fill on a black page instead of the system gray.
+enum PanelSettingsStyle {
+    static let row = Color(white: 0.07)
+}
+
 struct LauncherGlassSurface: View {
     static let edgeInset: CGFloat = 8
+    var displayCornerRadius: CGFloat = 0
     var body: some View {
-        let shape = ConcentricRectangle()
-        Color.clear.glassEffect(preview == "regular" ? .regular.tint(.white.opacity(0.06)) : .clear, in: shape)
+        let shape = DisplayCorners.shape(max(0, displayCornerRadius - Self.edgeInset))
+        Color.clear.glassEffect(preview == "regular" ? .regular : .clear, in: shape)
             .background(.black.opacity(preview == "clearDim" ? 0.22 : 0), in: shape)
             .padding(Self.edgeInset)
     }
@@ -137,6 +149,7 @@ struct PanelSettingsPage: View {
                             store: (integration as? PanelHomePresentation)?.store, close: {}, embedded: true)
                     } else {
                         Form {
+                            Group {
                             if selection == .security {
                                 PanelConnectionSettings()
                                 Section("Panel PIN") {
@@ -155,8 +168,10 @@ struct PanelSettingsPage: View {
                                 }
                             } else {
                                 PanelDisplaySettings()
+                                PanelTimeZoneSettings()
                             }
-                        }.formStyle(.grouped)
+                            }.listRowBackground(PanelSettingsStyle.row)
+                        }.formStyle(.grouped).scrollContentBackground(.hidden).background(Color.black)
                     }
                 }
                 .navigationTitle(selection?.rawValue ?? "Display")

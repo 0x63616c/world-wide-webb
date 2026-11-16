@@ -4,8 +4,8 @@ struct ClockController: View {
     let store: any HomeDataSource
     var newAlarm = Alarm()
     var save: ((Alarm) async throws -> Void)? = nil
-    var timeZone = TimeZone(identifier: "America/Los_Angeles")!
-    var locationLabel = "San Francisco"
+    var timeZone = PanelTimeZone.current
+    var locationLabel = PanelTimeZone.current.identifier
     @State private var editing: Alarm?
     @State private var deleting: Alarm?
     @Environment(\.horizontalSizeClass) private var sizeClass

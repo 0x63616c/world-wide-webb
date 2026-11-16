@@ -43,6 +43,13 @@ public struct PhotosAPI: Sendable {
         struct Reply: Decodable, Sendable { let removed: Int }
         _ = try await client.delete("booth/" + PanelAPIClient.component(groupID), as: Reply.self)
     }
+    /// Hides frames from the gallery; the server keeps their records and media.
+    public func hide(photoIDs: [String]) async throws {
+        struct Body: Encodable, Sendable { let photoIds: [String] }
+        struct Reply: Decodable, Sendable { let hidden: Int }
+        _ = try await client.post(
+            "booth/hide", input: Body(photoIds: try photoIDs.map(PanelAPIClient.component)), as: Reply.self)
+    }
     public func clearFilter(groupID: String) async throws {
         struct Reply: Decodable, Sendable { let cleared: Int }
         _ = try await client.delete("booth/" + PanelAPIClient.component(groupID) + "/filter", as: Reply.self)

@@ -8,6 +8,8 @@ struct PhotoBoothGallery: View {
     @Environment(\.calendar) private var calendar
     @Environment(\.timeZone) private var timeZone
     @Environment(\.horizontalSizeClass) private var sizeClass
+    @State private var selecting = false
+    @State private var selected: Set<LivePhoto.ID> = []
 
     private var columns: [GridItem] {
         Array(repeating: GridItem(.flexible(), spacing: 2), count: sizeClass == .compact ? 3 : 6)
@@ -27,6 +29,15 @@ struct PhotoBoothGallery: View {
                     symbol: "chevron.left", title: "Back to camera", identifier: "booth-gallery-back", action: back)
                 Text("Booth photos").font(.largeTitle.bold()).accessibilityAddTraits(.isHeader)
                 Spacer(minLength: 0)
+                if let error = provider.error { Text(error).foregroundStyle(.secondary) }
+                if !photos.isEmpty {
+                    Button(selecting ? "Done" : "Select") {
+                        selecting.toggle()
+                        selected = []
+                    }
+                    .buttonStyle(.glass).controlSize(.large)
+                    .accessibilityIdentifier("booth-gallery-select")
+                }
             }.padding(.horizontal, 20).padding(.vertical, 12)
             Divider()
             if photos.isEmpty {
@@ -40,8 +51,15 @@ struct PhotoBoothGallery: View {
                         ForEach(days, id: \.date) { day in
                             Section {
                                 ForEach(day.photos) { photo in
+                                    let isSelected = selected.contains(photo.id)
                                     Button {
-                                        open(photo.id)
+                                        if !selecting {
+                                            open(photo.id)
+                                        } else if isSelected {
+                                            selected.remove(photo.id)
+                                        } else {
+                                            selected.insert(photo.id)
+                                        }
                                     } label: {
                                         Color(uiColor: .secondarySystemBackground)
                                             .aspectRatio(1, contentMode: .fit)
@@ -49,9 +67,15 @@ struct PhotoBoothGallery: View {
                                                 AuthenticatedPhoto(
                                                     provider: provider, photo: photo,
                                                     mode: .fill, thumbnailSize: 230)
-                                            }.clipped().contentShape(.rect)
+                                            }
+                                            .overlay(alignment: .bottomTrailing) {
+                                                if selecting { selectionMark(isSelected) }
+                                            }
+                                            .opacity(isSelected ? 0.75 : 1)
+                                            .clipped().contentShape(.rect)
                                     }
                                     .buttonStyle(.plain)
+                                    .accessibilityAddTraits(isSelected ? .isSelected : [])
                                     .accessibilityLabel(photo.date.formatted(date: .abbreviated, time: .shortened))
                                     .accessibilityIdentifier("booth-photo-\(photo.id)")
                                 }
@@ -62,12 +86,46 @@ struct PhotoBoothGallery: View {
                     }.padding(.horizontal, 20).padding(.bottom, 20)
                 }
                 .accessibilityIdentifier("booth-gallery-scroll")
+                .safeAreaInset(edge: .bottom) {
+                    if selecting { hideBar }
+                }
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background { Color(uiColor: .systemBackground).ignoresSafeArea() }
         .foregroundStyle(Color(uiColor: .label))
         .accessibilityElement(children: .contain).accessibilityIdentifier("booth-photos")
+        .onChange(of: photos) { _, updated in
+            selected.formIntersection(updated.map(\.id))
+            if updated.isEmpty { selecting = false }
+        }
+    }
+
+    private func selectionMark(_ isSelected: Bool) -> some View {
+        Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+            .font(.title2)
+            .symbolRenderingMode(.palette)
+            .foregroundStyle(.white, isSelected ? Color.accentColor : .clear)
+            .shadow(radius: 2)
+            .padding(6)
+    }
+
+    private var hideBar: some View {
+        let count = selected.count
+        return Button {
+            let ids = selected
+            selecting = false
+            selected = []
+            Task { await provider.hide(ids) }
+        } label: {
+            Label(
+                count == 0 ? "Hide" : count == 1 ? "Hide 1 Photo" : "Hide \(count) Photos",
+                systemImage: "eye.slash")
+        }
+        .buttonStyle(.glassProminent).controlSize(.large)
+        .disabled(count == 0)
+        .padding(.bottom, 16)
+        .accessibilityIdentifier("booth-gallery-hide")
     }
 
     private func dateHeader(_ date: Date) -> some View {
@@ -80,7 +138,7 @@ struct PhotoBoothGallery: View {
                 ? String(localized: "Yesterday")
                 : date.formatted(date: .abbreviated, time: .omitted)
         return Text(title)
-            .font(.title3.bold())
+            .font(.largeTitle.bold())
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.top, 14).padding(.bottom, 9)
             .background(Color(uiColor: .systemBackground))
@@ -106,6 +164,14 @@ struct PhotoBoothViewer: View {
                         Text(date, format: .dateTime.month(.abbreviated).day().year()).font(.headline)
                         Text(date, format: .dateTime.hour().minute()).font(.subheadline).foregroundStyle(.secondary)
                     }.accessibilityElement(children: .combine)
+                }
+            }
+            .overlay(alignment: .topTrailing) {
+                if currentIndex != nil {
+                    PhotoBoothNavigationButton(
+                        symbol: "eye.slash", title: "Hide", identifier: "booth-viewer-hide", action: hideCurrent
+                    )
+                    .padding(.top, 14).padding(.trailing, 20)
                 }
             }
             if let currentIndex {
@@ -140,6 +206,7 @@ struct PhotoBoothViewer: View {
                     }
                 }.padding(.bottom, 14)
             }
+            if let error = provider.error { Text(error).font(.footnote).foregroundStyle(.secondary) }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background { Color.black.ignoresSafeArea() }
@@ -148,6 +215,15 @@ struct PhotoBoothViewer: View {
         .onChange(of: photos) { _, updated in
             if !updated.contains(where: { $0.id == selection }) { back() }
         }
+    }
+
+    /// Moves to a neighbouring photo first so the viewer stays open while photos remain.
+    private func hideCurrent() {
+        guard let currentIndex else { return }
+        let id = photos[currentIndex].id
+        let neighbour = photos.indices.contains(currentIndex + 1) ? currentIndex + 1 : currentIndex - 1
+        if photos.indices.contains(neighbour) { selection = photos[neighbour].id }
+        Task { await provider.hide([id]) }
     }
 }
 

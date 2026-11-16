@@ -93,7 +93,7 @@ struct SectionLabel: View {
     var body: some View { Text(text).font(.system(size: 19, weight: .semibold)).foregroundStyle(.white.opacity(0.7)) }
 }
 struct AnalogClock: View {
-    var timeZone = TimeZone(identifier: "America/Los_Angeles")!
+    var timeZone = PanelTimeZone.current
     let date: Date
     var minimal = false
     var body: some View {
@@ -133,14 +133,25 @@ struct AnalogClock: View {
             .degrees(angle))
     }
 }
-func fixtureTime(
-    _ date: Date, format: String = "h:mm", timeZone: TimeZone = TimeZone(identifier: "America/Los_Angeles")!
+@MainActor func fixtureTime(
+    _ date: Date, format: String = "h:mm", timeZone: TimeZone = PanelTimeZone.current
 ) -> String {
-    let formatter = DateFormatter()
-    formatter.locale = Locale(identifier: "en_US")
-    formatter.timeZone = timeZone
-    formatter.dateFormat = format
-    return formatter.string(from: date)
+    FixtureTimeFormatters.formatter(format: format, timeZone: timeZone).string(from: date)
+}
+
+/// Clock faces format several strings every frame; creating a DateFormatter each time is costly.
+@MainActor private enum FixtureTimeFormatters {
+    private static var cache: [String: DateFormatter] = [:]
+    static func formatter(format: String, timeZone: TimeZone) -> DateFormatter {
+        let key = "\(timeZone.identifier)|\(format)"
+        if let cached = cache[key] { return cached }
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US")
+        formatter.timeZone = timeZone
+        formatter.dateFormat = format
+        cache[key] = formatter
+        return formatter
+    }
 }
 
 // One system material, applied after layout; no surface fills or painted rims.

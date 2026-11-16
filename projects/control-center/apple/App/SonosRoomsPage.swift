@@ -136,7 +136,7 @@ struct SonosRoomsPage: View {
                 .frame(maxWidth: .infinity, minHeight: 28, alignment: .leading)
             FilledLevelControl(
                 value: value, label: "\(title) volume", symbol: symbol,
-                showsPercentage: true, preview: preview, commit: commit
+                showsPercentage: true, preview: preview, liveCommitInterval: .milliseconds(200), commit: commit
             )
             .frame(height: 58)
             .accessibilityIdentifier("sonos-volume-\(id)")

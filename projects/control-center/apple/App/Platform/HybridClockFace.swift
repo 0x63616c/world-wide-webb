@@ -8,7 +8,7 @@ struct HybridClockFace: View {
     var body: some View {
         VStack(spacing: 16) {
             TimelineView(.periodic(from: .now, by: 1)) { _ in
-                AnalogClock(timeZone: .current, date: store.now, minimal: true)
+                AnalogClock(date: store.now, minimal: true)
                     .aspectRatio(1, contentMode: .fit).padding(20)
             }
             TimelineView(.periodic(from: .now, by: 1)) { _ in

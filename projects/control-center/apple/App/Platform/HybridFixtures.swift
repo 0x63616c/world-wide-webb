@@ -49,7 +49,7 @@
         }
 
         static func gallery() throws -> Data {
-            let calendar = Calendar.current
+            let calendar = PanelTimeZone.calendar
             let today = calendar.startOfDay(for: .now)
             let yesterday = calendar.date(byAdding: .day, value: -1, to: today) ?? today
             let earlier = calendar.date(from: DateComponents(year: 2025, month: 11, day: 2)) ?? yesterday
@@ -352,6 +352,26 @@
                 } else if procedure == "controls.setLampScene", let input = input as? [String: String] {
                     var lamps = state["lamps"] as! [String: Any]
                     lamps["activeScene"] = input["scene"]
+                    lamps["colorSlot"] = nil
+                    lamps["speed"] = nil
+                    state["lamps"] = lamps
+                } else if procedure == "controls.setLampColor", let slot = fields["slot"] as? String {
+                    var lamps = state["lamps"] as! [String: Any]
+                    if let hex = fields["hex"] as? String {
+                        lamps["savedColors"] = (lamps["savedColors"] as! [[String: Any]]).map {
+                            $0["slot"] as? String == slot ? $0.merging(["hex": hex]) { $1 } : $0
+                        }
+                    }
+                    lamps["activeScene"] = NSNull()
+                    lamps["colorSlot"] = slot
+                    lamps["speed"] = nil
+                    lamps["brightness"] = 100
+                    state["lamps"] = lamps
+                } else if procedure == "controls.setLampMode", let mode = fields["mode"] as? String {
+                    var lamps = state["lamps"] as! [String: Any]
+                    lamps["activeScene"] = mode == "party" ? "party" : "white"
+                    lamps["colorSlot"] = nil
+                    lamps["speed"] = mode == "party" ? fields["speed"] : nil
                     state["lamps"] = lamps
                 } else if procedure == "climate.setMode", let mode = fields["mode"] as? String {
                     state["mode"] = mode

@@ -73,6 +73,7 @@ struct NotificationGroup: Identifiable, Equatable {
     @ObservationIgnored private var openHandler: ((NotificationItem) -> Bool)?
     private var presenters: [UUID] = []
     @ObservationIgnored private var lastSync: Date?
+    @ObservationIgnored private var persistedSync: Date?
     @ObservationIgnored private let api: (any NotificationsServing)?
     @ObservationIgnored private let now: () -> Date
     @ObservationIgnored private let cache: (any NotificationHistoryCaching)?
@@ -99,8 +100,12 @@ struct NotificationGroup: Identifiable, Equatable {
         do {
             try cache.save(
                 NotificationHistorySnapshot(items: history, revisions: revisions, cursor: cursor, lastSync: lastSync))
-            cacheError = nil
-        } catch { cacheError = "Notifications couldn’t be saved on this device. Try freeing storage space." }
+            persistedSync = lastSync
+            if cacheError != nil { cacheError = nil }
+        } catch {
+            let message = "Notifications couldn’t be saved on this device. Try freeing storage space."
+            if cacheError != message { cacheError = message }
+        }
     }
 
     var history: [NotificationItem] { items.values.sorted(by: Self.ordered) }
@@ -109,7 +114,7 @@ struct NotificationGroup: Identifiable, Equatable {
     var bannerGroups: [NotificationGroup] { group(banners.compactMap { items[$0] }.sorted(by: Self.ordered)) }
 
     func setVisibleSources(_ sources: Set<String>) {
-        visibleSources = sources
+        if visibleSources != sources { visibleSources = sources }
         for id in banners where items[id].map({ sources.contains($0.sourceModule) }) == true {
             banners.remove(id)
             remaining.removeValue(forKey: id)
@@ -151,10 +156,14 @@ struct NotificationGroup: Identifiable, Equatable {
                 }
                 first = false
                 for row in page.items { merge(row) }
-                cursor = page.cursor
+                // Polled every 5 s: an empty page with the same cursor changes nothing
+                // observable, so skip the main-actor JSON encode/atomic write too. lastSync is
+                // still written hourly so relaunch retention checks stay current.
+                let changed = reset || !page.items.isEmpty || cursor != page.cursor
+                if cursor != page.cursor { cursor = page.cursor }
                 lastSync = now()
-                persist()
-                connection = .connected
+                if changed || persistedSync.map({ now().timeIntervalSince($0) >= 3600 }) ?? true { persist() }
+                if connection != .connected { connection = .connected }
                 if !page.hasMore { break }
                 guard page.cursor != next else { throw PanelAPIError.decoding("Notification cursor did not advance.") }
                 next = page.cursor
@@ -162,7 +171,7 @@ struct NotificationGroup: Identifiable, Equatable {
         } catch is CancellationError {
             return
         } catch {
-            if !Task.isCancelled { connection = .unavailable }
+            if !Task.isCancelled, connection != .unavailable { connection = .unavailable }
         }
     }
 

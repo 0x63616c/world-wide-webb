@@ -1,7 +1,8 @@
 import SwiftUI
 
 /// Shared filled bar for Sonos and Lights. Preview locally during a drag and
-/// commit once on release, with the same range and stepping for VoiceOver.
+/// commit on release (optionally also throttled during the drag), with the same
+/// range and stepping for VoiceOver.
 struct FilledLevelControl: View {
     let value: Int
     let label: String
@@ -14,11 +15,14 @@ struct FilledLevelControl: View {
     var track: Gradient? = nil
     var fill: (Int) -> Color = { _ in .white.opacity(0.38) }
     var preview: (Int?) -> Void = { _ in }
+    /// When set, also commits during a drag at most once per interval (release still commits).
+    var liveCommitInterval: Duration? = nil
     let commit: (Int) -> Void
     @Environment(\.isEnabled) private var enabled
     @GestureState private var dragging: Int?
     @State private var releasedValue: Int?
     @State private var valueWidth: CGFloat = 44
+    @State private var lastLiveCommit: (value: Int, at: ContinuousClock.Instant)?
     private var showsValue: Bool { showsPercentage || valueLabel != nil }
     private var dragValue: Int? { enabled ? dragging : nil }
     private var displayed: Int { min(range.upperBound, max(range.lowerBound, dragValue ?? releasedValue ?? value)) }
@@ -88,7 +92,17 @@ struct FilledLevelControl: View {
                 @unknown default: break
                 }
             }
-            .onChange(of: dragValue) { _, value in preview(value) }
+            .onChange(of: dragValue) { _, value in
+                preview(value)
+                guard let value, let interval = liveCommitInterval else {
+                    lastLiveCommit = nil
+                    return
+                }
+                let now = ContinuousClock.now
+                if let last = lastLiveCommit, last.value == value || now - last.at < interval { return }
+                lastLiveCommit = (value, now)
+                commit(value)
+            }
             .onChange(of: value) { _, value in
                 if value == releasedValue { releasedValue = nil }
             }

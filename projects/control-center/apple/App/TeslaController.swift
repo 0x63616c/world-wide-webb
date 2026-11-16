@@ -72,7 +72,7 @@ struct TeslaController: View {
                     .accessibilityIdentifier("tesla-lock-status")
                 Spacer(minLength: 16)
                 Text("\(data.odo) mi")
-                    .font(.callout).monospacedDigit().foregroundStyle(.secondary)
+                    .font(.title2.weight(.semibold)).monospacedDigit().foregroundStyle(.secondary)
                     .accessibilityLabel("Odometer")
                     .accessibilityIdentifier("tesla-odometer")
             }

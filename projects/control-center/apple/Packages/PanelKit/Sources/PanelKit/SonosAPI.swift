@@ -48,11 +48,7 @@ public struct SonosRoom: Decodable, Sendable, Equatable, Identifiable {
             let position, position.isFinite, position >= 0,
             let duration, duration.isFinite, duration > 0, let positionAt
         else { return nil }
-        let fractional = ISO8601DateFormatter()
-        fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        guard let date = fractional.date(from: positionAt) ?? ISO8601DateFormatter().date(from: positionAt) else {
-            return nil
-        }
+        guard let date = SolarClock.timestamp(positionAt) else { return nil }
         return SonosPlaybackPosition(position: min(position, duration), duration: duration, updatedAt: date)
     }
 

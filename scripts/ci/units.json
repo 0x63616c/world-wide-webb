@@ -197,7 +197,6 @@
       ],
       "delivery": "container",
       "delivery_paths": [
-        "projects/control-center/server/config/vacuum.json",
         "projects/control-center/server/src/**",
         "projects/control-center/server/migrations/**",
         "projects/control-center/Cargo.*",
@@ -297,7 +296,6 @@
     },
     "homelab.config": {
       "paths": [
-        "projects/control-center/server/config/vacuum.json",
         "flake.nix",
         "flake.lock",
         "projects/homelab/**",
@@ -466,7 +464,6 @@
     "homelab.operations": {
       "units": ["homelab.config"],
       "paths": [
-        "projects/control-center/server/config/vacuum.json",
         "projects/homelab/**",
         "projects/homelab/homelab.json",
         "projects/homelab/flake.*",
@@ -495,7 +492,6 @@
     "homelab.darwin": {
       "units": ["homelab.config"],
       "paths": [
-        "projects/control-center/server/config/vacuum.json",
         "projects/homelab/**",
         "projects/homelab/homelab.json",
         "projects/homelab/flake.*",

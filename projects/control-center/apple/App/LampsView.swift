@@ -45,7 +45,7 @@ struct LampsController: View {
                             }
                         }
                         Text("All lamps").foregroundStyle(.secondary)
-                        LampEffectsView(store: store)
+                        LampColorControls(store: store, draft: .constant(LampDraft()), compact: compact)
                     }.padding(24).frame(maxWidth: 600)
                 }.presentationSizing(.fitted).preferredColorScheme(.dark)
             }
@@ -151,114 +151,5 @@ struct LampBrightness: View {
             }
             .disabled(!enabled)
         }
-    }
-}
-
-struct LampEffectsView: View {
-    let store: any HomeDataSource
-    @Environment(\.horizontalSizeClass) private var sizeClass
-    @State private var editingSlot: Int?
-    @State private var editingColors = false
-    @State private var draftHex = ""
-    var body: some View {
-        VStack(alignment: .leading, spacing: 24) {
-            Picker(
-                "Lamp scene",
-                selection: Binding(
-                    get: { store.lamps.scene == "White" ? "White" : "Mood" }, set: { store.send(.scene($0)) })
-            ) {
-                Text("White").tag("White")
-                Text("Colour").tag("Mood")
-            }.pickerStyle(.segmented)
-            if store.lamps.scene == "White" {
-                VStack(spacing: 10) {
-                    SectionLabel(text: "White temperature")
-                    FilledLevelControl(
-                        value: store.lamps.kelvin, label: "White temperature", symbol: "thermometer.medium",
-                        range: 2000...6500, step: 100, unit: "kelvin",
-                        valueLabel: { "\($0) K" },
-                        track: WhiteTemperaturePreview.gradient, fill: WhiteTemperaturePreview.color
-                    ) { store.send(.kelvin($0)) }
-                    .frame(height: 70).accessibilityIdentifier("lamp-temperature")
-                    HStack {
-                        Text("2000 K")
-                        Spacer()
-                        Text("6500 K")
-                    }.font(.system(size: 15)).opacity(0.6)
-                }.disabled(!store.lamps.anyOn).opacity(store.lamps.anyOn ? 1 : 0.4)
-            } else {
-                HStack {
-                    SectionLabel(text: "Colours")
-                    Spacer()
-                    Button(editingColors ? "Done" : "Edit") { editingColors.toggle() }.buttonStyle(.glass)
-                }
-                HStack(spacing: 28) {
-                    ForEach(0..<3) { slot in
-                        Button {
-                            if editingColors {
-                                draftHex = store.lamps.colors[slot]
-                                editingSlot = slot
-                            } else {
-                                store.send(.color(slot, nil))
-                            }
-                        } label: {
-                            VStack(spacing: 12) {
-                                Circle().fill(Color(hex: store.lamps.colors[slot])).frame(width: 72, height: 72)
-                                    .overlay(
-                                        Circle().strokeBorder(
-                                            .white.opacity(0.9), lineWidth: store.lamps.activeColor == slot ? 4 : 1)
-                                    )
-                                    .overlay {
-                                        if editingColors { Image(systemName: "pencil").font(.system(size: 24)) }
-                                    }
-
-                            }.frame(maxWidth: .infinity)
-                        }.buttonStyle(.plain).accessibilityLabel("\(editingColors ? "Edit" : "Use") Custom \(slot + 1)")
-                    }
-                }
-            }
-            DisclosureGroup(store.lamps.party == .off ? "Party" : "Party · \(store.lamps.party.rawValue)") {
-                HStack(spacing: 12) {
-                    ForEach(PartySpeed.allCases, id: \.self) { speed in
-                        Choice(title: speed.rawValue, selected: store.lamps.party == speed) {
-                            store.send(.party(speed))
-                        }
-                    }
-                }.disabled(!store.lamps.anyOn).opacity(store.lamps.anyOn ? 1 : 0.4)
-            }
-        }.frame(maxWidth: .infinity)
-            .sheet(isPresented: Binding(get: { editingSlot != nil }, set: { if !$0 { editingSlot = nil } })) {
-                VStack(alignment: .leading, spacing: 24) {
-                    Text("Edit Custom \((editingSlot ?? 0) + 1)").font(.system(size: 28, weight: .semibold))
-                    RoundedRectangle(cornerRadius: 24).fill(Color(hex: draftHex)).frame(height: 120)
-                    TextField("Hex color", text: $draftHex).textFieldStyle(.roundedBorder).font(.system(size: 24))
-                        .accessibilityLabel("Hex color")
-                    Text("Use a six-digit hex color, such as #0066ff.").foregroundStyle(.secondary)
-                    HStack {
-                        Button("Cancel") { editingSlot = nil }.keyboardShortcut(.cancelAction)
-                        Spacer()
-                        Button("Save & use") {
-                            if let slot = editingSlot { store.send(.color(slot, draftHex)) }
-                            editingSlot = nil
-                        }.disabled(draftHex.range(of: "^#[0-9A-Fa-f]{6}$", options: .regularExpression) == nil)
-                            .keyboardShortcut(.defaultAction)
-                    }.buttonStyle(.glass)
-                }.padding(24).frame(width: sizeClass == .compact ? nil : 440)
-            }
-    }
-    private func scene(_ name: String, colors: [Color]) -> some View {
-        Button {
-            store.send(.scene(name))
-        } label: {
-            HStack(spacing: 12) {
-                Circle().fill(LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing)).frame(
-                    width: 32, height: 32)
-                Text(name).font(.system(size: 21, weight: .semibold))
-                Spacer()
-                if store.lamps.scene == name && store.lamps.party == .off { Image(systemName: "checkmark") }
-            }.padding(17)
-        }.buttonStyle(.plain).foregroundStyle(.white)
-            .glassEffect(.regular.interactive(), in: .capsule)
-            .environment(\.colorScheme, .dark)
     }
 }

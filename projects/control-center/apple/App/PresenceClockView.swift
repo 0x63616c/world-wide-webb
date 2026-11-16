@@ -4,7 +4,7 @@ import SwiftUI
 import UIKit
 
 enum PanelClockFace: String, CaseIterable {
-    case green, tide
+    case green, poster, orbit, sweep, tape, quad
 }
 
 /// The clock face, after Apple HomeView's green numeral clock (Apple Newsroom,
@@ -13,9 +13,12 @@ enum PanelClockFace: String, CaseIterable {
 struct PresenceClockFace: View {
     let store: any HomeDataSource
     var face: PanelClockFace = .green
+    /// A running or paused countdown is shown bottom-left on the face.
+    var countdown: PanelCountdown? = nil
     @Environment(\.motionPhase) private var phase
     var body: some View {
-        TimelineView(.animation(minimumInterval: face == .tide ? 1 : 1.0 / 30, paused: phase != nil)) { _ in
+        // The face itself changes at most once a second; only the hands redraw every frame.
+        TimelineView(.animation(minimumInterval: 1, paused: phase != nil)) { _ in
             faceContent(at: store.now)
         }
     }
@@ -28,18 +31,38 @@ struct PresenceClockFace: View {
                 || SolarClock.appearanceIsNight(
                     at: now, sunrise: store.weather.sunrise,
                     sunset: store.weather.sunset, nextSunrise: store.weather.nextSunrise,
-                    weatherSymbol: store.status(for: .weather) == .live ? store.weather.symbol : nil))
+                    weatherSymbol: store.status(for: .weather) == .live ? store.weather.symbol : nil,
+                    calendar: PanelTimeZone.calendar))
+        let timer = countdown.flatMap { countdown in
+            countdown.phase == .running || countdown.phase == .paused
+                ? PanelTimerPage.readout(countdown.remaining(at: now)) : nil
+        }
+        let weather = store.status(for: .weather) == .live ? store.weather : nil
+        let info = ClockInfo(
+            date: fixtureTime(now, format: "EEE d MMM").uppercased(),
+            alarm: store.upcomingAlarm(at: now).map {
+                // Beyond a day the time alone would be ambiguous.
+                fixtureTime($0.due, format: $0.due.timeIntervalSince(now) < 86_400 ? "h:mm a" : "EEE h:mm a")
+                    .uppercased()
+            },
+            temperature: weather.map { "\($0.temperature)°" }, weatherSymbol: weather?.symbol,
+            highLow: weather.map { "H:\($0.high) L:\($0.low)" }, timer: timer)
+        let liveClock = phase == nil ? store : nil
         return ZStack {
             switch face {
             case .green:
                 night ? Color.black : CardinalClockDial.green
-                CardinalClockDial(
-                    date: now, night: night,
-                    weather: store.status(for: .weather) == .live ? store.weather : nil)
-            case .tide:
-                TideClockDial(date: now, night: night)
+                CardinalClockDial(date: now, night: night, weather: weather, timer: timer, liveClock: liveClock)
+            case .poster: PosterClockDial(date: now, night: night, info: info, liveClock: liveClock)
+            case .orbit: OrbitClockDial(date: now, night: night, info: info, liveClock: liveClock)
+            case .sweep: SweepClockDial(date: now, night: night, info: info, liveClock: liveClock)
+            case .tape: TapeClockDial(date: now, night: night, info: info, liveClock: liveClock)
+            case .quad: QuadClockDial(date: now, night: night, info: info)
             }
-        }.accessibilityIdentifier("clock-face")
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(fixtureTime(now, format: "h:mm a, EEEE MMMM d"))
+        .accessibilityIdentifier("clock-face")
     }
 
     private var previewNight: Bool {
@@ -69,6 +92,9 @@ struct CardinalClockDial: View {
     var numeralsOnly = false
     var night = false
     var weather: WeatherState?
+    var timer: String? = nil
+    /// When set, the hands follow this source's clock at display rate instead of `date`.
+    var liveClock: (any HomeDataSource)? = nil
     private var ink: Color { night ? Color(red: 0.94, green: 0.21, blue: 0.23) : .black }
     private var handColor: Color { night ? Color(white: 0.9) : .white }
 
@@ -100,18 +126,19 @@ struct CardinalClockDial: View {
         let rounded = base.fontDescriptor.withDesign(.rounded).map { UIFont(descriptor: $0, size: size) }
         return CTFontCreateWithName((rounded ?? base).fontName as CFString, size, nil)
     }
-    private static func verticalMetrics(_ size: CGFloat) -> (ascent: CGFloat, descent: CGFloat) {
+    @MainActor private static var metricsCache: [CGFloat: (ascent: CGFloat, descent: CGFloat)] = [:]
+    @MainActor private static func verticalMetrics(_ size: CGFloat) -> (ascent: CGFloat, descent: CGFloat) {
+        if let cached = metricsCache[size] { return cached }
         let font = roundedFont(size: size)
-        return (CTFontGetAscent(font), CTFontGetDescent(font))
+        let metrics = (CTFontGetAscent(font), CTFontGetDescent(font))
+        metricsCache[size] = metrics
+        return metrics
     }
 
     var body: some View {
         GeometryReader { proxy in
             let layout = Layout(size: proxy.size)
             let face = layout.face
-            let seconds = date.timeIntervalSince1970.truncatingRemainder(dividingBy: 60)
-            let minutes = Double(fixtureTime(date, format: "m"))! + seconds / 60
-            let hours = Double(fixtureTime(date, format: "h"))! + minutes / 60
             ZStack(alignment: .topLeading) {
                 // Glyph tops/bottoms, measured from the reference as fractions of the face height.
                 numeral("12", layout, alignment: .center, glyphTop: face.minY + face.height * 0.07)
@@ -133,7 +160,16 @@ struct CardinalClockDial: View {
                     complication(
                         fixtureTime(date, format: "EEE d MMM").uppercased(), layout: layout, alignment: .leading,
                         y: face.minY + face.height * 0.07)
-                    hands(layout, hours: hours, minutes: minutes, seconds: seconds)
+                    if let timer {
+                        ClockComplication(text: timer, faceHeight: layout.face.height, ink: ink, symbol: "timer")
+                            .frame(width: layout.face.width - 2 * layout.inset, alignment: .leading)
+                            .position(x: layout.face.midX, y: face.minY + face.height * 0.915)
+                    }
+                    if let liveClock {
+                        TimelineView(.animation) { _ in hands(layout, at: liveClock.now) }
+                    } else {
+                        hands(layout, at: date)
+                    }
                 }
             }.frame(width: proxy.size.width, height: proxy.size.height, alignment: .topLeading)
         }.accessibilityElement(children: .ignore)
@@ -159,7 +195,13 @@ struct CardinalClockDial: View {
             .offset(x: layout.face.minX + layout.inset, y: baseline - metrics.ascent)
     }
 
-    private func hands(_ layout: Layout, hours: Double, minutes: Double, seconds: Double) -> some View {
+    private func hands(_ layout: Layout, at date: Date) -> some View {
+        // Wall-clock components in the panel zone, without formatting strings every frame.
+        let zone = PanelTimeZone.current
+        let local = date.timeIntervalSince1970 + Double(zone.secondsFromGMT(for: date))
+        let seconds = local.truncatingRemainder(dividingBy: 60)
+        let minutes = (local / 60).truncatingRemainder(dividingBy: 60)
+        let hours = (local / 3600).truncatingRemainder(dividingBy: 12)
         let w = layout.handWidth
         return ZStack {
             hand(length: layout.hourLength, width: w, degrees: hours * 30)
@@ -174,7 +216,11 @@ struct CardinalClockDial: View {
             Circle().strokeBorder(handColor, lineWidth: max(1.5, w * 0.16))
                 .background(Circle().fill(night ? .black : Self.green))
                 .frame(width: w * 0.75, height: w * 0.75)
-        }.frame(width: 0, height: 0).position(layout.center)
+        }
+        // Hands follow the timeline directly; never animate a jump to the current time
+        // (for example when the clock resumes after an app closes).
+        .transaction { $0.animation = nil }
+        .frame(width: 0, height: 0).position(layout.center)
     }
 
     /// HomeView-style hand: a thin neck from the pin, then a full-width rounded blade.
@@ -201,12 +247,15 @@ struct ClockComplication: View {
     let text: String
     let faceHeight: CGFloat
     let ink: Color
+    var symbol: String? = nil
 
     var body: some View {
-        Text(text)
-            .font(.system(size: max(17, faceHeight * 0.042), weight: .semibold))
-            .monospacedDigit()
-            .foregroundStyle(ink)
-            .fixedSize()
+        HStack(spacing: faceHeight * 0.012) {
+            if let symbol { Image(systemName: symbol) }
+            Text(text).monospacedDigit()
+        }
+        .font(.system(size: max(17, faceHeight * 0.042), weight: .semibold))
+        .foregroundStyle(ink)
+        .fixedSize()
     }
 }

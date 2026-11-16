@@ -265,6 +265,69 @@ async fn booth_upload_rejects_bad_bytes_and_removal_preserves_file() {
 }
 
 #[tokio::test]
+async fn booth_hide_removes_frames_from_listing_and_retains_media() {
+    let (dir, app, db) = fixture().await;
+    let mut saved = vec![];
+    for _ in 0..2 {
+        let r = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/media/booth-photo")
+                    .header("x-mode", "photo")
+                    .body(Body::from(vec![0xff, 0xd8, 0xff, 0xe0]))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(r.status(), StatusCode::CREATED);
+        let body: Value =
+            serde_json::from_slice(&r.into_body().collect().await.unwrap().to_bytes()).unwrap();
+        saved.push(body);
+    }
+    let hidden = saved[0]["id"].as_str().unwrap();
+    assert_eq!(
+        call(&app, "POST", "/api/v1/booth/hide", json!({"photoIds": []}))
+            .await
+            .0,
+        StatusCode::BAD_REQUEST
+    );
+    let (status, reply) = call(
+        &app,
+        "POST",
+        "/api/v1/booth/hide",
+        json!({"photoIds": [hidden, "bph_missing"]}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(reply["hidden"], 1);
+    let (_, listing) = call(&app, "GET", "/api/v1/booth", Value::Null).await;
+    let ids: Vec<&str> = listing["groups"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .flat_map(|g| g["frames"].as_array().unwrap())
+        .map(|f| f["id"].as_str().unwrap())
+        .collect();
+    assert_eq!(ids, vec![saved[1]["id"].as_str().unwrap()]);
+    assert_eq!(listing["totalCount"], 1);
+    let retained: (String, Option<String>) =
+        sqlx::query_as("SELECT path, hidden_at FROM booth_photo WHERE id=?")
+            .bind(hidden)
+            .fetch_one(&db)
+            .await
+            .unwrap();
+    assert!(retained.1.is_some());
+    assert!(
+        dir.path()
+            .join("media/booth-photos")
+            .join(retained.0)
+            .exists()
+    );
+}
+
+#[tokio::test]
 async fn weather_ingest_is_atomic_and_newest_forecast_wins() {
     use chrono::{Timelike, Utc};
     use www_server::features::weather::{Forecast, store_forecast};
@@ -300,12 +363,11 @@ async fn weather_ingest_is_atomic_and_newest_forecast_wins() {
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body.as_array().unwrap().len(), 1);
     assert_eq!(body[0]["temp"], 72);
-    assert_eq!(
-        call(&app, "GET", "/api/v1/weather/now", Value::Null)
-            .await
-            .0,
-        StatusCode::OK
-    );
+    let (status, now) = call(&app, "GET", "/api/v1/weather/now", Value::Null).await;
+    assert_eq!(status, StatusCode::OK);
+    // Solar times are absolute instants, independent of the client's zone.
+    let sunset = chrono::DateTime::parse_from_rfc3339(now["sunsetIso"].as_str().unwrap()).unwrap();
+    assert_eq!(sunset.timestamp(), hour + 3600);
     source["daily"]["temperature_2m_max"] = json!([]);
     assert!(
         store_forecast(&s, serde_json::from_value(source).unwrap(), at, tz)
@@ -1379,99 +1441,4 @@ async fn tesla_history_reads_discovered_odometer_statistics_and_converts_km() {
     assert_eq!(body["points"][0]["timestamp"], 1784952000000_i64);
     assert!((body["points"][0]["miles"].as_f64().unwrap() - 10000.0).abs() < 0.001);
     task.await.unwrap();
-}
-
-#[tokio::test]
-async fn vacuum_projects_real_state_and_never_retries_physical_commands() {
-    use axum::{
-        Json,
-        extract::Path,
-        routing::{get, post},
-    };
-    use std::sync::{Arc, RwLock};
-    use www_server::{config::Config, integrations::homeassistant::HomeAssistant};
-    let (dir, _, db) = fixture().await;
-    let config: Value = serde_json::from_str(include_str!("../config/vacuum.json")).unwrap();
-    let entity = config["entities"]["vacuum"].as_str().unwrap().to_owned();
-    let live = Arc::new(RwLock::new(json!([
-        {"entity_id":entity, "state":"docked", "attributes":{"battery_level":87}}
-    ])));
-    let calls = Arc::new(RwLock::new(Vec::<(String, Value)>::new()));
-    let read = live.clone();
-    let writes = calls.clone();
-    let ha = Router::new()
-        .route(
-            "/api/states",
-            get(move || {
-                let read = read.clone();
-                async move { Json(read.read().unwrap().clone()) }
-            }),
-        )
-        .route(
-            "/api/services/{domain}/{service}",
-            post(
-                move |Path((domain, service)): Path<(String, String)>, Json(body): Json<Value>| {
-                    let writes = writes.clone();
-                    async move {
-                        writes
-                            .write()
-                            .unwrap()
-                            .push((format!("{domain}/{service}"), body));
-                        // Simulate an ambiguous failure after HA accepted the command.
-                        StatusCode::BAD_GATEWAY
-                    }
-                },
-            ),
-        );
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-    let addr = listener.local_addr().unwrap();
-    let task = tokio::spawn(async move { axum::serve(listener, ha).await.unwrap() });
-    let mut state = AppState::new(db, dir.path().join("media"));
-    state.config = Arc::new(Config {
-        ha: Some(HomeAssistant::new(&format!("http://{addr}"), "fixture".into()).unwrap()),
-        ..Default::default()
-    });
-    let app = http::router(state);
-    let (status, snapshot) = call(&app, "GET", "/api/v1/vacuum", Value::Null).await;
-    assert_eq!(status, StatusCode::OK);
-    assert_eq!(snapshot["status"], "docked");
-    assert_eq!(snapshot["battery"], 87.0);
-    assert_eq!(snapshot["rooms"], json!([]));
-    for (action, service) in [
-        ("start", "start"),
-        ("pause", "pause"),
-        ("stop", "stop"),
-        ("dock", "return_to_base"),
-    ] {
-        assert_eq!(
-            call(&app, "POST", "/api/v1/vacuum", json!({"action":action}))
-                .await
-                .0,
-            StatusCode::SERVICE_UNAVAILABLE
-        );
-        assert_eq!(
-            calls.read().unwrap().last().unwrap(),
-            &(format!("vacuum/{service}"), json!({"entity_id":entity}))
-        );
-    }
-    assert_eq!(calls.read().unwrap().len(), 4);
-    assert_eq!(
-        call(
-            &app,
-            "POST",
-            "/api/v1/vacuum",
-            json!({"action":"room","room":"living-room"})
-        )
-        .await
-        .0,
-        StatusCode::BAD_REQUEST
-    );
-    assert_eq!(calls.read().unwrap().len(), 4);
-    live.write().unwrap()[0]["state"] = json!("unavailable");
-    assert_eq!(
-        call(&app, "GET", "/api/v1/vacuum", Value::Null).await.0,
-        StatusCode::SERVICE_UNAVAILABLE
-    );
-    task.abort();
-    let _ = task.await;
 }

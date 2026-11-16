@@ -94,10 +94,10 @@ import PanelKit
             let state = try await api.soundSystem()
             guard !Task.isCancelled, startedAt == revision else { return }
             accept(state)
-            availability = .live
+            setAvailability(.live)
         } catch {
             guard !Task.isCancelled, startedAt == revision else { return }
-            availability = .unavailable(Self.failureMessage(error))
+            setAvailability(.unavailable(Self.failureMessage(error)))
         }
     }
 
@@ -237,7 +237,7 @@ import PanelKit
                     guard !Task.isCancelled, let self, self.lifecycle == generation else { return }
                     self.queue.removeFirst()
                     self.accept(state)
-                    self.availability = .live
+                    self.setAvailability(.live)
                     if self.queue.isEmpty { self.mutationTask = nil }
                 } catch {
                     guard !Task.isCancelled, let self, self.lifecycle == generation else { return }
@@ -250,7 +250,7 @@ import PanelKit
                     self.settlingVolumes.removeAll()
                     self.mutationTask = nil
                     self.render()
-                    self.availability = .unavailable(Self.failureMessage(error))
+                    self.setAvailability(.unavailable(Self.failureMessage(error)))
                     return
                 }
             }
@@ -264,15 +264,18 @@ import PanelKit
 
     private func accept(_ state: SonosSoundSystem) {
         // Avoid a Dictionary(uniqueKeysWithValues:) trap on a malformed duplicate ID.
-        roomDetails = Dictionary(state.rooms.map { ($0.uuid, $0) }, uniquingKeysWith: { first, _ in first })
+        // Polled: assign observed state only on change so identical samples don't
+        // invalidate every Sonos reader.
+        let details = Dictionary(state.rooms.map { ($0.uuid, $0) }, uniquingKeysWith: { first, _ in first })
+        if roomDetails != details { roomDetails = details }
         settlingVolumes = settlingVolumes.filter { id, target in
-            guard let room = roomDetails[id], room.availability == .available else { return false }
+            guard let room = details[id], room.availability == .available else { return false }
             return Int(room.volume.rounded()) != target.raw && now() < target.expires
         }
-        diagnostics = state.diagnostics
+        if diagnostics != state.diagnostics { diagnostics = state.diagnostics }
         var seen: Set<String> = []
         confirmedRooms = state.rooms.filter { seen.insert($0.uuid).inserted }.map { room in
-            let leader = roomDetails[room.coordinatorUuid]
+            let leader = details[room.coordinatorUuid]
             let sample = leader?.availability == .available ? leader?.playbackPosition : nil
             let transportState = leader?.availability == .available ? leader?.transportState : nil
             return SoundRoom(
@@ -291,9 +294,10 @@ import PanelKit
         render()
     }
 
+    /// Builds the projection locally and assigns only changes (see accept).
     private func render() {
-        rooms = confirmedRooms
-        pending = []
+        var rooms = confirmedRooms
+        var pending: Set<String> = []
         for index in rooms.indices {
             if let target = settlingVolumes[rooms[index].id] { rooms[index].rawVolume = target.raw }
         }
@@ -313,6 +317,12 @@ import PanelKit
             default: break  // Topology/transport are only shown when reported by the backend.
             }
         }
+        if self.rooms != rooms { self.rooms = rooms }
+        if self.pending != pending { self.pending = pending }
+    }
+
+    private func setAvailability(_ value: LiveAvailability) {
+        if availability != value { availability = value }
     }
 
     private static func failureMessage(_ error: any Error) -> String {

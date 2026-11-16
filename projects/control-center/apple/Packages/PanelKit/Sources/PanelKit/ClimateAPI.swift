@@ -12,7 +12,7 @@ public enum ClimateAction: String, Decodable, Sendable {
 }
 
 /// Discriminated exactly like features/ac/api.ts. Off retains nullable setpoints.
-public struct ClimateAPIState: Decodable, Sendable {
+public struct ClimateAPIState: Decodable, Sendable, Equatable {
     public enum Setpoints: Sendable, Equatable {
         case off(target: Double?, low: Double?, high: Double?)
         case single(Int)

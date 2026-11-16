@@ -171,6 +171,7 @@ struct PanelDiagnosticsView: View {
     private var contents: some View {
         ScrollViewReader { scroll in
             List {
+                Group {
                 Section("Panel") {
                     LabeledContent("Data source", value: source)
                     LabeledContent("Backend URL", value: store?.diagnosticsBackendURL ?? "unavailable")
@@ -313,7 +314,8 @@ struct PanelDiagnosticsView: View {
                         }.font(.caption).textSelection(.enabled)
                     }
                 }
-            }
+            }.listRowBackground(PanelSettingsStyle.row)
+            }.scrollContentBackground(.hidden).background(Color.black)
             .task {
                 #if DEBUG
                     if ProcessInfo.processInfo.arguments.contains("-previewDiagnosticsActions") {

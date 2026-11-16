@@ -16,14 +16,19 @@ public struct CalendarEvent: Codable, Sendable, Equatable {
     public let start: Date
     public let end: Date
     public let isAllDay: Bool
+    public var calendarID: String?
 
-    public init(id: String, title: String?, location: String?, start: Date, end: Date, isAllDay: Bool) {
+    public init(
+        id: String, title: String?, location: String?, start: Date, end: Date, isAllDay: Bool,
+        calendarID: String? = nil
+    ) {
         self.id = id
         self.title = title
         self.location = location
         self.start = start
         self.end = end
         self.isAllDay = isAllDay
+        self.calendarID = calendarID
     }
 }
 
@@ -151,7 +156,7 @@ public actor EventKitCalendarStore: CalendarEventStore {
             return CalendarEvent(
                 id: "\(event.calendarItemIdentifier)@\(start.timeIntervalSinceReferenceDate)",
                 title: event.title, location: event.location, start: start, end: end,
-                isAllDay: event.isAllDay)
+                isAllDay: event.isAllDay, calendarID: event.calendar?.calendarIdentifier)
         }
     }
 }

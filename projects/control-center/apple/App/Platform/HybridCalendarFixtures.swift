@@ -34,9 +34,11 @@
             ]
         }
         func events(in interval: DateInterval, calendarIDs: Set<String>) throws -> [CalendarEvent] {
-            try events(in: interval).filter { event in
+            try events(in: interval).compactMap { event in
                 let work = event.id.hasPrefix("fixture_workshop") || event.id.hasPrefix("fixture_series")
-                return calendarIDs.contains(work ? "fixture_work" : "fixture_personal")
+                var event = event
+                event.calendarID = work ? "fixture_work" : "fixture_personal"
+                return calendarIDs.contains(event.calendarID ?? "") ? event : nil
             }
         }
         func events(in interval: DateInterval) throws -> [CalendarEvent] {
