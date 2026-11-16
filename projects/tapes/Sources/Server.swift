@@ -34,7 +34,7 @@ struct Server: Sendable {
     case .ok(let ok):
       return LibrarySnapshot(try ok.body.json)
     case .serviceUnavailable:
-      throw ServerError("The Tapes server can't read the library on the NAS.")
+      throw LibraryUnreadable()
     case .undocumented(let status, _):
       throw ServerError("The Tapes server answered with error \(status).")
     }
@@ -50,6 +50,9 @@ struct Server: Sendable {
     }
   }
 }
+
+/// The server is up but has not read the library on the NAS since it started.
+struct LibraryUnreadable: Error {}
 
 struct ServerError: LocalizedError {
   let message: String

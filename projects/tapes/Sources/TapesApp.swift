@@ -50,7 +50,17 @@ struct RootView: View {
       case .loading:
         Splash().transition(.opacity)
       case .failed(let message):
-        Unreachable(message: message)
+        LoadFailure(
+          title: "Can't Reach Tapes", systemImage: "wifi.exclamationmark",
+          message:
+            "Tapes plays from the Mac mini at home, so this device needs to be on the home network.\n\(message)"
+        )
+      case .unreadable:
+        LoadFailure(
+          title: "Can't Read the Library", systemImage: "externaldrive.badge.exclamationmark",
+          message:
+            "The Mac mini is running, but it can't read the library on the NAS. Check that the NAS is on, then try again."
+        )
       case .ready:
         RootTabs()
       }
@@ -99,18 +109,19 @@ struct RootView: View {
   }
 }
 
-/// Shown when the first load fails: the server is off, or this device is away from home.
-private struct Unreachable: View {
+/// Shown when the first load fails: the server is off, this device is away from home, or the
+/// server can't read the NAS.
+private struct LoadFailure: View {
   @Environment(Store.self) private var store
+  let title: String
+  let systemImage: String
   let message: String
 
   var body: some View {
     ContentUnavailableView {
-      Label("Can't Reach Tapes", systemImage: "wifi.exclamationmark")
+      Label(title, systemImage: systemImage)
     } description: {
-      Text(
-        "Tapes plays from the Mac mini at home, so this device needs to be on the home network.\n\(message)"
-      )
+      Text(message)
     } actions: {
       Button("Try Again") { Task { await store.retry() } }
         .buttonStyle(.glassProminent)

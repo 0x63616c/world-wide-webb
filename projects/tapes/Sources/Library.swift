@@ -68,13 +68,18 @@ enum LibrarySection: String, CaseIterable, Identifiable, Hashable {
   case sets = "DJ Sets"
   var id: String { rawValue }
 
-  @ViewBuilder var label: some View {
+  var symbol: String {
     switch self {
-    case .movies: Label(rawValue, systemImage: "film")
-    case .shows: Label(rawValue, systemImage: "tv")
-    case .sets: Label(rawValue, systemImage: "opticaldisc")
+    case .movies: "film"
+    case .shows: "tv"
+    case .sets: "opticaldisc"
     }
   }
+
+  var label: some View { Label(rawValue, systemImage: symbol) }
+
+  var emptyTitle: String { "No \(rawValue) Yet" }
+  var emptyMessage: String { "\(rawValue) appear here once they're imported into the library." }
 }
 
 struct Playable: Identifiable, Hashable {
@@ -146,6 +151,9 @@ final class Store {
   enum Phase: Equatable {
     case loading
     case ready
+    /// The server answered but has never managed to read the library on the NAS.
+    case unreadable
+    /// The server could not be reached.
     case failed(String)
   }
 
@@ -170,6 +178,8 @@ final class Store {
     do {
       apply(try await server.library())
       phase = .ready
+    } catch is LibraryUnreadable {
+      if phase != .ready { phase = .unreadable }
     } catch {
       if phase != .ready { phase = .failed(error.localizedDescription) }
     }
@@ -194,6 +204,14 @@ final class Store {
   }
 
   var isEmpty: Bool { movies.isEmpty && shows.isEmpty && sets.isEmpty }
+
+  func isEmpty(_ section: LibrarySection) -> Bool {
+    switch section {
+    case .movies: movies.isEmpty
+    case .shows: shows.isEmpty
+    case .sets: sets.isEmpty
+    }
+  }
 
   func position(_ id: String) -> Double { progress[id]?.seconds ?? 0 }
 
@@ -280,6 +298,25 @@ final class Store {
       items.append((progress[set.id]?.updatedAt ?? "", .set(set)))
     }
     return items.sorted { $0.0 > $1.0 }.map(\.1)
+  }
+
+  /// Something for the top of Home when nothing is in progress: an unwatched movie, set or
+  /// unstarted show (anything, once everything is watched). The pick changes once a day, so a
+  /// refresh doesn't shuffle it.
+  func featured(on date: Date = .now) -> ContinueItem? {
+    func candidates(unwatchedOnly: Bool) -> [ContinueItem] {
+      let pickedMovies = movies.filter { !unwatchedOnly || !isWatched($0.id) }
+        .map(ContinueItem.movie)
+      let pickedShows = shows.filter { !unwatchedOnly || !hasStarted($0) }
+        .compactMap { show in show.episodes.first.map { ContinueItem.episode(show, $0) } }
+      let pickedSets = sets.filter { !unwatchedOnly || !isWatched($0.id) }.map(ContinueItem.set)
+      return (pickedMovies + pickedShows + pickedSets).sorted { $0.id < $1.id }
+    }
+    var picks = candidates(unwatchedOnly: true)
+    if picks.isEmpty { picks = candidates(unwatchedOnly: false) }
+    guard !picks.isEmpty else { return nil }
+    let day = Int(date.timeIntervalSince1970 / 86_400)
+    return picks[day % picks.count]
   }
 
   func play(_ movie: Movie) {
