@@ -19,6 +19,7 @@
         "cloudflared",
         "beszel",
         "golink",
+        "tapes",
         "home-assistant"
       ]
     },
