@@ -7,7 +7,10 @@ boot. DNS was correct by inspection time; restarting only cloudflared restored
 all four connections. Page requests did not trigger recovery. Docker's
 `unless-stopped` policy cannot repair a disconnected process that stays running.
 
-`deploy/mini/tunnel_watchdog.py` now checks the connector's local
+> Historical: the `deploy/mini` watchdog, plist and installer described here were removed from this
+> product when Homelab took over cloudflared. Their source remains in Git history; no workflow installs them.
+
+`deploy/mini/tunnel_watchdog.py` checked the connector's local
 `http://127.0.0.1:20241/ready` endpoint. A 200 means the connector has a ready
 Cloudflare connection. An unauthenticated 302 from a public app hostname only
 proves that Access is answering; it does not prove that the tunnel works.
@@ -73,7 +76,7 @@ the tunnel container itself is respected even while recovery remains loaded.
 
 ## Validation
 
-`python3 -m unittest discover -s deploy/mini -p 'test_*.py'` runs the existing
+`python3 -m unittest discover -s deploy/mini -p 'test_*.py'` ran the
 backup safety checks plus recovery scenarios. Recovery tests use temporary state
 and simulated Docker/HTTP responses, including the actual nanosecond timestamp
 format from Docker on macOS. They do not interrupt production. The deployment

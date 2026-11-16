@@ -44,7 +44,6 @@ import UIKit
     }
     var tesla: any TeslaProvider { teslaProvider }
     var calendar: any CalendarProvider { calendarProvider }
-    var photos: any PhotosProvider { photosProvider }
 
     init(
         configuration: PanelKit.PanelConfiguration?, transport: (any PanelTransport)? = nil,

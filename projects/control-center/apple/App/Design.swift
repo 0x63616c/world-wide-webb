@@ -29,36 +29,6 @@ extension ClimateMode {
         }
     }
 }
-// Luca Bravo / Unsplash. Full attribution and licence in docs/v2/sources.md.
-// WWW-54: with no explicit asset the user's wallpaper setting (WallpaperChoice) applies.
-struct Wallpaper: View {
-    var asset: String? = nil
-    var alignment: Alignment = .center
-    var saturation = 1.0
-    var dimming = 0.28
-    var blurRadius = 2.0
-    @AppStorage(WallpaperChoice.key) private var choice: WallpaperChoice = .black
-    var body: some View {
-        GeometryReader { proxy in
-            Group {
-                if let asset {
-                    Image(asset).resizable().scaledToFill()
-                } else {
-                    choice.fill.id(choice).transition(.opacity)
-                }
-            }
-            .animation(.easeInOut(duration: 0.3), value: choice)
-            .saturation(saturation).blur(radius: blurRadius)
-            .frame(width: proxy.size.width, height: proxy.size.height, alignment: alignment).clipped()
-            .overlay(.black.opacity(dimming))
-        }.ignoresSafeArea()
-    }
-}
-struct LampsBackdrop: View {
-    var body: some View {
-        Color(white: 0.055).ignoresSafeArea()
-    }
-}
 struct CircleButton: View {
     let symbol: String
     let label: String

@@ -16,7 +16,6 @@ import XCTest
         let paths = await transport.paths
         XCTAssertFalse(paths.contains("wakePhotos.list"))
         XCTAssertFalse(paths.contains("sessions.list"))
-        XCTAssertEqual(MockPhotosProvider().photos.count, 3)
     }
 
     func testPrivateGateBlocksImagesAndWritesThenRelocks() async throws {

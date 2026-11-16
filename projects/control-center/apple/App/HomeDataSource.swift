@@ -10,7 +10,6 @@ import UIKit
     var weather: WeatherState { get }
     var tesla: any TeslaProvider { get }
     var calendar: any CalendarProvider { get }
-    var photos: any PhotosProvider { get }
     var alarms: [Alarm] { get }
     var occurrence: AlarmOccurrence? { get }
     var rooms: [SoundRoom] { get }
@@ -51,7 +50,6 @@ extension HomeDataSource {
     let weather = WeatherState()
     let tesla: any TeslaProvider = MockTeslaProvider()
     let calendar: any CalendarProvider = MockCalendarProvider()
-    let photos: any PhotosProvider = MockPhotosProvider()
     private(set) var alarms = [
         Alarm(id: 1, label: "Morning", time: "07:00", repeatDays: [1, 2, 3, 4, 5]),
         Alarm(id: 2, label: "Weekend", time: "09:00", repeatDays: [0, 6], enabled: false),

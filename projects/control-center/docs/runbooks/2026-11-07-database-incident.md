@@ -61,8 +61,8 @@ macOS VirtioFS bind mounts and Linux-local volumes:
 - Local verification is recorded before NAS upload. NAS failure retains local snapshots
   and healthy services; `backup.py --local-only` never contacts the NAS.
 - Database logs record safe numeric error codes for future diagnosis.
-- `deploy/mini/storage_probe.py` is an opt-in synthetic real-Docker reproducer and volume
-  regression workload; it never mounts production files or credentials.
+- `deploy/mini/storage_probe.py` (since removed; see Git history) was an opt-in synthetic real-Docker reproducer and volume
+  regression workload; it never mounted production files or credentials.
 
 ## Regression evidence before publication
 

@@ -2,22 +2,11 @@ import Foundation
 import Observation
 import PanelKit
 
-@MainActor protocol SonosProvider: AnyObject, Observable {
-    var rooms: [SoundRoom] { get }
-    var availability: LiveAvailability { get }
-    var pending: Set<String> { get }
-    var globalLock: Bool { get }
-    var groupLock: Bool { get }
-    var supportsPlaybackPosition: Bool { get }
-    func refresh() async
-    @discardableResult func send(_ command: HomeCommand) -> Bool
-}
-
 /// Explicit opt-in only. Construct with runtime PanelConfiguration; no networking in init.
 ///
 /// Playback is projected from the current coordinator. Missing or partial samples
 /// remain unavailable; writes are serialized and confirmed by a fresh query.
-@MainActor @Observable final class LiveSonosProvider: SonosProvider {
+@MainActor @Observable final class LiveSonosProvider {
     private(set) var rooms: [SoundRoom] = []
     private(set) var roomDetails: [String: SonosRoom] = [:]
     private(set) var diagnostics: SonosSoundSystem.Diagnostics?
@@ -422,29 +411,3 @@ import PanelKit
         }
     }
 }
-
-#if !SWIFT_PACKAGE
-    /// Preview/default adapter delegates to the existing fixture implementation. It
-    /// never constructs PanelKit or falls back to live networking.
-    @MainActor @Observable final class MockSonosProvider: SonosProvider {
-        private let source: MockHomeDataSource
-        var rooms: [SoundRoom] { source.rooms }
-        var availability: LiveAvailability { .live }
-        var pending: Set<String> { source.pending }
-        var globalLock: Bool { source.globalLock }
-        var groupLock: Bool { source.groupLock }
-        let supportsPlaybackPosition = true
-
-        init(source: MockHomeDataSource = MockHomeDataSource()) { self.source = source }
-        func refresh() async {}
-        @discardableResult func send(_ command: HomeCommand) -> Bool {
-            switch command {
-            case .transport, .seek, .rawVolume, .roomVolumes, .volume, .mute, .globalLock, .groupLock,
-                .calibrate, .clearCalibration, .joinAll, .join, .leave:
-                source.send(command)
-                return true
-            default: return false
-            }
-        }
-    }
-#endif

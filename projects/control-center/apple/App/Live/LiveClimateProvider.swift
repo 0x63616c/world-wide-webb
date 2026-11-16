@@ -3,16 +3,8 @@ import OSLog
 import Observation
 import PanelKit
 
-@MainActor protocol ClimateProvider: AnyObject, Observable {
-    var climate: ClimateState? { get }
-    var availability: LiveAvailability { get }
-    var pending: Set<String> { get }
-    func refresh() async
-    @discardableResult func send(_ command: HomeCommand) -> Bool
-}
-
 /// Opt-in only. No networking at initialization and no invented initial readings.
-@MainActor @Observable final class LiveClimateProvider: ClimateProvider {
+@MainActor @Observable final class LiveClimateProvider {
     private(set) var climate: ClimateState?
     private(set) var serverState: ClimateAPIState?
     private(set) var reportedAction: ClimateAction?
@@ -206,23 +198,3 @@ import PanelKit
         if availability != unavailable { availability = unavailable }
     }
 }
-
-/// Preview fallback remains backed by the existing fixture source, without networking.
-#if !SWIFT_PACKAGE
-    @MainActor @Observable final class MockClimateProvider: ClimateProvider {
-        private let source: MockHomeDataSource
-        var climate: ClimateState? { source.climate }
-        var availability: LiveAvailability { .live }
-        var pending: Set<String> { source.pending.intersection(["climate"]) }
-        init(source: MockHomeDataSource = MockHomeDataSource()) { self.source = source }
-        func refresh() async {}
-        @discardableResult func send(_ command: HomeCommand) -> Bool {
-            switch command {
-            case .mode, .target, .low, .high, .shiftRange:
-                source.send(command)
-                return true
-            default: return false
-            }
-        }
-    }
-#endif

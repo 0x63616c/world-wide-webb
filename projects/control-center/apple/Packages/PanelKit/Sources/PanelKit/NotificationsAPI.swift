@@ -103,7 +103,6 @@ public protocol NotificationsServing: Sendable {
     func dismissAll() async throws -> Int
 }
 
-/// WWW-58's equivalent tRPC procedures reuse the LightsAPI transport and Access policy.
 /// Poll unfiltered pages every five seconds; a filtered feed loses read/dismiss changes.
 public struct NotificationsAPI: NotificationsServing {
     private let client: PanelAPIClient

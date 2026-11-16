@@ -15,11 +15,6 @@ def classify(paths, force=False):
     # They do not change the Apple application or its container inputs.
     selection_policy = {"tools/ci_changes.py", "tools/test_ci.py"}
     cloudflare_operations = {".github/workflows/cloudflare.yml", "tools/infra_apply.py"}
-    penpot_operations = {
-        "deploy/mini/penpot_backup.py",
-        "deploy/mini/penpot_provision.py",
-        "deploy/mini/test_penpot_backup.py",
-    }
     all_changed = force or any(
         (p.startswith(".github/") and p not in cloudflare_operations)
         or (p.startswith("tools/") and p not in selection_policy | cloudflare_operations)
@@ -45,12 +40,7 @@ def classify(paths, force=False):
         "apple": all_changed
         or rust
         or any(p.startswith(("apple/", "contracts/")) or p == ".swift-format" for p in paths),
-        "image": all_changed
-        or rust
-        or any(
-            p in {"Dockerfile", ".dockerignore"} or (p.startswith("deploy/mini/") and p not in penpot_operations)
-            for p in paths
-        ),
+        "image": all_changed or rust or any(p in {"Dockerfile", ".dockerignore"} for p in paths),
         "publish_apple": force
         or any(
             p.startswith(
@@ -107,7 +97,6 @@ def classify_repository(paths, force=False):
     image_inputs = (
         "server/src/",
         "server/migrations/",
-        "deploy/mini/",
     )
     image_files = {
         "Cargo.toml",
@@ -119,10 +108,7 @@ def classify_repository(paths, force=False):
         "server/build.rs",
     }
     result["publish_image"] = any(
-        not policy.documentation(path)
-        and (path.startswith(image_inputs) or path in image_files)
-        and not path.startswith(("deploy/mini/test_", "deploy/mini/penpot_"))
-        for path in local
+        not policy.documentation(path) and (path.startswith(image_inputs) or path in image_files) for path in local
     )
     result["apply_infra"] = any(
         (

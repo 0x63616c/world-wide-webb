@@ -16,14 +16,14 @@ Calendar, camera capture, notifications and system alarms use Apple frameworks w
 - `server/src/features`: retained domain behavior and explicit SQL. `integrations`: Home Assistant transport.
 - `server/src/runtime.rs`: supervised scheduled work. `server/migrations`: ordered SQLite schema.
 - `server/tests`: real HTTP, persistence, integration and concurrent-behavior tests.
-- `deploy/mini`: Rust Compose, immutable release/recovery, consistent snapshots and NAS verification.
+- Deployment, backups and host recovery: owned by `projects/homelab` (see its `docs/releases.md`).
 - `infra/cloudflare`: pinned OpenTofu HCL, encrypted state/plan configuration and mocked route tests.
-- `tools`: checks, migration/reconciliation, isolated Swift-to-Rust proof, runtime provisioning and CI policy.
+- `tools`: checks, isolated Swift-to-Rust proof, processed-build publication and CI policy.
 - `.github/workflows`: selected required CI, tested image deployment, Cloudflare apply and signed TestFlight delivery.
 
 The web app, Expo shell, Bun/TypeScript backend, JavaScript workspaces and Pulumi implementation are removed.
 Their history remains in Git. Historical recovery material is marked as such; archived screenshots/design reviews are removed; current instructions are
-`AGENTS.md`, this map, the migration progress tracker and `docs/runbooks/native-rust-cutover.md`.
+`AGENTS.md`, this map and the migration progress tracker.
 
 ## Runtime and boundaries
 

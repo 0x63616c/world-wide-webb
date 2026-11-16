@@ -251,4 +251,3 @@ struct AlarmEditor: View {
         }
     }
 }
-#Preview("Clock & alarms", traits: .fixedLayout(width: 1366, height: 1024)) { ControllerPreview(tile: .clock) }

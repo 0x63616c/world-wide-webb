@@ -11,7 +11,7 @@ struct LivePhoto: Identifiable, Hashable, Sendable {
     let filter: String?
 }
 
-@MainActor @Observable final class LivePhotosProvider: PhotosProvider {
+@MainActor @Observable final class LivePhotosProvider {
     private(set) var photos: [PhotoItem] = []
     private(set) var frames: [LivePhoto] = []
     private(set) var availability: LiveAvailability = .loading

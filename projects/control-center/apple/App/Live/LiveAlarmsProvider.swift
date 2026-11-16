@@ -18,7 +18,7 @@ import PanelKit
     init(api: AlarmsAPI) { self.api = api }
 
     // Presentation IDs are local handles, not API IDs. Preserve the mapping across
-    // reorders, deletes and refreshes; never send the prototype's integer to tRPC.
+    // reorders, deletes and refreshes; never send the local integer to the API.
     private func identity(_ id: String) -> Int {
         if let value = identities[id] { return value }
         let value = identities.count + 1

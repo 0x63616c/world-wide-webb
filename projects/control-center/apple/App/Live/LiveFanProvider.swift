@@ -3,18 +3,9 @@ import OSLog
 import Observation
 import PanelKit
 
-@MainActor protocol FanProvider: AnyObject, Observable {
-    var fanOn: Bool? { get }
-    var fanLabel: String? { get }
-    var pending: Set<String> { get }
-    var availability: LiveAvailability { get }
-    func refresh() async
-    func toggle() async
-}
-
 /// Opt-in data adapter. The host owns polling and routes .toggle(.fan) here.
 /// No network request runs at initialization; unavailable data never becomes a fixture.
-@MainActor @Observable final class LiveFanProvider: FanProvider {
+@MainActor @Observable final class LiveFanProvider {
     private(set) var fanOn: Bool?
     private(set) var fanModes: [String] = ["auto", "on"]
     private(set) var selectedMode: String?
@@ -170,16 +161,4 @@ import PanelKit
             }
         if availability != unavailable { availability = unavailable }
     }
-}
-
-/// Explicit preview fallback; the app's existing MockHomeDataSource remains the default.
-@MainActor @Observable final class MockFanProvider: FanProvider {
-    var climate: ClimateState
-    var fanOn: Bool? { climate.fanOn }
-    var fanLabel: String? { climate.fanLabel }
-    var pending: Set<String> { [] }
-    var availability: LiveAvailability { .live }
-    init(climate: ClimateState = ClimateState()) { self.climate = climate }
-    func refresh() async {}
-    func toggle() async { climate.fanOn.toggle() }
 }

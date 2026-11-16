@@ -1,4 +1,0 @@
-runtime.env
-*.dump
-*.tar.gz
-__pycache__/

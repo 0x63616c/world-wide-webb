@@ -22,7 +22,7 @@ public struct BoothPhotoListing: Decodable, Sendable {
 }
 public struct PhotosAPI: Sendable {
     private let client: PanelAPIClient
-    /// Injected media transports must reject redirects to keep Access headers on-origin.
+    /// Injected media transports must reject redirects to keep requests on-origin.
     public init(client: PanelAPIClient) { self.client = client }
     public init(configuration: PanelConfiguration?) {
         let session = URLSessionConfiguration.ephemeral

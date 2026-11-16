@@ -15,8 +15,8 @@ Apple M2, 8 GiB RAM, macOS 15.6. Control Center and PostgreSQL run in
 OrbStack alongside Hindsight and Bambuddy. Home Assistant runs in a separate
 Colima VM with reserved LAN address `192.168.0.130`. The Cloudflare tunnel runs
 on the host. Automatic recovery passed a full reboot on 2026-11-03.
-See [the migration runbook](runbooks/mac-mini-migration.md) for deployment,
-backup, and recovery procedures.
+See [Homelab release ownership](../../homelab/docs/releases.md) and
+[backups](../../homelab/docs/backups.md) for deployment, backup, and recovery procedures.
 
 ## home-server (`192.168.0.5`) — retired
 
@@ -87,8 +87,7 @@ on the Mac mini.
 Historical photo media remains on this NAS. The mini writes new media to its
 persistent local storage and backs it up nightly, together with databases and
 service data, under `/Homelab/backups/mac-mini/`. Uploads are read back and
-verified before a backup is marked complete. See `deploy/mini/backup.py` and
-the migration runbook; the former Kubernetes backup CronJobs are retired.
+verified before a backup is marked complete. See `projects/homelab/scripts/backup.py`; the former Kubernetes backup CronJobs are retired.
 
 ## Desk
 

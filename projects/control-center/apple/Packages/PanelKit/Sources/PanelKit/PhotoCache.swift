@@ -58,7 +58,7 @@ public actor PhotoCache {
     }
 }
 
-/// Access headers must never follow redirects to a different host.
+/// Media requests must never follow redirects to a different host.
 public final class PhotoSessionDelegate: NSObject, URLSessionTaskDelegate, Sendable {
     public func urlSession(
         _ session: URLSession, task: URLSessionTask,

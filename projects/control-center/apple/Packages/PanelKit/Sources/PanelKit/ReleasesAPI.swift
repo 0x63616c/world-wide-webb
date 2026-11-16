@@ -6,7 +6,7 @@ public struct PanelRelease: Decodable, Sendable, Equatable {
     public let updatedAt: String
 }
 
-/// Uses the same Access-authenticated tRPC transport as other panel reads.
+/// Uses the same private REST client as other panel reads.
 public struct ReleasesAPI: Sendable {
     private let client: PanelAPIClient
 

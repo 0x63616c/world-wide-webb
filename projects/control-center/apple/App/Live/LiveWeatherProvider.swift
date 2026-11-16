@@ -2,14 +2,6 @@ import Foundation
 import Observation
 import PanelKit
 
-@MainActor protocol WeatherProvider: AnyObject, Observable {
-    var snapshot: LiveWeatherSnapshot? { get }
-    var availability: LiveAvailability { get }
-    func refresh() async
-    func startPolling(every interval: Duration)
-    func stop()
-}
-
 /// A complete projection awaiting a value initializer on the prototype WeatherState.
 /// Its initialized `let` properties currently prevent a truthful live WeatherState.
 /// Never substitutes the mock's temperatures when live data is unavailable.
@@ -94,7 +86,7 @@ enum WeatherPresentation {
 }
 
 /// Opt-in only. The existing MockHomeDataSource remains the default and preview source.
-@MainActor @Observable final class LiveWeatherProvider: WeatherProvider {
+@MainActor @Observable final class LiveWeatherProvider {
     static let pollingInterval: Duration = .seconds(600)
     private(set) var snapshot: LiveWeatherSnapshot?
     private(set) var availability: LiveAvailability = .loading
