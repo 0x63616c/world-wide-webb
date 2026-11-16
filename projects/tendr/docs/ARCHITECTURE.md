@@ -6,7 +6,7 @@ One native SwiftUI app, one Foundation-only core, no third-party runtime depende
 
 - `Still/Core`: records, validation, units, schedule calculations, weight trends and medication estimates. No SwiftUI, notifications or networking. Calculations accept a date so tests and previews can control time.
 - `Still/Features/Home`: daily overview and quick entry points.
-- `Still/Features/Treatment`: medication, vials, schedule and reminder presentation.
+- `Still/Features/Treatment`: medication, schedule and reminder presentation.
 - `Still/Features/Progress`: goals and analytics presentation.
 - `Still/Features/Journal`: record entry, editing and history.
 - `Still/Store.swift`: app state and coordinating persisted changes. Screens submit changes; they must not write files or schedule notifications directly.
@@ -17,7 +17,7 @@ The current feature folders are a first organization pass. Root navigation and s
 
 ## Invariants
 
-Persist before publishing a successful edit. A failed load must never permit an empty journal to overwrite the existing file. Historical doses retain their medication, concentration and syringe scale. Planned or skipped doses do not consume vial inventory or contribute to actual medication estimates. Future weights do not contribute to observed progress. Intended schedule time and actual administration time are different values.
+Persist before publishing a successful edit. A failed load must never permit an empty journal to overwrite the existing file. Historical doses retain their medication, concentration and syringe scale. Planned or skipped doses do not contribute to actual medication estimates. Future weights do not contribute to observed progress. Intended schedule time and actual administration time are different values.
 
 Validation belongs in the core and is enforced again at the write interface, even when the UI disables Save. Date-sensitive calculations receive `now`; charts and live counters share those same calculations. Display formatting must not become the format used for editable numeric values.
 

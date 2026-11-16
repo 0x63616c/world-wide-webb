@@ -25,7 +25,7 @@ Xcode 26.2's Swift 6.2.3 compiler crashed in IR generation with a direct method 
 
 Verification: targeted UI test passed with zero failures in `Test-Still-2026.09.05_20-26-19--0700.xcresult`; `swift test` also passed after the change.
 
-Dose entry has since become mg-only and the unit selector was deleted. The conversion itself (3 units = 0.15 mg at 5 mg/mL) stays covered by `testSyringeUnitsRequireScaleAndConvertUsingVialConcentration` in `Tests/TrackingTests.swift`.
+Dose entry has since become mg-only and the unit selector was deleted. Vials were removed later; older journals that contain vial records still load, and their doses keep their stored concentration.
 
 ## Kilogram editor regression
 

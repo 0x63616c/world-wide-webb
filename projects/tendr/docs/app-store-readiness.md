@@ -23,7 +23,7 @@
 - [ ] CSV/JSON export, a better icon.
 - [ ] Phase 5: Age Rating, App Privacy, review phone number, Submit for Review.
 - Screenshot note: the Treatment tab icon is a syringe and the Treatment screen has a Vials section, so the screenshots crop the tab bar and leave out Treatment. Home still shows the "Add vial" tile and Log Dose shows a "No vial" picker.
-- Open question: the home screen still shows the vial card ("Add vial"), and vials store mg/mL concentration. That's an inventory feature, not a calculator, but consider hiding it for 1.0 if review pushes back.
+- Resolved: vials were removed from the app, so Home, Treatment and Log Dose no longer show a vial tile, section or picker.
 
 Goal: get Tendr through App Store review the first time. That means a professional listing, automated screenshots, and a release pipeline that stops just before **Submit for Review**, so Calum presses the button himself.
 

@@ -82,7 +82,6 @@ final class TrackingTests: XCTestCase {
   func testOlderJournalLoadsWithNewFieldsDefaultedAndFutureSchemaIsRejected() throws {
     let old = Data(#"{"version":1,"weights":[],"doses":[],"medication":"Semaglutide"}"#.utf8)
     let journal = try JSONDecoder().decode(Journal.self, from: old)
-    XCTAssertEqual(journal.vials, [])
     XCTAssertEqual(journal.halfLifeDays, 7)
     XCTAssertEqual(journal.resolvedMedicationModel, .semaglutide)
     XCTAssertThrowsError(
@@ -300,13 +299,6 @@ final class TrackingTests: XCTestCase {
     XCTAssertEqual(journal.schedule.cadence, .weekdays)
     XCTAssertTrue(journal.schedule.customDates.isEmpty)
     XCTAssertNil(journal.lastHealthKitSync)
-  }
-  func testSyringeUnitsRequireScaleAndConvertUsingVialConcentration() throws {
-    let vial = Vial(received: Date(), medication: "Semaglutide", concentration: 5, volumeML: 2)
-    XCTAssertEqual(vial.totalMilligrams, 10)
-    XCTAssertEqual(try vial.milligrams(units: 3, unitsPerML: 100), 0.15, accuracy: 0.000001)
-    XCTAssertThrowsError(try vial.milligrams(units: 3, unitsPerML: 0))
-    XCTAssertThrowsError(try vial.milligrams(units: -3, unitsPerML: 100))
   }
   func testAbsorptionModelMatchesIndependentIntegrationAndStartsAtZero() {
     let start = Date(timeIntervalSince1970: 1_700_000_000)
@@ -580,7 +572,7 @@ final class InjectionSideTests: XCTestCase {
     try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
     let file = JournalFile(url: directory.appendingPathComponent("journal.json"))
     let legacy = Data(
-      #"{"version":1,"medication":"Current medication","doses":[{"id":"11111111-1111-1111-1111-111111111111","date":1000,"scheduledDate":900,"medication":"Historical medication","milligrams":0.5,"concentration":5,"status":"taken","note":"Synthetic legacy record","vialID":"22222222-2222-2222-2222-222222222222","syringeUnits":10,"syringeUnitsPerML":100}]}"#
+      #"{"version":1,"medication":"Current medication","vials":[{"id":"22222222-2222-2222-2222-222222222222","received":0,"medication":"Old vial","concentration":5,"volumeML":2,"note":""}],"doses":[{"id":"11111111-1111-1111-1111-111111111111","date":1000,"scheduledDate":900,"medication":"Historical medication","milligrams":0.5,"concentration":5,"status":"taken","note":"Synthetic legacy record","vialID":"22222222-2222-2222-2222-222222222222","syringeUnits":10,"syringeUnitsPerML":100}]}"#
         .utf8)
     try legacy.write(to: file.url)
 
@@ -596,7 +588,6 @@ final class InjectionSideTests: XCTestCase {
     XCTAssertEqual(dose.concentration, 5)
     XCTAssertEqual(dose.status, .taken)
     XCTAssertEqual(dose.note, "Synthetic legacy record")
-    XCTAssertEqual(dose.vialID, UUID(uuidString: "22222222-2222-2222-2222-222222222222"))
     XCTAssertEqual(dose.syringeUnits, 10)
     XCTAssertEqual(dose.syringeUnitsPerML, 100)
 

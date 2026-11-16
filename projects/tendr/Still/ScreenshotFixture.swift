@@ -3,7 +3,7 @@ import Foundation
 extension Store {
   /// Synthetic journal for App Store screenshots (`--demo --screenshots`): twelve weeks of plain mg doses
   /// titrating 2.5 → 5 → 7.5 mg under a generic medication name, and a realistic, noisy weight journey.
-  /// No vials, syringe units or brand names. Deterministic, so every capture looks the same.
+  /// No syringe units or brand names. Deterministic, so every capture looks the same.
   static func screenshotJournal(now: Date = Date(), calendar cal: Calendar = .current) -> Journal {
     var journal = Journal()
     journal.medication = "Weekly medication"

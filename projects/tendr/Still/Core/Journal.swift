@@ -17,7 +17,6 @@ public enum WeightUnit: String, Codable, CaseIterable, Sendable {
 public struct Journal: Codable, Equatable, Sendable {
   public var version = 1
   public var goal: WeightGoal?
-  public var vials: [Vial] = []
   public var doseInputUnit: String?
   public var injectionStartSide: InjectionSide = .right
   public var syringeUnitsPerML: Double?
@@ -40,7 +39,7 @@ public struct Journal: Codable, Equatable, Sendable {
   public var schedule = DoseSchedule()
   public init() {}
   private enum CodingKeys: String, CodingKey {
-    case medicationModel, doseInputUnit, injectionStartSide, version, goal, vials,
+    case medicationModel, doseInputUnit, injectionStartSide, version, goal,
       syringeUnitsPerML, halfLifeDays, appearance, weightTrend, healthKitWeightsEnabled,
       lastHealthKitSync, weightsStartAtFirstDose, weights, doses, medication, concentration,
       containerML, unit, schedule
@@ -55,7 +54,6 @@ public struct Journal: Codable, Equatable, Sendable {
     injectionStartSide =
       try values.decodeIfPresent(InjectionSide.self, forKey: .injectionStartSide) ?? .right
     if let value = try values.decodeIfPresent(WeightGoal.self, forKey: .goal) { goal = value }
-    if let value = try values.decodeIfPresent([Vial].self, forKey: .vials) { vials = value }
     if let value = try values.decodeIfPresent(Double.self, forKey: .syringeUnitsPerML) {
       syringeUnitsPerML = value
     }
