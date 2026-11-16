@@ -94,7 +94,7 @@ The Settings footer says "Tendr stays up to date in the background when Apple He
 
 - **First-launch disclaimer.** One screen saying Tendr is a personal journal, not medical advice, and to follow your clinician. Helps with 1.4.1.
 - **CSV/JSON export.** Lets people take their data out, and gives reviewers a good impression.
-- **Better icon.** A flattened version plus dark and tinted variants for iOS 18+, generated from `scripts/render-icon.swift`.
+- ~~**Better icon.**~~ `Still/AppIcon.icon` is a layered Icon Composer document; the system derives the dark, tinted and clear appearances.
 - **Wording fix.** "This file is not a valid Still backup" should say Tendr (`Still/Core/Tracking.swift` ~98).
 - ~~**Drop the unneeded Health write usage string.**~~ Not possible: upload validation requires `NSHealthUpdateUsageDescription` for HealthKit apps.
 - **Keep source versions aligned.** `project.yml` and `Still.xcodeproj` now agree on 1.1.0 (29), with `app.yml` at 1.1.0. CI allocates release build numbers from TestFlight.

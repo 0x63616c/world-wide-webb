@@ -5,7 +5,7 @@ extension EnvironmentValues {
     @Entry var launcherIconPressed = false
 }
 
-/// Pointer position and a button's existing press state drive the artwork only.
+/// Pointer position and a button's existing press state tilt the artwork only.
 /// No additional gesture recognizer competes with scrolling or app activation.
 struct LauncherAppIcon: View {
     let app: PanelAppDefinition
@@ -19,7 +19,7 @@ struct LauncherAppIcon: View {
     }
 
     var body: some View {
-        PanelAppIcon(app: app, side: side, parallax: motion)
+        PanelAppIcon(app: app, side: side)
             .rotation3DEffect(.degrees(-motion.height * 4), axis: (x: 1, y: 0, z: 0))
             .rotation3DEffect(.degrees(motion.width * 4), axis: (x: 0, y: 1, z: 0))
             .animation(.smooth(duration: 0.22), value: motion)

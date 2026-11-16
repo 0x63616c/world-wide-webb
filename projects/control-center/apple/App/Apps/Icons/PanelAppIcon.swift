@@ -5,12 +5,11 @@ import SwiftUI
 struct PanelAppIcon: View {
     let app: PanelAppDefinition
     let side: CGFloat
-    var parallax: CGSize = .zero
 
     var body: some View {
         Group {
             if let artwork = PanelIconArtwork(rawValue: app.id) {
-                PanelIconArtworkView(artwork: artwork, side: side, parallax: parallax)
+                PanelIconArtworkView(artwork: artwork, side: side)
             } else {
                 FallbackPanelAppIcon(app: app, side: side)
             }

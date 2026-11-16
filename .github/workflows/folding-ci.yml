@@ -124,8 +124,6 @@ jobs:
           target: release
       - name: Release invariants without provider access
         run: bundle exec ruby -e 'Dir["fastlane/tests/*_test.rb"].sort.each { |file| require_relative file }'
-      - name: Generated icons
-        run: swift scripts/generate-app-icons.swift --check
   native:
     name: Folding native
     needs: selection

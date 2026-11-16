@@ -7,7 +7,6 @@ if [ ! -x .venv/contracts/bin/python ]; then
 fi
 .venv/contracts/bin/python scripts/check-contracts.py
 python3 scripts/check-localization.py
-swift scripts/generate-app-icons.swift --check
 python3 scripts/test-localization.py
 swift test --package-path apps/ios/Packages/FoldingKit
 echo 'Personal core and contract checks passed. Backend, simulator and device checks are not included yet.'

@@ -65,6 +65,7 @@ targets:
       - path: App
         includes: ["*.swift", "*.xcstrings"]
       - path: App/Assets.xcassets
+      - path: App/AppIcon.icon
       - path: Config/AppPrivacy/PrivacyInfo.xcprivacy
         buildPhase: resources
     settings:

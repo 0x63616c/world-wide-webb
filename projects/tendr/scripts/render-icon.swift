@@ -4,8 +4,8 @@
 //
 //   swift projects/tendr/scripts/render-icon.swift
 //
-// Writes design/icon/*.svg and *.png, the AppIcon set (any, dark and tinted; 1024, opaque),
-// the LaunchGlyph image set and the site icons. CI (icon.yml) fails if the committed files differ.
+// Writes design/icon/*.svg and *.png, the LaunchGlyph image set and the site icons.
+// The app icon itself is the Icon Composer document Still/AppIcon.icon, which uses this geometry.
 import AppKit
 import UniformTypeIdentifiers
 
@@ -31,8 +31,6 @@ struct Palette {
   static let light = Palette(
     tile: CGColor(srgbRed: 0.96, green: 0.96, blue: 0.98, alpha: 1), ring: grey(0.62),
     glyph: grey(0.055))
-  /// iOS 18 tinted icons are grayscale; the system applies the tint.
-  static let tinted = Palette(tile: grey(0), ring: grey(0.55), glyph: grey(1))
   static let launch = Palette(tile: nil, ring: grey(0.45), glyph: grey(0.95))
 }
 
@@ -121,7 +119,6 @@ func write(_ text: String, to path: String) throws {
 }
 
 FileManager.default.changeCurrentDirectoryPath(CommandLine.arguments.dropFirst().first ?? ".")
-let appIcon = "projects/tendr/Still/Assets.xcassets/AppIcon.appiconset"
 let launch = "projects/tendr/Still/Assets.xcassets/LaunchGlyph.imageset"
 do {
   try write(svg(.launch), to: "projects/tendr/design/icon/cycle-glyph.svg")
@@ -130,10 +127,6 @@ do {
   try write(render(.dark, pixels: 1024), to: "projects/tendr/design/icon/tendr-icon-dark-1024.png")
   try write(
     render(.light, pixels: 1024), to: "projects/tendr/design/icon/tendr-icon-light-1024.png")
-
-  try write(render(.dark, pixels: 1024), to: "\(appIcon)/AppIcon.png")
-  try write(render(.dark, pixels: 1024), to: "\(appIcon)/AppIcon-Dark.png")
-  try write(render(.tinted, pixels: 1024), to: "\(appIcon)/AppIcon-Tinted.png")
 
   // 120 pt glyph, trimmed to the ring with a little breathing room.
   let ringInset = Mark.centre - Mark.ringRadius - Mark.stroke / 2 - 8

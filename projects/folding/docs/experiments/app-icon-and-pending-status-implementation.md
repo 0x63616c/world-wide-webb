@@ -20,6 +20,11 @@ the 1024-pixel canvas to balance its top and bottom padding. The three committed
 appearance variants were regenerated and visually checked; this does not change
 the website artwork or complete the deferred Home Screen review.
 
+November 16, 2026: the app icon is now the layered Icon Composer document
+`apps/ios/App/AppIcon.icon` (two white glass panels on black). It replaces the three
+generated PNGs and `scripts/generate-app-icons.swift`; the system derives the dark,
+tinted and clear appearances. `Branding/icon-selected.png` remains the website source.
+
 Apple references: [asset catalog configuration](https://developer.apple.com/documentation/xcode/configuring-your-app-icon)
 and [app icon guidance](https://developer.apple.com/design/human-interface-guidelines/app-icons).
 
