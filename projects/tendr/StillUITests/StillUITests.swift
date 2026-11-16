@@ -31,7 +31,6 @@ final class StillUITests: XCTestCase {
     XCTAssertTrue(app.images["medicationTrendIndicator"].exists)
     XCTAssertFalse(app.buttons["Include explicitly planned doses"].exists)
     capture("Home")
-    XCTAssertFalse(app.buttons["vialCard"].exists, "Home shows no vial tile until a vial exists")
     app.buttons["logDose"].tap()
     XCTAssertTrue(app.textFields["doseAmount"].waitForExistence(timeout: 3))
     capture("Log dose")
@@ -46,7 +45,7 @@ final class StillUITests: XCTestCase {
     capture("Settings")
     app.buttons["Home"].tap()
   }
-  @MainActor func testPolishedFiltersAndVials() {
+  @MainActor func testPolishedFilters() {
     let app = XCUIApplication()
     app.launchArguments = ["--demo", "--uitest"]
     app.launch()
@@ -200,21 +199,15 @@ final class StillUITests: XCTestCase {
     app.staticTexts["88.5 kg"].tap()
     XCTAssertEqual(app.textFields["weightAmount"].value as? String, "88.5")
   }
-  @MainActor func testDoseAndWeightLogWithoutAVial() {
+  @MainActor func testDoseAndWeightLog() {
     let app = XCUIApplication()
     app.launchArguments = ["--uitest", "--reset-test-journal"]
     app.launch()
     XCTAssertTrue(app.buttons["logDose"].waitForExistence(timeout: 10))
-    XCTAssertFalse(app.buttons["vialCard"].exists)
-    XCTAssertFalse(app.staticTexts["Add vial"].exists)
 
     app.buttons["logDose"].tap()
     let dose = app.textFields["doseAmount"]
     XCTAssertTrue(dose.waitForExistence(timeout: 5))
-    XCTAssertFalse(
-      app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Vial'")).firstMatch.exists,
-      "No vial row without a vial")
-    XCTAssertFalse(app.staticTexts["No vial"].exists)
     dose.tap()
     dose.typeText("2.5")
     app.buttons["saveDose"].tap()
@@ -233,10 +226,6 @@ final class StillUITests: XCTestCase {
       app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH '2.5 mg'")).firstMatch
         .waitForExistence(timeout: 5))
     XCTAssertTrue(app.staticTexts["201.4 lbs"].exists)
-
-    // Vials stay reachable from Treatment.
-    app.buttons["Treatment"].tap()
-    XCTAssertTrue(app.buttons["Add Vial"].waitForExistence(timeout: 5))
   }
   @MainActor func testSettingsExplainsRowsWithInfoButtonsInsteadOfFooters() {
     let app = XCUIApplication()
@@ -583,13 +572,12 @@ final class StillUITests: XCTestCase {
     XCTAssertTrue(app.staticTexts["No schedule set"].waitForExistence(timeout: 5))
     capture("treatment-cleared")
   }
-  @MainActor func testNewDoseHidesVialAdditionAndMedicationHeaderButEditingShowsThem() {
+  @MainActor func testNewDoseHidesMedicationHeaderButEditingShowsIt() {
     let app = XCUIApplication()
     app.launchArguments = ["--demo", "--uitest"]
     app.launch()
     app.buttons["logDose"].tap()
     XCTAssertTrue(app.textFields["doseAmount"].waitForExistence(timeout: 5))
-    XCTAssertFalse(app.buttons["Add a vial"].exists)
     XCTAssertFalse(app.staticTexts["Weekly medication"].exists)
     capture("New dose")
     app.buttons["Cancel"].tap()
@@ -600,7 +588,6 @@ final class StillUITests: XCTestCase {
     XCTAssertTrue(record.waitForExistence(timeout: 5))
     record.tap()
     XCTAssertTrue(app.staticTexts["Weekly medication"].waitForExistence(timeout: 5))
-    XCTAssertFalse(app.buttons["Add a vial"].exists)
     capture("Edit dose")
   }
   @MainActor private func capture(_ name: String) {

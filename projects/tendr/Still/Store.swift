@@ -215,7 +215,7 @@ import SwiftUI
       self.error = error.localizedDescription
     }
   }
-  /// Neutral sample data for demos and screenshots: plain mg doses, a generic medication name, no vial or syringe maths.
+  /// Neutral sample data for demos and screenshots: plain mg doses, a generic medication name, no syringe maths.
   static func demoJournal() -> Journal {
     var journal = Journal()
     journal.medication = "Weekly medication"

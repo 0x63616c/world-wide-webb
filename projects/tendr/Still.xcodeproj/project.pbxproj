@@ -22,14 +22,12 @@
 		54A3F4BEE4EC1464A9F6E37B /* MedicationLevel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25CCB5F8523EE87381CD1978 /* MedicationLevel.swift */; };
 		566002A2CAA4FDA1A1777732 /* WeightTrend.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10EC54E3428164F625D487CB /* WeightTrend.swift */; };
 		5833A4D6715DD9868B0D6652 /* JournalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94A35FC06520E46B3E0B1274 /* JournalView.swift */; };
-		590788E6635BD9FD18FF2A88 /* Vial.swift in Sources */ = {isa = PBXBuildFile; fileRef = F91707FF75831793AF9F34D2 /* Vial.swift */; };
 		6F6D0EF2C198DA7ACE962775 /* WeightGoal.swift in Sources */ = {isa = PBXBuildFile; fileRef = B716B1A6D87CF82AF4D5C204 /* WeightGoal.swift */; };
 		7298A614349991774303DAF7 /* Layout.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD3B3C0C65D3DDCCD6F9521A /* Layout.swift */; };
 		8977D2CCBBFBC92F397AFA6C /* Store.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE7C6EB976A31E0351C41446 /* Store.swift */; };
 		8F3464BE34C087610FE521FB /* Tokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = A124812E6D8079FB49A929DC /* Tokens.swift */; };
 		9324DE3D56A383088DE1FEE3 /* DuoScreenshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C94B47A4D9ACCAA7DB282709 /* DuoScreenshotTests.swift */; };
 		974312F3351A76E7FC00B72C /* TreatmentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17C74C889016FEBBA601994F /* TreatmentView.swift */; };
-		A2684679232FBCDC19AB92D0 /* VialViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE8E9F8D5F9A8A8CADA99485 /* VialViews.swift */; };
 		A2C602EA1DEFFF7A8E140095 /* Settings.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3EB5A4B5C21E3D871DC9F2E /* Settings.swift */; };
 		A8C59A57C1A00788AEBAC3F6 /* TendrLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB994A776152331F717FB223 /* TendrLayout.swift */; };
 		ADC60342778EA19EB546C959 /* StillApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B5DF07AF9BACBF2DFAEE064 /* StillApp.swift */; };
@@ -84,10 +82,8 @@
 		DCBB333B8EFD53025AD19FD5 /* StillUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = StillUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		E6B2E4421F97B007948FB5D9 /* GoalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoalView.swift; sourceTree = "<group>"; };
 		EE7C6EB976A31E0351C41446 /* Store.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Store.swift; sourceTree = "<group>"; };
-		F91707FF75831793AF9F34D2 /* Vial.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Vial.swift; sourceTree = "<group>"; };
 		F9F64851BA5A10FBA84AE70F /* Tips.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Tips.swift; sourceTree = "<group>"; };
 		FB03B665E58BD3106E23CE0D /* Still.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Still.entitlements; sourceTree = "<group>"; };
-		FE8E9F8D5F9A8A8CADA99485 /* VialViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VialViews.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -136,7 +132,6 @@
 				25CCB5F8523EE87381CD1978 /* MedicationLevel.swift */,
 				DB994A776152331F717FB223 /* TendrLayout.swift */,
 				70A255FAD4D2F211E5EA8D78 /* Tracking.swift */,
-				F91707FF75831793AF9F34D2 /* Vial.swift */,
 				B716B1A6D87CF82AF4D5C204 /* WeightGoal.swift */,
 				10EC54E3428164F625D487CB /* WeightTrend.swift */,
 			);
@@ -198,7 +193,6 @@
 			isa = PBXGroup;
 			children = (
 				17C74C889016FEBBA601994F /* TreatmentView.swift */,
-				FE8E9F8D5F9A8A8CADA99485 /* VialViews.swift */,
 			);
 			path = Treatment;
 			sourceTree = "<group>";
@@ -337,8 +331,6 @@
 				8F3464BE34C087610FE521FB /* Tokens.swift in Sources */,
 				C58F3B5984579587CA3819F3 /* Tracking.swift in Sources */,
 				974312F3351A76E7FC00B72C /* TreatmentView.swift in Sources */,
-				590788E6635BD9FD18FF2A88 /* Vial.swift in Sources */,
-				A2684679232FBCDC19AB92D0 /* VialViews.swift in Sources */,
 				6F6D0EF2C198DA7ACE962775 /* WeightGoal.swift in Sources */,
 				566002A2CAA4FDA1A1777732 /* WeightTrend.swift in Sources */,
 			);

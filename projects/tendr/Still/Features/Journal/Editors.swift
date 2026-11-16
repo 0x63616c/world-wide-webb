@@ -1,5 +1,7 @@
 import SwiftUI
 
+func parse(_ string: String) -> Double? { EntryValidation.number(string) }
+
 struct WeightEditor: View {
   @State private var initialized = false
   @Environment(Store.self) private var store
@@ -98,11 +100,9 @@ struct DoseEditor: View {
   @State private var noteExpanded = false
   @State private var status = DoseEntry.Status.taken
   @State private var side: InjectionSide? = .right
-  @State private var vialID: UUID?
   @State private var localError: String?
-  var vial: Vial? { store.journal.vials.first { $0.id == vialID } }
   var concentration: Double? {
-    entry != nil ? entry?.concentration : vial?.concentration ?? store.journal.concentration
+    entry != nil ? entry?.concentration : store.journal.concentration
   }
   var milligrams: Double? {
     if status == .skipped { return 0 }
@@ -139,40 +139,6 @@ struct DoseEditor: View {
                 Text("mg").font(.title3).foregroundStyle(.secondary)
               }.padding(.vertical, 10)
             }.card()
-            if entry == nil && !store.journal.vials.isEmpty {
-              VStack(alignment: .leading, spacing: 12) {
-                HStack(spacing: 14) {
-                  if let vial {
-                    VialGlyph(
-                      fraction: max(
-                        0,
-                        vial.volumeML
-                          - store.journal.doses.filter {
-                            $0.vialID == vial.id && $0.status == .taken && $0.date <= Date()
-                          }.reduce(0) {
-                            $0 + $1.milligrams / ($1.concentration ?? vial.concentration)
-                          }) / vial.volumeML
-                    )
-                    .frame(width: 42, alignment: .leading)
-                  }
-                  Picker("Vial", selection: $vialID) {
-                    Text("No vial").tag(nil as UUID?)
-                    ForEach(store.journal.vials.sorted { $0.received > $1.received }) { item in
-                      Text(
-                        "\(item.medication) · \(item.received.formatted(date: .abbreviated, time: .omitted))"
-                      ).tag(Optional(item.id))
-                    }
-                  }.frame(maxWidth: .infinity, alignment: .leading)
-                }
-                if let concentration {
-                  HStack {
-                    Text("Concentration")
-                    Spacer()
-                    Text("\(number(concentration, digits: 3)) mg/mL")
-                  }.font(.caption).foregroundStyle(.secondary)
-                }
-              }.card()
-            }
           }
           VStack(alignment: .leading, spacing: 16) {
             if status != .skipped {
@@ -231,7 +197,6 @@ struct DoseEditor: View {
             date = entry.date
             status = entry.status
             note = entry.note
-            vialID = entry.vialID
             side =
               entry.side
               ?? (entry.status == .planned
@@ -239,7 +204,6 @@ struct DoseEditor: View {
                   in: store.journal.doses.filter { $0.id != entry.id },
                   startOn: store.journal.injectionStartSide) : nil)
           } else {
-            vialID = store.journal.vials.sorted { $0.received > $1.received }.first?.id
             side = InjectionSide.suggestedNext(
               in: store.journal.doses, startOn: store.journal.injectionStartSide)
           }
@@ -251,11 +215,10 @@ struct DoseEditor: View {
     guard let mg = milligrams else { return }
     var updated = DoseEntry(
       date: date, scheduledDate: entry?.scheduledDate ?? scheduledDate,
-      medication: entry?.medication ?? vial?.medication ?? store.journal.medication, milligrams: mg,
+      medication: entry?.medication ?? store.journal.medication, milligrams: mg,
       concentration: concentration, status: status, note: note,
       side: status == .skipped ? nil : side)
     if let entry { updated.id = entry.id }
-    updated.vialID = vialID
     // Doses are entered in mg. Keep a syringe reading recorded by an earlier version while its mg
     // amount is unchanged, so editing other fields does not drop stored data.
     if let entry, entry.syringeUnits != nil, abs(entry.milligrams - mg) < 1e-9 {

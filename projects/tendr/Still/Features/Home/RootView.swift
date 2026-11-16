@@ -80,7 +80,6 @@ struct TodayView: View {
   @State private var weightSheet = false
   @State private var doseSheet = false
   @State private var scheduleSheet = false
-  @State private var vialSheet = false
   private var summaryLayout: AnyLayout {
     dynamicTypeSize.isAccessibilitySize
       ? AnyLayout(VStackLayout(alignment: .leading, spacing: 12))
@@ -128,16 +127,6 @@ struct TodayView: View {
               }.buttonStyle(.borderedProminent).buttonBorderShape(.capsule).accessibilityIdentifier(
                 "logDose")
             }.frame(maxWidth: .infinity, alignment: .leading).frame(minHeight: 128).card()
-            // Vials are optional; without one, adding a vial lives in Treatment.
-            if let vial = store.journal.vials.sorted(by: { $0.received > $1.received }).first {
-              Button {
-                vialSheet = true
-              } label: {
-                VialMini(vial: vial)
-              }
-              .buttonStyle(.plain).accessibilityLabel("Vial details")
-              .accessibilityIdentifier("vialCard")
-            }
           }
           MedicationCard()
           Button {
@@ -202,10 +191,6 @@ struct TodayView: View {
         .sheet(isPresented: $weightSheet) { WeightEditor().tendrSheet() }
         .sheet(isPresented: $doseSheet) { DoseEditor(scheduledDate: nextDate).tendrSheet() }
         .sheet(isPresented: $scheduleSheet) { ScheduleEditor().tendrSheet() }
-        .sheet(isPresented: $vialSheet) {
-          VialEditor(vial: store.journal.vials.sorted { $0.received > $1.received }.first)
-            .tendrSheet()
-        }
     }
   }
   func stat(

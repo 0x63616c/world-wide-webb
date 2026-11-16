@@ -92,7 +92,6 @@ public struct DoseEntry: Codable, Identifiable, Equatable, Sendable {
   public enum Status: String, Codable, CaseIterable, Sendable { case planned, taken, skipped }
   public var id = UUID()
   public var date: Date
-  public var vialID: UUID?
   public var syringeUnits: Double?
   public var syringeUnitsPerML: Double?
   public var scheduledDate: Date?

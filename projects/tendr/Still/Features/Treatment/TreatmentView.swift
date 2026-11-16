@@ -7,8 +7,6 @@ struct TreatmentView: View {
   @Environment(Store.self) private var store
   @State private var editing = false
   @State private var schedule = false
-  @State private var addVial = false
-  @State private var selectedVial: Vial?
   private var summaryLayout: AnyLayout {
     dynamicTypeSize.isAccessibilitySize
       ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
@@ -101,25 +99,6 @@ struct TreatmentView: View {
               }
             }.card()
           }.buttonStyle(.plain).accessibilityIdentifier("editSchedule")
-          HStack {
-            Text("Vials").font(.title3.bold())
-            Spacer()
-            Button {
-              addVial = true
-            } label: {
-              Image(systemName: "plus.circle.fill").font(.largeTitle)
-            }.frame(width: 52, height: 52).accessibilityLabel("Add Vial")
-          }
-          if store.journal.vials.isEmpty {
-            Button("Add your first vial") { addVial = true }.frame(maxWidth: .infinity).card()
-          }
-          ForEach(store.journal.vials.sorted { $0.received > $1.received }) { vial in
-            Button {
-              selectedVial = vial
-            } label: {
-              VialSummary(vial: vial)
-            }.buttonStyle(.plain)
-          }
           if !taken.isEmpty {
             Button {
               journalFilter = "Doses"
@@ -160,8 +139,6 @@ struct TreatmentView: View {
       }.background(Theme.background).tendrRootNavigationBar()
         .sheet(isPresented: $editing) { TreatmentEditor().tendrSheet() }
         .sheet(isPresented: $schedule) { ScheduleEditor().tendrSheet() }
-        .sheet(isPresented: $addVial) { VialEditor().tendrSheet() }
-        .sheet(item: $selectedVial) { VialEditor(vial: $0).tendrSheet() }
     }
   }
 }

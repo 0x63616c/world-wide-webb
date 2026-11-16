@@ -144,8 +144,6 @@ extension HistoryEntry {
 struct SettingsView: View {
   @Environment(Store.self) private var store
   @State private var schedule = false
-  @State private var addingVial = false
-  @State private var editingVial: Vial?
   @State private var tipJar = RTipJar.tendr
   @State private var tipping = false
   @State private var thanks: RTipJar.Tip?
@@ -340,8 +338,6 @@ struct SettingsView: View {
         }
         .fullScreenCover(item: $thanks) { RTipThanks(tip: $0) }
         .sheet(isPresented: $schedule) { ScheduleEditor().tendrSheet() }
-        .sheet(isPresented: $addingVial) { VialEditor().tendrSheet() }
-        .sheet(item: $editingVial) { VialEditor(vial: $0).tendrSheet() }
     }
   }
 }
