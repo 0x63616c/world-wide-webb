@@ -20,7 +20,7 @@ assignment. `hosts/<name>.nix` holds each host's settings.
 - M2, 8 GB. The services VM has 4 GiB and the Home Assistant VM 3 GiB, leaving about
   1 GiB for macOS. Watch memory pressure.
 - Assigned services: `control-center`, `bambuddy`, `hindsight`, `cloudflared`, `beszel`,
-  `golink` and `home-assistant`.
+  `golink`, `home-assistant` and `tapes`.
 - Home Assistant runs as a container in its own bridged Colima VM on `en1`, at
   `192.168.0.130/24` with gateway `192.168.0.1`. Its LAN UI is `http://192.168.0.130:8123`.
   The other services share the `services` Colima VM.

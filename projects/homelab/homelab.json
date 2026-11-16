@@ -19,7 +19,8 @@
         "cloudflared",
         "beszel",
         "golink",
-        "home-assistant"
+        "home-assistant",
+        "tapes"
       ]
     },
     "homelab-macbook": {
