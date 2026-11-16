@@ -9,6 +9,8 @@ Calendar, camera capture, notifications and system alarms use Apple frameworks w
 
 - `apple/App/Platform/PanelApp.swift`: production entry point, sessions and native feature wiring.
 - `apple/App/Apps`: launcher, app catalog UI, clock presentation, timer and connection settings.
+- `apple/Design/LauncherIcons`: Icon Composer documents for the launcher icons; `tools/render_launcher_icons.sh`
+  renders them into `PanelAssets`. `apple/Resources/AppIcon.icon` is the app icon.
 - `apple/App/Live`: shared feature providers; `Platform` connects native capabilities and live transport.
 - `apple/Packages/PanelKit`: typed versioned REST transport, models, synchronization and package tests.
 - `apple/Extensions`: shipped alarm widget. `apple/project.yml` defines build targets.

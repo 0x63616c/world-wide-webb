@@ -65,6 +65,7 @@ targets:
       - path: App
         includes: ["*.swift", "*.xcstrings"]
       - path: App/Assets.xcassets
+      - path: App/AppIcon.icon
       - path: Config/AppPrivacy/PrivacyInfo.xcprivacy
         buildPhase: resources
     settings:
@@ -120,6 +121,7 @@ targets:
       - path: App/MilestonePresentation.swift
       - path: App/MilestoneScreens.swift
       - path: App/Assets.xcassets
+      - path: App/AppIcon.icon
       - path: App/TipJarContent.swift
       - path: ../../fastlane/tip-products.json
       - path: App/NotificationPreferences.swift

@@ -43,6 +43,7 @@
 		947E05FE47AB7F37166D4AD2 /* AppLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C50455E6482B266C4BA14E1 /* AppLog.swift */; };
 		995B9CC9BD7F2B04386C2C29 /* Recording.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6A50A74F9445FE631EFBDC2 /* Recording.swift */; };
 		99DEB66B61C4BE225FE86AFA /* LocalTranscription in Frameworks */ = {isa = PBXBuildFile; productRef = 4CA5C5191084B6A024C044F3 /* LocalTranscription */; };
+		A190195E2BCB57FE12B6924F /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 2F414730528F196F1C23CA13 /* AppIcon.icon */; };
 		A35BB1B85B59DCCD47194451 /* AppLogTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1E6A120E21B126BF317FA1D /* AppLogTests.swift */; };
 		AABE0DF25B136D98C5810BDF /* VoiceRecognition.swift in Sources */ = {isa = PBXBuildFile; fileRef = A108AB0FDC7FE5ABADFD1AE4 /* VoiceRecognition.swift */; };
 		B11B031B338A4391DF91B75F /* LibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 375F5EECFD9623DA6E597C6A /* LibraryView.swift */; };
@@ -129,6 +130,7 @@
 		25FD9BD4C466BDD0E45AB8C5 /* Callkeep.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Callkeep.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		26AF64047DE580C02885A708 /* TranscriptionController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptionController.swift; sourceTree = "<group>"; };
 		2B95F18715095944C01FB282 /* CallActivityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallActivityTests.swift; sourceTree = "<group>"; };
+		2F414730528F196F1C23CA13 /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = wrapper.icon; path = AppIcon.icon; sourceTree = "<group>"; };
 		30990E66EDCEC08168227223 /* Shortcut.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Shortcut.swift; sourceTree = "<group>"; };
 		3339D72666EA57311B866899 /* LocalTranscription */ = {isa = PBXFileReference; lastKnownFileType = folder; name = LocalTranscription; path = Packages/LocalTranscription; sourceTree = SOURCE_ROOT; };
 		3512AA33EBDF5E72208FA3B2 /* TitleFailure.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TitleFailure.swift; sourceTree = "<group>"; };
@@ -302,6 +304,7 @@
 		9DA302BE563A492790A2FEC0 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				2F414730528F196F1C23CA13 /* AppIcon.icon */,
 				1593C810FBCE7C243F1991ED /* Assets.xcassets */,
 				3536BBA82594D0EE4DEABC99 /* Callkeep-iCloud.entitlements */,
 				60BA2C81057F45CB6466C6F8 /* Callkeep.entitlements */,
@@ -424,6 +427,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A190195E2BCB57FE12B6924F /* AppIcon.icon in Resources */,
 				01417339CD20692A6EBC2E49 /* Assets.xcassets in Resources */,
 				4D6B1B775CCD6FB1653645C0 /* Transcription-LICENSES.txt in Resources */,
 				E175C1220684BB041EB60B36 /* TranscriptionModels.json in Resources */,

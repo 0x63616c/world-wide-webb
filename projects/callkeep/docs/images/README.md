@@ -6,7 +6,7 @@ Captured from the native macOS app on November 3, 2026 (Build 10 UI).
 - `player.png`: playback with sidebar hidden, 2620 × 1380.
 - `recording.png`: live waveform, 2620 × 1380.
 - `settings.png`: shortcut, native iCloud storage, and permission status, 2620 × 1380.
-- `icon.png`: app icon from the asset catalog.
+- `icon.png`: app icon, exported from `Resources/AppIcon.icon` with Icon Composer.
 
 The window captures are unedited PNGs from macOS `screencapture -o -l`, preserving transparency at rounded corners. No white background is baked in.
 
