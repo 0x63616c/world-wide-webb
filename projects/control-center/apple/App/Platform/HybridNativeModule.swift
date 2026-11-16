@@ -72,11 +72,11 @@ struct HybridNativeModule: View {
         case .weather: PanelWeatherModule(weather: store.weather)
         case .sonos: SonosModule(store: store, close: close)
         case .photos: LivePhotosModule(provider: store.photosProvider, detail: detail)
-        case .calendar: AgendaPage(provider: store.calendar, now: store.now)
+        case .calendar: CalendarPage(provider: store.calendar, now: store.now)
         case .alarms:
             ClockController(
                 store: store, newAlarm: store.alarmsProvider.newAlarm, save: store.alarmsProvider.save,
-                timeZone: .current, locationLabel: TimeZone.current.identifier
+                timeZone: PanelTimeZone.current, locationLabel: PanelTimeZone.current.identifier
             )
             .disabled(store.alarmsProvider.pending)
         case .tesla: TeslaModule(provider: store.teslaProvider)

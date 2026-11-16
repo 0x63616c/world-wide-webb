@@ -12,6 +12,8 @@ import PanelKit
     @ObservationIgnored private var revision = 0
     @ObservationIgnored private var polling = false
     @ObservationIgnored private var mutation: Task<Void, Never>?
+    @ObservationIgnored private var projectedAlarms: [Alarm]?
+    @ObservationIgnored private var formatters: [String: DateFormatter] = [:]
 
     init(api: AlarmsAPI) { self.api = api }
 
@@ -24,10 +26,17 @@ import PanelKit
         return value
     }
 
-    var alarms: [Alarm] { snapshot?.alarms.map(project) ?? [] }
+    /// Projection formats dates per alarm; reuse it until the snapshot changes.
+    var alarms: [Alarm] {
+        guard let snapshot else { return [] }
+        if let projectedAlarms { return projectedAlarms }
+        let value = snapshot.alarms.map(project)
+        projectedAlarms = value
+        return value
+    }
     var newAlarm: Alarm {
         var alarm = Alarm()
-        alarm.timeZone = TimeZone.current.identifier
+        alarm.timeZone = PanelTimeZone.current.identifier
         alarm.snoozeMinutes = ""  // Blank uses the backend default, just like the web.
         return alarm
     }
@@ -39,13 +48,8 @@ import PanelKit
             snoozeMinutes: value.snoozeMinutes.map(String.init) ?? "",
             lightTarget: value.lightTarget ?? "", enabled: value.enabled)
         if let at = value.at, let date = AlarmDate.parse(at) {
-            let formatter = DateFormatter()
-            formatter.locale = Locale(identifier: "en_US_POSIX")
-            formatter.timeZone = TimeZone(identifier: value.timeZone)
-            formatter.dateFormat = "yyyy-MM-dd"
-            alarm.date = formatter.string(from: date)
-            formatter.dateFormat = "HH:mm"
-            alarm.time = formatter.string(from: date)
+            alarm.date = formatter("yyyy-MM-dd", zone: value.timeZone).string(from: date)
+            alarm.time = formatter("HH:mm", zone: value.timeZone).string(from: date)
         }
         return alarm
     }
@@ -73,13 +77,23 @@ import PanelKit
         alarm.label = ring.label
         alarm.snoozeMinutes = String(ring.snoozeMinutes)
         if let due = AlarmDate.parse(ring.ringAt) {
-            let formatter = DateFormatter()
-            formatter.locale = Locale(identifier: "en_US_POSIX")
-            formatter.timeZone = TimeZone(identifier: alarm.timeZone)
-            formatter.dateFormat = "HH:mm"
-            alarm.time = formatter.string(from: due)
+            alarm.time = formatter("HH:mm", zone: alarm.timeZone).string(from: due)
         }
         return alarm
+    }
+
+    /// Clock faces project the upcoming alarm every second; reuse fixed-format formatters.
+    private func formatter(_ format: String, zone: String) -> DateFormatter {
+        let key = format + "|" + zone
+        if let cached = formatters[key] { return cached }
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        let timeZone = TimeZone(identifier: zone)
+        formatter.timeZone = timeZone
+        formatter.dateFormat = format
+        // An unknown zone falls back to the (changeable) default zone; don't pin it.
+        if timeZone != nil { formatters[key] = formatter }
+        return formatter
     }
 
     func refresh() async {
@@ -94,7 +108,7 @@ import PanelKit
             accept(value)
         } catch {
             guard expected == revision, !(error is CancellationError) else { return }
-            availability = .unavailable("Alarms are unavailable. Reconnecting…")
+            setAvailability(.unavailable("Alarms are unavailable. Reconnecting…"))
         }
     }
 
@@ -197,14 +211,25 @@ import PanelKit
         }
         // Acknowledgement is authoritative even if the following read fails.
         // Do not tell an editor to retry an already-created non-idempotent alarm.
-        do { accept(try await api.list()) } catch { availability = .unavailable("Alarm saved. Waiting to reconnect…") }
+        do { accept(try await api.list()) } catch {
+            setAvailability(.unavailable("Alarm saved. Waiting to reconnect…"))
+        }
     }
 
+    /// Polled every second: assign only on change so Observation does not invalidate
+    /// every clock/launcher view that reads alarms on each identical sample.
     private func accept(_ value: AlarmsSnapshot) {
-        snapshot = value
+        if snapshot != value {
+            snapshot = value
+            projectedAlarms = nil
+        }
         for alarm in value.alarms { _ = identity(alarm.id) }
         for ring in value.active { _ = identity(ring.id) }
-        availability = .live
+        setAvailability(.live)
+    }
+
+    private func setAvailability(_ value: LiveAvailability) {
+        if availability != value { availability = value }
     }
 
     func stop() {

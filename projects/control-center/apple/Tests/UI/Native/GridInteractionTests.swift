@@ -45,8 +45,8 @@ import XCTest
         }
         let bar = app.descendants(matching: .any)["lamp-brightness"].firstMatch
         XCTAssertTrue(bar.isHittable)
-        bar.coordinate(withNormalizedOffset: CGVector(dx: 0.7, dy: 0.5))
-            .press(forDuration: 0.1, thenDragTo: bar.coordinate(withNormalizedOffset: CGVector(dx: 0.3, dy: 0.5)))
+        bar.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.3))
+            .press(forDuration: 0.1, thenDragTo: bar.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.7)))
         expectWrite("controls.setLampBrightness", in: app)
         let temperature = app.descendants(matching: .any)["lamp-temperature"].firstMatch
         XCTAssertTrue(temperature.isHittable)

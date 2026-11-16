@@ -39,13 +39,17 @@ struct PhotoBoothCameraPage: View {
                 HStack {
                     timer
                     Spacer()
-                    PanelAppBackButton(back: close)
-                        .accessibilityLabel("Close Photo Booth")
                 }
                 Spacer()
                 feedback
                 captureDock
             }.padding(.horizontal, inset).padding(.top, 14).padding(.bottom, 16)
+        }
+        .overlay(alignment: .topTrailing) {
+            // Same spot as every other app's close button.
+            PanelAppBackButton(back: close)
+                .accessibilityLabel("Close Photo Booth")
+                .padding(.horizontal, 24).padding(.top, 16)
         }
         .accessibilityElement(children: .contain).accessibilityIdentifier("booth-camera")
     }

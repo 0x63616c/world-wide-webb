@@ -7,18 +7,18 @@ enum PanelIconArtwork: String, CaseIterable {
     var background: LinearGradient {
         let colors: [Color] =
             switch self {
-            case .calendar: [Color(hex: "#FF796D"), Color(hex: "#EF344E")]
-            case .weather: [Color(hex: "#05D5ED"), Color(hex: "#0085FF")]
+            case .calendar: [Color(hex: "#E3DED4"), Color(hex: "#CFC9BD")]
+            case .weather: [Color(hex: "#3F7EC8"), Color(hex: "#2D61A4")]
             case .lights: [Color(hex: "#FFD500"), Color(hex: "#FF6500")]
             case .climate: [Color(hex: "#56D9FA"), Color(hex: "#007FCF")]
-            case .music: [Color(hex: "#252527"), .black]
+            case .music: [Color(hex: "#2B2B30"), Color(hex: "#2B2B30")]
             case .photos: [Color(hex: "#BE85FC"), Color(hex: "#7A12F8")]
             case .car: [Color(hex: "#6CBFFC"), Color(hex: "#2367D2")]
-            case .wifi: [Color(hex: "#59E0DD"), Color(hex: "#009BAE")]
+            case .wifi: [Color(hex: "#E6E6E8"), Color(hex: "#CFCFD3")]
             case .clock: [Color(hex: "#65D9B7"), Color(hex: "#15936F")]
-            case .timer: [Color(hex: "#FFC65E"), Color(hex: "#F47A12")]
+            case .timer: [Color.orange.mix(with: .white, by: 0.12), .orange]
             case .booth: [Color(hex: "#FF8DAD"), Color(hex: "#DF3979")]
-            case .settings: [Color(hex: "#ADB8C8"), Color(hex: "#586A84")]
+            case .settings: [Color(hex: "#7E8693"), Color(hex: "#5E6572")]
             }
         return LinearGradient(colors: colors, startPoint: .top, endPoint: .bottom)
     }
@@ -68,18 +68,39 @@ struct IconLayer: ViewModifier {
 private struct WeatherIconArtwork: View {
     let side: CGFloat
     let parallax: CGSize
+    private let sunDepth: CGFloat = 0.012
+    private let cloudDepth: CGFloat = 0.028
     var body: some View {
         ZStack {
             Circle()
                 .fill(
                     LinearGradient(
-                        colors: [Color(hex: "#FFE000"), Color(hex: "#FFD000")], startPoint: .top, endPoint: .bottom)
+                        colors: [Color(hex: "#F9D152"), Color(hex: "#F2B233")], startPoint: .top, endPoint: .bottom)
                 )
-                .frame(width: side * 0.362, height: side * 0.362)
-                .position(x: side * 0.347, y: side * 0.415)
-                .modifier(IconLayer(parallax: parallax, side: side, depth: 0.012))
-            PanelIconShape.cloud.fill(.white)
-                .modifier(IconLayer(parallax: parallax, side: side, depth: 0.028))
+                .frame(width: side * 0.306, height: side * 0.306)
+                .position(x: side * 0.645, y: side * 0.389)
+                .frame(width: side, height: side)
+                // A clear gap follows the cloud's outline, wherever parallax puts it.
+                .overlay {
+                    PanelIconShape.cloud
+                        .stroke(.black, style: StrokeStyle(lineWidth: side * 0.048, lineJoin: .round))
+                        .background(PanelIconShape.cloud.fill(.black))
+                        .offset(
+                            x: parallax.width * side * (cloudDepth - sunDepth),
+                            y: parallax.height * side * (cloudDepth - sunDepth)
+                        )
+                        .blendMode(.destinationOut)
+                }
+                .compositingGroup()
+                .modifier(IconLayer(parallax: parallax, side: side, depth: sunDepth))
+            PanelIconShape.cloud
+                .fill(
+                    LinearGradient(
+                        stops: [.init(color: .white, location: 0.3), .init(color: Color(hex: "#DCE7F4"), location: 1)],
+                        startPoint: UnitPoint(x: 0.5, y: 0.381), endPoint: UnitPoint(x: 0.5, y: 0.764))
+                )
+                .shadow(color: .black.opacity(0.2), radius: side * 0.007, y: side * 0.008)
+                .modifier(IconLayer(parallax: parallax, side: side, depth: cloudDepth))
         }.frame(width: side, height: side)
     }
 }
@@ -112,30 +133,20 @@ private struct LightsIconArtwork: View {
 private struct SonosIconArtwork: View {
     let side: CGFloat
     let parallax: CGSize
+    /// Level bars: centre x, height and parallax depth, as fractions of the icon side.
+    private let bars: [(x: CGFloat, height: CGFloat, depth: CGFloat)] = [
+        (0.292, 0.293, 0.012), (0.439, 0.559, 0.028), (0.585, 0.410, 0.028), (0.731, 0.215, 0.012),
+    ]
 
     var body: some View {
         ZStack {
-            speaker(scale: 0.85, cabinet: Color(hex: "#A6A6AC"), driver: Color(hex: "#39393E"))
-                .position(x: side * 0.644, y: side * 0.428)
-                .modifier(IconLayer(parallax: parallax, side: side, depth: 0.012))
-            speaker(scale: 1, cabinet: .white, driver: Color(hex: "#232326"))
-                .position(x: side * 0.409, y: side * 0.548)
-                .modifier(IconLayer(parallax: parallax, side: side, depth: 0.028))
-        }.frame(width: side, height: side)
-    }
-
-    private func speaker(scale: CGFloat, cabinet: Color, driver: Color) -> some View {
-        let unit = side * scale
-        return RoundedRectangle(cornerRadius: unit * 0.085, style: .continuous)
-            .fill(cabinet)
-            .frame(width: unit * 0.35, height: unit * 0.55)
-            .overlay {
-                VStack(spacing: unit * 0.055) {
-                    Circle().fill(driver).frame(width: unit * 0.095)
-                    Circle().fill(driver).frame(width: unit * 0.22)
-                        .overlay { Circle().fill(cabinet.opacity(0.58)).frame(width: unit * 0.085) }
-                }
+            ForEach(bars.indices, id: \.self) { index in
+                Capsule().fill(.white)
+                    .frame(width: side * 0.1015, height: side * bars[index].height)
+                    .position(x: side * bars[index].x, y: side * 0.5)
+                    .modifier(IconLayer(parallax: parallax, side: side, depth: bars[index].depth))
             }
+        }.frame(width: side, height: side)
     }
 }
 

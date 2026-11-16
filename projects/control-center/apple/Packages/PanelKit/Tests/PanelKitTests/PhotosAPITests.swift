@@ -22,6 +22,22 @@ final class PhotosAPITests: XCTestCase {
         }
     }
 
+    func testHidePostsFrameIDsAndRejectsInvalidIdentifiers() async throws {
+        let transport = PhotosTestTransport()
+        let api = PhotosAPI(client: client(transport))
+        try await api.hide(photoIDs: ["bph_one", "bph_two"])
+        do {
+            try await api.hide(photoIDs: ["../bad"])
+            XCTFail("Accepted invalid identifier")
+        } catch {}
+        let requests = await transport.requests
+        XCTAssertEqual(requests.count, 1)
+        XCTAssertEqual(requests.first?.httpMethod, "POST")
+        XCTAssertEqual(requests.first?.url?.path, "/api/v1/booth/hide")
+        let body = try JSONDecoder().decode([String: [String]].self, from: requests.first!.httpBody!)
+        XCTAssertEqual(body, ["photoIds": ["bph_one", "bph_two"]])
+    }
+
     func testImagesUseAccessHeadersAndRejectUntrustedPaths() async throws {
         let transport = PhotosTestTransport()
         let api = PhotosAPI(client: client(transport))
@@ -90,6 +106,9 @@ private actor PhotosTestTransport: PanelTransport {
         if url.path == "/api/v1/settings/pin/verify" {
             let input = try JSONDecoder().decode([String: String].self, from: request.httpBody!)
             return reply(try JSONSerialization.data(withJSONObject: ["verified": input["pin"] == "135790"]), url: url)
+        }
+        if url.path == "/api/v1/booth/hide" {
+            return reply(Data("{\"hidden\":2}".utf8), url: url)
         }
         if request.httpMethod == "DELETE" {
             return reply(Data((url.path.hasSuffix("/filter") ? "{\"cleared\":1}" : "{\"removed\":1}").utf8), url: url)

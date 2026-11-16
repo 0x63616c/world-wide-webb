@@ -143,20 +143,24 @@ import PanelKit
         }
     }
 
+    /// Polled: assign only changes so identical samples don't invalidate Tesla readers.
     private func retainSnapshot(reason: String) {
-        snapshot?.stale = true
-        hasLiveData = snapshot != nil
-        moduleStatus = hasLiveData ? .live : .unavailable(reason)
-        requestedAction = nil
+        if snapshot != nil, snapshot?.stale != true { snapshot?.stale = true }
+        setLive(snapshot != nil, status: snapshot != nil ? .live : .unavailable(reason))
+        if requestedAction != nil { requestedAction = nil }
+    }
+
+    private func setLive(_ live: Bool, status: HomeModuleStatus) {
+        if hasLiveData != live { hasLiveData = live }
+        if moduleStatus != status { moduleStatus = status }
     }
 
     private func accept(_ state: TeslaState) {
         switch state {
         case .ready(let value):
-            snapshot = value
-            hasLiveData = true
-            moduleStatus = .live
-            if !canControl { requestedAction = nil }
+            if snapshot != value { snapshot = value }
+            setLive(true, status: .live)
+            if !canControl, requestedAction != nil { requestedAction = nil }
             if let estimate = Self.estimateMaxRange(rangeMiles: value.rangeMiles, batteryPercent: value.batteryPercent),
                 estimate != maxRange
             {
@@ -164,10 +168,9 @@ import PanelKit
                 defaults.set(estimate, forKey: Self.maxRangeKey)
             }
         case .unconfigured:
-            snapshot = nil
-            hasLiveData = false
-            requestedAction = nil
-            moduleStatus = .unconfigured("Tesla isn't set up on the server")
+            if snapshot != nil { snapshot = nil }
+            if requestedAction != nil { requestedAction = nil }
+            setLive(false, status: .unconfigured("Tesla isn't set up on the server"))
         case .unavailable:
             retainSnapshot(reason: "Tesla is unavailable on the server")
         }

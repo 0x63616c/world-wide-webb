@@ -171,165 +171,170 @@ struct PanelDiagnosticsView: View {
     private var contents: some View {
         ScrollViewReader { scroll in
             List {
-                Section("Panel") {
-                    LabeledContent("Data source", value: source)
-                    LabeledContent("Backend URL", value: store?.diagnosticsBackendURL ?? "unavailable")
-                    LabeledContent("Build", value: build)
-                    LabeledContent("Git SHA", value: gitSHA)
-                }
-                Section("This device") {
-                    TextField("Device label", text: $deviceLabel)
-                        .textInputAutocapitalization(.words)
-                        .accessibilityIdentifier("diagnostics-device-label")
-                    LabeledContent("Installation ID", value: PanelDeviceIdentity.id)
-                        .textSelection(.enabled)
-                    LabeledContent("Model", value: UIDevice.current.model)
-                    LabeledContent("iOS", value: UIDevice.current.systemVersion)
-                    HStack {
-                        Text("Last upload")
-                        Spacer()
-                        if let date = ISO8601DateFormatter().date(from: lastUpload) {
-                            HStack(spacing: 3) {
-                                Text(date, style: .relative)
-                                Text("ago")
+                Group {
+                    Section("Panel") {
+                        LabeledContent("Data source", value: source)
+                        LabeledContent("Backend URL", value: store?.diagnosticsBackendURL ?? "unavailable")
+                        LabeledContent("Build", value: build)
+                        LabeledContent("Git SHA", value: gitSHA)
+                    }
+                    Section("This device") {
+                        TextField("Device label", text: $deviceLabel)
+                            .textInputAutocapitalization(.words)
+                            .accessibilityIdentifier("diagnostics-device-label")
+                        LabeledContent("Installation ID", value: PanelDeviceIdentity.id)
+                            .textSelection(.enabled)
+                        LabeledContent("Model", value: UIDevice.current.model)
+                        LabeledContent("iOS", value: UIDevice.current.systemVersion)
+                        HStack {
+                            Text("Last upload")
+                            Spacer()
+                            if let date = ISO8601DateFormatter().date(from: lastUpload) {
+                                HStack(spacing: 3) {
+                                    Text(date, style: .relative)
+                                    Text("ago")
+                                }
+                            } else {
+                                Text("Not yet")
                             }
-                        } else {
-                            Text("Not yet")
                         }
                     }
-                }
-                Section("Recent activity") {
-                    LabeledContent(
-                        "Local log storage", value: PanelEventLog.shared.storageAvailable ? "Available" : "Unavailable")
-                    LabeledContent("Events waiting to upload", value: "\(pendingEventCount)")
-                    LabeledContent(
-                        "Failures", value: "\(events.filter { $0.outcome != "ok" && $0.outcome != "slow" }.count)")
-                    LabeledContent("Slow operations", value: "\(events.filter { $0.outcome == "slow" }.count)")
-                }
-                Section {
-                    Button("Share diagnostics") { share() }
-                        .accessibilityIdentifier("diagnostics-share")
-                    if let shareError { Text(shareError).foregroundStyle(.secondary) }
-                }.id("diagnostics-actions")
-                Section {
-                    VStack(spacing: 0) {
-                        statusRow(title: "Backend", status: Self.connectionLabel(backend), state: backend)
-                        Divider()
-                        statusRow(
-                            title: "Home Assistant", status: Self.connectionLabel(homeAssistant),
-                            state: homeAssistant)
-                        if let latencyMs {
+                    Section("Recent activity") {
+                        LabeledContent(
+                            "Local log storage",
+                            value: PanelEventLog.shared.storageAvailable ? "Available" : "Unavailable")
+                        LabeledContent("Events waiting to upload", value: "\(pendingEventCount)")
+                        LabeledContent(
+                            "Failures", value: "\(events.filter { $0.outcome != "ok" && $0.outcome != "slow" }.count)")
+                        LabeledContent("Slow operations", value: "\(events.filter { $0.outcome == "slow" }.count)")
+                    }
+                    Section {
+                        Button("Share diagnostics") { share() }
+                            .accessibilityIdentifier("diagnostics-share")
+                        if let shareError { Text(shareError).foregroundStyle(.secondary) }
+                    }.id("diagnostics-actions")
+                    Section {
+                        VStack(spacing: 0) {
+                            statusRow(title: "Backend", status: Self.connectionLabel(backend), state: backend)
                             Divider()
-                            HStack {
-                                Text("Ping latency")
-                                Spacer()
-                                Text("\(latencyMs) ms").foregroundStyle(.secondary)
-                            }
-                            .padding(.horizontal, 18)
-                            .frame(minHeight: 44)
-                        }
-                    }
-                    .listRowInsets(EdgeInsets())
-                } header: {
-                    HStack {
-                        Text("Connection")
-                        Spacer()
-                        if let lastCheckedAt {
-                            HStack(spacing: 3) {
-                                Text(lastCheckedAt, style: .relative)
-                                Text("ago")
-                            }.foregroundStyle(.secondary)
-                        }
-                        Button {
-                            Task { await check() }
-                        } label: {
-                            Group {
-                                if checking { ProgressView() } else { Image(systemName: "arrow.clockwise") }
-                            }.frame(width: 44, height: 44)
-                        }
-                        .accessibilityLabel("Retry connection check")
-                        .buttonStyle(.plain)
-                        .foregroundStyle(.secondary)
-                        .disabled(checking)
-                    }
-                }
-                Section("Feature status") {
-                    VStack(spacing: 0) {
-                        ForEach(Array(modules.enumerated()), id: \.element.module) { index, module in
                             statusRow(
-                                title: module.module.capitalized, status: Self.statusLabel(module.status),
-                                state: module.status, reason: module.reason
-                            )
-                            .accessibilityIdentifier("diagnostics-module-\(module.module)")
-                            if index < modules.count - 1 {
+                                title: "Home Assistant", status: Self.connectionLabel(homeAssistant),
+                                state: homeAssistant)
+                            if let latencyMs {
                                 Divider()
+                                HStack {
+                                    Text("Ping latency")
+                                    Spacer()
+                                    Text("\(latencyMs) ms").foregroundStyle(.secondary)
+                                }
+                                .padding(.horizontal, 18)
+                                .frame(minHeight: 44)
                             }
                         }
-                    }
-                    .listRowInsets(EdgeInsets())
-                }
-                Section("Control actions (last 500)") {
-                    ForEach(commands) { entry in
-                        VStack(alignment: .leading, spacing: 4) {
-                            Label(
-                                entry.control,
-                                systemImage: entry.error != nil
-                                    ? "exclamationmark.circle.fill"
-                                    : (entry.status == nil ? "arrow.up.circle.fill" : "checkmark.circle.fill")
-                            )
-                            .font(.headline)
-                            .foregroundStyle(entry.error != nil ? .red : (entry.status == nil ? .blue : .green))
-                            if !entry.payload.isEmpty {
-                                Text(
-                                    entry.payload.sorted(by: { $0.key < $1.key })
-                                        .map { "\($0.key)=\($0.value)" }.joined(separator: ", "))
+                        .listRowInsets(EdgeInsets())
+                    } header: {
+                        HStack {
+                            Text("Connection")
+                            Spacer()
+                            if let lastCheckedAt {
+                                HStack(spacing: 3) {
+                                    Text(lastCheckedAt, style: .relative)
+                                    Text("ago")
+                                }.foregroundStyle(.secondary)
                             }
-                            Text(
-                                ([
-                                    entry.error ?? (entry.status == nil ? "Action requested" : "Completed"),
-                                    entry.status.map { "HTTP \($0)" }, "\(entry.latencyMs) ms",
-                                ]
-                                .compactMap { $0 }).joined(separator: " · "))
-                        }.font(.caption).textSelection(.enabled)
+                            Button {
+                                Task { await check() }
+                            } label: {
+                                Group {
+                                    if checking { ProgressView() } else { Image(systemName: "arrow.clockwise") }
+                                }.frame(width: 44, height: 44)
+                            }
+                            .accessibilityLabel("Retry connection check")
+                            .buttonStyle(.plain)
+                            .foregroundStyle(.secondary)
+                            .disabled(checking)
+                        }
                     }
-                }
-                Section("Client events (last 500)") {
-                    Picker("Show", selection: $eventFilter) {
-                        Text("All").tag("All")
-                        Text("Errors").tag("Errors")
-                        Text("Slow").tag("Slow")
-                    }.pickerStyle(.segmented)
-                    ForEach(visibleEvents.reversed()) { entry in
-                        VStack(alignment: .leading, spacing: 4) {
-                            Label("\(entry.category) · \(entry.action)", systemImage: Self.eventSymbol(entry.outcome))
+                    Section("Feature status") {
+                        VStack(spacing: 0) {
+                            ForEach(Array(modules.enumerated()), id: \.element.module) { index, module in
+                                statusRow(
+                                    title: module.module.capitalized, status: Self.statusLabel(module.status),
+                                    state: module.status, reason: module.reason
+                                )
+                                .accessibilityIdentifier("diagnostics-module-\(module.module)")
+                                if index < modules.count - 1 {
+                                    Divider()
+                                }
+                            }
+                        }
+                        .listRowInsets(EdgeInsets())
+                    }
+                    Section("Control actions (last 500)") {
+                        ForEach(commands) { entry in
+                            VStack(alignment: .leading, spacing: 4) {
+                                Label(
+                                    entry.control,
+                                    systemImage: entry.error != nil
+                                        ? "exclamationmark.circle.fill"
+                                        : (entry.status == nil ? "arrow.up.circle.fill" : "checkmark.circle.fill")
+                                )
+                                .font(.headline)
+                                .foregroundStyle(entry.error != nil ? .red : (entry.status == nil ? .blue : .green))
+                                if !entry.payload.isEmpty {
+                                    Text(
+                                        entry.payload.sorted(by: { $0.key < $1.key })
+                                            .map { "\($0.key)=\($0.value)" }.joined(separator: ", "))
+                                }
+                                Text(
+                                    ([
+                                        entry.error ?? (entry.status == nil ? "Action requested" : "Completed"),
+                                        entry.status.map { "HTTP \($0)" }, "\(entry.latencyMs) ms",
+                                    ]
+                                    .compactMap { $0 }).joined(separator: " · "))
+                            }.font(.caption).textSelection(.enabled)
+                        }
+                    }
+                    Section("Client events (last 500)") {
+                        Picker("Show", selection: $eventFilter) {
+                            Text("All").tag("All")
+                            Text("Errors").tag("Errors")
+                            Text("Slow").tag("Slow")
+                        }.pickerStyle(.segmented)
+                        ForEach(visibleEvents.reversed()) { entry in
+                            VStack(alignment: .leading, spacing: 4) {
+                                Label(
+                                    "\(entry.category) · \(entry.action)", systemImage: Self.eventSymbol(entry.outcome)
+                                )
                                 .font(.headline)
                                 .foregroundStyle(Self.eventColor(entry.outcome))
-                            Text(entry.time, format: .dateTime.month().day().hour().minute().second())
-                            Text(
-                                ([
-                                    entry.outcome, entry.status.map { "HTTP \($0)" },
-                                    entry.durationMs.map { "\($0) ms" },
-                                ].compactMap { $0 }).joined(separator: " · "))
-                        }.font(.caption).textSelection(.enabled)
+                                Text(entry.time, format: .dateTime.month().day().hour().minute().second())
+                                Text(
+                                    ([
+                                        entry.outcome, entry.status.map { "HTTP \($0)" },
+                                        entry.durationMs.map { "\($0) ms" },
+                                    ].compactMap { $0 }).joined(separator: " · "))
+                            }.font(.caption).textSelection(.enabled)
+                        }
+                    }
+                }.listRowBackground(PanelSettingsStyle.row)
+            }.scrollContentBackground(.hidden).background(Color.black)
+                .task {
+                    #if DEBUG
+                        if ProcessInfo.processInfo.arguments.contains("-previewDiagnosticsActions") {
+                            try? await Task.sleep(for: .milliseconds(400))
+                            scroll.scrollTo("diagnostics-actions", anchor: .top)
+                        }
+                    #endif
+                }
+                .navigationTitle("Diagnostics")
+                .toolbar {
+                    if !embedded {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("Done", action: close).accessibilityIdentifier("diagnostics-done")
+                        }
                     }
                 }
-            }
-            .task {
-                #if DEBUG
-                    if ProcessInfo.processInfo.arguments.contains("-previewDiagnosticsActions") {
-                        try? await Task.sleep(for: .milliseconds(400))
-                        scroll.scrollTo("diagnostics-actions", anchor: .top)
-                    }
-                #endif
-            }
-            .navigationTitle("Diagnostics")
-            .toolbar {
-                if !embedded {
-                    ToolbarItem(placement: .confirmationAction) {
-                        Button("Done", action: close).accessibilityIdentifier("diagnostics-done")
-                    }
-                }
-            }
         }
     }
     private struct Ping: Decodable, Sendable {

@@ -13,7 +13,7 @@ import PanelKit
 /// A complete projection awaiting a value initializer on the prototype WeatherState.
 /// Its initialized `let` properties currently prevent a truthful live WeatherState.
 /// Never substitutes the mock's temperatures when live data is unavailable.
-struct LiveWeatherSnapshot {
+struct LiveWeatherSnapshot: Equatable {
     let now: WeatherNow
     let hourly: [WeatherHour]
     var city: String { now.city }
@@ -30,10 +30,21 @@ struct LiveWeatherSnapshot {
     var hours: [HourForecast] {
         hourly.prefix(12).enumerated().map { index, hour in
             HourForecast(
-                id: index, time: hour.t, temperature: Int(hour.temp.rounded()),
+                id: index, time: Self.hourLabel(hour, index: index, timeZone: .current),
+                temperature: Int(hour.temp.rounded()),
                 feels: Int(hour.feels.rounded()),
                 symbol: WeatherPresentation.symbol(icon: hour.ic, isDay: hour.isDay))
         }
+    }
+    /// The server labels hours in its own zone; relabel from the instant so the strip matches the
+    /// clock. `.current` is the panel time zone once `PanelTimeZone.apply` has run.
+    static func hourLabel(_ hour: WeatherHour, index: Int, timeZone: TimeZone) -> String {
+        guard index > 0, let date = AlarmDate.parse(hour.isoTime) else { return hour.t }
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = timeZone
+        formatter.dateFormat = "h"
+        return formatter.string(from: date)
     }
     /// WMO conditions are retained separately from the server's current description.
     var hourlyConditions: [String] { hourly.prefix(12).map { WeatherPresentation.condition(code: $0.weatherCode) } }
@@ -92,6 +103,7 @@ enum WeatherPresentation {
     @ObservationIgnored private var pollingTask: Task<Void, Never>?
     @ObservationIgnored private var refreshing = false
     @ObservationIgnored private var generation = 0
+    @ObservationIgnored private var cachedState: (zone: String, value: WeatherState)?
 
     init(api: WeatherAPI, clock: SyncClock = .continuous()) {
         self.api = api
@@ -110,16 +122,44 @@ enum WeatherPresentation {
             let result = try await (now, hourly)
             guard !Task.isCancelled, generation == started else { return }
             guard !result.1.isEmpty else {
-                availability = .unavailable("Weather forecast is not available yet.")
+                setAvailability(.unavailable("Weather forecast is not available yet."))
                 return
             }
-            snapshot = LiveWeatherSnapshot(now: result.0, hourly: result.1)
-            availability = .live
+            let value = LiveWeatherSnapshot(now: result.0, hourly: result.1)
+            if snapshot != value {
+                snapshot = value
+                cachedState = nil
+            }
+            setAvailability(.live)
         } catch {
             guard !Task.isCancelled, generation == started else { return }
             // Fixed copy avoids surfacing server details or credentials in UI/logs.
-            availability = .unavailable(panelFailureReason(error, fallback: "Weather is unavailable. Try again later."))
+            setAvailability(
+                .unavailable(panelFailureReason(error, fallback: "Weather is unavailable. Try again later.")))
         }
+    }
+
+    private func setAvailability(_ value: LiveAvailability) {
+        if availability != value { availability = value }
+    }
+
+    /// Views read this every render. Parse timestamps and relabel hours once per
+    /// snapshot (and panel time zone, which hour labels depend on).
+    var weatherState: WeatherState? {
+        guard let snapshot else { return nil }
+        let zone = TimeZone.current.identifier
+        if let cachedState, cachedState.zone == zone { return cachedState.value }
+        let value = WeatherState(
+            sunrise: SolarClock.timestamp(snapshot.now.sunriseIso),
+            sunset: SolarClock.timestamp(snapshot.now.sunsetIso),
+            nextSunrise: SolarClock.timestamp(snapshot.now.tomorrowSunriseIso),
+            city: snapshot.city, temperature: snapshot.temperature, condition: snapshot.condition,
+            symbol: snapshot.symbol,
+            high: snapshot.high, low: snapshot.low, feels: snapshot.feels, humidity: snapshot.humidity,
+            wind: snapshot.wind, solarLabel: snapshot.solarLabel, solarValue: snapshot.solarValue,
+            hours: snapshot.hours)
+        cachedState = (zone, value)
+        return value
     }
 
     func startPolling(every interval: Duration = LiveWeatherProvider.pollingInterval) {

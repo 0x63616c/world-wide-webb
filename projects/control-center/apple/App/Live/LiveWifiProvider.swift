@@ -37,16 +37,22 @@ import PanelKit
             let response = try await api.guestQr()
             try Task.checkCancellation()
             guard requestGeneration == generation else { return }
-            wifi = try Self.parse(response.qr)
-            qrPayload = wifi.ssid == nil ? nil : response.qr
-            availability = .live
+            let parsed = try Self.parse(response.qr)
+            apply(parsed, qr: parsed.ssid == nil ? nil : response.qr, availability: .live)
         } catch {
             guard requestGeneration == generation else { return }
             // Clear stale join credentials, including when the caller cancels.
-            wifi = .unconfigured
-            qrPayload = nil
-            availability = .unavailable(panelFailureReason(error, fallback: "Guest Wi-Fi is unavailable."))
+            apply(
+                .unconfigured, qr: nil,
+                availability: .unavailable(panelFailureReason(error, fallback: "Guest Wi-Fi is unavailable.")))
         }
+    }
+
+    /// Polled: assign only changes so identical samples don't invalidate readers.
+    private func apply(_ wifi: WifiState, qr: String?, availability: LiveAvailability) {
+        if self.wifi != wifi { self.wifi = wifi }
+        if qrPayload != qr { qrPayload = qr }
+        if self.availability != availability { self.availability = availability }
     }
 
     /// Forget credentials on backgrounding and reject any response from the old scene.

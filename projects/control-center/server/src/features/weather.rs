@@ -163,8 +163,8 @@ pub async fn current(State(s): State<AppState>) -> Result<Json<Value>> {
     Ok(Json(
         json!({"temp":cur.temp_f,"cond":condition(cur.weather_code),"ic":icon(cur.weather_code,cur.is_day),
         "hi":today.hi_f,"lo":today.lo_f,"feels":cur.feels_f,"hum":cur.humidity.unwrap_or(0),"wind":cur.wind_mph.unwrap_or(0),
-        "uvIndex":cur.uv_index.unwrap_or(0),"precipProbability":cur.precip_probability.unwrap_or(0),"sunsetIso":sunset,
-        "sunriseIso":sunrise,"tomorrowSunriseIso":tomorrow,"solarLabel":label,"solarValue":solar,"city":"Los Angeles"}),
+        "uvIndex":cur.uv_index.unwrap_or(0),"precipProbability":cur.precip_probability.unwrap_or(0),"sunsetIso":zoned(sunset,tz),
+        "sunriseIso":zoned(sunrise,tz),"tomorrowSunriseIso":zoned(tomorrow,tz),"solarLabel":label,"solarValue":solar,"city":"Los Angeles"}),
     ))
 }
 
@@ -194,6 +194,15 @@ struct DailyForecast {
     precipitation_probability_max: Vec<Option<f64>>,
     sunrise: Vec<i64>,
     sunset: Vec<i64>,
+}
+/// Stored solar times are local wall-clock minutes; clients need an absolute RFC 3339 instant.
+fn zoned(local: &str, tz: Tz) -> String {
+    use chrono::TimeZone;
+    chrono::NaiveDateTime::parse_from_str(local, "%Y-%m-%dT%H:%M")
+        .ok()
+        .and_then(|t| tz.from_local_datetime(&t).earliest())
+        .map(|t| t.to_rfc3339_opts(chrono::SecondsFormat::Secs, false))
+        .unwrap_or_default()
 }
 fn instant(epoch: i64) -> Result<DateTime<Utc>> {
     DateTime::from_timestamp(epoch, 0).ok_or_else(unavailable)
@@ -276,4 +285,17 @@ pub async fn store_forecast(s: &AppState, f: Forecast, at: DateTime<Utc>, tz: Tz
     }
     tx.commit().await?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::zoned;
+
+    #[test]
+    fn solar_times_carry_the_location_offset() {
+        let la = chrono_tz::America::Los_Angeles;
+        assert_eq!(zoned("2026-10-29T18:10", la), "2026-10-29T18:10:00-07:00");
+        assert_eq!(zoned("2026-11-02T06:31", la), "2026-11-02T06:31:00-08:00");
+        assert_eq!(zoned("", la), "");
+    }
 }

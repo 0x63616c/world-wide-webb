@@ -207,7 +207,8 @@ struct PanelProfileSelector: ViewModifier {
         do {
             profiles = try await api.list()
             loadError = nil
-            if !selectedID.isEmpty && !profiles.contains(where: { $0.id == selectedID }) { selectedID = "" }
+            // Default to the first profile when none (or a deleted one) is selected.
+            if !profiles.contains(where: { $0.id == selectedID }) { selectedID = profiles.first?.id ?? "" }
         } catch {
             loadError = "Couldn’t load profiles."
         }

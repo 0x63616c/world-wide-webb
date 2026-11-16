@@ -145,24 +145,30 @@ import PanelKit
         return result
     }
 
+    /// Polled: assign only changes so identical samples don't invalidate readers.
     private func accept(_ snapshot: FanSnapshot) {
-        fanModes = snapshot.fan.modes ?? ["auto", "on"]
-        selectedMode = snapshot.fan.mode ?? (snapshot.fan.on ? "on" : "auto")
-        fanOn = snapshot.fan.on
+        let modes = snapshot.fan.modes ?? ["auto", "on"]
+        if fanModes != modes { fanModes = modes }
+        let mode = snapshot.fan.mode ?? (snapshot.fan.on ? "on" : "auto")
+        if selectedMode != mode { selectedMode = mode }
+        if fanOn != snapshot.fan.on { fanOn = snapshot.fan.on }
         // The server distinguishes Auto from Off using the effective A/C mode.
-        fanLabel = snapshot.fan.sub
-        pending = snapshot.fan.pending ? ["fan"] : []
-        availability = .live
+        if fanLabel != snapshot.fan.sub { fanLabel = snapshot.fan.sub }
+        let reportedPending: Set<String> = snapshot.fan.pending ? ["fan"] : []
+        if pending != reportedPending { pending = reportedPending }
+        if availability != .live { availability = .live }
     }
 
     private func fail(_ error: any Error) {
         if error is CancellationError { return }
         // Never expose transport/server messages, which may contain runtime credentials.
-        if let error = error as? PanelAPIError, error == .notConfigured {
-            availability = .unavailable("The panel API is not configured.")
-        } else {
-            availability = .unavailable("Fan is unavailable. Try again.")
-        }
+        let unavailable: LiveAvailability =
+            if let error = error as? PanelAPIError, error == .notConfigured {
+                .unavailable("The panel API is not configured.")
+            } else {
+                .unavailable("Fan is unavailable. Try again.")
+            }
+        if availability != unavailable { availability = unavailable }
     }
 }
 

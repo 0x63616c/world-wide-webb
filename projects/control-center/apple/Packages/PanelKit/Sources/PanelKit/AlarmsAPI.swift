@@ -75,11 +75,8 @@ public struct AlarmsSnapshot: Codable, Equatable, Sendable {
 }
 
 public enum AlarmDate {
-    public static func parse(_ value: String) -> Date? {
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return formatter.date(from: value) ?? ISO8601DateFormatter().date(from: value)
-    }
+    /// Read per frame by clock faces; shares SolarClock's cached ISO 8601 parsers.
+    public static func parse(_ value: String) -> Date? { SolarClock.timestamp(value) }
 }
 
 public struct AlarmsAPI: Sendable {

@@ -58,6 +58,7 @@ struct PanelRoot: View {
     @State private var timer = PanelTimerStore()
 
     init() {
+        PanelTimeZone.apply()
         let center = PanelNotifications.make()
         _notifications = State(initialValue: center)
         _updateChecker = State(
@@ -291,6 +292,7 @@ struct PanelRoot: View {
             await updateChecker.run()
         }
         .environment(notifications)
+        .modifier(PanelTimeZoneEnvironment())
         .onAppear {
             notifications.setOpenHandler { [store, session, navigation, timer] item in
                 if item.deepLink == PanelNotifications.timerDeepLink {

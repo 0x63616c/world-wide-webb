@@ -22,10 +22,17 @@ public enum SolarClock {
         return (weatherSymbol?.contains("moon") ?? false) || hour < 7 || hour >= 18
     }
     public static func timestamp(_ value: String) -> Date? {
+        fractionalParser.date(from: value) ?? wholeSecondParser.date(from: value)
+    }
+    // ISO8601DateFormatter is thread-safe once configured; reuse avoids per-read allocation.
+    nonisolated(unsafe) private static let fractionalParser: ISO8601DateFormatter = {
         let parser = ISO8601DateFormatter()
         parser.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        if let date = parser.date(from: value) { return date }
+        return parser
+    }()
+    nonisolated(unsafe) private static let wholeSecondParser: ISO8601DateFormatter = {
+        let parser = ISO8601DateFormatter()
         parser.formatOptions = [.withInternetDateTime]
-        return parser.date(from: value)
-    }
+        return parser
+    }()
 }

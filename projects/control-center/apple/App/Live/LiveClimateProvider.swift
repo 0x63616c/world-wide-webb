@@ -76,8 +76,8 @@ import PanelKit
         revision += 1
         for _ in queue { PanelCommandLog.shared.record(control: "climate.queued", error: "cancelled") }
         queue.removeAll()
-        pending = []
-        climate = confirmedClimate
+        if !pending.isEmpty { pending = [] }
+        if climate != confirmedClimate { climate = confirmedClimate }
     }
 
     @discardableResult func send(_ command: HomeCommand) -> Bool {
@@ -164,11 +164,12 @@ import PanelKit
         // fanOn is not exposed by climate.get; do not infer fan activity from HVAC action.
         confirmedClimate = mapped
         render()
-        serverState = state
-        reportedAction = state.action
-        ambientFahrenheit = state.ambient
-        lastError = nil
-        availability = .live
+        // Polled: assign only changes so identical samples don't invalidate readers.
+        if serverState != state { serverState = state }
+        if reportedAction != state.action { reportedAction = state.action }
+        if ambientFahrenheit != state.ambient { ambientFahrenheit = state.ambient }
+        if lastError != nil { lastError = nil }
+        if availability != .live { availability = .live }
     }
 
     /// Rebase pending intent over each confirmed response so an earlier response
@@ -188,7 +189,7 @@ import PanelKit
             default: break
             }
         }
-        climate = value
+        if climate != value { climate = value }
     }
 
     private static func range(around target: Int) -> (Int, Int) {
@@ -198,8 +199,11 @@ import PanelKit
 
     private func fail(_ error: any Error) {
         Logger(subsystem: "co.worldwidewebb.panel", category: "commands").error("Climate provider request failed")
-        lastError = error as? PanelAPIError
-        availability = .unavailable(panelFailureReason(error, fallback: "Climate is unavailable. Try again."))
+        let apiError = error as? PanelAPIError
+        if lastError != apiError { lastError = apiError }
+        let unavailable = LiveAvailability.unavailable(
+            panelFailureReason(error, fallback: "Climate is unavailable. Try again."))
+        if availability != unavailable { availability = unavailable }
     }
 }
 

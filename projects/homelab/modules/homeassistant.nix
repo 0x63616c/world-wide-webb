@@ -89,7 +89,6 @@ let
       lib.makeBinPath [
         pkgs.docker
         pkgs.docker-compose
-        (pkgs.python3.withPackages (ps: [ ps.pyyaml ]))
         pkgs.coreutils
       ]
     }
@@ -105,8 +104,8 @@ let
     # an empty HA installation. Never create/import it in this daemon.
     docker volume inspect ha_config >/dev/null
     exec /run/current-system/sw/bin/homelab-operation -- \
-      python3 ${../scripts/provision-ha.py} ${../services/home-assistant} \
-      ${../../control-center/server/config/vacuum.json}
+      docker-compose -f /etc/homelab/home-assistant/compose.yaml \
+      up -d --wait --wait-timeout 240
   '';
   stop = pkgs.writeShellScriptBin "homelab-stop-ha" ''
     set -eu

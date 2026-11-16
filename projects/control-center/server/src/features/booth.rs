@@ -10,7 +10,7 @@ use axum::{
     http::{HeaderMap, StatusCode, header},
     response::{IntoResponse, Response},
 };
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 use std::path::Component;
 
@@ -57,7 +57,7 @@ fn io_error(_: std::io::Error) -> ApiError {
     }
 }
 pub async fn list(State(s): State<AppState>) -> Result<Json<serde_json::Value>> {
-    let rows:Vec<Photo>=sqlx::query_as("SELECT * FROM booth_photo WHERE soft_deleted_at IS NULL AND source_only=0 ORDER BY captured_at DESC,group_id,frame_idx").fetch_all(&s.db).await?;
+    let rows:Vec<Photo>=sqlx::query_as("SELECT * FROM booth_photo WHERE soft_deleted_at IS NULL AND hidden_at IS NULL AND source_only=0 ORDER BY captured_at DESC,group_id,frame_idx").fetch_all(&s.db).await?;
     let total_count = rows.len();
     let total_bytes: i64 = rows.iter().map(|r| r.bytes).sum();
     let mut groups: Vec<Group> = vec![];
@@ -105,6 +105,35 @@ pub async fn remove(
     .await?
     .rows_affected();
     Ok(Json(serde_json::json!({"removed":n})))
+}
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Hide {
+    photo_ids: Vec<String>,
+}
+/// Hides individual frames from the gallery. Records and media files are retained.
+pub async fn hide(
+    State(s): State<AppState>,
+    Json(h): Json<Hide>,
+) -> Result<Json<serde_json::Value>> {
+    if h.photo_ids.is_empty() || h.photo_ids.len() > 500 {
+        return Err(ApiError::bad("Invalid photo selection"));
+    }
+    let at = now();
+    let mut tx = s.db.begin().await?;
+    let mut n = 0;
+    for key in &h.photo_ids {
+        n += sqlx::query(
+            "UPDATE booth_photo SET hidden_at=? WHERE id=? AND hidden_at IS NULL AND soft_deleted_at IS NULL",
+        )
+        .bind(&at)
+        .bind(key)
+        .execute(&mut *tx)
+        .await?
+        .rows_affected();
+    }
+    tx.commit().await?;
+    Ok(Json(serde_json::json!({"hidden":n})))
 }
 pub async fn clear_filter(
     State(s): State<AppState>,

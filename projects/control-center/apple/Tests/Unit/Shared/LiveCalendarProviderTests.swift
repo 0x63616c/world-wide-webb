@@ -78,6 +78,39 @@ import XCTest
         XCTAssertEqual(provider.events.map(\.id), values.map(\.id))
     }
 
+    func testQuietWeekReadsLaterEventsBeyondIt() async throws {
+        let far = CalendarEvent(
+            id: "far", title: "Trip", location: nil, start: now.addingTimeInterval(40 * 86400),
+            end: now.addingTimeInterval(41 * 86400), isAllDay: false)
+        let store = CalendarProviderStore(values: [far])
+        let provider = provider(store)
+        await provider.refresh()
+        XCTAssertTrue(provider.events.isEmpty)
+        XCTAssertEqual(provider.later.map(\.title), ["Trip"])
+        let reads = await store.reads
+        XCTAssertEqual(reads.count, 2)
+        XCTAssertEqual(reads.last?.start, reads.first?.end)
+        provider.stop()
+        XCTAssertTrue(provider.later.isEmpty)
+    }
+
+    func testBrowsingAheadLoadsThatWeekAndStopClearsIt() async throws {
+        let ahead = CalendarEvent(
+            id: "ahead", title: "Dentist", location: nil, start: now.addingTimeInterval(10 * 86400),
+            end: now.addingTimeInterval(10 * 86400 + 3600), isAllDay: false)
+        let provider = provider(CalendarProviderStore(values: try fixture() + [ahead]))
+        await provider.refresh()
+        let start = try XCTUnwrap(calendar.date(byAdding: .day, value: 7, to: calendar.startOfDay(for: now)))
+        await provider.browse(from: start)
+        XCTAssertEqual(provider.browsed.map(\.title), ["Dentist"])
+        XCTAssertEqual(provider.events.count, 7)
+        await provider.browse(from: nil)
+        XCTAssertTrue(provider.browsed.isEmpty)
+        await provider.browse(from: start)
+        provider.stop()
+        XCTAssertTrue(provider.browsed.isEmpty)
+    }
+
     func testDeniedAndFailureClearPrivateEventsAndRecover() async throws {
         let store = CalendarProviderStore(values: try fixture())
         let provider = provider(store)

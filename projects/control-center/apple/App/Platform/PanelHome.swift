@@ -81,7 +81,6 @@ struct PanelHome: View {
     let caption = ""
     var panelPIN: PanelPINAPI? { store.panelPIN }
     var profilesAPI: ProfilesAPI? { store.profilesAPI }
-    var vacuumAPI: VacuumAPI? { store.vacuumAPI }
     func photoBooth(close: @escaping () -> Void) -> AnyView? {
         AnyView(LivePhotoBoothModule(camera: store.photoBoothCamera, photos: store.photosProvider, close: close))
     }

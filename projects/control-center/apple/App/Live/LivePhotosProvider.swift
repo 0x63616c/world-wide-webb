@@ -49,8 +49,8 @@ struct LivePhoto: Identifiable, Hashable, Sendable {
 
     func lock() {
         generation += 1
-        unlocked = false
-        error = nil
+        if unlocked { unlocked = false }
+        if error != nil { error = nil }
     }
 
     func openBooth() { boothOpen = true }
@@ -85,20 +85,25 @@ struct LivePhoto: Identifiable, Hashable, Sendable {
                 refreshAgain = true
                 return
             }
-            frames = b.groups.flatMap { group in
+            let loaded = b.groups.flatMap { group in
                 group.frames.map { frame in
                     LivePhoto(
                         id: "booth:" + frame.id, collection: "booth-photos", path: frame.path,
                         capturedAt: frame.capturedAt, groupID: group.groupId, filter: group.filter)
                 }
             }.sorted { $0.capturedAt > $1.capturedAt }
+            // Polled: assign only changes so identical samples don't invalidate readers.
+            if frames != loaded { frames = loaded }
             // Existing protocol remains usable, but live bytes are rendered by Hybrid.
-            photos = frames.map { PhotoItem(id: $0.id, asset: $0.path, title: "Photo", credit: "") }
-            availability = .live
+            let items = loaded.map { PhotoItem(id: $0.id, asset: $0.path, title: "Photo", credit: "") }
+            if photos != items { photos = items }
+            if availability != .live { availability = .live }
         } catch {
-            frames = []
-            photos = []
-            availability = .unavailable(panelFailureReason(error, fallback: "Photos are unavailable."))
+            if !frames.isEmpty { frames = [] }
+            if !photos.isEmpty { photos = [] }
+            let unavailable = LiveAvailability.unavailable(
+                panelFailureReason(error, fallback: "Photos are unavailable."))
+            if availability != unavailable { availability = unavailable }
             lock()
         }
     }
@@ -120,6 +125,24 @@ struct LivePhoto: Identifiable, Hashable, Sendable {
 
     func remove(_ photo: LivePhoto) async { await mutate(photo, clear: false) }
     func clearFilter(_ photo: LivePhoto) async { await mutate(photo, clear: true) }
+
+    /// Removes frames from the gallery immediately; a failed request restores them from the server.
+    func hide(_ ids: Set<LivePhoto.ID>) async {
+        let hidden = frames.filter { ids.contains($0.id) && $0.collection == "booth-photos" && canAccess($0) }
+        guard !hidden.isEmpty else { return }
+        let prefix = "booth:"
+        error = nil
+        contentRevision += 1
+        frames.removeAll { photo in hidden.contains { $0.id == photo.id } }
+        photos = frames.map { PhotoItem(id: $0.id, asset: $0.path, title: "Photo", credit: "") }
+        do {
+            try await api.hide(photoIDs: hidden.map { String($0.id.dropFirst(prefix.count)) })
+        } catch {
+            self.error =
+                hidden.count == 1 ? "Couldn’t hide this photo. Try again." : "Couldn’t hide these photos. Try again."
+        }
+        await refresh()
+    }
 
     private func mutate(_ photo: LivePhoto, clear: Bool) async {
         guard canAccess(photo), photo.collection == "booth-photos", !pending, let group = photo.groupID,

@@ -9,6 +9,8 @@ struct PanelTimerPage: View {
     @State private var minutes = 15
     @State private var seconds = 0
     @State private var zeroResetTask: Task<Void, Never>?
+    /// Rebuilds the wheels after a programmatic reset; a settled wheel can keep showing 0.
+    @State private var wheelResetToken = 0
 
     var body: some View {
         ZStack {
@@ -33,15 +35,10 @@ struct PanelTimerPage: View {
                             .font(.system(size: 24, weight: .medium)).foregroundStyle(.white.opacity(0.5))
                             .frame(height: 30)
                             .accessibilityIdentifier("timer-status")
-                        Text(Self.readout(remaining))
+                        TimerDropDigits(text: Self.readout(remaining), animated: !reduceMotion)
                             .font(.system(size: min(proxy.size.width * 0.18, 210), weight: .medium, design: .rounded))
                             .monospacedDigit().fontWidth(.condensed)
-                            .contentTransition(reduceMotion ? .identity : .numericText(countsDown: true))
-                            .animation(
-                                reduceMotion ? nil : .spring(duration: 0.32, bounce: 0.12),
-                                value: Self.readout(remaining)
-                            )
-                            .minimumScaleFactor(0.6).lineLimit(1)
+                            .accessibilityElement(children: .ignore)
                             .accessibilityIdentifier("timer-remaining")
                             .accessibilityLabel("Time remaining")
                             .accessibilityValue(Self.accessibleDuration(remaining))
@@ -125,7 +122,7 @@ struct PanelTimerPage: View {
                 durationWheel("Hours", selection: $hours, range: 0..<24)
                 durationWheel("Minutes", selection: $minutes, range: 0..<60)
                 durationWheel("Seconds", selection: $seconds, range: 0..<60)
-            }
+            }.id(wheelResetToken)
             HStack(spacing: 16) {
                 ForEach([5, 15, 30], id: \.self) { value in
                     Button("\(value) min") {
@@ -159,7 +156,8 @@ struct PanelTimerPage: View {
         zeroResetTask = Task {
             do { try await Task.sleep(for: .milliseconds(350)) } catch { return }
             guard hours + minutes + seconds == 0 else { return }
-            withAnimation(reduceMotion ? nil : .snappy) { minutes = 1 }
+            minutes = 1
+            wheelResetToken += 1
         }
     }
 
@@ -222,5 +220,29 @@ private struct TimerTickRing: View {
                 cornerRadius: PanelSurface.cornerRadius - Self.edgeInset,
                 cornerFanTicks: 10, smoothProgress: true)
         }
+    }
+}
+
+/// Each changed digit drops in from above and knocks the old one down, with a small bounce.
+private struct TimerDropDigits: View {
+    let text: String
+    let animated: Bool
+
+    var body: some View {
+        HStack(spacing: 0) {
+            ForEach(Array(text.enumerated()), id: \.offset) { _, character in
+                ZStack {
+                    Text(String(character))
+                        .id(character)
+                        .transition(
+                            .asymmetric(
+                                insertion: .move(edge: .top).combined(with: .opacity),
+                                removal: .move(edge: .bottom).combined(with: .opacity)))
+                }
+                .clipped()
+            }
+        }
+        .lineLimit(1)
+        .animation(animated ? .spring(duration: 0.45, bounce: 0.35) : nil, value: text)
     }
 }

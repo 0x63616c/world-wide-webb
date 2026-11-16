@@ -28,7 +28,6 @@ import UIKit
     let diagnosticsClient: PanelAPIClient
     let panelPIN: PanelPINAPI
     let profilesAPI: ProfilesAPI
-    let vacuumAPI: VacuumAPI
     let diagnosticsBackendURL: String
     private var commandName = "command"
     private var commandPayload: Data?
@@ -51,7 +50,7 @@ import UIKit
         configuration: PanelKit.PanelConfiguration?, transport: (any PanelTransport)? = nil,
         calendarAPI: CalendarAPI = CalendarAPI(), sonosLockDefaults: UserDefaults? = nil,
         now: @escaping () -> Date = Date.init,
-        calendar: @escaping () -> Calendar = { .autoupdatingCurrent },
+        calendar: @escaping () -> Calendar = { PanelTimeZone.calendar },
         boothCapture: (@MainActor () async throws -> Data)? = nil, boothPreview: UIImage? = nil
     ) {
         diagnosticsClient = PanelAPIClient(configuration: configuration)
@@ -79,7 +78,6 @@ import UIKit
         let client = PanelAPIClient(configuration: configuration, transport: transport)
         panelPIN = PanelPINAPI(client: client)
         profilesAPI = ProfilesAPI(client: client)
-        vacuumAPI = VacuumAPI(client: client)
         teslaProvider = LiveTeslaProvider(api: TeslaAPI(client: client))
         let namespace = SHA256.hash(data: Data((configuration?.baseURL.absoluteString ?? "unconfigured").utf8))
             .map { String(format: "%02x", $0) }.joined()
@@ -166,16 +164,8 @@ import UIKit
     var wifi: WifiState { hasLiveData(for: .wifi) ? wifiProvider.wifi : .unconfigured }
 
     var weather: WeatherState {
-        guard hasLiveData(for: .weather), let snapshot = weatherProvider.snapshot else { return .unavailable }
-        return WeatherState(
-            sunrise: SolarClock.timestamp(snapshot.now.sunriseIso),
-            sunset: SolarClock.timestamp(snapshot.now.sunsetIso),
-            nextSunrise: SolarClock.timestamp(snapshot.now.tomorrowSunriseIso),
-            city: snapshot.city, temperature: snapshot.temperature, condition: snapshot.condition,
-            symbol: snapshot.symbol,
-            high: snapshot.high, low: snapshot.low, feels: snapshot.feels, humidity: snapshot.humidity,
-            wind: snapshot.wind, solarLabel: snapshot.solarLabel, solarValue: snapshot.solarValue,
-            hours: snapshot.hours)
+        guard hasLiveData(for: .weather), let value = weatherProvider.weatherState else { return .unavailable }
+        return value
     }
 
     var rooms: [SoundRoom] {

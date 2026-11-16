@@ -1,5 +1,6 @@
 import PanelKit
 import SwiftUI
+import UIKit
 
 enum HomeTile: String, CaseIterable, Identifiable {
     case climate, clock, wifi, bedroom, livingRoom, ceiling, cabinet, fan, all
@@ -96,6 +97,9 @@ struct HomeView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.motionPhase) private var inheritedMotionPhase
     @Namespace private var zoom
+    @State private var showingSplash = true
+    @State private var splashShownAt = ContinuousClock.now
+    @State private var displayCornerRadius: CGFloat = 0
     private let catalog = PanelAppCatalog.standard
     init(
         store: any HomeDataSource, initialTile: HomeTile? = nil, demo: Bool = false,
@@ -165,22 +169,44 @@ struct HomeView: View {
         clockDial(clockFace)
             .id(clockFace)
             .transition(.identity)
-            .scaleEffect(1 - progress * 0.12)
-            .offset(x: offset)
+            // Render-only transforms keep the concentric clip resolved at the
+            // resting full-display frame, so swiping faces keep the display corners.
+            .visualEffect { content, _ in
+                content.scaleEffect(1 - progress * 0.12).offset(x: offset)
+            }
 
         if faceSettle != nil || offset != 0 {
             clockDial(adjacentFace(by: step))
-                .scaleEffect(0.88 + progress * 0.12)
-                .offset(x: offset + CGFloat(step) * distance)
+                .visualEffect { content, _ in
+                    content.scaleEffect(0.88 + progress * 0.12).offset(x: offset + CGFloat(step) * distance)
+                }
         }
     }
 
     private func clockDial(_ face: PanelClockFace) -> some View {
-        PresenceClockFace(store: store, face: face)
-            .environment(\.motionPhase, selected == nil ? inheritedMotionPhase : 0)
-            .clipShape(ConcentricRectangle())
+        PresenceClockFace(store: store, face: face, countdown: timer.countdown)
+            // Freeze the clock while it is covered (launcher/app) or moving (face swipe).
+            .environment(\.motionPhase, clockIsStill ? inheritedMotionPhase : 0)
+            .clipShape(DisplayCorners.shape(displayCornerRadius))
             .allowsHitTesting(false)
             .accessibilityHidden(true)
+    }
+
+    private var clockIsStill: Bool {
+        selected == nil && showingClock && faceSettle == nil && faceDrag == 0
+    }
+
+    /// The splash stays up at least this long, even when the first weather response is quicker.
+    private static let minimumSplash: Duration = .seconds(1)
+
+    private func dismissSplash() {
+        guard showingSplash else { return }
+        let remaining = Self.minimumSplash - splashShownAt.duration(to: .now)
+        Task { @MainActor in
+            if remaining > .zero { try? await Task.sleep(for: remaining) }
+            guard showingSplash else { return }
+            withAnimation(.easeOut(duration: 0.35)) { showingSplash = false }
+        }
     }
 
     private func home() {
@@ -240,11 +266,12 @@ struct HomeView: View {
                         )
                         .environment(\.motionPhase, selected == nil && !showingClock ? nil : 0)
                         .background {
-                            LauncherGlassSurface()
+                            LauncherGlassSurface(displayCornerRadius: displayCornerRadius)
                         }
-                        .clipShape(ConcentricRectangle())
+                        .clipShape(DisplayCorners.shape(displayCornerRadius))
                         .frame(width: size.width, height: size.height)
-                        .offset(y: showingClock ? size.height : 0)
+                        // Render-only slide keeps the concentric corners resolved at rest.
+                        .visualEffect { content, _ in content.offset(y: showingClock ? size.height : 0) }
                         .allowsHitTesting(shell.launcherCanReceiveInput)
                         .accessibilityHidden(!shell.launcherCanReceiveInput)
                     }
@@ -268,6 +295,26 @@ struct HomeView: View {
                     }
                 }
             }
+        }
+        .background(DisplayCorners.Reader(radius: $displayCornerRadius))
+        .background {
+            // Release builds only (TestFlight/App Store); local Debug builds stay unmarked.
+            #if !DEBUG
+                CautionTapeWindow(cornerRadius: displayCornerRadius)
+            #endif
+        }
+        .overlay {
+            if showingSplash {
+                PanelSplash().transition(.opacity)
+            }
+        }
+        // Hold the splash until the first weather response decides the day/night face.
+        .onChange(of: store.status(for: .weather) == .loading, initial: true) { _, loading in
+            if !loading { dismissSplash() }
+        }
+        .task {
+            try? await Task.sleep(for: .seconds(3))
+            dismissSplash()
         }
         .onChange(of: timer.openRequested, initial: true) { _, requested in
             guard requested, let app = catalog.app(id: "timer") else { return }
@@ -377,8 +424,9 @@ struct HomeView: View {
                 if app.route == .timer || app.route == .feature(.climate) {
                     // The timer’s angled marks extend inward around the corner.
                     PanelAppBackButton(back: home, respectsCanvasInsets: app.route == .feature(.climate))
-                        .padding(.horizontal, app.route == .timer ? 40 : 24)
-                        .padding(.top, app.route == .timer ? 32 : 16)
+                        // Same spot as every other app's close button.
+                        .padding(.horizontal, 24)
+                        .padding(.top, 16)
                 }
             }
             .scrollBounceBehavior(.basedOnSize)
@@ -397,7 +445,7 @@ struct HomeView: View {
         case .climate: ClimateController(store: store)
         case .music: SonosRoomsPage(store: store)
         case .weather: WeatherPage(weather: store.weather)
-        case .calendar: AgendaPage(provider: store.calendar, now: store.now)
+        case .calendar: CalendarPage(provider: store.calendar, now: store.now)
         case .wifi: WifiController(wifi: store.wifi)
         case .car: TeslaController(provider: store.tesla)
         }
@@ -661,4 +709,215 @@ struct AccessoryFace: View {
 }
 #Preview("Home face · 1376 × 1032", traits: .fixedLayout(width: 1376, height: 1032)) {
     HomeView(store: MockHomeDataSource())
+}
+
+/// Shown on launch until the first weather response picks the day or night clock face.
+/// The studio art is shared with the game's splash (ai-game `tools/gen_studio.mjs`): a 41 px,
+/// 8-frame looping globe strip and a 7 px wordmark, drawn at a whole number of points per pixel.
+private struct PanelSplash: View {
+    private static let pixel: CGFloat = 6
+
+    var body: some View {
+        ZStack {
+            Color.black.ignoresSafeArea()
+            VStack(spacing: 4 * Self.pixel) {
+                SplashGlobe().frame(width: 41 * Self.pixel, height: 41 * Self.pixel)
+                Image("StudioWord")
+                    .interpolation(.none)
+                    .resizable()
+                    .frame(width: 61 * Self.pixel, height: 7 * Self.pixel)
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("World Wide Webb, loading")
+    }
+}
+
+/// The pixel wireframe globe, stepping through its looping 8-frame strip at 8 fps.
+private struct SplashGlobe: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    private static let start = Date()
+    private static let frames: [Image] = {
+        guard let strip = UIImage(named: "StudioGlobe")?.cgImage else { return [] }
+        let side = strip.height
+        return (0..<strip.width / side).compactMap { index in
+            strip.cropping(to: CGRect(x: index * side, y: 0, width: side, height: side))
+                .map { Image(decorative: $0, scale: 1) }
+        }
+    }()
+
+    var body: some View {
+        TimelineView(.periodic(from: Self.start, by: 1.0 / 8)) { context in
+            let tick = Int(context.date.timeIntervalSince(Self.start) * 8)
+            if let frame = Self.frames.isEmpty ? nil : Self.frames[reduceMotion ? 0 : tick % Self.frames.count] {
+                frame.interpolation(.none).resizable()
+            }
+        }
+        .accessibilityHidden(true)
+    }
+}
+
+/// Moving full-screen surfaces need the display's corner radius as a fixed value:
+/// a concentric shape resolves against where the surface draws, so it squares off
+/// once the surface slides away from the display corners.
+enum DisplayCorners {
+    static func shape(_ radius: CGFloat) -> AnyShape {
+        radius > 0
+            ? AnyShape(RoundedRectangle(cornerRadius: radius, style: .continuous)) : AnyShape(ConcentricRectangle())
+    }
+
+    /// Reads the radius of the display that actually hosts the view (Duo has two).
+    struct Reader: UIViewRepresentable {
+        @Binding var radius: CGFloat
+        func makeUIView(context: Context) -> ReaderView {
+            let view = ReaderView()
+            view.isUserInteractionEnabled = false
+            view.onRadius = { value in if radius != value { radius = value } }
+            return view
+        }
+        func updateUIView(_ uiView: ReaderView, context: Context) {}
+
+        final class ReaderView: UIView {
+            var onRadius: ((CGFloat) -> Void)?
+            override func didMoveToWindow() {
+                super.didMoveToWindow()
+                let key = "_displayCornerRadius"
+                guard let screen = window?.screen, screen.responds(to: NSSelectorFromString(key)),
+                    let value = screen.value(forKey: key) as? CGFloat
+                else { return }
+                onRadius?(value)
+            }
+        }
+    }
+}
+
+/// Hosts the caution tape in its own pass-through window above every sheet, alert and
+/// notification, on the same display as the panel.
+private struct CautionTapeWindow: UIViewRepresentable {
+    let cornerRadius: CGFloat
+
+    func makeUIView(context: Context) -> Anchor {
+        let anchor = Anchor()
+        anchor.isUserInteractionEnabled = false
+        return anchor
+    }
+    func updateUIView(_ anchor: Anchor, context: Context) { anchor.update(cornerRadius: cornerRadius) }
+    static func dismantleUIView(_ anchor: Anchor, coordinator: ()) { anchor.tearDown() }
+
+    final class Anchor: UIView {
+        private var overlay: UIWindow?
+        private var host: UIHostingController<CautionTapeOverlay>?
+        private var cornerRadius: CGFloat = 0
+
+        func update(cornerRadius: CGFloat) {
+            self.cornerRadius = cornerRadius
+            host?.rootView = CautionTapeOverlay(cornerRadius: cornerRadius)
+        }
+
+        override func didMoveToWindow() {
+            super.didMoveToWindow()
+            guard let scene = window?.windowScene else { return tearDown() }
+            guard overlay?.windowScene !== scene else { return }
+            tearDown()
+            let host = UIHostingController(rootView: CautionTapeOverlay(cornerRadius: cornerRadius))
+            host.view.backgroundColor = .clear
+            let overlay = UIWindow(windowScene: scene)
+            overlay.windowLevel = .alert + 1
+            overlay.isUserInteractionEnabled = false
+            // Decoration only: keep VoiceOver and UI automation on the panel's own window.
+            overlay.accessibilityElementsHidden = true
+            host.view.accessibilityElementsHidden = true
+            overlay.backgroundColor = .clear
+            overlay.rootViewController = host
+            overlay.isHidden = false
+            self.overlay = overlay
+            self.host = host
+        }
+
+        func tearDown() {
+            overlay?.isHidden = true
+            overlay = nil
+            host = nil
+        }
+    }
+}
+
+/// Shows the tape while Guided Access is off and follows its changes live.
+private struct CautionTapeOverlay: View {
+    let cornerRadius: CGFloat
+    @State private var guidedAccessOn = UIAccessibility.isGuidedAccessEnabled
+
+    var body: some View {
+        ZStack {
+            if !guidedAccessOn {
+                CautionTapeBorder(cornerRadius: cornerRadius).transition(.opacity)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .ignoresSafeArea()
+        .onReceive(
+            Foundation.NotificationCenter.default.publisher(
+                for: UIAccessibility.guidedAccessStatusDidChangeNotification)
+        ) { _ in
+            withAnimation(.easeInOut(duration: 0.25)) { guidedAccessOn = UIAccessibility.isGuidedAccessEnabled }
+        }
+    }
+}
+
+/// Yellow-and-black hazard stripes around the display edge, shown while Guided Access is off.
+private struct CautionTapeBorder: View {
+    let cornerRadius: CGFloat
+    static let width: CGFloat = 14
+    private static let stripe: CGFloat = 16
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var marching = false
+
+    var body: some View {
+        GeometryReader { proxy in
+            // Drawn once, one period wider; sliding by one period loops seamlessly,
+            // so the march is a cheap offset animation rather than per-frame drawing.
+            let period = Self.stripe * 2
+            Canvas { context, size in
+                context.fill(Path(CGRect(origin: .zero, size: size)), with: .color(Color(red: 1, green: 0.8, blue: 0)))
+                var x = -size.height
+                while x < size.width {
+                    var band = Path()
+                    band.move(to: CGPoint(x: x, y: size.height))
+                    band.addLine(to: CGPoint(x: x + Self.stripe, y: size.height))
+                    band.addLine(to: CGPoint(x: x + Self.stripe + size.height, y: 0))
+                    band.addLine(to: CGPoint(x: x + size.height, y: 0))
+                    band.closeSubpath()
+                    context.fill(band, with: .color(.black))
+                    x += period
+                }
+            }
+            .frame(width: proxy.size.width + period, height: proxy.size.height)
+            .offset(x: marching ? 0 : -period)
+            .frame(width: proxy.size.width, height: proxy.size.height, alignment: .leading)
+            .onAppear {
+                guard !reduceMotion else { return }
+                withAnimation(.linear(duration: 0.9).repeatForever(autoreverses: false)) { marching = true }
+            }
+        }
+        .mask {
+            // Screen edge outside; a rounded opening inside, so the tape's inner corners curve.
+            TapeRing(width: Self.width, innerRadius: max(cornerRadius - Self.width, 28))
+                .fill(style: FillStyle(eoFill: true))
+        }
+        .ignoresSafeArea()
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+}
+
+private struct TapeRing: Shape {
+    let width: CGFloat
+    let innerRadius: CGFloat
+    func path(in rect: CGRect) -> Path {
+        var path = Path(rect)
+        path.addRoundedRect(
+            in: rect.insetBy(dx: width, dy: width), cornerSize: CGSize(width: innerRadius, height: innerRadius),
+            style: .continuous)
+        return path
+    }
 }

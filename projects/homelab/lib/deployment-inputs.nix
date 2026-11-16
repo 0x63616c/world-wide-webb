@@ -35,7 +35,7 @@ let
         ) (builtins.attrNames (builtins.readDir dir));
     in
     walk root;
-  scripts = builtins.filter (name: lib.hasSuffix ".py" name && name != "provision-ha.py") (
+  scripts = builtins.filter (name: lib.hasSuffix ".py" name) (
     builtins.attrNames (builtins.readDir ../scripts)
   );
   safety = map (name: sourceHash (../scripts + "/${name}")) scripts;
@@ -96,15 +96,7 @@ in
       value = {
         configuration = hash {
           files = serviceFiles name;
-          vacuum =
-            if name == "home-assistant" then
-              {
-                script = sourceHash ../scripts/provision-ha.py;
-                entities = sourceHash ../../control-center/server/config/vacuum.json;
-                deployNonce = cfg.deployNonce;
-              }
-            else
-              null;
+          deployNonce = if name == "home-assistant" then cfg.deployNonce else null;
           controlCenter = if name == "control-center" then cfg.containers.controlCenter else null;
           # Execution changes affect their consumers, not just file locations.
           module = sourceHash (

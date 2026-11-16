@@ -2,7 +2,7 @@ use crate::{
     AppState,
     features::{
         alarms, booth, climate, diagnostics, lights, notifications, profiles, releases, settings,
-        sound, tesla, vacuum, weather,
+        sound, tesla, weather,
     },
 };
 use axum::{
@@ -103,7 +103,6 @@ pub fn router(state: AppState) -> Router {
         )
         .route("/api/v1/controls", get(lights::get).post(lights::command))
         .route("/api/v1/climate", get(climate::get).patch(climate::command))
-        .route("/api/v1/vacuum", get(vacuum::get).post(vacuum::command))
         .route(
             "/api/v1/releases/latest",
             get(releases::latest).post(releases::publish),
@@ -131,6 +130,7 @@ pub fn router(state: AppState) -> Router {
         )
         .route("/api/v1/notifications/stream", get(notifications::stream))
         .route("/api/v1/booth", get(booth::list))
+        .route("/api/v1/booth/hide", post(booth::hide))
         .route("/api/v1/booth/{id}", axum::routing::delete(booth::remove))
         .route(
             "/api/v1/booth/{id}/filter",

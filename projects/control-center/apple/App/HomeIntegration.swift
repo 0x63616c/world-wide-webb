@@ -7,7 +7,6 @@ import SwiftUI
     var caption: String { get }
     var panelPIN: PanelPINAPI? { get }
     var profilesAPI: ProfilesAPI? { get }
-    var vacuumAPI: VacuumAPI? { get }
     func photoBooth(close: @escaping () -> Void) -> AnyView?
     func prepareToOpen(_ tile: HomeTile) -> Bool
     func available(_ tile: HomeTile) -> Bool
@@ -24,7 +23,6 @@ extension HomeIntegration {
     func photoBooth(close: @escaping () -> Void) -> AnyView? { nil }
     var panelPIN: PanelPINAPI? { nil }
     var profilesAPI: ProfilesAPI? { nil }
-    var vacuumAPI: VacuumAPI? { nil }
     func artwork(_ room: SoundRoom) -> AnyView? { nil }
     func gridTile(_ tile: HomeTile, span: CGSize, open: @escaping () -> Void) -> AnyView? { nil }
 }

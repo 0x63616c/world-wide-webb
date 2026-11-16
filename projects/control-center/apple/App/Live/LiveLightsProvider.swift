@@ -56,11 +56,11 @@ import PanelKit
             guard !Task.isCancelled, revision == startedAt else { return }
             accept(state)
             render()
-            availability = .live
+            setAvailability(.live)
         } catch {
             guard !Task.isCancelled, revision == startedAt else { return }
             render()
-            availability = .unavailable(Self.failureMessage(error))
+            setAvailability(.unavailable(Self.failureMessage(error)))
         }
     }
 
@@ -147,7 +147,7 @@ import PanelKit
         queue.removeFirst()
         accept(state)
         render()
-        availability = .live
+        setAvailability(.live)
         if queue.isEmpty { mutationTask = nil }
     }
 
@@ -160,7 +160,7 @@ import PanelKit
         queue.removeAll()
         mutationTask = nil
         render()
-        availability = .unavailable(Self.failureMessage(error))
+        setAvailability(.unavailable(Self.failureMessage(error)))
     }
 
     private func accept(_ state: ControlsState) {
@@ -177,24 +177,39 @@ import PanelKit
             if let index = Self.slots.firstIndex(of: color.slot) { confirmedLamps.colors[index] = color.hex }
         }
         confirmedLamps.scene = state.lamps.activeScene?.rawValue.capitalized ?? fallbackLamps.scene
-        // Neither selected saved-color slot, per-lamp RGB, nor party speed is in controls.list.
-        confirmedLamps.activeColor = nil
-        confirmedLamps.party = state.lamps.activeScene == .party ? acknowledgedPartySpeed : .off
+        confirmedLamps.activeColor = state.lamps.colorSlot.flatMap(Self.slots.firstIndex)
+        let reportedSpeed: PartySpeed? =
+            switch state.lamps.speed {
+            case .slow: .slow
+            case .medium: .medium
+            case .fast: .fast
+            case nil: nil
+            }
+        confirmedLamps.party = state.lamps.activeScene == .party ? reportedSpeed ?? acknowledgedPartySpeed : .off
         confirmedFan = state.fan.on
     }
 
     /// Rebase outstanding optimistic edits on each acknowledged full-state response.
+    /// Builds the projection locally and assigns only changes: polls repeat identical
+    /// samples, and each Observation set would invalidate every lights reader.
     private func render() {
-        lamps = confirmedLamps
-        fanOn = confirmedFan
-        pending = serverState?.pendingKeys ?? []
+        var lamps = confirmedLamps
+        var fanOn = confirmedFan
+        var pending = serverState?.pendingKeys ?? []
         for operation in queue {
-            applyOptimistically(operation)
+            Self.applyOptimistically(operation, to: &lamps, fanOn: &fanOn)
             pending.insert(operation.pendingKey)
         }
+        if self.lamps != lamps { self.lamps = lamps }
+        if self.fanOn != fanOn { self.fanOn = fanOn }
+        if self.pending != pending { self.pending = pending }
     }
 
-    private func applyOptimistically(_ operation: Operation) {
+    private func setAvailability(_ value: LiveAvailability) {
+        if availability != value { availability = value }
+    }
+
+    private static func applyOptimistically(_ operation: Operation, to lamps: inout LampState, fanOn: inout Bool?) {
         switch operation {
         case .toggle(let key, let on):
             switch key {
@@ -218,8 +233,8 @@ import PanelKit
             lamps.on = Array(repeating: true, count: 8)
         case .kelvin(let kelvin):
             lamps.kelvin = kelvin
-            if lamps.anyOn { applyScene(.white) }
-        case .scene(let scene): applyScene(scene)
+            if lamps.anyOn { applyScene(.white, to: &lamps) }
+        case .scene(let scene): applyScene(scene, to: &lamps)
         case .color(let slot, let hex):
             guard let index = Self.slots.firstIndex(of: slot) else { return }
             if let hex { lamps.colors[index] = hex.lowercased() }
@@ -234,7 +249,7 @@ import PanelKit
         }
     }
 
-    private func applyScene(_ scene: PanelKit.LampScene) {
+    private static func applyScene(_ scene: PanelKit.LampScene, to lamps: inout LampState) {
         lamps.scene = scene.rawValue.capitalized
         lamps.activeColor = nil
         lamps.party = .off

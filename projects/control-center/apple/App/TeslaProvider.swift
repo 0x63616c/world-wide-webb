@@ -49,10 +49,7 @@ struct TeslaData: Equatable {
         }
     }
     static func date(_ value: String?) -> Date? {
-        guard let value else { return nil }
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return formatter.date(from: value) ?? ISO8601DateFormatter().date(from: value)
+        value.flatMap(SolarClock.timestamp)
     }
 }
 enum TeslaAvailability: String, CaseIterable { case online, asleep, offline }
