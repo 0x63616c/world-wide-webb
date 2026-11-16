@@ -56,6 +56,7 @@ WHERE
 UPDATE bot_simulation_state
 SET
   watermark_ms = 0,
+  cursor_participant_id = NULL,
   revision = revision + 1
 WHERE
   singleton = 1;

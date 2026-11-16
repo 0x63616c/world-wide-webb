@@ -77,7 +77,8 @@ participants, epochs, observations, scores, profiles, avatars, or accounts. It r
 avatar rows after queuing the corresponding R2 object keys. Review its target count first. It
 queues both R2 avatar keys before deleting bot participants (cascades remove their D1 observations,
 scores, profiles, milestones, and bot metadata). Process `avatar_purge_jobs` to remove those R2
-objects before clearing the queue. Finally reset the single simulation watermark.
+objects before clearing the queue. Finally reset the single simulation watermark and replay cursor. A leftover cursor would make
+the new roster's first pass skip every bot whose ID sorts before it.
 
 ```sh
 # Review target count first, then run against the intended D1 database.
