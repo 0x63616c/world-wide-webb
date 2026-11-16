@@ -129,10 +129,28 @@ struct HomeView: View {
 
 private struct LibraryEmpty: View {
   var body: some View {
-    ContentUnavailableView(
-      "Nothing Here Yet", systemImage: "film.stack",
-      description: Text(
-        "Movies, shows and DJ sets appear here once they're imported into the library."))
+    EmptyState(
+      title: "Nothing Here Yet", systemImage: "film.stack",
+      message: "Movies, shows and DJ sets appear here once they're imported into the library.")
+  }
+}
+
+/// An empty page with a Refresh button. Apple TV needs something on the page to focus, or the
+/// remote has nowhere to go and the sidebar can't be reopened.
+private struct EmptyState: View {
+  @Environment(Store.self) private var store
+  let title: String
+  let systemImage: String
+  let message: String
+
+  var body: some View {
+    ContentUnavailableView {
+      Label(title, systemImage: systemImage)
+    } description: {
+      Text(message)
+    } actions: {
+      Button("Refresh") { Task { await store.load() } }
+    }
   }
 }
 
@@ -249,9 +267,8 @@ struct SectionGrid: View {
   var body: some View {
     ScrollView {
       if store.isEmpty(section) {
-        ContentUnavailableView(
-          section.emptyTitle, systemImage: section.symbol,
-          description: Text(section.emptyMessage)
+        EmptyState(
+          title: section.emptyTitle, systemImage: section.symbol, message: section.emptyMessage
         )
         .containerRelativeFrame([.horizontal, .vertical])
       } else {
