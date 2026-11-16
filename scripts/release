@@ -1,0 +1,190 @@
+#!/usr/bin/env python3
+"""Submit an app's newest processed TestFlight build to App Review.
+
+    scripts/release tendr
+    scripts/release folding --dry-run
+
+The version comes from projects/<app>/app.yml on main. This command finds the
+newest main commit that has a processed beta at that version, pushes the
+<app>/vX.Y.Z tag there (the tag job submits that existing build), then opens an
+auto-merging pull request that moves app.yml to the next patch version.
+"""
+
+import argparse
+import base64
+import json
+from pathlib import Path
+import re
+import subprocess
+import sys
+import tempfile
+
+ROOT = Path(__file__).resolve().parent.parent
+APPS = ("tendr", "folding")
+VERSION = re.compile(r"^version:[ \t]*[\"']?(\d+\.\d+\.\d+)[\"']?[ \t]*$", re.MULTILINE)
+SEARCH_LIMIT = 50
+
+
+class ReleaseError(Exception):
+    pass
+
+
+def run(*args, check=True):
+    result = subprocess.run(args, cwd=ROOT, capture_output=True, text=True)
+    if check and result.returncode:
+        raise ReleaseError(f"{' '.join(args[:3])} failed: {result.stderr.strip() or result.stdout.strip()}")
+    return result.stdout.strip()
+
+
+def git(*args, **options):
+    return run("git", *args, **options)
+
+
+def gh(*args, **options):
+    return run("gh", *args, **options)
+
+
+def app_version(text):
+    match = VERSION.search(text)
+    if not match:
+        raise ReleaseError("app.yml needs a top-level version: X.Y.Z")
+    return match.group(1)
+
+
+def next_version(version):
+    major, minor, patch = version.split(".")
+    return f"{major}.{minor}.{int(patch) + 1}"
+
+
+def with_version(text, version):
+    return VERSION.sub(f"version: {version}", text, count=1)
+
+
+def newest_build(commits, version, version_at, has_receipt):
+    """Return the newest commit still on this version that has a processed beta."""
+    for commit in commits:
+        if version_at(commit) != version:
+            return None
+        if has_receipt(commit):
+            return commit
+    return None
+
+
+def version_at(app, commit):
+    try:
+        return app_version(git("show", f"{commit}:projects/{app}/app.yml"))
+    except ReleaseError:
+        return None
+
+
+def receipt_artifact(repo, app, commit):
+    name = f"ios-beta-{app}-{commit}"
+    found = json.loads(gh("api", f"repos/{repo}/actions/artifacts?name={name}&per_page=100"))["artifacts"]
+    live = [item for item in found if item["name"] == name and not item["expired"]]
+    return max(live, key=lambda item: item["created_at"]) if live else None
+
+
+def receipt_build(repo, app, commit, artifact):
+    # Display only: the tag job validates the receipt before anything is submitted.
+    with tempfile.TemporaryDirectory() as directory:
+        name = f"ios-beta-{app}-{commit}"
+        run_id = str(artifact["workflow_run"]["id"])
+        gh("run", "download", run_id, "--repo", repo, "--name", name, "--dir", directory, check=False)
+        path = Path(directory) / "beta-receipt.json"
+        return str(json.loads(path.read_text()).get("build", "?")) if path.is_file() else "?"
+
+
+def propose_next_version(repo, app, version, main):
+    target = next_version(version)
+    branch = f"codex/{app}-version-{target}"
+    path = f"projects/{app}/app.yml"
+    listed = gh("pr", "list", "--repo", repo, "--head", branch, "--state", "open", "--json", "url")
+    if json.loads(listed):
+        return json.loads(listed)[0]["url"]
+    gh("api", f"repos/{repo}/git/refs", "-f", f"ref=refs/heads/{branch}", "-f", f"sha={main}")
+    current = json.loads(gh("api", f"repos/{repo}/contents/{path}?ref={branch}"))
+    text = with_version(base64.b64decode(current["content"]).decode(), target)
+    title = f"chore({app}): start version {target}"
+    gh(
+        "api",
+        "--method",
+        "PUT",
+        f"repos/{repo}/contents/{path}",
+        "-f",
+        f"message={title}",
+        "-f",
+        f"content={base64.b64encode(text.encode()).decode()}",
+        "-f",
+        f"sha={current['sha']}",
+        "-f",
+        f"branch={branch}",
+    )
+    body = (
+        f"`{app}/v{version}` is tagged for App Review, so later builds need a new version. Opened by `scripts/release`."
+    )
+    url = gh("pr", "create", "--repo", repo, "--base", "main", "--head", branch, "--title", title, "--body", body)
+    gh("pr", "merge", url, "--repo", repo, "--auto", "--squash")
+    return url
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("app", choices=APPS)
+    parser.add_argument("--yes", action="store_true", help="tag without asking for confirmation")
+    parser.add_argument("--dry-run", action="store_true", help="show the build that would be submitted, then stop")
+    args = parser.parse_args()
+    app = args.app
+
+    git("fetch", "--quiet", "--tags", "origin", "+refs/heads/main:refs/remotes/origin/main")
+    main_commit = git("rev-parse", "origin/main")
+    version = version_at(app, main_commit)
+    if not version:
+        raise ReleaseError(f"projects/{app}/app.yml on main has no X.Y.Z version")
+    tag = f"{app}/v{version}"
+    repo = gh("repo", "view", "--json", "nameWithOwner", "--jq", ".nameWithOwner")
+    if git("ls-remote", "--tags", "origin", f"refs/tags/{tag}"):
+        # A version is tagged once. Start the next one here so a rerun can succeed.
+        following = next_version(version)
+        opened = "" if args.dry_run else f" Opened {propose_next_version(repo, app, version, main_commit)}."
+        raise ReleaseError(
+            f"{tag} already exists, so {version} was already sent for review.{opened} "
+            f"Rerun once main is on {following} and its TestFlight build has processed."
+        )
+
+    commits = git("rev-list", "--first-parent", "-n", str(SEARCH_LIMIT), main_commit).split()
+    artifacts = {}
+
+    def has_receipt(commit):
+        artifacts[commit] = receipt_artifact(repo, app, commit)
+        return artifacts[commit] is not None
+
+    source = newest_build(commits, version, lambda commit: version_at(app, commit), has_receipt)
+    if not source:
+        raise ReleaseError(
+            f"No processed TestFlight build of {app} {version} on main yet. "
+            "Wait for App delivery to finish on the merge that changed the app, then rerun."
+        )
+
+    build = receipt_build(repo, app, source, artifacts[source])
+    print(f"{app} {version} build {build}")
+    print(f"  from {git('log', '-1', '--format=%h %s', source)}")
+    newer = git("log", "--format=  %h %s", f"{source}..{main_commit}", "--", f"projects/{app}")
+    if newer:
+        print(f"Not in this build (newer {app} changes on main without a processed beta yet):\n{newer}")
+    if args.dry_run:
+        return
+    if not args.yes and input(f"Submit this build to App Review as {tag}? [y/N] ").strip().lower() != "y":
+        raise ReleaseError("Nothing was tagged")
+
+    git("tag", "-a", tag, source, "-m", f"{app.title()} {version}")
+    git("push", "origin", f"refs/tags/{tag}")
+    print(f"Pushed {tag}. The App delivery run for this tag submits the build:")
+    print(f"  https://github.com/{repo}/actions/workflows/release.yml?query=event%3Apush")
+    print(f"Next version: {propose_next_version(repo, app, version, main_commit)}")
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except ReleaseError as error:
+        sys.exit(f"error: {error}")
