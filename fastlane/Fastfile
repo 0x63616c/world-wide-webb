@@ -354,13 +354,20 @@ platform :ios do
         if platform == "ios"
           app["scheme"]
         else
-          app.fetch("platforms", {}).fetch(platform) do
-            UI.user_error!("#{app["slug"]} has no #{platform} scheme in app.yml")
-          end
+          app
+            .fetch("platforms", {})
+            .fetch(platform) do
+              UI.user_error!(
+                "#{app["slug"]} has no #{platform} scheme in app.yml"
+              )
+            end
         end
       )
-    testflight_platform =
-      { "ios" => "ios", "tvos" => "appletvos", "macos" => "osx" }.fetch(platform)
+    testflight_platform = {
+      "ios" => "ios",
+      "tvos" => "appletvos",
+      "macos" => "osx"
+    }.fetch(platform)
     verify(app: app["slug"]) unless options[:skip_tests]
     api_key = connect_api_key
     version = options[:version] || app["version"]
@@ -391,8 +398,9 @@ platform :ios do
         }
       }
       if platform == "macos"
-        export_options[:installerSigningCertificate] =
-          "3rd Party Mac Developer Installer"
+        export_options[
+          :installerSigningCertificate
+        ] = "3rd Party Mac Developer Installer"
       end
     end
 
