@@ -762,7 +762,8 @@ private struct SplashGlobe: View {
 /// once the surface slides away from the display corners.
 enum DisplayCorners {
     static func shape(_ radius: CGFloat) -> AnyShape {
-        radius > 0 ? AnyShape(RoundedRectangle(cornerRadius: radius, style: .continuous)) : AnyShape(ConcentricRectangle())
+        radius > 0
+            ? AnyShape(RoundedRectangle(cornerRadius: radius, style: .continuous)) : AnyShape(ConcentricRectangle())
     }
 
     /// Reads the radius of the display that actually hosts the view (Duo has two).
@@ -855,7 +856,8 @@ private struct CautionTapeOverlay: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .ignoresSafeArea()
         .onReceive(
-            Foundation.NotificationCenter.default.publisher(for: UIAccessibility.guidedAccessStatusDidChangeNotification)
+            Foundation.NotificationCenter.default.publisher(
+                for: UIAccessibility.guidedAccessStatusDidChangeNotification)
         ) { _ in
             withAnimation(.easeInOut(duration: 0.25)) { guidedAccessOn = UIAccessibility.isGuidedAccessEnabled }
         }

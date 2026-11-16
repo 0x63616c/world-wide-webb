@@ -211,7 +211,9 @@ import PanelKit
         }
         // Acknowledgement is authoritative even if the following read fails.
         // Do not tell an editor to retry an already-created non-idempotent alarm.
-        do { accept(try await api.list()) } catch { setAvailability(.unavailable("Alarm saved. Waiting to reconnect…")) }
+        do { accept(try await api.list()) } catch {
+            setAvailability(.unavailable("Alarm saved. Waiting to reconnect…"))
+        }
     }
 
     /// Polled every second: assign only on change so Observation does not invalidate

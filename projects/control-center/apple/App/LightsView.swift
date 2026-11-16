@@ -153,8 +153,10 @@ struct ControlsController: View {
                     )
                     .frame(width: 64, height: 64)
                     .background {
-                        RadialGradient(colors: [colors[0].opacity(0.55), .clear], center: .center, startRadius: 0, endRadius: 90)
-                            .frame(width: 180, height: 180).opacity(on ? 1 : 0)
+                        RadialGradient(
+                            colors: [colors[0].opacity(0.55), .clear], center: .center, startRadius: 0, endRadius: 90
+                        )
+                        .frame(width: 180, height: 180).opacity(on ? 1 : 0)
                     }
                 Spacer(minLength: 20)
                 Text(key.name).font(.system(size: 22, weight: .semibold)).lineLimit(1).minimumScaleFactor(0.8)

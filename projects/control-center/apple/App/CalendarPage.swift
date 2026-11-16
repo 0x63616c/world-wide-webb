@@ -296,14 +296,17 @@ struct CalendarPage: View {
             HStack(alignment: .firstTextBaseline, spacing: 12) {
                 Text(
                     selectedOffset == 0
-                        ? "Today" : selectedOffset == 1 ? "Tomorrow" : provider.dateText(at: selectedDay, format: "EEEE")
+                        ? "Today"
+                        : selectedOffset == 1 ? "Tomorrow" : provider.dateText(at: selectedDay, format: "EEEE")
                 )
                 .font(.system(size: 32, weight: .bold))
                 Text(provider.dateText(at: selectedDay, format: "MMM d")).font(.system(size: 20, weight: .medium))
                     .foregroundStyle(.white.opacity(0.5))
                 Spacer()
-                Text(dayEntries.isEmpty ? "No events" : dayEntries.count == 1 ? "1 event" : "\(dayEntries.count) events")
-                    .font(.system(size: 17, weight: .medium)).foregroundStyle(.white.opacity(0.5))
+                Text(
+                    dayEntries.isEmpty ? "No events" : dayEntries.count == 1 ? "1 event" : "\(dayEntries.count) events"
+                )
+                .font(.system(size: 17, weight: .medium)).foregroundStyle(.white.opacity(0.5))
             }
             if !allDay.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
@@ -341,10 +344,13 @@ struct CalendarPage: View {
                     VStack(spacing: 0) {
                         ForEach(0..<24, id: \.self) { hour in
                             HStack(alignment: .top, spacing: 12) {
-                                Text(hour == 0 ? "12 AM" : hour < 12 ? "\(hour) AM" : hour == 12 ? "Noon" : "\(hour - 12) PM")
-                                    .font(.system(size: 13, weight: .medium)).foregroundStyle(.white.opacity(0.45))
-                                    .frame(width: gutter - 12, alignment: .trailing).offset(y: -8)
-                                    .opacity(nowMinute.map { abs($0 - hour * 60) < 16 } == true ? 0 : 1)
+                                Text(
+                                    hour == 0
+                                        ? "12 AM" : hour < 12 ? "\(hour) AM" : hour == 12 ? "Noon" : "\(hour - 12) PM"
+                                )
+                                .font(.system(size: 13, weight: .medium)).foregroundStyle(.white.opacity(0.45))
+                                .frame(width: gutter - 12, alignment: .trailing).offset(y: -8)
+                                .opacity(nowMinute.map { abs($0 - hour * 60) < 16 } == true ? 0 : 1)
                                 Rectangle().fill(.white.opacity(0.09)).frame(height: 1)
                             }
                             .frame(height: hourHeight, alignment: .top).id(hour)
@@ -455,7 +461,9 @@ struct CalendarPage: View {
     }
 
     private func countdown(_ entry: CalendarEntry) -> String {
-        if entry.isAllDay { return calendar.isDate(entry.start, inSameDayAs: now) || entry.start < now ? "Today" : weekday(entry) }
+        if entry.isAllDay {
+            return calendar.isDate(entry.start, inSameDayAs: now) || entry.start < now ? "Today" : weekday(entry)
+        }
         if entry.start <= now {
             return "\(duration(entry.end.timeIntervalSince(now))) left"
         }
