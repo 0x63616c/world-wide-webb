@@ -237,6 +237,7 @@
       "exclude": ["projects/tapes/server/**", "projects/tapes/openapi.json"],
       "delivery": "testflight",
       "delivery_paths": [
+        "scripts/ci/with-match-signing.sh",
         "projects/tapes/Sources/**",
         "projects/tapes/Resources/**",
         "projects/tapes/TapesAPI/Sources/**",

@@ -49,6 +49,7 @@ esac
 : "${MATCH_PASSWORD:?Missing Match encryption password}"
 : "${MATCH_GIT_BASIC_AUTHORIZATION:?Missing private Match repository access}"
 
+original_umask=$(umask)
 umask 077
 signing=$(mktemp -d "${RUNNER_TEMP:-${TMPDIR:-/tmp}}/www-match.XXXXXXXX")
 keychain="$signing/signing.keychain-db"
@@ -111,4 +112,7 @@ security find-identity -v -p codesigning "$keychain" | /usr/bin/grep -Eq '^ *1 v
 rm -f "$signing/"*.cer "$signing/"*.p12
 unset MATCH_PASSWORD MATCH_GIT_BASIC_AUTHORIZATION MATCH_KEYCHAIN_PASSWORD
 
+# The build runs with the caller's umask: under 077 a Mac installer package holds files only root
+# can read, which App Store Connect rejects (error 90255).
+umask "$original_umask"
 R_PROFILE_UUID="$profile_uuid" MATCH_PROFILE_PATH="${profiles[0]}" MATCH_KEYCHAIN_PATH="$keychain" "$@"
