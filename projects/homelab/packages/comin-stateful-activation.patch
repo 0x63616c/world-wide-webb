@@ -154,3 +154,59 @@ index 0000000..3e3d112
 +		})
 +	}
 +}
+diff --git a/internal/deployer/deployer.go b/internal/deployer/deployer.go
+index 99c1638..5dd1448 100644
+--- a/internal/deployer/deployer.go
++++ b/internal/deployer/deployer.go
+@@ -181,6 +181,12 @@ func (d *Deployer) IsAlreadyDeployed(generation *protobuf.Generation, operation
+ 		logrus.Infof("deployer: operation %s differs from previous operation %s for generation %s", operation, previous.Operation, generation.Uuid)
+ 		return false
+ 	}
++	// A failed deployment did not install the generation. Retry it when it is
++	// submitted again (restart or new commit) instead of treating it as deployed.
++	if previous.Status == store.StatusToString(store.Failed) {
++		logrus.Infof("deployer: previous deployment of out path %s failed; retrying generation %s", generation.OutPath, generation.Uuid)
++		return false
++	}
+ 	logrus.Infof("deployer: skipping deployment of generation %s: out path %s with operation %s has already been deployed", generation.Uuid, generation.OutPath, operation)
+ 	return true
+ }
+diff --git a/internal/deployer/failed_retry_test.go b/internal/deployer/failed_retry_test.go
+new file mode 100644
+index 0000000..8150b48
+--- /dev/null
++++ b/internal/deployer/failed_retry_test.go
+@@ -0,0 +1,33 @@
++package deployer
++
++import (
++	"context"
++	"io"
++	"testing"
++
++	"github.com/nlewo/comin/internal/broker"
++	"github.com/nlewo/comin/internal/store"
++	"github.com/nlewo/comin/pkg/protobuf"
++	"github.com/stretchr/testify/assert"
++)
++
++func TestFailedDeploymentOfSameOutPathIsRetried(t *testing.T) {
++	deploy := func(context.Context, string, string, []string, io.WriteCloser, io.WriteCloser) (bool, string, error) {
++		return false, "", nil
++	}
++	generation := &protobuf.Generation{Uuid: "g", OutPath: "/nix/store/system"}
++	for status, skipped := range map[store.Status]bool{store.Failed: false, store.Done: true} {
++		tmp := t.TempDir()
++		bk := broker.New()
++		s, err := store.New(bk, tmp+"/state.json", tmp+"/gcroots", 1, 1, 1)
++		assert.Nil(t, err)
++		previous := &protobuf.Deployment{
++			Uuid:       "previous",
++			Generation: &protobuf.Generation{OutPath: generation.OutPath},
++			Operation:  "switch",
++			Status:     store.StatusToString(status),
++		}
++		d := New(s, deploy, previous, "", bk)
++		assert.Equal(t, skipped, d.IsAlreadyDeployed(generation, "switch"), store.StatusToString(status))
++	}
++}

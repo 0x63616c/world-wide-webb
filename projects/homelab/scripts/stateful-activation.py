@@ -395,6 +395,22 @@ def recover_backup_stage(
         os.close(descriptor)
 
 
+def release_verified_backup_stage(root=ROOT, recover=None):
+    """Release an interrupted backup-phase transaction once its recovery point is on the NAS.
+
+    Nothing was activated in that phase. recover_backup_stage applies the same checks as the
+    manual recover-backup command and refuses (keeping the journal) unless they all hold, so a
+    transient NAS failure no longer blocks every later update until someone intervenes.
+    """
+    journal = root / "transaction"
+    if not journal.exists():
+        return None
+    record = json.loads(journal.read_text())
+    if record.get("phase") != "backup":
+        return None
+    return (recover or recover_backup_stage)(Path(record["candidate"]), record["id"], root=root)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("operation", choices=["apply", "guard", "recover-backup"])
@@ -425,6 +441,8 @@ def main():
     if args.switch_operation != "switch":
         parser.error("Stateful Darwin deployment supports switch only")
     locks.initialize(ROOT)
+    if release_verified_backup_stage():
+        print("Released a backup-stage transaction verified off-host; continuing.", file=sys.stderr)
     # Detach from Comin's process group. Its launchd job also abandons child
     # process groups so an updater replacement cannot kill this lock owner.
     try:

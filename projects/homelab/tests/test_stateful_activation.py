@@ -9,7 +9,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 scripts = Path(__file__).parents[1] / "scripts"
 sys.path.insert(0, str(scripts))
@@ -319,6 +319,23 @@ class StatefulActivationTests(unittest.TestCase):
         ):
             activation.main()
         recover.assert_called_once_with(self.new, token, check_only=True)
+
+    def test_update_releases_an_interrupted_backup_stage_through_the_recovery_checks(self):
+        root = Path(tempfile.mkdtemp())
+        self.addCleanup(lambda: __import__("shutil").rmtree(root))
+        recover = Mock(return_value=root / "transaction-recovered")
+        self.assertIsNone(activation.release_verified_backup_stage(root, recover))
+        journal = root / "transaction"
+        for phase in ("activation", "reconcile"):
+            journal.write_text(json.dumps({"id": "b" * 32, "phase": phase, "candidate": str(self.new)}))
+            self.assertIsNone(activation.release_verified_backup_stage(root, recover))
+        recover.assert_not_called()
+        journal.write_text(json.dumps({"id": "b" * 32, "phase": "backup", "candidate": str(self.new)}))
+        self.assertTrue(activation.release_verified_backup_stage(root, recover))
+        recover.assert_called_once_with(self.new, "b" * 32, root=root)
+        recover.side_effect = RuntimeError("Transaction has no NAS verification")
+        with self.assertRaises(RuntimeError):
+            activation.release_verified_backup_stage(root, recover)
 
     def test_hot_bridge_replacement_stops_existing_guest_before_switch_and_reloads_after(self):
         for system, content in ((self.old, "old-bridge"), (self.new, "new-bridge")):
