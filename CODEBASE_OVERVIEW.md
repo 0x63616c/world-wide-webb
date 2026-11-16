@@ -6,7 +6,7 @@ release details. Shared code owns selection and common entrypoints.
 
 | Area | Owner and entry point |
 | --- | --- |
-| `projects/tendr` | iOS app, local `RDesign`, screenshots and listing. [README](projects/tendr/README.md) |
+| `projects/tendr` | iOS app, its screenshot framing tool and listing. [README](projects/tendr/README.md) |
 | `projects/folding` | iOS app, contracts, CloudKit, Rust Worker and product Fastlane. [README](projects/folding/README.md) |
 | `projects/callkeep` | macOS app, transcription packages and notarized release. [README](projects/callkeep/README.md) |
 | `projects/control-center` | Native client, Rust/SQLite server and deployment. Read its [source map](projects/control-center/CODEBASE_OVERVIEW.md). |

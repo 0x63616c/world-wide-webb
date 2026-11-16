@@ -64,6 +64,12 @@ backend and native checks are separate. Run the affected checks while iterating,
 then the relevant integration and required CI checks for the completed change.
 Documentation-only edits need link and documentation checks, not app builds.
 
+Root tooling tests run in the `test-unit` job of `ci.yml` whenever root tooling changes. The
+job discovers them by name: `scripts/ci/test_*.py`, `scripts/test-*.py`, `scripts/test_*.py`,
+`scripts/test-*.rb`, `scripts/test-*.sh` and `.github/actions/*/test_*.py`. A new test file
+with one of those names runs without a workflow edit. `scripts/homelab` and
+`scripts/distribution` tests run in the Homelab and Callkeep workflows.
+
 ## From change to delivery
 
 1. Make a coherent change in its product area. Keep private records, credentials,
@@ -82,7 +88,7 @@ handlers own external writes; do not run multiple publishers for the same target
 
 ## Ownership and toolchains
 
-- Apps choose their SwiftUI components and architecture. Tendr's `RDesign`,
+- Apps choose their SwiftUI components and architecture. Tendr's `Still/Design`,
   Folding's `FoldingKit`, and Control Center's native packages remain local.
 - Fastlane handles Apple distribution. Tendr uses the root Ruby bundle; Folding
   keeps its product bundle. Callkeep and Control Center have their own handlers.

@@ -400,6 +400,41 @@ final class TrackingTests: XCTestCase {
     XCTAssertFalse(EntryValidation.weight(.infinity))
     XCTAssertTrue(EntryValidation.weight(88.5))
   }
+  /// Ported from the simulator test `testReopeningKilogramWeightDoesNotConvertItAgain`: the
+  /// synthetic 88.5 kg entry reopened as 40.14 because the loaded value was converted twice.
+  func testWeightEditorTextConvertsStoredKilogramsExactlyOnce() throws {
+    let us = Locale(identifier: "en_US")
+    XCTAssertEqual(WeightUnit.kg.editableText(88.5, locale: us), "88.5")
+    let pounds = WeightUnit.lb.editableText(88.5, locale: us)
+    XCTAssertEqual(pounds, "195.10910203")
+    let reread = try XCTUnwrap(EntryValidation.number(pounds, locale: us))
+    XCTAssertEqual(WeightUnit.lb.kilograms(reread), 88.5, accuracy: 1e-7)
+    // No grouping separator, and the locale's decimal separator, so the field parses its own text.
+    let heavy = WeightUnit.lb.editableText(453.5, locale: us)
+    XCTAssertFalse(heavy.contains(","))
+    XCTAssertEqual(
+      WeightUnit.lb.kilograms(try XCTUnwrap(EntryValidation.number(heavy, locale: us))), 453.5,
+      accuracy: 1e-7)
+    let german = Locale(identifier: "de_DE")
+    XCTAssertEqual(WeightUnit.kg.editableText(88.5, locale: german), "88,5")
+    XCTAssertEqual(EntryValidation.number("88,5", locale: german), 88.5)
+  }
+  /// Changing the display unit never rewrites a record: values stay in kilograms and each unit
+  /// converts for display and back without drift.
+  func testSwitchingWeightUnitConvertsForDisplayOnly() {
+    var journal = Journal()
+    journal.weights = [WeightEntry(date: Date(timeIntervalSince1970: 1_000), kilograms: 88.5)]
+    journal.unit = .lb
+    XCTAssertEqual(journal.unit.display(journal.weights[0].kilograms), 195.109, accuracy: 0.001)
+    XCTAssertEqual(journal.unit.symbol, "lbs")
+    journal.unit = .kg
+    XCTAssertEqual(journal.weights[0].kilograms, 88.5)
+    XCTAssertEqual(journal.unit.display(journal.weights[0].kilograms), 88.5)
+    XCTAssertEqual(journal.unit.symbol, "kg")
+    for unit in WeightUnit.allCases {
+      XCTAssertEqual(unit.kilograms(unit.display(88.5)), 88.5, accuracy: 1e-9)
+    }
+  }
   func testGoalPaceUsesFutureDeadlineAndDoesNotInventCalories() {
     let now = Date(timeIntervalSince1970: 1_700_000_000)
     let goal = WeightGoal(kilograms: 80, date: now.addingTimeInterval(10 * 7 * 86400))
@@ -508,6 +543,35 @@ final class InjectionSideTests: XCTestCase {
     ]
     XCTAssertEqual(InjectionSide.suggestedNext(in: doses), .right)
     XCTAssertEqual(InjectionSide.suggestedNext(in: doses, startOn: .left), .left)
+  }
+
+  func testStoredSyringeFieldsSurviveLoadAndSaveAlthoughTheAppNoLongerEditsThem() throws {
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    let file = JournalFile(url: directory.appendingPathComponent("journal.json"))
+    try Data(
+      #"{"version":1,"medication":"Example","doseInputUnit":"units","syringeUnitsPerML":100,"doses":[{"id":"11111111-1111-1111-1111-111111111111","date":1000,"medication":"Example","milligrams":0.5,"concentration":5,"status":"taken","note":"","syringeUnits":10,"syringeUnitsPerML":100}]}"#
+        .utf8
+    ).write(to: file.url)
+
+    var journal = try file.load()
+    XCTAssertEqual(journal.doseInputUnit, "units")
+    XCTAssertEqual(journal.syringeUnitsPerML, 100)
+    XCTAssertEqual(journal.doses.first?.syringeUnits, 10)
+    XCTAssertEqual(journal.doses.first?.syringeUnitsPerML, 100)
+
+    // An unrelated edit rewrites the whole file; the syringe values must still be in it.
+    journal.medication = "Renamed"
+    try file.save(journal)
+    let saved = try XCTUnwrap(
+      JSONSerialization.jsonObject(with: Data(contentsOf: file.url)) as? [String: Any])
+    XCTAssertEqual(saved["doseInputUnit"] as? String, "units")
+    XCTAssertEqual(saved["syringeUnitsPerML"] as? Double, 100)
+    let dose = try XCTUnwrap((saved["doses"] as? [[String: Any]])?.first)
+    XCTAssertEqual(dose["syringeUnits"] as? Double, 10)
+    XCTAssertEqual(dose["syringeUnitsPerML"] as? Double, 100)
+    XCTAssertEqual(try file.load(), journal)
   }
 
   func testLegacyJournalWithoutSidesLoadsAndPreservesHistoricalFieldsOnSave() throws {

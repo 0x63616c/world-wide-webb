@@ -1,5 +1,4 @@
 import Charts
-import RDesign
 import SwiftUI
 
 struct RootView: View {

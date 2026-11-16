@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run the real impact resolver against committed, isolated git fixtures."""
+"""Run the real impact resolver and selection manifest against committed, isolated git fixtures."""
 
 import json
 from pathlib import Path
@@ -17,14 +17,17 @@ with tempfile.TemporaryDirectory(prefix="affected-") as directory:
     git("init", "-q", "-b", "main")
     git("config", "user.name", "Calum")
     git("config", "user.email", "6991398+0x63616c@users.noreply.github.com")
-    (root / "scripts").mkdir()
-    for script in ["affected", "app-config.rb"]:
-        shutil.copy2(ROOT / "scripts" / script, root / "scripts" / script)
-    for app in ["tendr", "samplr"]:
-        path = root / "projects" / app
-        path.mkdir(parents=True)
-        (path / "app.yml").write_text("testflight: true\nuses: []\npaths: []\n")
-        (path / "code.swift").write_text(f"// {app}\n")
+    git("config", "commit.gpgsign", "false")
+    for script in ["scripts/affected", "scripts/ci/select_units.py", "scripts/ci/units.json"]:
+        (root / script).parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(ROOT / script, root / script)
+    for path, content in [
+        ("projects/tendr/app.yml", "testflight: true\ndelivery_handler: standard_ios\n"),
+        ("projects/tendr/Still/Screen.swift", "// tendr\n"),
+        ("projects/folding/app.yml", "testflight: true\ndelivery_handler: folding\n"),
+    ]:
+        (root / path).parent.mkdir(parents=True, exist_ok=True)
+        (root / path).write_text(content)
     git("add", ".")
     git("commit", "-qm", "Fixture")
     git("update-ref", "refs/remotes/origin/main", "HEAD")
@@ -33,15 +36,10 @@ with tempfile.TemporaryDirectory(prefix="affected-") as directory:
     def selected(base, intent):
         return json.loads(subprocess.check_output(["scripts/affected", base, "--intent", intent], cwd=root, text=True))
 
-    def expect(base, verify=(), ship=(), rdesign=False, tooling=False):
+    def expect(base, verify=(), ship=()):
         for intent, apps in [("verify", verify), ("ship", ship)]:
             actual = selected(base, intent)
-            expected = {
-                "apps": list(apps),
-                "tooling": intent == "verify" and tooling,
-                "rdesign": intent == "verify" and rdesign,
-            }
-            assert actual == expected, (base, intent, actual, expected)
+            assert actual == {"apps": list(apps)}, (base, intent, actual, apps)
 
     counter = 0
 
@@ -57,13 +55,14 @@ with tempfile.TemporaryDirectory(prefix="affected-") as directory:
         return base
 
     expect("HEAD")
-    base = change("projects/tendr/code.swift")
+    base = change("projects/tendr/Still/Screen.swift")
     for fallback in [base, "", "0" * 40, "f" * 40]:
         expect(fallback, ["tendr"], ["tendr"])
-    base = change("projects/tendr/Packages/RDesign/Sources/Palette.swift")
-    expect(base, ["tendr"], ["tendr"], rdesign=True)
-    base = change("projects/samplr/code.swift")
-    expect(base, ["samplr"], ["samplr"])
+    expect(change("projects/tendr/Still/Design/Tokens.swift"), ["tendr"], ["tendr"])
+    # Tests and the screenshot framing tool are verified but never ship a binary.
+    expect(change("projects/tendr/Tests/TrackingTests.swift"), ["tendr"])
+    expect(change("projects/tendr/Tools/rframe/Sources/rframe/RFrame.swift"), ["tendr"])
+    # Root tooling is verified by the root CI jobs, not by building the app.
     for path in [
         "fastlane/Fastfile",
         "fastlane/Appfile",
@@ -72,65 +71,52 @@ with tempfile.TemporaryDirectory(prefix="affected-") as directory:
         ".github/workflows/ci.yml",
         "scripts/build.sh",
     ]:
-        expect(change(path), ["samplr", "tendr"], rdesign=True, tooling=True)
+        expect(change(path))
+    # Workflows that deliver the app also build it.
+    for path in [".github/workflows/tendr-ci.yml", ".github/workflows/testflight.yml"]:
+        expect(change(path), ["tendr"])
     for path in [
         "README.md",
         "AGENTS.md",
         "docs/guide.md",
         "scripts/README.md",
         "projects/tendr/docs/guide.md",
-        "projects/samplr/README.md",
-        "projects/samplr/notes.md",
-        "projects/samplr/fastlane/metadata/en-US/description.txt",
-        "projects/samplr/screenshots.json",
-        "projects/samplr/docs/guide.txt",
+        "projects/tendr/README.md",
+        "projects/tendr/fastlane/metadata/en-US/description.txt",
+        "projects/tendr/screenshots.json",
+        "projects/tendr/site/privacy/index.html",
     ]:
         expect(change(path))
-    expect(change("projects/tendr/site/privacy/index.html"))
-    expect(change("projects/design-fixture/design.png"))
+    # A path without a declared owner verifies conservatively and ships nothing.
+    expect(change("projects/design-fixture/design.png"), ["tendr"])
     # A move must affect both sides even if Git would identify it as a rename.
     base = git("rev-parse", "HEAD")
-    git("mv", "projects/tendr/code.swift", "projects/samplr/moved.swift")
+    (root / "projects/folding/apps/ios/App").mkdir(parents=True)
+    git("mv", "projects/tendr/Still/Screen.swift", "projects/folding/apps/ios/App/Moved.swift")
     git("commit", "-qm", "Cross-app move")
-    expect(base, ["samplr", "tendr"], ["samplr", "tendr"])
-    # Extra globs and TestFlight eligibility are app-local declarations.
-    change("projects/samplr/app.yml", "testflight: false\nuses: []\npaths: ['shared/samplr/**']\n")
-    expect(change("shared/samplr/nested/code.swift"), ["samplr"])
-    expect(change("projects/samplr/app.yml", "testflight: false\nuses: []\npaths: []\n"), ["samplr"])
-    expect(change("projects/samplr/app.yml", "testflight: true\nuses: []\npaths: []\n"), ["samplr"], ["samplr"])
-    expect(change("projects/samplr/app.yml", "testflight: true\nuses: []\npaths: ['extra/**']\n"), ["samplr"])
+    expect(base, ["tendr"], ["tendr"])
     # Products with a custom delivery handler never enter the standard iOS matrix.
-    expect(change("projects/folding/app.yml", "testflight: true\ndelivery_handler: folding\nuses: []\npaths: []\n"))
+    expect(change("projects/folding/app.yml", "testflight: false\ndelivery_handler: folding\n"))
     expect(change("projects/folding/apps/ios/App/Screen.swift"))
-    # Non-empty uses must fail; root packages/ are retired.
-    change("projects/samplr/app.yml", "uses: [RDesign]\n")
-    result = subprocess.run(
-        ["scripts/affected", "HEAD", "--intent", "verify"], cwd=root, text=True, capture_output=True
-    )
-    assert result.returncode != 0 and "uses empty" in result.stderr
-    change("projects/samplr/app.yml", "uses: []\n")
+    # TestFlight eligibility is an app-local declaration; changing it is itself a shipping input.
+    change("projects/tendr/app.yml", "testflight: false\ndelivery_handler: standard_ios\n")
+    expect(change("projects/tendr/Still/Screen.swift"), ["tendr"])
+    expect(change("projects/tendr/app.yml", "testflight: true\ndelivery_handler: standard_ios\n"), ["tendr"], ["tendr"])
     # Main without a remote base compares its previous commit; branches fail clearly.
     git("checkout", "-q", "main")
     git("update-ref", "-d", "refs/remotes/origin/main")
-    change("projects/samplr/code.swift")
-    expect("", ["samplr"], ["samplr"])
+    change("projects/tendr/Still/Screen.swift")
+    expect("", ["tendr"], ["tendr"])
     git("checkout", "-qb", "no-base")
     result = subprocess.run(["scripts/affected", "", "--intent", "ship"], cwd=root, text=True, capture_output=True)
     assert result.returncode != 0 and "fetch main history" in result.stderr
-    # Removing another app leaves a valid single-app result for workflow matrices.
-    base = git("rev-parse", "HEAD")
-    git("rm", "-qr", "projects/samplr")
-    git("commit", "-qm", "Remove synthetic app")
-    expect(base)
-    expect(change("scripts/build.sh"), ["tendr"], rdesign=True, tooling=True)
+    expect(change("scripts/build.sh"))
     forced = json.loads(
         subprocess.check_output(["scripts/affected", "HEAD", "--intent", "verify", "--force"], cwd=root, text=True)
     )
-    assert forced == {"apps": ["tendr"], "tooling": True, "rdesign": True}
+    assert forced == {"apps": ["tendr"]}
     rejected = subprocess.run(
         ["scripts/affected", "HEAD", "--intent", "ship", "--force"], cwd=root, capture_output=True, text=True
     )
     assert rejected.returncode != 0 and "verification-only" in rejected.stderr
-print(
-    "Impact fixtures passed (both intents, dependencies, tooling, docs, metadata, globs, renames and base fallbacks)."
-)
+print("Impact fixtures passed (both intents, tooling, docs, metadata, moves, handlers and base fallbacks).")

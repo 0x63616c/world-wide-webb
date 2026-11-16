@@ -57,8 +57,8 @@ Release capture uses one app session for the five configured shots on each Duo d
 Run app-local build/test commands above from `projects/tendr`. Shared release, CI and
 Pages commands run from the repository root; see [root README](../../README.md).
 See [How App Store releases work](../../docs/RELEASE.md#how-app-store-releases-work)
-for the shared merge, TestFlight, tag and review process. Tendr owns its UI package
-in `Packages/RDesign`; other apps keep their own design systems.
+for the shared merge, TestFlight, tag and review process. Tendr's shared views and tokens
+live in `Still/Design`; `Tools/rframe` is the tool-only package that frames store screenshots.
 
 ## Privacy and storage
 

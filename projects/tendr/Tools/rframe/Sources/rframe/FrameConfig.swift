@@ -1,13 +1,13 @@
 import Foundation
 
 /// One frame: which raw capture to use and the words above the device.
-public struct RFrameShot: Decodable {
-  public let screen: String
-  public var appearance: String = "light"
-  public let eyebrow: String
-  public let headline: String
+struct RFrameShot: Decodable {
+  let screen: String
+  var appearance: String = "light"
+  let eyebrow: String
+  let headline: String
   enum CodingKeys: String, CodingKey { case screen, appearance, eyebrow, headline }
-  public init(from decoder: Decoder) throws {
+  init(from decoder: Decoder) throws {
     let values = try decoder.container(keyedBy: CodingKeys.self)
     screen = try values.decode(String.self, forKey: .screen)
     guard !screen.isEmpty,
@@ -26,5 +26,5 @@ public struct RFrameShot: Decodable {
   }
 }
 
-/// apps/<app>/screenshots.json: the frames in App Store order.
-public struct RFrameConfig: Decodable { public let shots: [RFrameShot] }
+/// projects/tendr/screenshots.json: the frames in App Store order.
+struct RFrameConfig: Decodable { let shots: [RFrameShot] }

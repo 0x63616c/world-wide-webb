@@ -1,6 +1,6 @@
 name: Screenshots
 
-# Captures an app's App Store screenshots (light and dark) and frames them with RDesign's rframe.
+# Captures an app's App Store screenshots (light and dark) and frames them with the app's rframe tool.
 # Manual preview only: produces reviewable assets without uploading to Apple.
 on:
   workflow_dispatch:

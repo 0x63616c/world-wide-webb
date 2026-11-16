@@ -83,6 +83,22 @@ class SelectionTests(unittest.TestCase):
             result = selection.select(["projects/folding/backend/crates/worker/" + suffix], CONFIG)
             self.assertEqual(result["delivery_candidates"], ["folding.backend"])
 
+    def test_standard_ios_workflows_run_the_root_tooling_tests_that_read_them(self):
+        for name in [
+            "workflows/tendr-ci.yml",
+            "workflows/tendr-delivery.yml",
+            "workflows/testflight.yml",
+            "workflows/release.yml",
+            "workflows/iap.yml",
+            "workflows/testers.yml",
+            "workflows/register-ids.yml",
+            "actions/match-access/action.yml",
+        ]:
+            with self.subTest(name=name):
+                result = selection.select([".github/" + name], CONFIG)
+                self.assertLessEqual({"repo.tooling", "tendr.native"}, set(result["verify"]))
+                self.assertEqual(result["delivery_candidates"], [])
+
     def test_tooling_verifies_but_does_not_ship(self):
         result = selection.select([".github/workflows/ci.yml"], CONFIG)
         self.assertEqual(result["verify"], ["repo.tooling"])

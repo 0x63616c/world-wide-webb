@@ -1,4 +1,3 @@
-import RDesign
 import SwiftUI
 
 @main struct StillApp: App {
@@ -6,13 +5,6 @@ import SwiftUI
   var body: some Scene {
     WindowGroup { RootView().environment(store).tint(Theme.pine).modifier(MedicalDisclaimerGate()) }
   }
-}
-
-/// Compile-time switches for features held back from the 1.0 App Store release.
-enum FeatureFlags {
-  /// Syringe-unit and mL dose entry (units → mg conversion). Off for 1.0: doses are logged in mg only.
-  /// Stored `syringeUnits` data is still decoded and kept; it is simply not shown or edited.
-  static let syringeUnits = false
 }
 
 @MainActor enum Theme {

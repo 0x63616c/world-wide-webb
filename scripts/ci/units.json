@@ -35,8 +35,6 @@
       "delivery": "testflight",
       "delivery_paths": [
         "projects/tendr/Still/**",
-        "projects/tendr/Packages/RDesign/Sources/**",
-        "projects/tendr/Packages/RDesign/Package.swift",
         "projects/tendr/project.yml",
         "projects/tendr/Package.swift",
         "projects/tendr/app.yml",
@@ -433,12 +431,20 @@
     ".github/workflows/folding-store-checks.yml": ["folding.tooling"],
     ".github/workflows/callkeep-ci.yml": ["callkeep.native"],
     ".github/workflows/callkeep-release.yml": ["callkeep.native"],
-    ".github/workflows/tendr-ci.yml": ["tendr.native"],
-    ".github/workflows/testflight.yml": ["tendr.native", "folding.tooling"],
-    ".github/workflows/iap.yml": ["tendr.native"],
-    ".github/workflows/release.yml": ["tendr.native", "folding.tooling"],
-    ".github/workflows/testers.yml": ["tendr.native"],
-    ".github/workflows/register-ids.yml": ["tendr.native"],
+    ".github/workflows/tendr-ci.yml": ["tendr.native", "repo.tooling"],
+    ".github/workflows/testflight.yml": [
+      "tendr.native",
+      "folding.tooling",
+      "repo.tooling"
+    ],
+    ".github/workflows/iap.yml": ["tendr.native", "repo.tooling"],
+    ".github/workflows/release.yml": [
+      "tendr.native",
+      "folding.tooling",
+      "repo.tooling"
+    ],
+    ".github/workflows/testers.yml": ["tendr.native", "repo.tooling"],
+    ".github/workflows/register-ids.yml": ["tendr.native", "repo.tooling"],
     ".github/workflows/site.yml": ["sites.pages", "sites.folding"],
     ".github/actions/folding-tools/action.yml": [
       "folding.native",
@@ -451,11 +457,12 @@
       "control-center.native",
       "control-center.server"
     ],
-    ".github/workflows/tendr-delivery.yml": ["tendr.native"],
+    ".github/workflows/tendr-delivery.yml": ["tendr.native", "repo.tooling"],
     ".github/actions/match-access/action.yml": [
       "tendr.native",
       "callkeep.native",
-      "folding.tooling"
+      "folding.tooling",
+      "repo.tooling"
     ]
   },
   "checks": {

@@ -10,9 +10,6 @@ jobs:
     timeout-minutes: 5
     outputs:
       apps: ${{ steps.detect.outputs.apps }}
-      rdesign: ${{ steps.detect.outputs.rdesign }}
-      tooling: ${{ steps.detect.outputs.tooling }}
-      backends: ${{ steps.backends.outputs.apps }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
@@ -23,97 +20,6 @@ jobs:
         with:
           base: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
           intent: verify
-          only: standard_ios
-      - id: backends
-        env:
-          APPS: ${{ steps.detect.outputs.apps }}
-        run: echo "apps=$(python3 scripts/check-app-backends.py --apps "$APPS" --list)" >> "$GITHUB_OUTPUT"
-  backends:
-    needs: changes
-    if: needs.changes.outputs.backends != '[]'
-    runs-on: ubuntu-24.04-arm
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
-      - uses: ./.github/actions/archive-tools
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
-        with:
-          node-version: 26.13.0
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
-        with:
-          bun-version: 1.4.4
-      - name: Verify selected Cloudflare backends
-        env:
-          APPS: ${{ needs.changes.outputs.backends }}
-          WRANGLER_SEND_METRICS: "false"
-        run: python3 scripts/check-app-backends.py --apps "$APPS"
-  tooling:
-    needs: changes
-    if: needs.changes.outputs.tooling == 'true'
-    runs-on: ubuntu-24.04-arm
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
-      - uses: ./.github/actions/ruby-tools
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
-        with:
-          python-version: 3.15.2
-      - name: Validate app configuration
-        run: ruby scripts/app-config.rb --list
-      - name: Release lane checks (no Apple access)
-        run: |
-          ruby scripts/check-release.rb
-          ruby scripts/test-review-products.rb
-          ruby scripts/test-release-pipeline.rb
-          ruby scripts/test-pending-release.rb
-          ruby scripts/test-storefront-status.rb
-      - name: Install impact resolver dependencies
-        run: python3 -m pip install -r scripts/requirements.txt
-      - name: Scoped container credential handoff
-        run: python3 .github/actions/ghcr-login/test_login.py
-      - name: Path filter regression checks
-        run: |
-          python3 scripts/test-changed-apps.py
-          python3 -m unittest discover -s scripts/ci -p 'test_*.py'
-          python3 scripts/test-release-source.py
-      - name: Private prebuilt distribution checks
-        run: python3 -m unittest discover -s scripts/distribution
-      - name: Duo capture and Xcode selection checks
-        run: python3 scripts/test-duo-screenshots.py
-      - name: Install screenshot export dependencies
-        run: python3 -m pip install -r scripts/requirements-screenshots.txt
-      - name: Release target, Duo export and submission checks
-        run: python3 scripts/test-release.py
-      - name: ASC retirement guard checks
-        run: python3 scripts/test-asc-retire.py
-      - name: Site publication retention checks
-        run: python3 scripts/test-publish-site.py
-      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
-        with:
-          go-version: "1.24"
-      - name: Actionlint
-        run: |
-          go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
-          "$(go env GOPATH)/bin/actionlint"
-      - name: Shell scripts
-        run: |
-          command -v shellcheck >/dev/null || { sudo apt-get update && sudo apt-get install -y shellcheck; }
-          shopt -s nullglob
-          scripts=(scripts/*.sh projects/*/scripts/*.sh)
-          shellcheck "${scripts[@]}"
-  rdesign:
-    needs: changes
-    if: needs.changes.outputs.rdesign == 'true'
-    runs-on: xcode-27
-    timeout-minutes: 60
-    env:
-      DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
-    steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
-      - name: RDesign tests (macOS)
-        run: swift test --package-path projects/tendr/Packages/RDesign
-      - name: rframe builds
-        run: swift build --package-path projects/tendr/Packages/RDesign -c release --product rframe
   app:
     needs: changes
     if: needs.changes.outputs.apps != '[]'
@@ -140,6 +46,14 @@ jobs:
           else
             echo "$APP has no Swift package tests"
           fi
+      - name: Screenshot framing tool
+        run: |
+          if [[ -d "projects/$APP/Tools/rframe" ]]; then
+            swift test --package-path "projects/$APP/Tools/rframe"
+            swift build --package-path "projects/$APP/Tools/rframe" -c release --product rframe
+          else
+            echo "$APP has no screenshot framing tool"
+          fi
       - name: Project is generated from project.yml
         run: |
           brew list xcodegen >/dev/null 2>&1 || brew install xcodegen
@@ -158,10 +72,7 @@ jobs:
     if: always() && !cancelled()
     needs:
       - changes
-      - tooling
-      - rdesign
       - app
-      - backends
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 5
     steps:
@@ -172,13 +83,7 @@ jobs:
           import json, os
           results = json.loads(os.environ['RESULTS'])
           assert results['changes']['result'] == 'success', 'App selection failed'
-          selection = results['changes']['outputs']
-          for job, selected in (
-              ('tooling', selection['tooling'] == 'true'),
-              ('backends', bool(json.loads(selection['backends']))),
-              ('rdesign', selection['rdesign'] == 'true'),
-              ('app', bool(json.loads(selection['apps']))),
-          ):
-              expected = 'success' if selected else 'skipped'
-              assert results[job]['result'] == expected, f'{job}: expected {expected}'
+          selected = bool(json.loads(results['changes']['outputs']['apps']))
+          expected = 'success' if selected else 'skipped'
+          assert results['app']['result'] == expected, f'app: expected {expected}'
           PYTHON

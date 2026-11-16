@@ -60,25 +60,28 @@ jobs:
       - run: |-
           actionlint
           python3 -m compileall -q scripts/ci
+          shopt -s nullglob
+          shellcheck scripts/*.sh projects/*/scripts/*.sh
   test-unit:
     needs: changes
     if: needs.changes.outputs.tooling == 'true'
     runs-on: ubuntu-24.04-arm
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
       - *id001
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
         with:
           python-version: 3.15.2
-      - run: python3 -m pip install PyYAML==6.0.3
+      - run: python3 -m pip install -r scripts/requirements.txt -r scripts/requirements-screenshots.txt
       - uses: ./.github/actions/ruby-tools
+      # Root tooling tests are discovered by name, so a new test file needs no workflow edit.
+      # scripts/homelab and scripts/distribution run in their owners' workflows.
       - run: |-
-          python3 -m unittest discover -s scripts/ci -p 'test_*.py'
-          python3 -m unittest scripts/test_format_staged.py
           ruby scripts/check-release.rb
-          python3 scripts/test-changed-apps.py
-          ruby scripts/test-testflight-feedback.rb
-          bash scripts/test-check-no-personal-email.sh
+          python3 -m unittest discover -s scripts/ci -p 'test_*.py'
+          for test in scripts/test[-_]*.py .github/actions/*/test_*.py; do python3 "$test"; done
+          for test in scripts/test-*.rb; do ruby "$test"; done
+          for test in scripts/test-*.sh; do bash "$test"; done
   format:
     needs: changes
     runs-on: xcode-27

@@ -1,4 +1,3 @@
-import RDesign
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -145,7 +144,6 @@ extension HistoryEntry {
 struct SettingsView: View {
   @Environment(Store.self) private var store
   @State private var schedule = false
-  @State private var treatment = false
   @State private var addingVial = false
   @State private var editingVial: Vial?
   @State private var tipJar = RTipJar.tendr
@@ -182,7 +180,6 @@ struct SettingsView: View {
             ) {
               ForEach(WeightTrendMode.allCases, id: \.self) { Text($0.title).tag($0) }
             }.accessibilityIdentifier("weightTrendPicker")
-            if FeatureFlags.syringeUnits { Button("Dose entry") { treatment = true } }
             Picker(
               "Appearance",
               selection: Binding(
@@ -343,7 +340,6 @@ struct SettingsView: View {
         }
         .fullScreenCover(item: $thanks) { RTipThanks(tip: $0) }
         .sheet(isPresented: $schedule) { ScheduleEditor().tendrSheet() }
-        .sheet(isPresented: $treatment) { DosePreferencesEditor().tendrSheet() }
         .sheet(isPresented: $addingVial) { VialEditor().tendrSheet() }
         .sheet(item: $editingVial) { VialEditor(vial: $0).tendrSheet() }
     }
@@ -356,7 +352,6 @@ struct TreatmentEditor: View {
   @State private var medication = ""
   @State private var halfLife = 7.0
   @State private var model = MedicationModel.halfLife
-  @State private var u100 = false
   var body: some View {
     NavigationStack {
       Form {
@@ -390,15 +385,6 @@ struct TreatmentEditor: View {
             Text("Used only for the estimate graph. Your dose and schedule are set separately.")
           }
         }
-        if FeatureFlags.syringeUnits {
-          Section {
-            Toggle("I use a U-100 syringe", isOn: $u100)
-          } header: {
-            Text("Dose entry")
-          } footer: {
-            Text("U-100 means 100 units per mL. Check the marking on your syringe.")
-          }
-        }
       }.navigationTitle("Treatment").navigationBarTitleDisplayMode(.inline)
         .toolbar {
           ToolbarItem(placement: .cancellationAction) {
@@ -410,7 +396,6 @@ struct TreatmentEditor: View {
               next.medication = medication.trimmingCharacters(in: .whitespacesAndNewlines)
               next.halfLifeDays = halfLife
               next.medicationModel = model
-              if FeatureFlags.syringeUnits { next.syringeUnitsPerML = u100 ? 100 : nil }
               if store.commit(next) { dismiss() }
             }.disabled(medication.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
           }
@@ -421,7 +406,6 @@ struct TreatmentEditor: View {
           medication = store.journal.medication
           halfLife = store.journal.halfLifeDays
           model = store.journal.resolvedMedicationModel
-          u100 = store.journal.syringeUnitsPerML == 100
         }
     }
   }

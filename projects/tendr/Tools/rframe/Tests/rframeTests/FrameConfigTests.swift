@@ -1,7 +1,7 @@
 import Foundation
 import XCTest
 
-@testable import RDesign
+@testable import rframe
 
 final class FrameConfigTests: XCTestCase {
   func testFramesKeepOrderAndDefaultToLight() throws {

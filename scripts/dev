@@ -93,9 +93,6 @@ case "$command_name" in
       exec mise exec -- bash projects/golink-safari/Scripts/check.sh javascript
     fi
     [[ -f "projects/$app/app.yml" && ! -L "projects/$app" ]] || fail "unknown app: $app"
-    if [[ -f "projects/$app/backend/wrangler.jsonc" ]]; then
-      (cd "projects/$app/backend" && mise exec -- bun install --frozen-lockfile && mise exec -- bun run check)
-    fi
     handler=$(mise exec -- ruby scripts/app-config.rb "$app" delivery_handler)
     case "$handler" in
       standard_ios)

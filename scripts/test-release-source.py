@@ -11,6 +11,7 @@ ROOT = Path(__file__).resolve().parent.parent
 spec = importlib.util.spec_from_file_location("release_source", ROOT / "scripts/release-source.py")
 release = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(release)
+APP = "testflight: true\napp_store_automatic: true\ndelivery_handler: standard_ios\n"
 
 
 class SourceTest(unittest.TestCase):
@@ -23,14 +24,12 @@ class SourceTest(unittest.TestCase):
         self.git("config", "user.name", "Fixture")
         self.git("config", "user.email", "fixture@example.invalid")
         self.git("config", "commit.gpgsign", "false")
-        self.write("scripts/affected", (ROOT / "scripts/affected").read_text())
+        for name in ["scripts/affected", "scripts/ci/select_units.py", "scripts/ci/units.json"]:
+            self.write(name, (ROOT / name).read_text())
         (self.root / "scripts/affected").chmod(0o755)
-        self.write(
-            "projects/tendr/app.yml",
-            "testflight: true\napp_store_automatic: true\nuses: []\npaths: ['shared/tendr/**']\n",
-        )
-        self.write("projects/samplr/app.yml", "testflight: true\nuses: []\n")
-        self.write("projects/tendr/Packages/RDesign/view.swift", "// fixture\n")
+        self.write("projects/tendr/app.yml", APP)
+        self.write("projects/folding/app.yml", "testflight: true\ndelivery_handler: folding\n")
+        self.write("projects/tendr/Still/view.swift", "// fixture\n")
         self.base = self.commit()
 
     def git(self, *args):
@@ -46,11 +45,10 @@ class SourceTest(unittest.TestCase):
         self.git("commit", "-qm", "Fixture")
         return self.git("rev-parse", "HEAD")
 
-    def test_app_dependency_extra_path_and_listing_supersede(self):
+    def test_app_project_and_listing_supersede(self):
         for path in [
-            "projects/tendr/view.swift",
-            "projects/tendr/Packages/RDesign/view.swift",
-            "shared/tendr/code.swift",
+            "projects/tendr/Still/view.swift",
+            "projects/tendr/project.yml",
             "projects/tendr/fastlane/metadata/en-US/description.txt",
             "projects/tendr/screenshots.json",
         ]:
@@ -61,30 +59,36 @@ class SourceTest(unittest.TestCase):
                 self.git("reset", "--hard", self.base)
 
     def test_unrelated_tooling_and_documentation_do_not_supersede(self):
-        for path in ["projects/samplr/view.swift", "fastlane/Fastfile", "scripts/another.py", "docs/release.md"]:
+        for path in [
+            "projects/folding/apps/ios/App/view.swift",
+            "projects/tendr/Tests/ViewTests.swift",
+            "projects/tendr/Tools/rframe/Sources/rframe/RFrame.swift",
+            "fastlane/Fastfile",
+            "scripts/another.py",
+            "docs/release.md",
+        ]:
             self.write(path)
         latest = self.commit()
         self.assertTrue(release.current("tendr", self.base, latest))
         self.assertTrue(release.current("tendr", latest, latest))
 
     def test_incoming_configuration_is_used_without_changing_checkout(self):
-        self.write(
-            "projects/tendr/app.yml",
-            "testflight: true\napp_store_automatic: true\nuses: []\npaths: ['shared/tendr-extra/**']\n",
-        )
-        self.write("shared/tendr-extra/view.swift")
+        self.write("projects/tendr/app.yml", APP.replace("standard_ios", "custom"))
+        custom = self.commit()
+        self.write("projects/tendr/app.yml", APP)
+        self.write("projects/tendr/Still/view.swift")
         latest = self.commit()
-        self.git("checkout", "-q", self.base)
-        self.assertFalse(release.current("tendr", self.base, latest))
+        self.git("checkout", "-q", custom)
+        self.assertFalse(release.current("tendr", custom, latest))
         result = json.loads(
             subprocess.check_output(
-                [str(self.root / "scripts/affected"), self.base, "--head", latest, "--intent", "ship"], cwd=self.root
+                [str(self.root / "scripts/affected"), custom, "--head", latest, "--intent", "ship"], cwd=self.root
             )
         )
         self.assertEqual(["tendr"], result["apps"])
 
     def test_disabled_automatic_delivery_and_abandoned_source_cannot_publish(self):
-        self.write("projects/tendr/app.yml", "testflight: true\napp_store_automatic: false\nuses: []\n")
+        self.write("projects/tendr/app.yml", APP.replace("automatic: true", "automatic: false"))
         latest = self.commit()
         self.assertFalse(release.current("tendr", self.base, latest))
         self.assertFalse(release.current("tendr", latest, self.base))

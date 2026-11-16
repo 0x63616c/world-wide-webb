@@ -7,19 +7,10 @@ inputs:
   intent:
     description: verify, ship or optional UI preview
     default: verify
-  only:
-    description: Optional app.yml capability
-    default: ""
 outputs:
   apps:
     description: JSON app array
     value: ${{ steps.detect.outputs.apps }}
-  tooling:
-    description: Whether to verify shared delivery tooling
-    value: ${{ steps.detect.outputs.tooling }}
-  rdesign:
-    description: Whether to verify RDesign
-    value: ${{ steps.detect.outputs.rdesign }}
 runs:
   using: composite
   steps:
@@ -34,10 +25,8 @@ runs:
       env:
         BASE: ${{ inputs.base }}
         INTENT: ${{ inputs.intent }}
-        ONLY: ${{ inputs.only }}
       run: |
         options=()
-        if [[ -n "$ONLY" ]]; then options+=(--only "$ONLY"); fi
         if [[ "$GITHUB_EVENT_NAME" == workflow_dispatch && "$INTENT" != ship ]]; then options+=(--force); fi
         result=$(scripts/affected "$BASE" --intent "$INTENT" "${options[@]}")
         echo "$result"

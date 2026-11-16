@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Frames an app's raw captures for the App Store with RDesign's rframe (macOS only), using the
+# Frames an app's raw captures for the App Store with its rframe tool (macOS only), using the
 # frame list in projects/<app>/screenshots.json.
 # Usage: scripts/frame-screenshots.sh <app> [raw-dir] [output-dir] [overview.png]
 set -euo pipefail
@@ -9,4 +9,4 @@ dir=$(ruby scripts/app-config.rb "$app" dir)
 raw=${2:-build/screenshots/$app/raw}
 out=${3:-$dir/fastlane/screenshots/en-US}
 overview=${4:-build/screenshots/$app/overview.png}
-swift run --package-path "$dir/Packages/RDesign" -c release rframe "$dir/screenshots.json" "$raw" "$out" "$overview"
+swift run --package-path "$dir/Tools/rframe" -c release rframe "$dir/screenshots.json" "$raw" "$out" "$overview"
