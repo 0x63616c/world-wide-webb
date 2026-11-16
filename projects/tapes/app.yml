@@ -4,6 +4,10 @@ name: Tapes
 # Xcode project, generated from project.yml by XcodeGen (paths relative to this folder).
 project: Tapes.xcodeproj
 scheme: Tapes
+# Schemes for the other platforms; delivery uploads each to the same TestFlight app.
+platforms:
+  tvos: Tapes-tvOS
+  macos: Tapes-macOS
 bundle_id: co.worldwidewebb.tapes
 version: 1.0.0
 testflight: true

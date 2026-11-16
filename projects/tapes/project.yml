@@ -1,5 +1,5 @@
 # Tapes for iPhone, Mac and Apple TV. Generate with `xcodegen generate`.
-# The `Tapes` scheme is iPhone only: the shared TestFlight lane archives one iOS scheme.
+# Each platform has its own scheme; app.yml lists them for TestFlight delivery.
 name: Tapes
 options:
   bundleIdPrefix: co.worldwidewebb

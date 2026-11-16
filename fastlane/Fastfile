@@ -347,6 +347,27 @@ platform :ios do
   desc "Test, build, upload, wait, and distribute the next internal beta"
   lane :beta do |options|
     app = r_app(options)
+    # platform:tvos or platform:macos builds the scheme app.yml names under `platforms`.
+    platform = (options[:platform] || "ios").to_s
+    scheme =
+      (
+        if platform == "ios"
+          app["scheme"]
+        else
+          app
+            .fetch("platforms", {})
+            .fetch(platform) do
+              UI.user_error!(
+                "#{app["slug"]} has no #{platform} scheme in app.yml"
+              )
+            end
+        end
+      )
+    testflight_platform = {
+      "ios" => "ios",
+      "tvos" => "appletvos",
+      "macos" => "osx"
+    }.fetch(platform)
     verify(app: app["slug"]) unless options[:skip_tests]
     api_key = connect_api_key
     version = options[:version] || app["version"]
@@ -354,6 +375,7 @@ platform :ios do
       latest_testflight_build_number(
         api_key: api_key,
         app_identifier: app["bundle_id"],
+        platform: testflight_platform,
         version: version,
         initial_build_number: 0
       ) + 1
@@ -375,15 +397,22 @@ platform :ios do
           app["bundle_id"] => profile_uuid
         }
       }
+      if platform == "macos"
+        export_options[
+          :installerSigningCertificate
+        ] = "3rd Party Mac Developer Installer"
+      end
     end
 
     build_app(
       project: File.join(app["dir"], app["project"]),
-      scheme: app["scheme"],
+      scheme: scheme,
       clean: true,
       export_method: "app-store",
-      output_directory: File.join(REPO_ROOT, "build", "fastlane", app["slug"]),
-      output_name: "#{app["name"]}-#{version}-#{build_number}.ipa",
+      output_directory:
+        File.join(REPO_ROOT, "build", "fastlane", app["slug"], platform),
+      output_name:
+        "#{app["name"]}-#{version}-#{build_number}#{platform == "ios" ? ".ipa" : ""}",
       xcargs: xcargs,
       export_options: export_options,
       export_xcargs: export_options.empty? ? "-allowProvisioningUpdates" : ""
@@ -392,6 +421,7 @@ platform :ios do
     upload_to_testflight(
       api_key: api_key,
       app_identifier: app["bundle_id"],
+      app_platform: testflight_platform,
       app_version: version,
       build_number: build_number.to_s,
       groups: assignable_groups(app),
