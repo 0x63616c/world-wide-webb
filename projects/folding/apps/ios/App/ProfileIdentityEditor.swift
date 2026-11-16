@@ -49,6 +49,8 @@ struct InlineProfileIdentity: View {
       }.buttonStyle(.plain).disabled(actions.saveNickname == nil || model.operation != nil)
     }
     .frame(maxWidth: .infinity).padding(.vertical, 12)
+    // Centred header: keep the separator below it full width.
+    .alignmentGuide(.listRowSeparatorLeading) { _ in 0 }
     .alert(
       String(localized: "profile.nickname", defaultValue: "Display name"), isPresented: $editingName
     ) {

@@ -33,9 +33,90 @@ pub enum Usage {
     Heavy,
 }
 
+/// Persona id for bots whose activity traits are derived from their own seed.
+pub const SEEDED_PERSONA_ID: &str = "seeded";
+pub const SEEDED_PERSONA_VERSION: u32 = 2;
+
+/// Each bot's own activity profile, derived from its stored seed so no two bots share a template.
+/// Waking windows are in UTC and spread across the day, which reads as players in many time zones.
+pub fn seeded_persona(seed: &[u8; 32]) -> Persona {
+    let mut rng = DayRandom::new(trait_seed(seed));
+    let tier = rng.below(100);
+    let (usage, low, high) = if tier < 50 {
+        (Usage::Light, 1, 6)
+    } else if tier < 85 {
+        (Usage::Medium, 5, 14)
+    } else {
+        (Usage::Heavy, 12, 26)
+    };
+    let weekday = low + rng.below(high - low + 1);
+    // Weekend habit: 60%..150% of the weekday rhythm.
+    let weekend = (weekday * (60 + rng.below(91)) / 100).max(1);
+    let wake = rng.below(15) as u8;
+    let span = 10 + rng.below(7) as u8;
+    let skipped = match usage {
+        Usage::Light => 15 + rng.below(31),
+        Usage::Medium => 6 + rng.below(15),
+        Usage::Heavy => 2 + rng.below(8),
+    } as u8;
+    Persona {
+        id: SEEDED_PERSONA_ID.into(),
+        version: SEEDED_PERSONA_VERSION,
+        timezone: "UTC".into(),
+        wake_hour: wake,
+        sleep_hour: (wake + span).min(24),
+        usage,
+        weekday_folds: weekday as u8,
+        weekend_folds: weekend as u8,
+        skipped_day_percent: skipped,
+        churn_percent: 0,
+        nickname_style: "listed".into(),
+        avatar_style: "none".into(),
+        session_rhythm: "seeded".into(),
+        jitter_minutes: (10 + rng.below(51)) as u8,
+        join_days_ago: (20 + rng.below(680)) as u16,
+    }
+}
+
+/// This bot's share of the human leader's score, in permille (350..=970). Bots therefore settle
+/// at different points below the leader instead of all queueing at the same ceiling.
+pub fn ceiling_permille(seed: &[u8; 32]) -> u64 {
+    let mut rng = DayRandom::new(trait_seed(seed) ^ 0x5EED_CE11);
+    350 + rng.below(621)
+}
+
+/// Highest score this bot may hold on a board whose top real score is `top_real_score`.
+pub fn bot_ceiling(top_real_score: Option<u64>, permille: u64) -> u64 {
+    let top = top_real_score.unwrap_or(0);
+    (top * permille / 1000).min(score_ceiling(top_real_score))
+}
+
+/// Whether this bot shows a photo avatar (about 45%); the rest keep the default avatar.
+pub fn has_photo(seed: &[u8; 32]) -> bool {
+    DayRandom::new(trait_seed(seed) ^ 0xA7A7_A7A7).below(100) < 45
+}
+
+fn trait_seed(seed: &[u8; 32]) -> u64 {
+    let mut hash = Sha256::new();
+    hash.update(b"folding.bot.traits.v2\0");
+    hash.update(seed);
+    u64::from_be_bytes(hash.finalize()[..8].try_into().expect("fixed digest"))
+}
+
 pub fn personas() -> Vec<Persona> {
     serde_json::from_str(include_str!("../personas-v1.json"))
         .expect("bundled persona data is valid")
+}
+
+/// Hand-written nicknames; each bot takes the entry at its roster ordinal so no two bots share one.
+pub fn nickname(ordinal: usize) -> String {
+    #[derive(serde::Deserialize)]
+    struct Names {
+        names: Vec<String>,
+    }
+    let names: Names = serde_json::from_str(include_str!("../policies/bot-names-v2.json"))
+        .expect("bundled bot names");
+    names.names[ordinal % names.names.len()].clone()
 }
 
 /// Returns the highest safe bot score. Empty human boards conservatively permit no bot score.
@@ -221,10 +302,76 @@ mod tests {
     }
 
     #[test]
-    fn photo_avatar_manifest_is_pluggable_and_empty_by_default() {
+    fn photo_avatars_match_the_manifest_and_are_public_domain_jpegs() {
         let value: serde_json::Value =
             serde_json::from_str(include_str!("../policies/photo-avatars.manifest.json")).unwrap();
-        assert_eq!(value["version"], 1);
-        assert!(value["assets"].as_array().expect("assets").is_empty());
+        let assets = value["assets"].as_array().expect("assets");
+        assert_eq!(assets.len(), crate::bot_photos::PHOTOS.len());
+        for (asset, (id, bytes)) in assets.iter().zip(crate::bot_photos::PHOTOS) {
+            assert_eq!(asset["id"], *id);
+            assert!(
+                ["cc0", "pdm"].contains(&asset["license"].as_str().unwrap()),
+                "{id}"
+            );
+            assert!(
+                asset["source"].as_str().unwrap().starts_with("https://"),
+                "{id}"
+            );
+            assert!(bytes.starts_with(&[0xFF, 0xD8]), "{id} is not a JPEG");
+        }
+    }
+
+    #[test]
+    fn bot_names_cover_the_cap_are_unique_and_pass_the_name_policy() {
+        let names: Vec<String> = (0..MAX_BOT_COUNT).map(nickname).collect();
+        let unique: std::collections::BTreeSet<_> =
+            names.iter().map(|n| n.to_lowercase()).collect();
+        assert_eq!(
+            unique.len(),
+            MAX_BOT_COUNT,
+            "every bot up to the cap needs its own name"
+        );
+        for name in &names {
+            assert!(
+                crate::name_policy::validate(name).is_ok(),
+                "{name} fails the name policy"
+            );
+        }
+    }
+
+    #[test]
+    fn seeded_bots_differ_in_activity_and_ceiling() {
+        let seeds: Vec<[u8; 32]> = (0..150u8).map(|i| [i; 32]).collect();
+        let personas: Vec<_> = seeds.iter().map(seeded_persona).collect();
+        let rhythms: std::collections::BTreeSet<_> = personas
+            .iter()
+            .map(|p| (p.weekday_folds, p.weekend_folds, p.wake_hour, p.sleep_hour))
+            .collect();
+        assert!(
+            rhythms.len() > 120,
+            "only {} distinct rhythms",
+            rhythms.len()
+        );
+        for p in &personas {
+            assert!(p.wake_hour < p.sleep_hour && p.sleep_hour <= 24);
+            assert!((1..=26).contains(&p.weekday_folds) && p.weekend_folds >= 1);
+        }
+        let ceilings: std::collections::BTreeSet<_> = seeds.iter().map(ceiling_permille).collect();
+        assert!(ceilings.len() > 100);
+        assert!(
+            seeds
+                .iter()
+                .all(|s| (350..=970).contains(&ceiling_permille(s)))
+        );
+        let photos = seeds.iter().filter(|s| has_photo(s)).count();
+        assert!((40..=95).contains(&photos), "{photos} photo bots of 150");
+    }
+
+    #[test]
+    fn bot_ceiling_stays_strictly_below_the_leader() {
+        assert_eq!(bot_ceiling(None, 900), 0);
+        assert_eq!(bot_ceiling(Some(1), 970), 0);
+        assert_eq!(bot_ceiling(Some(239), 500), 119);
+        assert!(bot_ceiling(Some(10), 970) < 10);
     }
 }

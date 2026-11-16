@@ -16,16 +16,26 @@ watermark updates. Use the Bots page to pause, resume, or retire individual bots
 
 ## Roster, personas, and avatars
 
-Versioned personas live in `backend/crates/worker/personas-v1.json`. The runtime cycles the
-templates across the roster and stores each bot's concrete persona id, version, and seed. Add a new
-persona version instead of changing an existing version's meaning; keep old definitions until bots
-using that version have been migrated or retired.
+New bots use the `seeded` persona (version 2). Each bot's activity is derived from its own stored
+seed in `bot_simulation::seeded_persona`, not from a shared template. That covers usage tier,
+weekday and weekend fold counts, the UTC waking window (spread across the day, so bots read as many
+time zones), skipped days, and a display-only join date. Bots on the older
+`backend/crates/worker/personas-v1.json` templates keep replaying with them until purged.
 
-Launch policy: 50 bots on the first tick, two additional joins per week, cap of 150. Names come from
-the approved lists in `backend/crates/worker/policies/names-v1.json`. Avatars are generated
-(`none`, `initials`, `illustrated`, `solid`, `black`). Photo-style avatars are a pluggable manifest
-at `backend/crates/worker/policies/photo-avatars.manifest.json` and ship empty. Do not add
-photographs of real people. Attach only explicitly licensed or illustrated assets later.
+Launch policy: 50 bots on the first tick, two additional joins per week, cap of 150.
+
+Names are hand-written and hard-coded in `backend/crates/worker/policies/bot-names-v2.json`. Each
+bot takes the entry at its roster ordinal, so no two bots share a name. Keep the styles mixed
+(gamer tags, handles, nicknames, full names, phrases, non-Latin names, rare emoji). Never generate
+them. A unit test checks that the list covers the cap and that every name passes the real name
+policy.
+
+About 45% of bots get a distinct photo avatar; the rest keep the default avatar, like most real
+players. Photos live in `backend/crates/worker/assets/bot-photos/`, and each one is listed in
+`backend/crates/worker/policies/photo-avatars.manifest.json` with its subject, CC0 or Public Domain
+Mark licence, creator and source. Every photo was reviewed by eye: no people, text, logos or
+brands. `src/bot_photos.rs` embeds the files in manifest order, and a unit test keeps the two in
+sync. Do not add photographs of people.
 
 Synthetic `subject_hmac` values use a domain-separated, server-generated namespace and are checked
 for uniqueness before creation.
@@ -35,6 +45,8 @@ for uniqueness before creation.
 Caps are applied before event writes. Public scores still come from ordinary observation replay:
 
 - A bot is never #1 and is strictly below the top real score on week, month, and all-time boards.
+- Each bot also has its own ceiling, 35–97% of the top real score (`ceiling_permille`), so bots
+  settle at different points instead of tying at one cap.
 - A tie with the human leader is rejected.
 - An empty human board permits only a zero score.
 - Recheck the live real-player leader before each observation batch so an inactive leader makes

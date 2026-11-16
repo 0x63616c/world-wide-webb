@@ -13,7 +13,9 @@ use sha2::{Digest, Sha256};
 use worker::*;
 
 const BATCH_BOTS: usize = 10;
-const BATCH_EVENTS: usize = 24;
+/// Sequence space per bot per UTC day (open+close events). Heavy seeded bots plan at most 26 pairs,
+/// so one write always covers a bot's whole day and a single pass completes past days.
+const DAY_EVENTS: usize = 64;
 
 #[derive(Deserialize)]
 struct State {
@@ -33,15 +35,6 @@ struct Bot {
     epoch_id: String,
     generation_id: String,
 }
-#[derive(Deserialize)]
-struct WordPolicy {
-    bot_words: Words,
-}
-#[derive(Deserialize)]
-struct Words {
-    adjectives: Vec<String>,
-    nouns: Vec<String>,
-}
 fn id(seed: &[u8], scope: &[u8]) -> String {
     let mut h = Sha256::new();
     h.update(b"folding.bot.id.v1\0");
@@ -58,75 +51,12 @@ fn id(seed: &[u8], scope: &[u8]) -> String {
         &hex[20..32]
     )
 }
-fn words() -> WordPolicy {
-    serde_json::from_str(include_str!("../policies/names-v1.json")).expect("bundled bot words")
-}
-fn nickname(p: &Persona, seed: &[u8; 32], ordinal: u64) -> String {
-    let w = words();
-    let mut rng =
-        policy::DayRandom::new(u64::from_be_bytes(seed[..8].try_into().unwrap()) ^ ordinal);
-    let a = &w.bot_words.adjectives[rng.below(w.bot_words.adjectives.len() as u64) as usize];
-    let n = &w.bot_words.nouns[rng.below(w.bot_words.nouns.len() as u64) as usize];
-    if p.nickname_style == "initials_number" {
-        format!(
-            "{}{}.{}",
-            a.chars().next().unwrap(),
-            n.chars().next().unwrap(),
-            100 + rng.below(900)
-        )
-    } else {
-        format!("{a} {n}")
-    }
-}
 fn event_id(bot: &Bot, day: i64, seq: u64) -> Id {
     Id::parse(&id(
         bot.participant_id.as_bytes(),
         format!("{day}:{seq}").as_bytes(),
     ))
     .unwrap()
-}
-
-fn avatar_png(style: &str, seed: &[u8; 32]) -> Result<Vec<u8>, Failure> {
-    use image::{ImageBuffer, ImageFormat, Rgb};
-    let base = if style == "black" {
-        [12, 12, 14]
-    } else {
-        [seed[0], seed[1], seed[2]]
-    };
-    let image = ImageBuffer::from_fn(128, 128, |x, y| {
-        let mut color = base;
-        if style == "illustrated" {
-            let dx = x as i32 - (48 + (seed[3] % 32) as i32);
-            let dy = y as i32 - 58;
-            if dx * dx + dy * dy < 34 * 34 {
-                color = [245, 210, 140];
-            }
-            if (y > 82 && (x as i32 - 64).abs() < 44) || (y > 12 && y < 28 && x > 18 && x < 110) {
-                color = [seed[4], seed[5], seed[6]];
-            }
-            if (x > 25 && x < 35 && y > 46 && y < 52) || (x > 80 && x < 90 && y > 46 && y < 52) {
-                color = [35, 30, 40];
-            }
-        } else if style == "initials" {
-            let glyph = (seed[0] % 26) as u32;
-            let x0 = 45 + (glyph % 5) * 3;
-            let y0 = 40 + (glyph / 5) * 3;
-            if x >= x0
-                && x < x0 + 38
-                && y >= y0
-                && y < y0 + 48
-                && ((x + y + glyph) % 13 < 5 || x == x0 || y == y0)
-            {
-                color = [250, 250, 250];
-            }
-        }
-        Rgb(color)
-    });
-    let mut cursor = std::io::Cursor::new(Vec::new());
-    image::DynamicImage::ImageRgb8(image)
-        .write_to(&mut cursor, ImageFormat::Png)
-        .map_err(|_| Failure::unavailable())?;
-    Ok(cursor.into_inner())
 }
 
 async fn create_roster(env: &Env, db: &D1Database, time: i64) -> Result<(), Failure> {
@@ -165,19 +95,27 @@ async fn create_roster(env: &Env, db: &D1Database, time: i64) -> Result<(), Fail
     if count >= desired {
         return Ok(());
     }
-    let personas = policy::personas();
     let bucket = env.bucket("AVATARS").map_err(|_| Failure::unavailable())?;
+    let mut photo_index = statement(
+        db,
+        "SELECT count(*) AS count FROM bot_profiles WHERE avatar_style='photo'",
+        &[],
+    )?
+    .first::<Count>(None)
+    .await
+    .map_err(|_| Failure::unavailable())?
+    .map_or(0, |c| c.count.max(0) as usize);
     let mut writes = vec![];
     for ordinal in count..desired {
-        let p = &personas[ordinal % personas.len()];
         let seed = random::<32>()?;
+        let p = &policy::seeded_persona(&seed);
         let participant = uuid()?;
         let device = uuid()?;
         let epoch = uuid()?;
         let generation_id = uuid()?;
         let joined =
             time - (p.join_days_ago as i64 * 86400000) - ((ordinal as i64 * 7919) % 86400000);
-        let nickname = nickname(p, &seed, ordinal as u64);
+        let nickname = policy::nickname(ordinal);
         let subject = policy::subject_hmac(&seed, ordinal as u64);
         writes.push(statement(db,"INSERT INTO participants(participant_id,subject_hmac,membership,restriction,generation_revision,generation_id,epoch_id,active_device_id) VALUES(?1,?2,'joined','none',1,?3,?4,?5)",&[text(&participant),text(&subject),text(&generation_id),text(&epoch),text(&device)])?);
         writes.push(statement(
@@ -185,15 +123,15 @@ async fn create_roster(env: &Env, db: &D1Database, time: i64) -> Result<(), Fail
             "INSERT INTO participant_revisions VALUES(?1,0)",
             &[text(&participant)],
         )?);
-        let avatar_style = if p.avatar_style == "solid" && seed[7] % 3 == 0 {
-            "black"
-        } else {
-            p.avatar_style.as_str()
-        };
-        let avatar = if avatar_style == "none" {
-            None
-        } else {
+        // Distinct licensed photos while they last; most bots keep the default avatar.
+        let photo = (policy::has_photo(&seed) && photo_index < crate::bot_photos::PHOTOS.len())
+            .then(|| crate::bot_photos::PHOTOS[photo_index].1);
+        let avatar_style = if photo.is_some() { "photo" } else { "none" };
+        let avatar = if photo.is_some() {
+            photo_index += 1;
             Some(uuid()?)
+        } else {
+            None
         };
         writes.push(statement(db,"INSERT INTO profiles(participant_id,nickname,avatar_id,nickname_status,avatar_status) VALUES(?1,?2,?3,'approved',?4)",&[text(&participant),text(&nickname),avatar.as_deref().map(text).unwrap_or(wasm_bindgen::JsValue::NULL),text(if avatar.is_some(){"approved"}else{"none"})])?);
         writes.push(statement(
@@ -209,12 +147,13 @@ async fn create_roster(env: &Env, db: &D1Database, time: i64) -> Result<(), Fail
             ],
         )?);
         writes.push(statement(db,"INSERT INTO bot_profiles(participant_id,persona_id,persona_version,seed,joined_at_ms,created_at_ms,avatar_style) VALUES(?1,?2,?3,?4,?5,?6,?7)",&[text(&participant),text(&p.id),number(p.version as i64),blob(&seed),number(joined),number(time),text(avatar_style)])?);
-        if let Some(avatar_id) = avatar {
+        if let (Some(avatar_id), Some(bytes)) = (avatar, photo) {
             let original = format!("private/bot/{avatar_id}/original");
             let derivative = format!("private/bot/{avatar_id}/derivative");
-            let bytes = avatar_png(avatar_style, &seed)?;
-            crate::avatar_runtime::put_once(&bucket, &original, bytes.clone(), "image/png").await?;
-            crate::avatar_runtime::put_once(&bucket, &derivative, bytes.clone(), "image/png")
+            let bytes = bytes.to_vec();
+            crate::avatar_runtime::put_once(&bucket, &original, bytes.clone(), "image/jpeg")
+                .await?;
+            crate::avatar_runtime::put_once(&bucket, &derivative, bytes.clone(), "image/jpeg")
                 .await?;
             let hash = Sha256::digest(&bytes);
             writes.push(statement(db,"INSERT INTO avatar_objects(avatar_id,participant_id,operation_id,normalized_hash,state,original_key,derivative_key,created_at_ms) VALUES(?1,?2,?3,?4,'approved',?5,?6,?7)",&[text(&avatar_id),text(&participant),text(&format!("bot-{ordinal}")),blob(&hash),text(&original),text(&derivative),number(time)])?);
@@ -248,10 +187,14 @@ async fn board_cap(db: &D1Database, bot: &Bot, period: &str, current: u64) -> Re
         folds: i64,
     }
     let top=statement(db,"SELECT max(s.folds) AS folds FROM live_scores s JOIN participants p ON p.participant_id=s.participant_id LEFT JOIN bot_profiles b ON b.participant_id=p.participant_id WHERE s.period_id=?1 AND b.participant_id IS NULL AND p.membership='joined' AND p.restriction='none' AND p.account_state='active'",&[text(period)])?.first::<Score>(None).await.map_err(|_|Failure::unavailable())?.and_then(|r|(r.folds>0).then_some(r.folds as u64));
-    let _ = bot;
-    Ok(policy::score_ceiling(top)
-        .max(current)
-        .min(policy::score_ceiling(top)))
+    let seed: [u8; 32] = bot
+        .seed
+        .as_slice()
+        .try_into()
+        .map_err(|_| Failure::unavailable())?;
+    // Never lower a score already earned, but never above this bot's own share of the leader.
+    let ceiling = policy::bot_ceiling(top, policy::ceiling_permille(&seed));
+    Ok(ceiling.max(current).min(policy::score_ceiling(top)))
 }
 
 async fn replay_day(
@@ -277,15 +220,17 @@ async fn replay_day(
     let planned = policy::day_plan(persona, policy::day_seed(&seed, day), weekend);
     // Only folds whose close time has already passed; today's slice fills in on later ticks.
     let happened = planned
-        .chunks_exact(2)
-        .take_while(|pair| day_ms + i64::from(pair[1]) * 60000 <= received)
+        .as_chunks::<2>()
+        .0
+        .iter()
+        .take_while(|[_, close]| day_ms + i64::from(*close) * 60000 <= received)
         .count();
-    let pairs = happened.min(BATCH_EVENTS / 2);
+    let pairs = happened.min(DAY_EVENTS / 2);
     #[derive(Deserialize)]
     struct Recorded {
         count: i64,
     }
-    let first_sequence = day.max(0) * BATCH_EVENTS as i64 + 1;
+    let first_sequence = day.max(0) * DAY_EVENTS as i64 + 1;
     let recorded = statement(
         db,
         "SELECT count(*) AS count FROM observations WHERE participant_id=?1 AND device_id=?2 AND sequence BETWEEN ?3 AND ?4",
@@ -293,7 +238,7 @@ async fn replay_day(
             text(&bot.participant_id),
             text(&bot.device_id),
             number(first_sequence),
-            number(first_sequence + BATCH_EVENTS as i64 - 1),
+            number(first_sequence + DAY_EVENTS as i64 - 1),
         ],
     )?
     .first::<Recorded>(None)
@@ -335,12 +280,11 @@ async fn replay_day(
                 .saturating_sub(old),
         );
     }
-    let mut count = (allowed / 2).min((pairs - recorded_pairs) as u64) as usize;
+    let count = (allowed / 2).min((pairs - recorded_pairs) as u64) as usize;
     // Re-read the source cap before every batch; no bot event is inserted before all three caps pass.
     if count == 0 {
         return Ok(0);
     }
-    count = count.min(BATCH_EVENTS / 2);
     let mut events = Vec::with_capacity(count * 2);
     let base = date
         .and_hms_opt(0, 0, 0)
@@ -352,7 +296,7 @@ async fn replay_day(
             schema_version: 1,
             event_id: event_id(bot, day, i as u64),
             device_id: Id::parse(&bot.device_id).map_err(|_| Failure::unavailable())?,
-            sequence: day.max(0) as u64 * BATCH_EVENTS as u64 + i as u64 + 1,
+            sequence: day.max(0) as u64 * DAY_EVENTS as u64 + i as u64 + 1,
             generation: generation.clone(),
             observed_at_ms: (base + planned[i] as i64 * 60000).max(0) as u64,
             timezone_id: persona.timezone.clone(),
@@ -496,11 +440,21 @@ pub(crate) async fn tick(env: &Env, db: &D1Database, dry_run: bool) -> Result<us
     let mut total = 0;
     let mut writes = Vec::new();
     for bot in &bots {
-        if let Some(p) = personas
-            .iter()
-            .find(|p| p.id == bot.persona_id && p.version as i64 == bot.persona_version)
-        {
-            total += replay_day(db, bot, p, day, time).await?;
+        let persona = if bot.persona_id == policy::SEEDED_PERSONA_ID {
+            let seed: [u8; 32] = bot
+                .seed
+                .as_slice()
+                .try_into()
+                .map_err(|_| Failure::unavailable())?;
+            Some(policy::seeded_persona(&seed))
+        } else {
+            personas
+                .iter()
+                .find(|p| p.id == bot.persona_id && p.version as i64 == bot.persona_version)
+                .cloned()
+        };
+        if let Some(p) = persona {
+            total += replay_day(db, bot, &p, day, time).await?;
         }
     }
     let cursor = if bots.len() == BATCH_BOTS {

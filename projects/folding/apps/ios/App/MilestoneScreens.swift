@@ -164,7 +164,7 @@ private struct MilestoneLoadState: View {
   let actions: FoldingActions
   var body: some View {
     if model.milestonesLoading {
-      ProgressView()
+      ProgressView().frame(maxWidth: .infinity)
     } else {
       VStack(alignment: .leading, spacing: 12) {
         Text(String(localized: "milestones.unavailable", defaultValue: "Progress unavailable"))
@@ -318,6 +318,7 @@ struct ParticipantProfileScreen: View {
             }
 
           }.frame(maxWidth: .infinity).padding(.vertical, 12)
+            .alignmentGuide(.listRowSeparatorLeading) { _ in 0 }
           LabeledContent(
             String(localized: "milestones.total", defaultValue: "All-time folds"),
             value: profile.folds.formatted())
@@ -344,9 +345,7 @@ struct ParticipantProfileScreen: View {
           }
         }
 
-      } else if loading {
-        ProgressView()
-      } else {
+      } else if !loading {
         ContentUnavailableView {
           Label(
             String(localized: "profile.unavailable", defaultValue: "Profile unavailable"),
@@ -357,6 +356,9 @@ struct ParticipantProfileScreen: View {
           }
         }
       }
+    }
+    .overlay {
+      if loading, value == nil { ProgressView() }
     }
     .navigationTitle(String(localized: "profile.title", defaultValue: "Profile"))
     .navigationBarTitleDisplayMode(.inline)

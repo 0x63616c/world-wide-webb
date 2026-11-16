@@ -19,11 +19,15 @@ import struct FoldingData.TrackingDiagnosticSnapshot
         competitionIdentityRevision = UUID()
         presentation.invalidateMilestones()
         if oldValue != nil { milestoneCache.clear() }
+        leaderboardAvatars.removeAll()
       }
       presentation.competitionJoined = joinedParticipantID != nil
     }
   }
   private var competitionRestored = false
+  /// Approved avatar bytes by avatar ID. A new upload gets a new ID, so entries never go stale;
+  /// reusing them keeps period switches from refetching every avatar on the page.
+  private var leaderboardAvatars: [String: Data] = [:]
   private let preferencesStore: UserDefaults
   private var competitionAPI: CompetitionAPI?
   private let appleSignIn: any CompetitionAccountAuthorizing
@@ -801,13 +805,17 @@ import struct FoldingData.TrackingDiagnosticSnapshot
       throw CompetitionTransportError.invalidResponse
     }
     let ids = Set((board.page.items + (board.you.map { [$0] } ?? [])).compactMap(\.avatar_id))
-    let avatars = await withTaskGroup(of: (String, Data?).self) { group in
-      for id in ids { group.addTask { (id, try? await api.transport.avatarImage(id)) } }
+    let missing = ids.subtracting(leaderboardAvatars.keys)
+    let fetched = await withTaskGroup(of: (String, Data?).self) { group in
+      for id in missing { group.addTask { (id, try? await api.transport.avatarImage(id)) } }
       var values: [String: Data] = [:]
       for await (id, data) in group { if let data { values[id] = data } }
       return values
     }
     guard visibility == competitionIdentityRevision else { throw CancellationError() }
+    if leaderboardAvatars.count + fetched.count > 500 { leaderboardAvatars.removeAll() }
+    leaderboardAvatars.merge(fetched) { _, new in new }
+    let avatars = leaderboardAvatars
     func entry(_ row: CompetitionWireRank) -> LeaderboardEntry {
       LeaderboardEntry(
         id: row.participant_id, rank: row.rank,
