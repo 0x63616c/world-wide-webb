@@ -85,10 +85,6 @@ in
       type = lib.types.ints.positive;
       default = 6;
     };
-    diskGiB = lib.mkOption {
-      type = lib.types.ints.positive;
-      default = 60;
-    };
     controlCenter.workersEnabled = lib.mkOption {
       type = lib.types.bool;
       default = false;
@@ -132,7 +128,7 @@ in
         exec python3 ${../scripts}/colima-start.py --vm-type vz \
           --vz-rosetta --cpu 4 --memory ${toString cfg.memoryGiB} \
           --mount /var/lib/_containers:w \
-          --disk ${toString cfg.diskGiB}
+          --disk 60
       '';
       serviceConfig = {
         UserName = "_containers";

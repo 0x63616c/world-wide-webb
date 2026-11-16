@@ -35,10 +35,9 @@
     ThrottleInterval = 30;
   };
   # Owner reports M2 / 32 GB / approximately 500 GB / macOS 27.2. Check free space locally.
-  # Services are enabled individually only after isolated restore and cutover.
+  # Runner pool and coding host; homelab.json assigns it no services.
   homelab.updates.enable = true;
-  homelab.deployNonce = "2026-11-13-ha-provisioning-retry";
-  # Roll out the transactional updater before assigning production services.
+  # Both hosts use the transactional updater; here it has no services to reconcile.
   homelab.updates.stateful.enable = true;
   homelab.runners = {
     enable = true;

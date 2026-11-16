@@ -60,7 +60,7 @@ service data stay outside generated images and Git plaintext.
 - [Golink](docs/golink.md), [monitoring](docs/beszel-plan.md) and [Control Center deployment](docs/releases.md)
 - [Setup CLI](cli/README.md) and [configuration contract](cli/docs/configuration.md)
 
-Historical plans and migration receipts remain under `docs/`; use current code,
+Research notes and validation evidence remain under `docs/research/`; use current code,
 runbooks and live readback for operational decisions.
 
 The MacBook’s coding tools and dotfiles ownership are described in [coding setup](docs/coding.md).

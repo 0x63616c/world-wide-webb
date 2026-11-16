@@ -150,30 +150,12 @@ in
             ];
           }
         );
-        retry = inputsFor (
-          base.extendModules {
-            modules = [
-              ({ ... }: {
-                homelab.deployNonce = "fixture-ha-retry";
-              })
-            ];
-          }
-        );
       in
       assert original.inputs == monitor.inputs;
       assert
         original.inputs.services.control-center.configuration
         != worker.inputs.services.control-center.configuration;
       assert original.inputs.services.hindsight == worker.inputs.services.hindsight;
-      assert
-        original.inputs.services."home-assistant".configuration
-        != retry.inputs.services."home-assistant".configuration;
-      assert original.inputs.shared == retry.inputs.shared;
-      assert base.config.environment.etc."homelab/deploy-nonce".text == "";
-      assert
-        (base.extendModules {
-          modules = [ ({ ... }: { homelab.deployNonce = "fixture-ha-retry"; }) ];
-        }).config.environment.etc."homelab/deploy-nonce".text == "fixture-ha-retry";
       pkgs.runCommand "homelab-deployment-inputs-check" { } ''touch "$out"'';
     beszel-agent = self.packages.${system}.beszel-agent;
     rex = self.packages.${system}.rex;
@@ -265,30 +247,6 @@ in
         done
         touch "$out"
       '';
-    macbook-monitoring =
-      (self.darwinConfigurations.homelab-macbook.extendModules {
-        modules = [
-          ({ lib, ... }: {
-            homelab.monitoring.agent = {
-              enable = lib.mkForce true;
-              listenAddress = lib.mkForce "100.100.100.100";
-              publicKey = lib.mkForce "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
-            };
-          })
-        ];
-      }).system;
-    mac-mini-monitoring =
-      (self.darwinConfigurations.homelab-mac-mini.extendModules {
-        modules = [
-          ({ lib, ... }: {
-            homelab.monitoring.agent = {
-              enable = lib.mkForce true;
-              listenAddress = lib.mkForce "100.100.100.100";
-              publicKey = lib.mkForce "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
-            };
-          })
-        ];
-      }).system;
     runner-concurrency-limits =
       let
         options = self.darwinConfigurations.homelab-macbook.options.homelab.runners;
@@ -300,20 +258,6 @@ in
       pkgs.runCommand "homelab-runner-concurrency-limits-check" { } ''
         touch "$out"
       '';
-    # Compile the enabled Linux path and fetch its pinned runner archive,
-    # without booting a VM, registering a runner or enabling the real profile.
-    runner-linux-profile =
-      (self.darwinConfigurations.homelab-macbook.extendModules {
-        modules = [
-          ({ lib, ... }: {
-            homelab.runners.linux = {
-              enable = lib.mkForce true;
-              image = lib.mkForce "ghcr.io/test/linux@sha256:${lib.concatStrings (lib.replicate 64 "a")}";
-              routingAuditApproved = lib.mkForce true;
-            };
-          })
-        ];
-      }).system;
     service-assignments =
       let
         haOnly =

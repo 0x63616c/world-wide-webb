@@ -49,7 +49,7 @@ let
         deadlines = {
           boot_seconds = 600;
           unassigned_seconds = 300;
-          running_seconds = cfg.jobTimeoutSeconds;
+          running_seconds = 7200;
           retry_seconds = 30;
         };
       };
@@ -166,10 +166,6 @@ in
     emergencyFreeBytes = lib.mkOption {
       type = lib.types.ints.positive;
       default = 85899345920;
-    };
-    jobTimeoutSeconds = lib.mkOption {
-      type = lib.types.ints.positive;
-      default = 7200;
     };
   };
 

@@ -31,7 +31,8 @@ let
       host = config.networking.hostName;
       inherit services;
       root = "/var/lib/_containers/backups";
-      inherit (cfg) keepLocal minFreeGiB;
+      keepLocal = 7;
+      minFreeGiB = 30;
       reconcileCommand = "/run/current-system/sw/bin/homelab-reconcile-all";
       healthCommands = {
         control-center-hourly = scopedHealth "control-center-hourly" [ "control-center" ];
@@ -83,14 +84,6 @@ in
 {
   options.homelab.backups = {
     enable = lib.mkEnableOption "verified service snapshots and recovery history";
-    keepLocal = lib.mkOption {
-      type = lib.types.ints.positive;
-      default = 7;
-    };
-    minFreeGiB = lib.mkOption {
-      type = lib.types.ints.positive;
-      default = 30;
-    };
   };
   config = lib.mkIf cfg.enable {
     environment.systemPackages = [ command ];

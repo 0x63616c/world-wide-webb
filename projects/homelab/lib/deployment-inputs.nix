@@ -74,13 +74,12 @@ in
       lock = sourceHash ../flake.lock;
     };
     containers = hash {
-      inherit (cfg.containers) enable memoryGiB diskGiB;
+      inherit (cfg.containers) enable memoryGiB;
       daemon = config.launchd.daemons.homelab-colima or { };
     };
     home-assistant = hash {
       inherit (cfg.homeassistant)
         enable
-        cpu
         memoryGiB
         bridgeInterface
         lanIPv4
@@ -96,7 +95,6 @@ in
       value = {
         configuration = hash {
           files = serviceFiles name;
-          deployNonce = if name == "home-assistant" then cfg.deployNonce else null;
           controlCenter = if name == "control-center" then cfg.containers.controlCenter else null;
           # Execution changes affect their consumers, not just file locations.
           module = sourceHash (

@@ -1,9 +1,9 @@
 # Restore rehearsal
 
-Status: the synthetic Hindsight database rehearsal passes in hosted CI; no real
-backup has been restored. Keep the mini and its backup job authoritative until a
-downloaded backup has passed this rehearsal. No rehearsal containers have been
-started on either home machine.
+Status: the Hindsight database restore is covered by a synthetic test. This
+repository records no isolated rehearsal of a real downloaded backup set; the
+steps below are the procedure for one. Do not run rehearsal containers on the
+production Mini's daemons.
 
 Use one disposable Linux VM with its own Docker daemon and fresh storage. A new
 Compose project on a production daemon is insufficient: the saved definitions
@@ -27,7 +27,7 @@ in a PR or CI artifact.
 | Home Assistant | Cold `/config` archive | Preserve `.storage`, SQLite files and their sidecars. Check database integrity before startup. Use an isolated rehearsal definition with the image's normal startup, without production host networking or the `ha0` bridge wait. Check configuration loading, local UI, entities and history. Restored automations must have no path to real devices. |
 | Bambuddy | App data, studio API data and separate Tailscale state | Restore app/studio data into fresh volumes with original ownership. Start only the app and studio API, with no path to the printer. Check database integrity, archived prints/files and slicer readiness; the slicer requires amd64 support (emulation on ARM). Keep the production Tailscale archive offline and never start its sidecar during rehearsal. |
 | Hindsight | Logical PostgreSQL dump and separate Codex directory | Initialize and restore the embedded database as described below before starting the application. Check banks and representative memories through local read-only operations. Keep provider access blocked. Weekly bank exports are an additional recovery path, not proof that the full dump restores. |
-| Cloudflared | Saved configuration, token and image identity | Check that recovery inputs are present. Do not start the production connector in rehearsal; origin routing is checked during the separately approved cutover. |
+| Cloudflared | Saved configuration, token and image identity | Check that recovery inputs are present. Do not start the production connector in rehearsal; origin routing is checked on the production host. |
 
 Service data archives need a reviewed extraction step into fresh storage that
 rejects escaping paths and unsafe links and preserves required container
@@ -99,23 +99,19 @@ does not prove replacement homelab execution.
 
 The test covers dump/restore, Unicode rows, sequence state, pgvector data,
 persistence after restart, existing-state refusal and corrupt dumps.
-[Run 41791613360](https://github.com/0x63616c/projects/homelab/actions/runs/41791613360)
-passed at `a6aa0ed`: one real database test, zero ignored. This does
+A hosted run in the former homelab repository (since deleted) passed at `a6aa0ed`:
+one real database test, zero ignored. This does
 not establish compatibility with historical production dumps, Hindsight schema
 migrations, provider calls or normal application startup. PostgreSQL restoration
 executes SQL from the dump: only use backups obtained through the authenticated
 recovery path. This operation is not a sandbox for an untrusted dump.
 
-## Evidence required before cutover
+## Evidence to record
 
 Record the backup set and manifest hash, image digests, restore results,
 integrity checks, representative application reads and measured storage usage.
 Record isolation checks and confirm rehearsal instances are stopped. Keep
 sensitive evidence outside Git and include only a redacted result summary.
 
-A successful isolated rehearsal permits planning a cutover. It does not prove
-printer access, HA discovery, tailnet identity handoff or Cloudflare routing;
-those need explicit checks after stopping the old instance and transferring
-deployment ownership. The mini cannot be erased until the migrated services,
-headless reboot, independent operation and replacement backup/restore path have
-all been verified.
+A successful isolated rehearsal does not prove printer access, HA discovery,
+tailnet identity or Cloudflare routing; those are properties of the production host.

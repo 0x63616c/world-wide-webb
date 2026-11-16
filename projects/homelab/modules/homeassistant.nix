@@ -10,7 +10,7 @@ let
   socket = "/var/run/homelab/ha-vmnet.sock";
   profile = pkgs.writeText "ha-colima.yaml" (
     builtins.toJSON {
-      cpu = cfg.cpu;
+      cpu = 2;
       memory = cfg.memoryGiB;
       disk = 12;
       rootDisk = 8;
@@ -125,10 +125,6 @@ in
 {
   options.homelab.homeassistant = {
     enable = lib.mkEnableOption "existing bridged Home Assistant container VM";
-    cpu = lib.mkOption {
-      type = lib.types.ints.positive;
-      default = 2;
-    };
     memoryGiB = lib.mkOption {
       type = lib.types.ints.positive;
       default = 3;
@@ -148,15 +144,10 @@ in
       default = null;
       description = "LAN IPv4 gateway paired with lanIPv4; its default route uses metric 50.";
     };
-    haos.enable = lib.mkEnableOption "future HA OS VM (not the existing HA container)";
   };
   config = lib.mkMerge [
     {
       assertions = [
-        {
-          assertion = !cfg.haos.enable;
-          message = "HA OS is a future migration. Preserve the existing bridged HA container.";
-        }
         {
           assertion = !cfg.enable || cfg.bridgeInterface != null;
           message = "HA requires a verified target bridgeInterface before enablement.";
