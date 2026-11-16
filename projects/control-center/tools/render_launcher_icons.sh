@@ -11,8 +11,8 @@ for document in Design/LauncherIcons/*.icon; do
   mkdir -p "$set"
   "$ictool" "$document" --export-image --output-file "$set/icon.png" \
     --platform iOS --rendition Default --width 512 --height 512 --scale 1 > /dev/null
-  printf '{"images":[{"filename":"icon.png","idiom":"universal"}],"info":{"author":"xcode","version":1}}\n' \
-    > "$set/Contents.json"
+  printf '%s\n' '{' '  "images": [{ "filename": "icon.png", "idiom": "universal" }],' \
+    '  "info": { "author": "xcode", "version": 1 }' '}' > "$set/Contents.json"
   count=$((count + 1))
 done
 echo "Launcher icons: rendered $count Icon Composer documents."
