@@ -198,10 +198,11 @@ Successful trusted main CI delivers changed Folding inputs without an enablement
 Backend inputs reuse tested Worker Wasm, record recovery bookmarks before migrations and
 publish an immutable provider receipt. Native delivery verifies source CI and backend compatibility,
 reserves/archives once, waits for Apple processing and confirms internal-group distribution.
-The app.yml version is the marketing version; bump it before building a new release version.
+The app.yml version is the marketing version; root `scripts/release folding` moves it forward after each tag.
 
 Each beta emits a small source/version/build receipt alongside the existing immutable product
-record. Push `folding/vX.Y.Z` at that main source to promote the exact processed beta. Tags must
+record. Root `scripts/release folding` pushes `folding/vX.Y.Z` at that main source to promote the
+exact processed beta. Tags must
 match app.yml and the receipt; no binary is built or uploaded on the tag path. Promotion captures
 and seals store assets, verifies live prerequisites and Apple declarations, then submits the app
 with ready tips. Waiting-review replacements retain the existing ownership/evidence protections;

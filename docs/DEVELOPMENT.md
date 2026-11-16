@@ -58,6 +58,9 @@ CI selector tests; `scripts/dev doctor` reports a missing PyYAML dependency.
 `scripts/dev check` invokes mise for pinned project tools even when your shell has
 not activated it.
 
+`scripts/release <app>` is the one publishing command: it sends the newest processed
+TestFlight build of Tendr or Folding to App Review. See the [release guide](RELEASE.md).
+
 The product README supplies narrower commands and required toolchains. For example,
 Tendr package tests run with `swift test --package-path projects/tendr`; Folding's
 backend and native checks are separate. Run the affected checks while iterating,

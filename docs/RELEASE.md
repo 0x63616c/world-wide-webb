@@ -27,24 +27,31 @@ Tendr and Folding share the event selector, exact-source beta receipt validation
 per-app publisher lock and review-state rules. Tendr uses the root Fastlane bundle;
 Folding keeps its own immutable archive, Worker prerequisites and Fastlane bundle.
 
-1. Set the new marketing version in `projects/<app>/app.yml` before merging the app
-   change. Several TestFlight builds may share that version; each has a different
-   build number.
-2. Merge to `main`. Wait for successful exact-source CI, internal TestFlight
+1. Merge to `main`. Wait for successful exact-source CI, internal TestFlight
    delivery and Apple processing. Selected Folding backend changes deploy the
    tested Worker before native beta delivery. A docs-only merge does not upload
-   either app.
-3. Pick that tested main commit and its processed beta receipt. Push an annotated
-   `tendr/vX.Y.Z` or `folding/vX.Y.Z` tag at the commit. Its version must match
-   `app.yml` and the processed binary. The tag job captures and verifies current
-   store screenshots, prepares listing and ready purchases, then submits the
-   **existing build**. It does not archive, sign or upload another binary.
-4. Confirm **Waiting for Review** or **In Review** in App Store Connect. Both apps
+   either app. Several TestFlight builds may share the version in
+   `projects/<app>/app.yml`; each has a different build number.
+2. Run `scripts/release <app>` (`tendr` or `folding`). It reads the version from
+   `app.yml` on main, picks the newest main commit with a processed beta at that
+   version, shows the build and asks before pushing the annotated
+   `<app>/vX.Y.Z` tag there. `--dry-run` only shows the build. Newer app changes
+   without a processed beta are listed and left out.
+3. The tag job captures and verifies current store screenshots, prepares listing
+   and ready purchases, then submits the **existing build**. It does not archive,
+   sign or upload another binary.
+4. The same command opens an auto-merging pull request that moves `app.yml` to
+   the next patch version, so a patch release never types a version. For a minor
+   or major release, set `version` in `app.yml` in the pull request that makes
+   the change.
+5. Confirm **Waiting for Review** or **In Review** in App Store Connect. Both apps
    request release automatically after approval. Approval and public availability
    are different results; verify the public storefront separately.
 
-For example, after a processed Tendr beta for version 1.2.3, set
-`TESTED_MAIN_COMMIT` to the commit SHA recorded by that beta's receipt:
+`scripts/release` needs only `git` and a signed-in `gh`. If the version is already
+tagged, it opens the next-version pull request instead of tagging and asks you to
+rerun after that build has processed. To submit an older build, push the tag
+yourself at that commit; its version must match `app.yml` there:
 
 ```sh
 git tag -a tendr/v1.2.3 "$TESTED_MAIN_COMMIT" -m 'Tendr 1.2.3'
@@ -73,10 +80,10 @@ and [removal behavior](https://developer.apple.com/help/app-store-connect/manage
 
 ### Version, source and retry rules
 
-- Increase the marketing version for each new App Store version. Do not tag
-  `v0.2.0` after `v0.2.1` has been released, or reuse a released version. Set
-  `app.yml` before the beta build; the handlers compare the tagged version with
-  Apple's records. Apple requires an [incremental version](https://developer.apple.com/help/app-store-connect/update-your-app/create-a-new-version).
+- Each App Store version needs a higher marketing version. `scripts/release`
+  moves `app.yml` forward after every tag. Do not tag `v0.2.0` after `v0.2.1` has
+  been released, or reuse a released version; the handlers compare the tagged
+  version with Apple's records. Apple requires an [incremental version](https://developer.apple.com/help/app-store-connect/update-your-app/create-a-new-version).
 - A tag names one tested main commit and one processed beta receipt. An older main
   commit can be selected while newer *untagged* betas continue; the tag never
   silently selects the latest beta. Do not move or force-push release tags.
