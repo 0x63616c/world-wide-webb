@@ -7,7 +7,7 @@ let package = Package(
   products: [.library(name: "LocalTranscription", targets: ["LocalTranscription"])],
   dependencies: [
     .package(
-      url: "https://github.com/FluidInference/FluidAudio", exact: "0.18.2", traits: ["Diarizer"]),
+      url: "https://github.com/FluidInference/FluidAudio", exact: "0.18.3", traits: ["Diarizer"]),
     .package(url: "https://github.com/argmaxinc/argmax-oss-swift", exact: "1.1.1"),
   ],
   targets: [
