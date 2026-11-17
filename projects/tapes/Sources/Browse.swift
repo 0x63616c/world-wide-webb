@@ -88,8 +88,13 @@ private struct PageStack: View {
             .accessibilityHidden(!shown)
         }
       }
+      .animation(.easeInOut(duration: 0.2), value: page)
       .toolbar {
-        ToolbarItem(placement: .principal) { TopBar(page: $page) }
+        ToolbarItem(placement: .principal) {
+          // A little below the window buttons' line, so the bar has room above it.
+          TopBar(page: $page).offset(y: 6)
+        }
+        .sharedBackgroundVisibility(.hidden)
       }
     }
   }
@@ -97,32 +102,39 @@ private struct PageStack: View {
   /// Icon then name for each page; Search is just the magnifying glass. Command-1 to 5 switch.
   private struct TopBar: View {
     @Binding var page: Page
+    @Namespace private var pill
 
     var body: some View {
-      HStack(spacing: 2) {
-        ForEach(Array(Page.allCases.enumerated()), id: \.element) { index, each in
-          Button {
-            page = each
-          } label: {
-            if each == .search {
-              Image(systemName: each.symbol).accessibilityLabel(each.title)
-            } else {
-              Label(each.title, systemImage: each.symbol).labelStyle(.titleAndIcon)
+      GlassEffectContainer {
+        HStack(spacing: 2) {
+          ForEach(Array(Page.allCases.enumerated()), id: \.element) { index, each in
+            let chosen = each == page
+            Button {
+              withAnimation(.spring(duration: 0.35, bounce: 0.2)) { page = each }
+            } label: {
+              if each == .search {
+                Image(systemName: each.symbol).accessibilityLabel(each.title)
+              } else {
+                Label(each.title, systemImage: each.symbol).labelStyle(.titleAndIcon)
+              }
             }
+            .buttonStyle(.plain)
+            // Matches Apple TV's tab bar: a white pill with dark text for the chosen page,
+            // sliding to the new tab when the page changes.
+            .font(.body.weight(.semibold))
+            .foregroundStyle(chosen ? Color.black : Color.white)
+            .padding(.horizontal, each == .search ? 10 : 14)
+            .padding(.vertical, 6)
+            .background {
+              if chosen { Capsule().fill(.white).matchedGeometryEffect(id: "pill", in: pill) }
+            }
+            .contentShape(.capsule)
+            .keyboardShortcut(KeyEquivalent(Character(String(index + 1))), modifiers: .command)
           }
-          .buttonStyle(.plain)
-          .font(.body.weight(.medium))
-          .foregroundStyle(each == page ? .primary : .secondary)
-          .padding(.horizontal, each == .search ? 10 : 14)
-          .padding(.vertical, 6)
-          .background {
-            if each == page { Capsule().fill(.white.opacity(0.14)) }
-          }
-          .contentShape(.capsule)
-          .keyboardShortcut(KeyEquivalent(Character(String(index + 1))), modifiers: .command)
         }
+        .padding(4)
+        .glassEffect(.regular, in: .capsule)
       }
-      .padding(3)
     }
   }
 #else
