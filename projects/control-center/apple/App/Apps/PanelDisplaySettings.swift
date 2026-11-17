@@ -13,6 +13,8 @@ struct PanelDisplayPreferences: DynamicProperty {
 
     @AppStorage("panel.returnToClockSeconds") var returnToClockSeconds = 60
 
+    @AppStorage("panel.cautionTape") var cautionTape = true
+
     func brightness(dimmed: Bool) -> Double {
         let awake = min(1, max(0.1, wakeBrightness))
         return dimmed ? min(awake, max(0.1, dimBrightness)) : awake
@@ -51,6 +53,14 @@ struct PanelDisplaySettings: View {
                 }
                 .accessibilityIdentifier("display-dim-timeout")
             }
+        }
+        Section {
+            Toggle("Caution border", isOn: display.$cautionTape)
+                .accessibilityIdentifier("display-caution-tape")
+        } header: {
+            Text("Guided Access")
+        } footer: {
+            Text("Shows yellow-and-black stripes around the screen while Guided Access is off.")
         }
         .onChange(of: display.wakeBrightness) { _, value in
             if display.dimBrightness > value { display.dimBrightness = value }
