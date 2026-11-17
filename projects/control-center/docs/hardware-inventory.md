@@ -101,7 +101,7 @@ grounded, and so peripherals aren't confused with the wall panel.
 | Mouse | Logitech MX Master 4 |
 | Keyboard | Keychron Q6 Max (QMK configs live in the dotfiles repo) |
 
-The `1366x1024` fixed-size invariant in `AGENTS.md` is the **wall panel**, not this
+The `1366x1024` fixed-size invariant in `CLAUDE.md` is the **wall panel**, not this
 monitor.
 
 ## Historical inventory commands (Talos is now offline)

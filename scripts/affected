@@ -47,7 +47,7 @@ def ignored(path):
     return (
         path.endswith(".md")
         or "docs" in parts
-        or Path(path).name in {"screenshots.json", "README.md", "AGENTS.md"}
+        or Path(path).name in {"screenshots.json", "README.md", "CLAUDE.md"}
         or (len(parts) > 2 and parts[0] == "projects" and parts[2] in {"fastlane", "site"})
     )
 

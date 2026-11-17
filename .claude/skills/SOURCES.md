@@ -1,10 +1,8 @@
-# Vendored agent skills
+# Project skills
 
-Repo-scoped [Agent Skills](https://agentskills.io) for Codex (and any agent that
-reads `.agents/skills/`). Codex scans `.agents/skills` from the working
-directory up to the repo root, so these are available everywhere in the repo.
-Invoke one explicitly with `$<name>` (e.g. `$swiftui-liquid-glass`) or let the
-agent pick it from its description.
+Claude Code project skills. Claude Code loads `.claude/skills` from the repo root,
+so these are available everywhere in the repo. Invoke one with `/<name>` (e.g.
+`/swiftui-liquid-glass`) or let the agent pick it from its description.
 
 Repo-owned skills (written here, edit freely): `tapes-import`, which imports downloaded shows
 and movies into the Tapes library with TMDB artwork.
@@ -30,7 +28,8 @@ Liquid Glass skills rather than `animation-patterns`.
 
 `liquid-glass` and `swiftui-patterns` mention sibling skills from the same
 upstream plugin (`appkit-interop`, `build-run-debug`, `view-refactor`,
-`window-management`) that are not vendored here; skip those pointers.
+`window-management`) that are not vendored here; skip those pointers. Skip their
+`.codex/environments` Run-button setup too: this repo uses Claude Code, not Codex.
 
 ## Matt Pocock engineering skills
 

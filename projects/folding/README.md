@@ -39,7 +39,7 @@ package tests; `scripts/check-backend` covers the Worker (configuration, clippy,
 and the local workerd suite). Use `scripts/format` for owned Swift
 and OpenTofu files. Native simulator verification runs through
 `bundle exec fastlane ios verify_app`. Root CI selects Folding app, backend and
-contract checks independently. Read the [root instructions](../../AGENTS.md) before live
+contract checks independently. Read the [root instructions](../../CLAUDE.md) before live
 integration or deployment changes.
 
 ## Release

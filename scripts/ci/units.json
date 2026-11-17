@@ -447,8 +447,7 @@
         ".gitleaks.toml",
         ".wtp.yml",
         ".gitignore",
-        ".opentofu-version",
-        ".codex/**"
+        ".opentofu-version"
       ],
       "delivery": null,
       "exclude": ["scripts/homelab/**", "scripts/distribution/**"]

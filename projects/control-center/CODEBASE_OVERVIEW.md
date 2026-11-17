@@ -25,7 +25,7 @@ Calendar, camera capture, notifications and system alarms use Apple frameworks w
 
 The web app, Expo shell, Bun/TypeScript backend, JavaScript workspaces and Pulumi implementation are removed.
 Their history remains in Git. Historical recovery material is marked as such; archived screenshots/design reviews are removed; current instructions are
-`AGENTS.md`, this map and the migration progress tracker.
+`CLAUDE.md`, this map and the migration progress tracker.
 
 ## Runtime and boundaries
 

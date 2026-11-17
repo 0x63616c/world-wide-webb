@@ -128,7 +128,13 @@ class SelectionTests(unittest.TestCase):
 
     def test_docs_do_not_activate_hosts_or_ship_apps(self):
         result = selection.select(
-            ["README.md", "projects/homelab/docs/current-state.md", ".agents/skills/new/SKILL.md"], CONFIG
+            [
+                "README.md",
+                "projects/homelab/docs/current-state.md",
+                ".claude/skills/new/SKILL.md",
+                ".codex/config.toml",
+            ],
+            CONFIG,
         )
         self.assertEqual(result["verify"], [])
         self.assertEqual(result["delivery_candidates"], [])

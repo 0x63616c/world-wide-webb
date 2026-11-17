@@ -1,6 +1,6 @@
 # Contributing
 
-Start with `CODEBASE_OVERVIEW.md`, `AGENTS.md` and the product's local instructions.
+Start with `CODEBASE_OVERVIEW.md`, `CLAUDE.md` and the product's local instructions.
 [Development](docs/DEVELOPMENT.md) describes the shared lifecycle; product code, components,
 fixtures and design stay with their owning app. Control Center's Rust/SQLite rules apply inside
 its product; they are not an architecture requirement for every app.

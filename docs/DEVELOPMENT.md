@@ -8,8 +8,8 @@ all products into one app.
 ## Start a task
 
 ```sh
-wtp add -b codex/my-change origin/main
-cd "$(wtp cd codex/my-change)"
+wtp add -b claude/my-change origin/main
+cd "$(wtp cd claude/my-change)"
 scripts/dev setup tendr
 scripts/dev doctor
 ```
@@ -25,14 +25,14 @@ the main checkout. It is correct only when the main checkout is at
 `~/coding/world-wide-webb`), create the worktree with Git and run the same hooks:
 
 ```sh
-git worktree add ~/.worktrees/world-wide-webb/codex/my-change -b codex/my-change origin/main
-cd ~/.worktrees/world-wide-webb/codex/my-change
+git worktree add ~/.worktrees/world-wide-webb/claude/my-change -b claude/my-change origin/main
+cd ~/.worktrees/world-wide-webb/claude/my-change
 bash scripts/configure-worktree-upstream.sh
 bash tools/setup
 lefthook install --force
 ```
 
-Read the root `AGENTS.md` and product README before changing that area.
+Read the root `CLAUDE.md` and product README before changing that area.
 
 Root `mise.toml` and `mise.lock` pin Bun, Node, Python, uv, Ruby, XcodeGen and
 OpenTofu for local work. `scripts/dev setup <project>` installs them and creates
