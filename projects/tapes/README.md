@@ -13,6 +13,8 @@ Distributed through TestFlight only.
     Subtitles become `tx3g`.
   - `tapes list`, `tapes edit`, `tapes remove`, `tapes init` and `tapes openapi` manage the
     library and API description. Add `--json` to any command.
+  - Whole downloaded shows and movies, with TMDB artwork, go in through the `tapes-import`
+    skill (`.agents/skills/tapes-import/`).
   - The library layout and `info.json` format are documented at the top of
     `server/src/library.rs`.
   - A library root needs `tapes-library.json`. Without it the server reports the library as
