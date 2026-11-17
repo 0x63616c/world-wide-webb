@@ -2,6 +2,8 @@ name: WorldWideWebb
 packages:
   PanelKit:
     path: Packages/PanelKit
+  StudioSplash:
+    path: ../../../packages/StudioSplash
 options:
   bundleIdPrefix: co.worldwidewebb
   deploymentTarget:
@@ -39,6 +41,7 @@ targets:
       Release: App/Platform/Config/Panel.xcconfig
     dependencies:
       - package: PanelKit
+      - package: StudioSplash
       - target: NextAlarmWidget
         embed: true
         platformFilter: iOS

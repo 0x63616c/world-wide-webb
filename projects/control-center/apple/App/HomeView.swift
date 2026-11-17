@@ -1,4 +1,5 @@
 import PanelKit
+import StudioSplash
 import SwiftUI
 import UIKit
 
@@ -576,49 +577,14 @@ struct AccessoryFace: View {
     HomeView(store: MockHomeDataSource())
 }
 
-/// Shown on launch until the first weather response picks the day or night clock face.
-/// The studio art is shared with the game's splash (ai-game `tools/gen_studio.mjs`): a 41 px,
-/// 8-frame looping globe strip and a 7 px wordmark, drawn at a whole number of points per pixel.
+/// Shown on launch until the first weather response picks the day or night clock face: the shared
+/// studio splash (`packages/StudioSplash`) with a random loading bar, 6 points per art pixel.
 private struct PanelSplash: View {
-    private static let pixel: CGFloat = 6
-
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
-            VStack(spacing: 4 * Self.pixel) {
-                SplashGlobe().frame(width: 41 * Self.pixel, height: 41 * Self.pixel)
-                Image("StudioWord")
-                    .interpolation(.none)
-                    .resizable()
-                    .frame(width: 61 * Self.pixel, height: 7 * Self.pixel)
-            }
+            StudioSplash(pixel: 6)
         }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("World Wide Webb, loading")
-    }
-}
-
-/// The pixel wireframe globe, stepping through its looping 8-frame strip at 8 fps.
-private struct SplashGlobe: View {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    private static let start = Date()
-    private static let frames: [Image] = {
-        guard let strip = UIImage(named: "StudioGlobe")?.cgImage else { return [] }
-        let side = strip.height
-        return (0..<strip.width / side).compactMap { index in
-            strip.cropping(to: CGRect(x: index * side, y: 0, width: side, height: side))
-                .map { Image(decorative: $0, scale: 1) }
-        }
-    }()
-
-    var body: some View {
-        TimelineView(.periodic(from: Self.start, by: 1.0 / 8)) { context in
-            let tick = Int(context.date.timeIntervalSince(Self.start) * 8)
-            if let frame = Self.frames.isEmpty ? nil : Self.frames[reduceMotion ? 0 : tick % Self.frames.count] {
-                frame.interpolation(.none).resizable()
-            }
-        }
-        .accessibilityHidden(true)
     }
 }
 

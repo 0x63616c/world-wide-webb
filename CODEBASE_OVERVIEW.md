@@ -13,6 +13,7 @@ release details. Shared code owns selection and common entrypoints.
 | `projects/golink-safari` | Safari extension and native container; the server lives in Homelab. [README](projects/golink-safari/README.md) |
 | `projects/minecraft` | Fabric client mod for wheel and HUD settings. [README](projects/minecraft/README.md) |
 | `projects/homelab` | Mac configuration, services, disposable runners and setup CLI. [README](projects/homelab/README.md) |
+| `packages/StudioSplash` | Shared launch splash (globe, wordmark, loading bars) and its sprite sheets, used by Control Center and Tapes. [README](packages/StudioSplash/README.md) |
 | `sites` | Shared landing page and approved publication list; product sites live in their projects. [README](sites/README.md) |
 | `infra/cloudflare/home` | Retained shared OpenTofu state; Folding's state root lives in its project. |
 | `secrets` | Retained encrypted shared vault; host ciphertext lives in `projects/homelab/secrets`. |

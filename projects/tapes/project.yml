@@ -10,6 +10,8 @@ options:
 packages:
   TapesAPI:
     path: TapesAPI
+  StudioSplash:
+    path: ../../packages/StudioSplash
 settings:
   base:
     SWIFT_VERSION: "6.0"
@@ -38,6 +40,7 @@ targetTemplates:
         buildPhase: none
     dependencies:
       - package: TapesAPI
+      - package: StudioSplash
 targets:
   Tapes:
     templates: [App]
