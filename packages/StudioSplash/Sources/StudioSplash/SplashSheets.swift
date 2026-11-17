@@ -2,7 +2,7 @@ import CoreGraphics
 import Foundation
 import ImageIO
 
-/// The splash sprite sheets and their manifest (`Resources/splash.json`), cut into frames once.
+/// The splash sprite sheets and their manifest (`Sheets/splash.json`), cut into frames once.
 /// The sheets and manifest are plain PNG and JSON so other apps and engines can load them too;
 /// `Design/generate.py` writes them.
 public struct SplashSheets: Sendable {
@@ -65,7 +65,7 @@ public struct SplashSheets: Sendable {
 
   init(bundle: Bundle) {
     func url(_ name: String) -> URL {
-      guard let url = bundle.url(forResource: name, withExtension: nil, subdirectory: "Resources")
+      guard let url = bundle.url(forResource: name, withExtension: nil, subdirectory: "Sheets")
       else {
         preconditionFailure("StudioSplash resource \(name) is missing from the bundle")
       }

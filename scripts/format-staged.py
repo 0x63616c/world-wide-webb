@@ -34,7 +34,7 @@ SKIP_PREFIXES = (
     "projects/homelab/runner/images/linux/build-image.py",
     "projects/homelab/cli/schema/homelab-v3.schema.json",
     # Written by packages/StudioSplash/Design/generate.py; its tests check it against the sheets.
-    "packages/StudioSplash/Sources/StudioSplash/Resources/splash.json",
+    "packages/StudioSplash/Sources/StudioSplash/Sheets/splash.json",
 )
 PRETTIER_EXTENSIONS = {".css", ".html", ".js", ".json", ".jsonc", ".mjs", ".ts", ".yaml", ".yml"}
 PRETTIER_PLUGINS = {".sh": "prettier-plugin-sh", ".sql": "prettier-plugin-sql", ".toml": "prettier-plugin-toml"}
