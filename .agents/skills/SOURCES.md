@@ -6,7 +6,10 @@ directory up to the repo root, so these are available everywhere in the repo.
 Invoke one explicitly with `$<name>` (e.g. `$swiftui-liquid-glass`) or let the
 agent pick it from its description.
 
-Each folder is copied verbatim from upstream at the pinned commit below, with
+Repo-owned skills (written here, edit freely): `tapes-import`, which imports downloaded shows
+and movies into the Tapes library with TMDB artwork.
+
+Every other folder is copied verbatim from upstream at the pinned commit below, with
 the upstream license kept. Do not edit vendored files in place; to update,
 re-copy from a newer upstream commit and bump the commit here.
 
