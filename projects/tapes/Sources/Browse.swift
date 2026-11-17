@@ -3,66 +3,177 @@
 import SwiftUI
 
 struct RootTabs: View {
-  @Namespace private var zoom
-  @State private var query = ""
-
   var body: some View {
-    TabView {
-      Tab {
-        NavigationStack { HomeView(zoom: zoom).libraryDestinations(zoom) }
-      } label: {
-        TabLabel(title: "Home", systemImage: "house")
-      }
-      ForEach(LibrarySection.allCases) { section in
-        Tab {
-          NavigationStack { SectionGrid(section: section, zoom: zoom).libraryDestinations(zoom) }
-        } label: {
-          TabLabel(title: section.rawValue, systemImage: section.symbol)
-        }
-      }
-      Tab(role: .search) {
-        NavigationStack {
-          #if os(macOS)
-            // The Mac's own search field would sit at the right of the toolbar on every page,
-            // apart from the Search tab, so the field lives at the top of this page instead.
-            VStack(spacing: 0) {
-              SearchField(query: $query)
-              SearchResults(query: query)
-            }
-            .navigationTitle("Search")
-            .libraryDestinations(zoom)
-          #else
-            SearchResults(query: query).navigationTitle("Search").libraryDestinations(zoom)
-              #if os(tvOS)
-                .searchable(text: $query, prompt: "Movies, shows and DJs")
-              #endif
-          #endif
-        }
-      }
-    }
-    #if os(iOS)
-      .tabViewStyle(.sidebarAdaptable)
-      // On iPhone the search tab turns into the search field, so the field belongs to the tab view.
-      .searchable(text: $query, prompt: "Movies, shows and DJs")
-      .tabBarMinimizeBehavior(.onScrollDown)
+    #if os(macOS)
+      MacTabs()
     #else
-      .tabViewStyle(.tabBarOnly)
+      SystemTabs()
     #endif
   }
 }
 
-/// A tab's icon and title side by side; the Apple TV and Mac top tab bar otherwise shows titles only.
-private struct TabLabel: View {
-  let title: String
-  let systemImage: String
+/// The app's pages, in tab order.
+enum Page: Hashable, CaseIterable {
+  case home, movies, shows, sets, search
 
-  var body: some View {
-    HStack(spacing: 6) {
-      Image(systemName: systemImage)
-      Text(title)
+  var title: String {
+    switch self {
+    case .home: "Home"
+    case .movies: LibrarySection.movies.rawValue
+    case .shows: LibrarySection.shows.rawValue
+    case .sets: LibrarySection.sets.rawValue
+    case .search: "Search"
+    }
+  }
+
+  var symbol: String {
+    switch self {
+    case .home: "house"
+    case .movies: LibrarySection.movies.symbol
+    case .shows: LibrarySection.shows.symbol
+    case .sets: LibrarySection.sets.symbol
+    case .search: "magnifyingglass"
     }
   }
 }
+
+/// One page with its own navigation, so it keeps its place when another tab is chosen.
+private struct PageStack: View {
+  let page: Page
+  @Binding var query: String
+  var searchActive = false
+  let zoom: Namespace.ID
+
+  var body: some View {
+    NavigationStack {
+      switch page {
+      case .home: HomeView(zoom: zoom).libraryDestinations(zoom)
+      case .movies: SectionGrid(section: .movies, zoom: zoom).libraryDestinations(zoom)
+      case .shows: SectionGrid(section: .shows, zoom: zoom).libraryDestinations(zoom)
+      case .sets: SectionGrid(section: .sets, zoom: zoom).libraryDestinations(zoom)
+      case .search:
+        #if os(macOS)
+          VStack(spacing: 0) {
+            SearchField(query: $query, active: searchActive)
+            SearchResults(query: query)
+          }
+          .navigationTitle("Search")
+          .libraryDestinations(zoom)
+        #else
+          SearchResults(query: query).navigationTitle("Search").libraryDestinations(zoom)
+            #if os(tvOS)
+              .searchable(text: $query, prompt: "Movies, shows and DJs")
+            #endif
+        #endif
+      }
+    }
+  }
+}
+
+#if os(macOS)
+  /// The Mac draws its own bar across the top: the system tab bar shows titles only, with no
+  /// icons. Every page stays alive underneath, so each keeps its place between tabs.
+  private struct MacTabs: View {
+    @Namespace private var zoom
+    @State private var page = Page.home
+    @State private var query = ""
+
+    var body: some View {
+      ZStack {
+        ForEach(Page.allCases, id: \.self) { each in
+          let shown = each == page
+          PageStack(page: each, query: $query, searchActive: shown, zoom: zoom)
+            .opacity(shown ? 1 : 0)
+            .allowsHitTesting(shown)
+            .accessibilityHidden(!shown)
+        }
+      }
+      .animation(.easeInOut(duration: 0.2), value: page)
+      .toolbar {
+        ToolbarItem(placement: .principal) {
+          // A little below the window buttons' line, so the bar has room above it.
+          TopBar(page: $page).offset(y: 6)
+        }
+        .sharedBackgroundVisibility(.hidden)
+      }
+    }
+  }
+
+  /// Icon then name for each page; Search is just the magnifying glass. Command-1 to 5 switch.
+  private struct TopBar: View {
+    @Binding var page: Page
+    @Namespace private var pill
+
+    var body: some View {
+      GlassEffectContainer {
+        HStack(spacing: 2) {
+          ForEach(Array(Page.allCases.enumerated()), id: \.element) { index, each in
+            let chosen = each == page
+            Button {
+              withAnimation(.spring(duration: 0.35, bounce: 0.2)) { page = each }
+            } label: {
+              if each == .search {
+                Image(systemName: each.symbol).accessibilityLabel(each.title)
+              } else {
+                Label(each.title, systemImage: each.symbol).labelStyle(.titleAndIcon)
+              }
+            }
+            .buttonStyle(.plain)
+            // Matches Apple TV's tab bar: a white pill with dark text for the chosen page,
+            // sliding to the new tab when the page changes.
+            .font(.body.weight(.semibold))
+            .foregroundStyle(chosen ? Color.black : Color.white)
+            .padding(.horizontal, each == .search ? 10 : 14)
+            .padding(.vertical, 6)
+            .background {
+              if chosen { Capsule().fill(.white).matchedGeometryEffect(id: "pill", in: pill) }
+            }
+            .contentShape(.capsule)
+            .keyboardShortcut(KeyEquivalent(Character(String(index + 1))), modifiers: .command)
+          }
+        }
+        .padding(4)
+        .glassEffect(.regular, in: .capsule)
+      }
+    }
+  }
+#else
+  /// iPhone's bottom tab bar (a sidebar on wide screens) and Apple TV's top tab bar.
+  private struct SystemTabs: View {
+    @Namespace private var zoom
+    @State private var query = ""
+
+    var body: some View {
+      TabView {
+        ForEach([Page.home, .movies, .shows, .sets], id: \.self) { each in
+          Tab {
+            PageStack(page: each, query: $query, zoom: zoom)
+          } label: {
+            Label(each.title, systemImage: each.symbol)
+          }
+        }
+        Tab(role: .search) {
+          PageStack(page: .search, query: $query, zoom: zoom)
+        } label: {
+          #if os(tvOS)
+            // Just the magnifying glass, narrower than the named tabs.
+            Image(systemName: "magnifyingglass").accessibilityLabel("Search")
+          #else
+            Label("Search", systemImage: "magnifyingglass")
+          #endif
+        }
+      }
+      #if os(iOS)
+        .tabViewStyle(.sidebarAdaptable)
+        // On iPhone the search tab turns into the search field, so the field belongs to the tab view.
+        .searchable(text: $query, prompt: "Movies, shows and DJs")
+        .tabBarMinimizeBehavior(.onScrollDown)
+      #else
+        .tabViewStyle(.tabBarOnly)
+      #endif
+    }
+  }
+#endif
 
 // MARK: - Home
 
@@ -71,7 +182,9 @@ struct HomeView: View {
   let zoom: Namespace.ID
 
   var body: some View {
-    LibraryPage(title: "Home", empty: store.isEmpty ? .library : nil) { shelves }
+    LibraryPage(title: "Home", empty: store.isEmpty ? .library : nil, footer: store.summary) {
+      shelves
+    }
   }
 
   private var shelves: some View {
@@ -149,6 +262,8 @@ private struct LibraryPage<Content: View>: View {
   @Environment(Store.self) private var store
   let title: String
   let empty: EmptyState?
+  /// A quiet line at the very end of the page, such as the item count and total size.
+  var footer: String?
   @ViewBuilder var content: Content
 
   var body: some View {
@@ -158,6 +273,14 @@ private struct LibraryPage<Content: View>: View {
         empty.containerRelativeFrame([.horizontal, .vertical])
       } else {
         content
+        if let footer {
+          Text(footer)
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+            .frame(maxWidth: .infinity)
+            .padding(.top, Metrics.spacing)
+            .padding(.bottom, Metrics.spacing * 2)
+        }
       }
     }
     .refreshable { await store.load() }
@@ -326,8 +449,10 @@ struct SectionGrid: View {
   let zoom: Namespace.ID
 
   var body: some View {
-    LibraryPage(title: section.rawValue, empty: store.isEmpty(section) ? EmptyState(section) : nil)
-    {
+    LibraryPage(
+      title: section.rawValue, empty: store.isEmpty(section) ? EmptyState(section) : nil,
+      footer: store.summary(section)
+    ) {
       grid
     }
     .scrollClipDisabled()
@@ -384,6 +509,8 @@ struct SectionGrid: View {
   /// The Mac search field, focused when the Search tab opens.
   private struct SearchField: View {
     @Binding var query: String
+    /// True while the Search tab is showing; the field takes focus each time it opens.
+    let active: Bool
     @FocusState private var focused: Bool
 
     var body: some View {
@@ -405,7 +532,8 @@ struct SectionGrid: View {
       .background(Color(white: 0.14), in: .capsule)
       .padding(.horizontal, Metrics.gutter)
       .padding(.vertical, Metrics.spacing)
-      .onAppear { focused = true }
+      .onAppear { focused = active }
+      .onChange(of: active) { _, now in focused = now }
     }
   }
 #endif

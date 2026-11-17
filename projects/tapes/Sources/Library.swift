@@ -9,9 +9,11 @@ struct Movie: Identifiable, Hashable {
   let seconds: Double
   let badges: [String]
   let hasArt: Bool
+  let bytes: Int64
   var minutes: Int { minutesOf(seconds) }
   var meta: String {
-    [year.map(String.init), runtime(minutes)].compactMap { $0 }.joined(separator: " · ")
+    [year.map(String.init), runtime(minutes), size(bytes)].compactMap { $0 }
+      .joined(separator: " · ")
   }
 }
 
@@ -21,6 +23,7 @@ struct Episode: Identifiable, Hashable {
   let number: Int
   let title: String
   let seconds: Double
+  let bytes: Int64
   var minutes: Int { minutesOf(seconds) }
   var code: String { "S\(season) · E\(number)" }
 }
@@ -32,9 +35,10 @@ struct Show: Identifiable, Hashable {
   let hasArt: Bool
   let episodes: [Episode]
   var seasons: [Int] { Array(Set(episodes.map(\.season))).sorted() }
+  var bytes: Int64 { episodes.reduce(0) { $0 + $1.bytes } }
   var meta: String {
     let count = seasons.count == 1 ? "1 season" : "\(seasons.count) seasons"
-    return [years, count].compactMap { $0 }.joined(separator: " · ")
+    return [years, count, size(bytes)].compactMap { $0 }.joined(separator: " · ")
   }
 }
 
@@ -46,6 +50,7 @@ struct DJSet: Identifiable, Hashable {
   let date: String?
   let seconds: Double
   let hasArt: Bool
+  let bytes: Int64
   var minutes: Int { minutesOf(seconds) }
   var year: String? { date.map { String($0.prefix(4)) } }
   var djLine: String { djs.joined(separator: " b2b ") }
@@ -75,8 +80,6 @@ enum LibrarySection: String, CaseIterable, Identifiable, Hashable {
     case .sets: "opticaldisc"
     }
   }
-
-  var label: some View { Label(rawValue, systemImage: symbol) }
 
   var emptyTitle: String { "No \(rawValue) Yet" }
   var emptyMessage: String { "\(rawValue) appear here once they're imported into the library." }
@@ -132,6 +135,11 @@ enum ContinueItem: Identifiable, Hashable {
 }
 
 func minutesOf(_ seconds: Double) -> Int { max(1, Int((seconds / 60).rounded())) }
+
+func count(_ n: Int, _ noun: String) -> String { n == 1 ? "1 \(noun)" : "\(n) \(noun)s" }
+
+/// File size as Finder shows it ("8.3 GB").
+func size(_ bytes: Int64) -> String { bytes.formatted(.byteCount(style: .file)) }
 
 func runtime(_ minutes: Int) -> String {
   minutes >= 60 ? "\(minutes / 60)h \(minutes % 60)m" : "\(minutes)m"
@@ -211,6 +219,34 @@ final class Store {
     case .shows: shows.isEmpty
     case .sets: sets.isEmpty
     }
+  }
+
+  /// "3 shows · 290 GB": the count and total size of one section.
+  func summary(_ section: LibrarySection) -> String {
+    switch section {
+    case .movies:
+      [count(movies.count, "movie"), size(movies.reduce(0) { $0 + $1.bytes })]
+        .joined(separator: " · ")
+    case .shows:
+      [count(shows.count, "show"), size(shows.reduce(0) { $0 + $1.bytes })]
+        .joined(separator: " · ")
+    case .sets:
+      [count(sets.count, "DJ set"), size(sets.reduce(0) { $0 + $1.bytes })]
+        .joined(separator: " · ")
+    }
+  }
+
+  /// "1 movie · 3 shows · 2 DJ sets · 389 GB": everything in the library.
+  var summary: String {
+    let total =
+      movies.reduce(0) { $0 + $1.bytes } + shows.reduce(0) { $0 + $1.bytes }
+      + sets.reduce(0) { $0 + $1.bytes }
+    let counts = [
+      movies.isEmpty ? nil : count(movies.count, "movie"),
+      shows.isEmpty ? nil : count(shows.count, "show"),
+      sets.isEmpty ? nil : count(sets.count, "DJ set"),
+    ]
+    return (counts.compactMap { $0 } + [size(total)]).joined(separator: " · ")
   }
 
   func position(_ id: String) -> Double { progress[id]?.seconds ?? 0 }

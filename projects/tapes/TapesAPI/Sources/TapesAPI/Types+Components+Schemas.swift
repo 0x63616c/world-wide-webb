@@ -27,6 +27,10 @@ extension Components {
         }
         /// - Remark: Generated from `#/components/schemas/DjSet`.
         public struct DjSet: Codable, Hashable, Sendable {
+            /// Size of the video file in bytes. Optional so apps built before it still decode.
+            ///
+            /// - Remark: Generated from `#/components/schemas/DjSet/bytes`.
+            public var bytes: Swift.Int64?
             /// ISO date (YYYY-MM-DD) when known.
             ///
             /// - Remark: Generated from `#/components/schemas/DjSet/date`.
@@ -48,6 +52,7 @@ extension Components {
             /// Creates a new `DjSet`.
             ///
             /// - Parameters:
+            ///   - bytes: Size of the video file in bytes. Optional so apps built before it still decode.
             ///   - date: ISO date (YYYY-MM-DD) when known.
             ///   - djs:
             ///   - hasArt:
@@ -56,6 +61,7 @@ extension Components {
             ///   - seconds:
             ///   - title:
             public init(
+                bytes: Swift.Int64? = nil,
                 date: Swift.String? = nil,
                 djs: [Swift.String],
                 hasArt: Swift.Bool,
@@ -64,6 +70,7 @@ extension Components {
                 seconds: Swift.Double? = nil,
                 title: Swift.String
             ) {
+                self.bytes = bytes
                 self.date = date
                 self.djs = djs
                 self.hasArt = hasArt
@@ -73,6 +80,7 @@ extension Components {
                 self.title = title
             }
             public enum CodingKeys: String, CodingKey {
+                case bytes
                 case date
                 case djs
                 case hasArt = "has_art"
@@ -84,6 +92,10 @@ extension Components {
         }
         /// - Remark: Generated from `#/components/schemas/Episode`.
         public struct Episode: Codable, Hashable, Sendable {
+            /// Size of the video file in bytes. Optional so apps built before it still decode.
+            ///
+            /// - Remark: Generated from `#/components/schemas/Episode/bytes`.
+            public var bytes: Swift.Int64?
             /// - Remark: Generated from `#/components/schemas/Episode/has_art`.
             public var hasArt: Swift.Bool
             /// - Remark: Generated from `#/components/schemas/Episode/id`.
@@ -103,6 +115,7 @@ extension Components {
             /// Creates a new `Episode`.
             ///
             /// - Parameters:
+            ///   - bytes: Size of the video file in bytes. Optional so apps built before it still decode.
             ///   - hasArt:
             ///   - id:
             ///   - number:
@@ -111,6 +124,7 @@ extension Components {
             ///   - seconds:
             ///   - title:
             public init(
+                bytes: Swift.Int64? = nil,
                 hasArt: Swift.Bool,
                 id: Swift.String,
                 number: Swift.Int32,
@@ -119,6 +133,7 @@ extension Components {
                 seconds: Swift.Double? = nil,
                 title: Swift.String
             ) {
+                self.bytes = bytes
                 self.hasArt = hasArt
                 self.id = id
                 self.number = number
@@ -128,6 +143,7 @@ extension Components {
                 self.title = title
             }
             public enum CodingKeys: String, CodingKey {
+                case bytes
                 case hasArt = "has_art"
                 case id
                 case number
@@ -223,6 +239,10 @@ extension Components {
         public struct Movie: Codable, Hashable, Sendable {
             /// - Remark: Generated from `#/components/schemas/Movie/badges`.
             public var badges: [Swift.String]
+            /// Size of the video file in bytes. Optional so apps built before it still decode.
+            ///
+            /// - Remark: Generated from `#/components/schemas/Movie/bytes`.
+            public var bytes: Swift.Int64?
             /// - Remark: Generated from `#/components/schemas/Movie/has_art`.
             public var hasArt: Swift.Bool
             /// - Remark: Generated from `#/components/schemas/Movie/id`.
@@ -243,6 +263,7 @@ extension Components {
             ///
             /// - Parameters:
             ///   - badges:
+            ///   - bytes: Size of the video file in bytes. Optional so apps built before it still decode.
             ///   - hasArt:
             ///   - id:
             ///   - progress: Absent until first played or marked.
@@ -251,6 +272,7 @@ extension Components {
             ///   - year:
             public init(
                 badges: [Swift.String],
+                bytes: Swift.Int64? = nil,
                 hasArt: Swift.Bool,
                 id: Swift.String,
                 progress: Components.Schemas.Progress? = nil,
@@ -259,6 +281,7 @@ extension Components {
                 year: Swift.Int32? = nil
             ) {
                 self.badges = badges
+                self.bytes = bytes
                 self.hasArt = hasArt
                 self.id = id
                 self.progress = progress
@@ -268,6 +291,7 @@ extension Components {
             }
             public enum CodingKeys: String, CodingKey {
                 case badges
+                case bytes
                 case hasArt = "has_art"
                 case id
                 case progress

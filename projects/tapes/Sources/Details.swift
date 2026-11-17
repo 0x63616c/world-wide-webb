@@ -307,7 +307,8 @@ struct SetDetail: View {
   var body: some View {
     DetailScaffold(
       seed: set.id, title: set.djLine,
-      meta: [set.title, set.year, runtime(set.minutes)].compactMap { $0 }.joined(separator: " · "),
+      meta: [set.title, set.year, runtime(set.minutes), size(set.bytes)].compactMap { $0 }
+        .joined(separator: " · "),
       wideArt: true
     ) {
       PlayButton(id: set.id, minutes: set.minutes) { store.play(set) }
