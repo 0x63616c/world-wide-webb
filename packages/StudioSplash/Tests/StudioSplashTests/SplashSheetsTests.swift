@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 
 @testable import StudioSplash
@@ -37,6 +38,17 @@ struct SplashSheetsTests {
       for letter in bar.hops where letter >= 0 && order.last != letter { order.append(letter) }
       #expect(order == Array(0..<sheets.letters.count), "\(bar.id)")
     }
+  }
+
+  @Test func embeddedSheetsMatchTheSheetFiles() throws {
+    let sheets = URL(filePath: #filePath).deletingLastPathComponent()
+      .appending(path: "../../Sheets").standardized
+    for (name, encoded) in EmbeddedSheets.files {
+      let file = try Data(contentsOf: sheets.appending(path: name))
+      #expect(Data(base64Encoded: encoded) == file, "\(name): run Design/generate.py")
+    }
+    #expect(
+      Set(EmbeddedSheets.files.keys) == ["globe.png", "wordmark.png", "bars.png", "splash.json"])
   }
 
   @Test func framesFollowTheSharedClock() {

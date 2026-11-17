@@ -2,9 +2,9 @@ import CoreGraphics
 import Foundation
 import ImageIO
 
-/// The splash sprite sheets and their manifest (`Resources/splash.json`), cut into frames once.
+/// The splash sprite sheets and their manifest (`Sheets/splash.json`), cut into frames once.
 /// The sheets and manifest are plain PNG and JSON so other apps and engines can load them too;
-/// `Design/generate.py` writes them.
+/// `Design/generate.py` writes them and compiles the same bytes into `EmbeddedSheets`.
 public struct SplashSheets: Sendable {
   public struct Manifest: Decodable, Sendable {
     public struct Point: Decodable, Sendable {
@@ -56,23 +56,23 @@ public struct SplashSheets: Sendable {
     public let hops: [Int]
   }
 
-  public static let shared = SplashSheets(bundle: .module)
+  public static let shared = SplashSheets(files: EmbeddedSheets.files)
 
   public let manifest: Manifest
   let globeFrames: [CGImage]
   let letters: [CGImage]
   let barFrames: [String: [CGImage]]
 
-  init(bundle: Bundle) {
-    func url(_ name: String) -> URL {
-      guard let url = bundle.url(forResource: name, withExtension: nil, subdirectory: "Resources")
-      else {
-        preconditionFailure("StudioSplash resource \(name) is missing from the bundle")
+  /// - Parameter files: Sheet file name to base64 contents.
+  init(files: [String: String]) {
+    func data(_ name: String) -> Data {
+      guard let encoded = files[name], let data = Data(base64Encoded: encoded) else {
+        preconditionFailure("StudioSplash sheet \(name) is missing")
       }
-      return url
+      return data
     }
     func image(_ name: String) -> CGImage {
-      guard let source = CGImageSourceCreateWithURL(url(name) as CFURL, nil),
+      guard let source = CGImageSourceCreateWithData(data(name) as CFData, nil),
         let image = CGImageSourceCreateImageAtIndex(source, 0, nil)
       else { preconditionFailure("StudioSplash could not decode \(name)") }
       return image
@@ -85,7 +85,7 @@ public struct SplashSheets: Sendable {
     }
 
     do {
-      manifest = try JSONDecoder().decode(Manifest.self, from: Data(contentsOf: url("splash.json")))
+      manifest = try JSONDecoder().decode(Manifest.self, from: data("splash.json"))
     } catch {
       preconditionFailure("StudioSplash manifest is unreadable: \(error)")
     }
