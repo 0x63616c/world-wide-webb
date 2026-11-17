@@ -271,7 +271,7 @@ struct HomeView: View {
         .background {
             // Release builds only (TestFlight/App Store); local Debug builds stay unmarked.
             #if !DEBUG
-                CautionTapeWindow(cornerRadius: displayCornerRadius)
+                CautionTapeWindow(cornerRadius: displayCornerRadius, enabled: display.cautionTape)
             #endif
         }
         .overlay {
@@ -632,24 +632,32 @@ enum DisplayCorners {
 /// Access is on, so the tape cannot outlive a missed SwiftUI update.
 private struct CautionTapeWindow: UIViewRepresentable {
     let cornerRadius: CGFloat
+    let enabled: Bool
 
     func makeUIView(context: Context) -> Anchor {
         let anchor = Anchor()
         anchor.isUserInteractionEnabled = false
         return anchor
     }
-    func updateUIView(_ anchor: Anchor, context: Context) { anchor.update(cornerRadius: cornerRadius) }
+    func updateUIView(_ anchor: Anchor, context: Context) { anchor.update(cornerRadius: cornerRadius, enabled: enabled) }
     static func dismantleUIView(_ anchor: Anchor, coordinator: ()) { anchor.tearDown() }
 
     final class Anchor: UIView {
         private var overlay: UIWindow?
         private var host: UIHostingController<CautionTapeBorder>?
         private var cornerRadius: CGFloat = 0
+        private var enabled = true
         private var settle: Task<Void, Never>?
 
-        func update(cornerRadius: CGFloat) {
+        private var shouldHide: Bool { !enabled || UIAccessibility.isGuidedAccessEnabled }
+
+        func update(cornerRadius: CGFloat, enabled: Bool) {
             self.cornerRadius = cornerRadius
             host?.rootView = CautionTapeBorder(cornerRadius: cornerRadius)
+            if self.enabled != enabled {
+                self.enabled = enabled
+                applyGuidedAccess()
+            }
         }
 
         override func didMoveToWindow() {
@@ -667,7 +675,7 @@ private struct CautionTapeWindow: UIViewRepresentable {
             host.view.accessibilityElementsHidden = true
             overlay.backgroundColor = .clear
             overlay.rootViewController = host
-            overlay.isHidden = UIAccessibility.isGuidedAccessEnabled
+            overlay.isHidden = shouldHide
             self.overlay = overlay
             self.host = host
             // Starting or ending Guided Access also deactivates and reactivates the app, so
@@ -702,13 +710,13 @@ private struct CautionTapeWindow: UIViewRepresentable {
 
         private func applyGuidedAccess() {
             guard let overlay else { return }
-            let hide = UIAccessibility.isGuidedAccessEnabled
+            let hide = shouldHide
             guard overlay.isHidden != hide else { return }
             if hide {
                 UIView.animate(withDuration: 0.25) {
                     overlay.alpha = 0
                 } completion: { _ in
-                    overlay.isHidden = UIAccessibility.isGuidedAccessEnabled
+                    overlay.isHidden = self.shouldHide
                     overlay.alpha = 1
                 }
             } else {
@@ -720,7 +728,8 @@ private struct CautionTapeWindow: UIViewRepresentable {
     }
 }
 
-/// Yellow-and-black hazard stripes around the display edge, shown while Guided Access is off.
+/// Yellow-and-black hazard stripes around the display edge, shown while Guided Access is off
+/// unless the Display setting turns them off.
 private struct CautionTapeBorder: View {
     let cornerRadius: CGFloat
     static let width: CGFloat = 14
