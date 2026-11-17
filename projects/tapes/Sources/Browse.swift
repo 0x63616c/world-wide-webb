@@ -1,13 +1,13 @@
-// The chosen structure: a Home page, then a page per section. Apple TV and Mac have a tab bar
-// across the top; iPhone has the bottom tab bar (a sidebar on wide screens).
+// The chosen structure: a Home page, then a page per section. Apple TV and Mac have their own
+// bar across the top; iPhone has the bottom tab bar (a sidebar on wide screens).
 import SwiftUI
 
 struct RootTabs: View {
   var body: some View {
-    #if os(macOS)
-      MacTabs()
-    #else
+    #if os(iOS)
       SystemTabs()
+    #else
+      TopTabs()
     #endif
   }
 }
@@ -37,18 +37,17 @@ enum Page: Hashable, CaseIterable {
   }
 }
 
-/// One page with its own navigation, so it keeps its place when another tab is chosen. Home's
-/// path belongs to the tabs, so a Top Shelf link can open a page there.
+/// One page with its own navigation, so it keeps its place when another tab is chosen. The paths
+/// belong to the tabs, so a Top Shelf link can open a page on Home and the Apple TV bar can hide.
 private struct PageStack: View {
   let page: Page
   @Binding var query: String
   var searchActive = false
   let zoom: Namespace.ID
-  var path: Binding<NavigationPath>?
-  @State private var ownPath = NavigationPath()
+  @Binding var path: NavigationPath
 
   var body: some View {
-    NavigationStack(path: path ?? $ownPath) {
+    NavigationStack(path: $path) {
       switch page {
       case .home: HomeView(zoom: zoom).libraryDestinations(zoom)
       case .movies: SectionGrid(section: .movies, zoom: zoom).libraryDestinations(zoom)
@@ -95,44 +94,122 @@ private struct FollowsLinks: ViewModifier {
   }
 }
 
-#if os(macOS)
-  /// The Mac draws its own bar across the top: the system tab bar shows titles only, with no
-  /// icons. Every page stays alive underneath, so each keeps its place between tabs.
-  private struct MacTabs: View {
+#if os(iOS)
+  /// iPhone's bottom tab bar (a sidebar on wide screens).
+  private struct SystemTabs: View {
+    @Namespace private var zoom
+    @State private var query = ""
+    @State private var page = Page.home
+    @State private var paths: [Page: NavigationPath] = [:]
+
+    var body: some View {
+      TabView(selection: $page) {
+        ForEach([Page.home, .movies, .shows, .sets], id: \.self) { each in
+          Tab(value: each) {
+            PageStack(page: each, query: $query, zoom: zoom, path: $paths.path(each))
+          } label: {
+            Label(each.title, systemImage: each.symbol)
+          }
+        }
+        Tab(value: Page.search, role: .search) {
+          PageStack(page: .search, query: $query, zoom: zoom, path: $paths.path(.search))
+        } label: {
+          Label("Search", systemImage: "magnifyingglass")
+        }
+      }
+      .tabViewStyle(.sidebarAdaptable)
+      // On iPhone the search tab turns into the search field, so the field belongs to the tab view.
+      .searchable(text: $query, prompt: "Movies, shows and DJs")
+      .tabBarMinimizeBehavior(.onScrollDown)
+      .modifier(FollowsLinks(page: $page, homePath: $paths.path(.home)))
+    }
+  }
+#else
+  /// Mac and Apple TV draw their own bar across the top. The Mac's system tab bar shows titles
+  /// only, with no icons, and Apple TV's scrolls away with the page; this one stays put. Every
+  /// page stays alive underneath, so each keeps its place between tabs.
+  private struct TopTabs: View {
     @Namespace private var zoom
     @State private var page = Page.home
     @State private var query = ""
-    @State private var homePath = NavigationPath()
+    @State private var paths: [Page: NavigationPath] = [:]
+    #if os(tvOS)
+      @FocusState private var barFocus: Page?
+    #endif
+
+    /// True on a page's first screen; opening a movie or show hides the Apple TV bar.
+    private var atRoot: Bool { paths[page]?.isEmpty ?? true }
 
     var body: some View {
+      bar.modifier(FollowsLinks(page: $page, homePath: $paths.path(.home)))
+    }
+
+    @ViewBuilder private var bar: some View {
+      #if os(macOS)
+        pages
+          .toolbar {
+            ToolbarItem(placement: .principal) {
+              // A little below the window buttons' line, so the bar has room above it.
+              TopBar(page: $page).offset(y: 6)
+            }
+            .sharedBackgroundVisibility(.hidden)
+          }
+      #else
+        VStack(spacing: 0) {
+          if atRoot {
+            TopBar(page: $page, focus: $barFocus)
+              .padding(.bottom, Metrics.spacing)
+              // Above the page, so posters scrolling up pass beneath it.
+              .zIndex(1)
+              .transition(.move(edge: .top).combined(with: .opacity))
+          }
+          pages
+        }
+        .animation(.easeInOut(duration: 0.25), value: atRoot)
+        // Menu on a page's first screen goes back up to the bar, as with the system tab bar.
+        .onExitCommand(perform: atRoot && barFocus == nil ? { barFocus = page } : nil)
+      #endif
+    }
+
+    private var pages: some View {
       ZStack {
         ForEach(Page.allCases, id: \.self) { each in
           let shown = each == page
           PageStack(
-            page: each, query: $query, searchActive: shown, zoom: zoom,
-            path: each == .home ? $homePath : nil
+            page: each, query: $query, searchActive: shown, zoom: zoom, path: $paths.path(each)
           )
           .opacity(shown ? 1 : 0)
           .allowsHitTesting(shown)
           .accessibilityHidden(!shown)
+          #if os(tvOS)
+            // The remote can only reach the page that is showing.
+            .disabled(!shown)
+          #endif
         }
       }
       .animation(.easeInOut(duration: 0.2), value: page)
-      .toolbar {
-        ToolbarItem(placement: .principal) {
-          // A little below the window buttons' line, so the bar has room above it.
-          TopBar(page: $page).offset(y: 6)
-        }
-        .sharedBackgroundVisibility(.hidden)
-      }
-      .modifier(FollowsLinks(page: $page, homePath: $homePath))
     }
   }
 
-  /// Icon then name for each page; Search is just the magnifying glass. Command-1 to 5 switch.
+  /// Icon then name for each page; Search is just the magnifying glass. A white pill with dark
+  /// text marks the chosen page and slides to the new tab when the page changes. On the Mac,
+  /// Command-1 to 5 switch; on Apple TV, moving focus onto a tab opens its page.
   private struct TopBar: View {
     @Binding var page: Page
+    #if os(tvOS)
+      var focus: FocusState<Page?>.Binding
+    #endif
     @Namespace private var pill
+
+    /// Apple TV dims the pill while focus is down on the page, so it's clear the bar isn't
+    /// focused; the Mac's bar is always the white pill.
+    private var lit: Bool {
+      #if os(tvOS)
+        focus.wrappedValue != nil
+      #else
+        true
+      #endif
+    }
 
     var body: some View {
       GlassEffectContainer {
@@ -148,66 +225,59 @@ private struct FollowsLinks: ViewModifier {
                 Label(each.title, systemImage: each.symbol).labelStyle(.titleAndIcon)
               }
             }
-            .buttonStyle(.plain)
-            // Matches Apple TV's tab bar: a white pill with dark text for the chosen page,
-            // sliding to the new tab when the page changes.
+            #if os(tvOS)
+              // Focus shows as the pill itself, not the system's lift.
+              .buttonStyle(BarButton())
+              .focused(focus, equals: each)
+            #else
+              .buttonStyle(.plain)
+              .keyboardShortcut(KeyEquivalent(Character(String(index + 1))), modifiers: .command)
+            #endif
             .font(.body.weight(.semibold))
-            .foregroundStyle(chosen ? Color.black : Color.white)
+            .foregroundStyle(chosen && lit ? Color.black : Color.white)
             .padding(.horizontal, each == .search ? 10 : 14)
             .padding(.vertical, 6)
             .background {
-              if chosen { Capsule().fill(.white).matchedGeometryEffect(id: "pill", in: pill) }
+              if chosen {
+                Capsule().fill(.white.opacity(lit ? 1 : 0.2))
+                  .matchedGeometryEffect(id: "pill", in: pill)
+              }
             }
             .contentShape(.capsule)
-            .keyboardShortcut(KeyEquivalent(Character(String(index + 1))), modifiers: .command)
           }
         }
         .padding(4)
         .glassEffect(.regular, in: .capsule)
       }
-    }
-  }
-#else
-  /// iPhone's bottom tab bar (a sidebar on wide screens) and Apple TV's top tab bar.
-  private struct SystemTabs: View {
-    @Namespace private var zoom
-    @State private var query = ""
-    @State private var page = Page.home
-    @State private var homePath = NavigationPath()
-
-    var body: some View {
-      TabView(selection: $page) {
-        ForEach([Page.home, .movies, .shows, .sets], id: \.self) { each in
-          Tab(value: each) {
-            PageStack(
-              page: each, query: $query, zoom: zoom, path: each == .home ? $homePath : nil)
-          } label: {
-            Label(each.title, systemImage: each.symbol)
+      #if os(tvOS)
+        .focusSection()
+        // Coming up from the page lands on the chosen tab, and moving along the bar opens pages.
+        .defaultFocus(focus, page, priority: .userInitiated)
+        .onChange(of: focus.wrappedValue) { _, now in
+          if let now, now != page {
+            withAnimation(.spring(duration: 0.35, bounce: 0.2)) { page = now }
           }
         }
-        Tab(value: Page.search, role: .search) {
-          PageStack(page: .search, query: $query, zoom: zoom)
-        } label: {
-          #if os(tvOS)
-            // Just the magnifying glass, narrower than the named tabs.
-            Image(systemName: "magnifyingglass").accessibilityLabel("Search")
-          #else
-            Label("Search", systemImage: "magnifyingglass")
-          #endif
-        }
-      }
-      #if os(iOS)
-        .tabViewStyle(.sidebarAdaptable)
-        // On iPhone the search tab turns into the search field, so the field belongs to the tab view.
-        .searchable(text: $query, prompt: "Movies, shows and DJs")
-        .tabBarMinimizeBehavior(.onScrollDown)
-      #else
-        .tabViewStyle(.tabBarOnly)
       #endif
-      .modifier(FollowsLinks(page: $page, homePath: $homePath))
     }
   }
+
+  #if os(tvOS)
+    /// Just the label: the bar draws focus as its pill.
+    private struct BarButton: ButtonStyle {
+      func makeBody(configuration: Configuration) -> some View { configuration.label }
+    }
+  #endif
 #endif
+
+extension Binding<[Page: NavigationPath]> {
+  /// One page's navigation path, empty until something is opened.
+  func path(_ page: Page) -> Binding<NavigationPath> {
+    Binding<NavigationPath>(
+      get: { wrappedValue[page] ?? NavigationPath() },
+      set: { wrappedValue[page] = $0 })
+  }
+}
 
 // MARK: - Home
 
@@ -237,52 +307,45 @@ struct HomeView: View {
       } else if let pick = store.featured() {
         ContinueCard(item: pick, eyebrow: "From the Library").padding(.horizontal, Metrics.gutter)
       }
-      if store.continueWatching.count > 1 {
-        Shelf(title: "Continue Watching") {
-          ForEach(store.continueWatching.dropFirst()) { item in
-            Button {
-              store.play(item)
-            } label: {
-              WideCell(seed: item.artID, title: item.title, detail: item.detail, watchID: item.id)
-                .frame(width: Metrics.wide)
-            }
-            .artworkButton()
+      let moreToContinue = Array(store.continueWatching.dropFirst())
+      if !moreToContinue.isEmpty {
+        Shelf(title: "Continue Watching", items: moreToContinue) { item in
+          Button {
+            store.play(item)
+          } label: {
+            WideCell(seed: item.artID, title: item.title, detail: item.detail, watchID: item.id)
+              .frame(width: Metrics.wide)
           }
+          .artworkButton()
         }
       }
       if !store.movies.isEmpty {
-        Shelf(title: "Movies") {
-          ForEach(store.movies) { movie in
-            NavigationLink(value: movie) {
-              PosterCell(seed: movie.id, title: movie.title, watchID: movie.id).frame(
-                width: Metrics.poster)
-            }
-            .artworkButton()
-            .zoomSource(movie.id, in: zoom)
+        Shelf(title: "Movies", items: store.movies) { movie in
+          NavigationLink(value: movie) {
+            PosterCell(seed: movie.id, title: movie.title, watchID: movie.id).frame(
+              width: Metrics.poster)
           }
+          .artworkButton()
+          .zoomSource(movie.id, in: zoom)
         }
       }
       if !store.shows.isEmpty {
-        Shelf(title: "Shows") {
-          ForEach(store.shows) { show in
-            NavigationLink(value: show) {
-              PosterCell(seed: show.id, title: show.title).frame(width: Metrics.poster)
-            }
-            .artworkButton()
-            .zoomSource(show.id, in: zoom)
+        Shelf(title: "Shows", items: store.shows) { show in
+          NavigationLink(value: show) {
+            PosterCell(seed: show.id, title: show.title).frame(width: Metrics.poster)
           }
+          .artworkButton()
+          .zoomSource(show.id, in: zoom)
         }
       }
       if !store.sets.isEmpty {
-        Shelf(title: "DJ Sets") {
-          ForEach(store.sets) { set in
-            NavigationLink(value: set) {
-              WideCell(seed: set.id, title: set.djLine, detail: set.title, watchID: set.id)
-                .frame(width: Metrics.wide)
-            }
-            .artworkButton()
-            .zoomSource(set.id, in: zoom)
+        Shelf(title: "DJ Sets", items: store.sets) { set in
+          NavigationLink(value: set) {
+            WideCell(seed: set.id, title: set.djLine, detail: set.title, watchID: set.id)
+              .frame(width: Metrics.wide)
           }
+          .artworkButton()
+          .zoomSource(set.id, in: zoom)
         }
       }
     }
@@ -359,23 +422,35 @@ private struct EmptyState: View {
   }
 }
 
-private struct Shelf<Content: View>: View {
+private struct Shelf<Item: Identifiable, Cell: View>: View {
   let title: String
-  @ViewBuilder var content: Content
+  let items: [Item]
+  @ViewBuilder var cell: (Item) -> Cell
+  #if os(tvOS)
+    @FocusState private var focused: Item.ID?
+  #endif
 
   var body: some View {
     VStack(alignment: .leading, spacing: Metrics.spacing) {
       Text(title).font(.title2.bold()).padding(.horizontal, Metrics.gutter)
       ScrollView(.horizontal) {
-        LazyHStack(alignment: .top, spacing: Metrics.spacing) { content }
-          .padding(.horizontal, Metrics.gutter)
+        LazyHStack(alignment: .top, spacing: Metrics.spacing) {
+          ForEach(items) { item in
+            cell(item)
+              #if os(tvOS)
+                .focused($focused, equals: item.id)
+              #endif
+          }
+        }
+        .padding(.horizontal, Metrics.gutter)
       }
       .scrollClipDisabled()
     }
     #if os(tvOS)
       // Up and down move between shelves even when nothing sits directly above or below,
-      // as with a short shelf under the Play button.
+      // as with a short shelf under the Play button, and always arrive at the first item.
       .focusSection()
+      .defaultFocus($focused, items.first?.id, priority: .userInitiated)
     #endif
   }
 }
@@ -462,6 +537,10 @@ private struct ContinueCard: View {
       Spacer(minLength: 0)
     }
     .padding(40)
+    #if os(tvOS)
+      // Up from any shelf reaches the Play button, wherever it sits across the card.
+      .focusSection()
+    #endif
     .background {
       // Dark enough that light artwork (a mostly white poster) doesn't wash the card out grey.
       Artwork(seed: item.artID).blur(radius: 70)
@@ -481,6 +560,17 @@ struct SectionGrid: View {
   @Environment(Store.self) private var store
   let section: LibrarySection
   let zoom: Namespace.ID
+  /// Apple TV's focused grid item; unused elsewhere.
+  @FocusState private var focused: String?
+
+  /// The grid's first item, where focus lands coming down from the bar.
+  private var firstID: String? {
+    switch section {
+    case .movies: store.movies.first?.id
+    case .shows: store.shows.first?.id
+    case .sets: store.sets.first?.id
+    }
+  }
 
   var body: some View {
     LibraryPage(
@@ -502,6 +592,7 @@ struct SectionGrid: View {
               PosterCell(seed: movie.id, title: movie.title, watchID: movie.id)
             }
             .artworkButton()
+            .gridFocus($focused, movie.id)
             .zoomSource(movie.id, in: zoom)
           }
         }
@@ -510,6 +601,7 @@ struct SectionGrid: View {
           ForEach(store.shows) { show in
             NavigationLink(value: show) { PosterCell(seed: show.id, title: show.title) }
               .artworkButton()
+              .gridFocus($focused, show.id)
               .zoomSource(show.id, in: zoom)
           }
         }
@@ -523,6 +615,7 @@ struct SectionGrid: View {
               WideCell(seed: set.id, title: set.djLine, detail: set.title, watchID: set.id)
             }
             .artworkButton()
+            .gridFocus($focused, set.id)
             .zoomSource(set.id, in: zoom)
           }
         }
@@ -530,10 +623,28 @@ struct SectionGrid: View {
     }
     .padding(.horizontal, Metrics.gutter)
     .padding(.vertical, Metrics.spacing)
+    #if os(tvOS)
+      // Coming down from the bar lands on the first item, not whichever sits under the tab.
+      .focusSection()
+      .defaultFocus($focused, firstID, priority: .userInitiated)
+    #endif
   }
 
   private var posterColumns: [GridItem] {
     [GridItem(.adaptive(minimum: Metrics.poster * 0.84), spacing: Metrics.spacing)]
+  }
+}
+
+extension View {
+  /// Apple TV tracks which grid item has focus, so focus arriving from the bar can pick the first.
+  @ViewBuilder fileprivate func gridFocus(_ focused: FocusState<String?>.Binding, _ id: String)
+    -> some View
+  {
+    #if os(tvOS)
+      self.focused(focused, equals: id)
+    #else
+      self
+    #endif
   }
 }
 
