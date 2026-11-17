@@ -96,17 +96,16 @@ final class DuoScreenshotTests: XCTestCase {
     let shots = try JSONDecoder().decode([CaptureShot].self, from: data)
     let app = XCUIApplication()
     app.launchArguments = ["--demo", "--screenshots", "-accentColor", "Graphite"]
-    var launched = false
     for pose in canFold ? ["inner", "outer"] : ["default"] {
+      // Release shots need each display, not the live hand-off between them
+      // (testLiveFoldPreservesNavigationAndDraft covers that). Folding a running
+      // app on hosted CI can leave SpringBoard mid-transition with the outer
+      // display black and taps ignored, so launch fresh on each display.
+      if app.state != .notRunning { app.terminate() }
       if canFold { try request("pose", name: pose) }
-      if !launched {
-        try orient(.portrait)
-        app.launch()
-        XCTAssertTrue(app.buttons["logDose"].waitForExistence(timeout: 15))
-        launched = true
-      } else {
-        app.activate()
-      }
+      try orient(.portrait)
+      app.launch()
+      XCTAssertTrue(app.buttons["logDose"].waitForExistence(timeout: 15))
       if canFold {
         let targetArea: CGFloat = pose == "inner" ? 669 * 951 : 466 * 678
         waitUntil("Capture must use the full native \(pose) window", timeout: 45) {

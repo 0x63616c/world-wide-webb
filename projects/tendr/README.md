@@ -50,7 +50,7 @@ From the repository root on macOS with the Duo simulator installed:
 DEVELOPER_DIR=/Applications/Xcode_27.2.app/Contents/Developer scripts/capture-duo-screenshots.sh tendr
 ```
 
-Release capture uses one app session for the five configured shots on each Duo display, switching appearance in place. Interaction and rotation tests run separately. Device Hub operates on the hosted runner so capture does not take over a developer’s desktop. See [Duo validation](docs/DUO.md) for display detection, raw captures and the native resize checklist.
+Release capture launches the app fresh on each Duo display and takes the five configured shots there, switching appearance in place. Interaction and rotation tests run separately. Device Hub operates on the hosted runner so capture does not take over a developer’s desktop. See [Duo validation](docs/DUO.md) for display detection, raw captures and the native resize checklist.
 
 ## Monorepo
 
