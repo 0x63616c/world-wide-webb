@@ -2,6 +2,10 @@
 import Observation
 import SwiftUI
 
+#if os(tvOS)
+  import TVServices
+#endif
+
 struct Movie: Identifiable, Hashable {
   let id: String
   let title: String
@@ -105,6 +109,13 @@ enum ContinueItem: Identifiable, Hashable {
     case .set(let set): set.id
     }
   }
+  var hasArt: Bool {
+    switch self {
+    case .movie(let movie): movie.hasArt
+    case .episode(let show, _): show.hasArt
+    case .set(let set): set.hasArt
+    }
+  }
   /// The item whose artwork represents this one (a show for its episodes).
   var artID: String {
     switch self {
@@ -134,6 +145,35 @@ enum ContinueItem: Identifiable, Hashable {
     case .set(let set): set.minutes
     }
   }
+}
+
+/// `tapes://open/<id>` shows an item's page and `tapes://play/<id>` plays it. Top Shelf uses both.
+enum DeepLink: Hashable {
+  case open(String)
+  case play(String)
+
+  init?(_ url: URL) {
+    guard url.scheme == "tapes", let id = url.pathComponents.dropFirst().first else { return nil }
+    switch url.host() {
+    case "open": self = .open(id)
+    case "play": self = .play(id)
+    default: return nil
+    }
+  }
+
+  var url: URL {
+    switch self {
+    case .open(let id): URL(string: "tapes://open/\(id)")!
+    case .play(let id): URL(string: "tapes://play/\(id)")!
+    }
+  }
+}
+
+/// A page a link asks to show; Home pushes it.
+enum LinkedPage: Hashable {
+  case movie(Movie)
+  case show(Show)
+  case set(DJSet)
 }
 
 func minutesOf(_ seconds: Double) -> Int { max(1, Int((seconds / 60).rounded())) }
@@ -178,6 +218,10 @@ final class Store {
   /// Running time of every playable item, for turning positions into fractions.
   private var durations: [String: Double] = [:]
   var nowPlaying: Playable?
+  /// The page a `tapes://open` link asked for, waiting for Home to show it.
+  var linkedPage: LinkedPage?
+  /// A link that arrived before the library loaded.
+  private var pendingLink: DeepLink?
 
   init(server: Server = Server()) {
     self.server = server
@@ -188,6 +232,7 @@ final class Store {
     do {
       apply(try await server.library())
       phase = .ready
+      if let link = pendingLink { open(link) }
     } catch is LibraryUnreadable {
       if phase != .ready { phase = .unreadable }
     } catch {
@@ -288,6 +333,9 @@ final class Store {
     var value = value
     value.updatedAt = ISO8601DateFormatter().string(from: .now)
     progress[id] = value
+    #if os(tvOS)
+      TVTopShelfContentProvider.topShelfContentDidChange()
+    #endif
     let server = server
     Task {
       do { try await server.saveProgress(id, value) } catch {
@@ -386,6 +434,39 @@ final class Store {
       return next < show.episodes.count ? playable(show.episodes[next], in: show) : nil
     }
     return nil
+  }
+
+  /// Follows a `tapes://` link once the library has loaded; until then it waits.
+  func open(_ link: DeepLink) {
+    guard phase == .ready else {
+      pendingLink = link
+      return
+    }
+    pendingLink = nil
+    switch link {
+    case .open(let id):
+      if let movie = movies.first(where: { $0.id == id }) {
+        linkedPage = .movie(movie)
+      } else if let set = sets.first(where: { $0.id == id }) {
+        linkedPage = .set(set)
+      } else if let show = shows.first(where: {
+        $0.id == id || $0.episodes.contains { $0.id == id }
+      }) {
+        linkedPage = .show(show)
+      }
+    case .play(let id):
+      if let movie = movies.first(where: { $0.id == id }) {
+        play(movie)
+      } else if let set = sets.first(where: { $0.id == id }) {
+        play(set)
+      } else {
+        for show in shows {
+          if let episode = show.episodes.first(where: { $0.id == id }) {
+            return play(episode, in: show)
+          }
+        }
+      }
+    }
   }
 
   func play(_ item: ContinueItem) {

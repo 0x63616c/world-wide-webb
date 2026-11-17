@@ -2,6 +2,18 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<!-- tapes://open/<id> and tapes://play/<id>, used by the Apple TV Top Shelf. -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>co.worldwidewebb.tapes</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>tapes</string>
+			</array>
+		</dict>
+	</array>
 	<!-- The server is plain HTTP on the home network (homelab-mac-mini.local). -->
 	<key>NSAppTransportSecurity</key>
 	<dict>

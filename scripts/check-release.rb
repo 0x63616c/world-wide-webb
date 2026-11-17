@@ -147,6 +147,42 @@ unless build[:export_options][:provisioningProfiles] ==
   raise "CI export signing"
 end
 
+# An app with an extension signs each target with its own profile.
+check.calls.clear
+app_profile = "11111111-1111-1111-1111-111111111111"
+shelf_profile = "22222222-2222-2222-2222-222222222222"
+ENV["R_PROFILE_UUID"] = app_profile
+ENV["R_PROFILE_UUIDS"] =
+  "co.worldwidewebb.tapes=#{app_profile},co.worldwidewebb.tapes.TopShelf=#{shelf_profile}"
+check.define_singleton_method(:update_code_signing_settings) do |**args|
+  @calls << [:signing, args]
+end
+check.beta({ app: "tapes", platform: "tvos", skip_tests: true })
+signed =
+  check.calls.select { |call| call.first == :signing }.to_h do |_, args|
+    [args[:targets], [args[:bundle_identifier], args[:profile_name]]]
+  end
+unless signed ==
+         {
+           ["Tapes-tvOS"] => ["co.worldwidewebb.tapes", app_profile],
+           ["Tapes-TopShelf"] => ["co.worldwidewebb.tapes.TopShelf", shelf_profile]
+         }
+  raise "extension signing"
+end
+build = check.calls.assoc(:build).last
+if build[:xcargs].include?("PROVISIONING_PROFILE_SPECIFIER")
+  raise "one profile for every target"
+end
+unless build[:export_options][:provisioningProfiles] ==
+         {
+           "co.worldwidewebb.tapes" => app_profile,
+           "co.worldwidewebb.tapes.TopShelf" => shelf_profile
+         }
+  raise "extension export signing"
+end
+ENV.delete("R_PROFILE_UUIDS")
+ENV["R_PROFILE_UUID"] = profile_uuid
+
 check.calls.clear
 check.fail_tests = true
 begin

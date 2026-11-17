@@ -71,9 +71,32 @@ targets:
     platform: tvOS
     sources:
       - Resources/TV.xcassets
+    dependencies:
+      - target: Tapes-TopShelf
     settings:
       base:
         ASSETCATALOG_COMPILER_APPICON_NAME: App Icon & Top Shelf Image
+  # Continue Watching on the Apple TV Top Shelf. Shares the app's server and library code.
+  Tapes-TopShelf:
+    type: tv-app-extension
+    platform: tvOS
+    sources:
+      - TopShelf/ContentProvider.swift
+      - Sources/Library.swift
+      - Sources/Server.swift
+      - path: TopShelf/Info.plist
+        buildPhase: none
+    dependencies:
+      - package: TapesAPI
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: co.worldwidewebb.tapes.TopShelf
+        PRODUCT_NAME: TapesTopShelf
+        INFOPLIST_FILE: TopShelf/Info.plist
+        INFOPLIST_KEY_CFBundleDisplayName: Tapes
+        SKIP_INSTALL: YES
+        # The system calls the provider off the main thread, so the shared library code is not main-actor here.
+        SWIFT_DEFAULT_ACTOR_ISOLATION: nonisolated
 schemes:
   Tapes:
     build:
