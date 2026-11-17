@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
   "sourceRepository": "0x63616c/world-wide-webb",
-  "sourceRevision": "d7e70f962c7404546e35f47279718f05437da10e",
-  "image": "ghcr.io/0x63616c/www-tapes@sha256:e8ce9f0bb7868d675df529dc86d092b57ed8b9a7f861b10300576c02333ececf"
+  "sourceRevision": "e8ab656e63c7a8df92865de8387c02c5c5a4eda0",
+  "image": "ghcr.io/0x63616c/www-tapes@sha256:aa97506e0eaac1c77a840ae3f064e36d181bda5bb81b5fd18ab9e660e8be9b5d"
 }
