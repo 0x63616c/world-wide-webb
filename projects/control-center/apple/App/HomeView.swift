@@ -639,7 +639,9 @@ private struct CautionTapeWindow: UIViewRepresentable {
         anchor.isUserInteractionEnabled = false
         return anchor
     }
-    func updateUIView(_ anchor: Anchor, context: Context) { anchor.update(cornerRadius: cornerRadius, enabled: enabled) }
+    func updateUIView(_ anchor: Anchor, context: Context) {
+        anchor.update(cornerRadius: cornerRadius, enabled: enabled)
+    }
     static func dismantleUIView(_ anchor: Anchor, coordinator: ()) { anchor.tearDown() }
 
     final class Anchor: UIView {
