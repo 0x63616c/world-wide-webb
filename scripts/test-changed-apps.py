@@ -119,4 +119,8 @@ with tempfile.TemporaryDirectory(prefix="affected-") as directory:
         ["scripts/affected", "HEAD", "--intent", "ship", "--force"], cwd=root, capture_output=True, text=True
     )
     assert rejected.returncode != 0 and "verification-only" in rejected.stderr
+    # A shared package ships the apps that embed it, and only those.
+    change("projects/tapes/app.yml", "testflight: true\ndelivery_handler: standard_ios\n")
+    expect(change("packages/StudioSplash/Sources/StudioSplash/Splash.swift"), ["tapes"], ["tapes"])
+    expect(change("packages/StudioSplash/Tests/StudioSplashTests/SplashTests.swift"), ["tapes"])
 print("Impact fixtures passed (both intents, tooling, docs, metadata, moves, handlers and base fallbacks).")

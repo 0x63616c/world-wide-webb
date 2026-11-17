@@ -113,7 +113,11 @@ def main():
         # repository unit selector and their own build/release state machines.
         if config.get("delivery_handler") != "standard_ios":
             continue
-        direct = any(path.startswith(f"projects/{app}/") for path in files)
+        # A shared package (packages/) counts as the app's own code when the app's unit lists
+        # it, so a splash fix ships the apps that embed the splash and nothing else.
+        direct = any(path.startswith(f"projects/{app}/") for path in files) or (
+            any(path.startswith("packages/") for path in files) and f"{app}.native" in selected["verify"]
+        )
         if args.intent == "ship":
             chosen = config.get("testflight") is True and f"{app}.native" in selected["delivery_candidates"] and direct
         elif args.intent == "preview":

@@ -22,7 +22,7 @@ the wave; the bar keeps moving because it is the loading indicator.
 
 ## Sheets for other apps
 
-Everything lives in `Sources/StudioSplash/Resources` as plain PNG and JSON, so a game or web app
+Everything lives in `Sources/StudioSplash/Sheets` as plain PNG and JSON, so a game or web app
 can load it without Swift:
 
 - `globe.png`: 8 frames of 41 × 41 in a row, 8 fps. Rows 0 and 40 are empty.

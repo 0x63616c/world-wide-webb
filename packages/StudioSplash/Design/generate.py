@@ -19,7 +19,7 @@ from pathlib import Path
 from PIL import Image
 
 DESIGN = Path(__file__).resolve().parent
-OUT = DESIGN.parent / "Sources" / "StudioSplash" / "Resources"
+OUT = DESIGN.parent / "Sources" / "StudioSplash" / "Sheets"
 ASEPRITE = shutil.which("aseprite") or "/Applications/Aseprite.app/Contents/MacOS/aseprite"
 
 WHITE = (235, 237, 233, 255)
