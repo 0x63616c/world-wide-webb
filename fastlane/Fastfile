@@ -392,7 +392,8 @@ platform :ios do
       # profile is set per target instead of once for the whole build.
       extensions = app.fetch("extensions", {}).fetch(platform, {})
       profiles = { app["bundle_id"] => profile_uuid }
-      xcargs += " CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY='Apple Distribution'"
+      xcargs +=
+        " CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY='Apple Distribution'"
       if extensions.empty?
         xcargs +=
           " PROVISIONING_PROFILE_SPECIFIER=#{Shellwords.escape(profile_uuid)}"
