@@ -23,7 +23,7 @@ permissions:
 jobs:
   screenshots:
     runs-on: xcode-27
-    timeout-minutes: 60
+    timeout-minutes: 90
     env:
       DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
       APP: ${{ inputs.app }}
@@ -36,7 +36,7 @@ jobs:
           ruby-version: "3.4"
           bundler-cache: true
       - name: Capture, frame and stage App Store screenshots
-        timeout-minutes: 40
+        timeout-minutes: 75
         run: scripts/ci/apple-desktop.sh bundle exec fastlane ios screenshots app:"$APP"
       - name: Summary
         run: |

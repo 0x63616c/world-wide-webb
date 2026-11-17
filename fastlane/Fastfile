@@ -388,6 +388,10 @@ platform :ios do
           reinstall_app: true,
           app_identifier: app["bundle_id"],
           stop_after_first_error: true,
+          # One simulator at a time: hosted runners are too slow for two at once.
+          # No retry, so a failure keeps its result bundle.
+          concurrent_simulators: false,
+          number_of_retries: 0,
           skip_open_summary: true,
           result_bundle: true
         )
