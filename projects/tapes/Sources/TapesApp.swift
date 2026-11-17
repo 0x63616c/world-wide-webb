@@ -16,11 +16,14 @@ struct TapesApp: App {
     WindowGroup {
       RootView()
         #if os(macOS)
-          .frame(minWidth: 960, minHeight: 640)
+          // The narrowest window that still fits the icon-only bar beside the back button.
+          .frame(minWidth: 560, minHeight: 400)
         #endif
     }
     #if os(macOS)
       .defaultSize(width: 1280, height: 820)
+      // The window stops at the page's minimum size instead of cropping the page.
+      .windowResizability(.contentMinSize)
     #endif
   }
 }
@@ -93,11 +96,18 @@ struct RootView: View {
     .onOpenURL { url in
       if let link = DeepLink(url) { store.open(link) }
     }
-    .onChange(of: scenePhase) { _, phase in
-      // Pick up imports and progress saved on other devices.
-      if phase == .active && store.phase == .ready && store.nowPlaying == nil {
+    // Pick up imports and progress saved on other devices: on coming back to the app, then
+    // every minute while it's open. Not while something plays, and not before the first load.
+    .task(id: scenePhase) {
+      guard scenePhase == .active else { return }
+      if store.phase == .ready && store.nowPlaying == nil {
         ImageCache.shared.retryFailures()
-        Task { await store.load() }
+        await store.load()
+      }
+      while true {
+        try? await Task.sleep(for: .seconds(60))
+        if Task.isCancelled { return }
+        if store.phase == .ready && store.nowPlaying == nil { await store.load() }
       }
     }
   }

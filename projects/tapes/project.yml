@@ -49,6 +49,9 @@ targets:
       - path: Resources/AppIcon.icon
         type: file
         buildPhase: resources
+      - path: Resources/AppIconDev.icon
+        type: file
+        buildPhase: resources
     settings:
       base:
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
@@ -56,11 +59,18 @@ targets:
         INFOPLIST_KEY_UISupportedInterfaceOrientations: "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+      configs:
+        # Local builds wear a red DEV banner; TestFlight and the App Store build Release.
+        Debug:
+          ASSETCATALOG_COMPILER_APPICON_NAME: AppIconDev
   Tapes-macOS:
     templates: [App]
     platform: macOS
     sources:
       - path: Resources/AppIcon.icon
+        type: file
+        buildPhase: resources
+      - path: Resources/AppIconDev.icon
         type: file
         buildPhase: resources
     settings:
@@ -69,6 +79,10 @@ targets:
         ENABLE_APP_SANDBOX: YES
         ENABLE_OUTGOING_NETWORK_CONNECTIONS: YES
         ENABLE_HARDENED_RUNTIME: YES
+      configs:
+        # Local builds wear a red DEV banner; TestFlight and the App Store build Release.
+        Debug:
+          ASSETCATALOG_COMPILER_APPICON_NAME: AppIconDev
   Tapes-tvOS:
     templates: [App]
     platform: tvOS

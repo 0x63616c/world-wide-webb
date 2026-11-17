@@ -57,6 +57,8 @@ pub struct Info {
     pub date: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub seconds: Option<f64>,
+    /// Set by `tapes import`: the resolution ("4K", "1080p", "720p" or "SD") first, then any
+    /// of "HDR", "Dolby Vision" and "Atmos".
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub badges: Vec<String>,
 }
