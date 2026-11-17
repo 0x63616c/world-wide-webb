@@ -101,18 +101,7 @@ final class DuoScreenshotTests: XCTestCase {
       // (testLiveFoldPreservesNavigationAndDraft covers that). Folding a running
       // app on hosted CI can leave SpringBoard mid-transition with the outer
       // display black and taps ignored, so launch fresh on each display.
-      if app.state != .notRunning { app.terminate() }
-      if canFold { try request("pose", name: pose) }
-      try orient(.portrait)
-      app.launch()
-      XCTAssertTrue(app.buttons["logDose"].waitForExistence(timeout: 15))
-      if canFold {
-        let targetArea: CGFloat = pose == "inner" ? 669 * 951 : 466 * 678
-        waitUntil("Capture must use the full native \(pose) window", timeout: 45) {
-          let size = app.windows.firstMatch.frame.size
-          return abs(size.width * size.height - targetArea) < targetArea * 0.01
-        }
-      }
+      try launch(app, on: pose)
       var appearance: String?
       for shot in shots {
         if appearance != shot.appearance {
@@ -295,6 +284,37 @@ final class DuoScreenshotTests: XCTestCase {
     }
     app.buttons["Cancel"].tap()
     assertNavigation(for: "outer", in: app)
+  }
+
+  /// Device Hub acknowledges a pose click without confirming the fold, and on
+  /// hosted CI a click is occasionally ignored. The window size proves the
+  /// active display, so verify it and re-select the pose before failing.
+  @MainActor private func launch(_ app: XCUIApplication, on pose: String) throws {
+    let targetArea: CGFloat = pose == "inner" ? 669 * 951 : 466 * 678
+    func onTarget() -> Bool {
+      let size = app.windows.firstMatch.frame.size
+      return abs(size.width * size.height - targetArea) < targetArea * 0.01
+    }
+    let attempts = canFold ? 3 : 1
+    for attempt in 1...attempts {
+      if app.state != .notRunning { app.terminate() }
+      if canFold {
+        // Toggle away first so a retry is a real change, not a repeated click.
+        if attempt > 1 { try request("pose", name: pose == "inner" ? "outer" : "inner") }
+        try request("pose", name: pose)
+      }
+      try orient(.portrait)
+      app.launch()
+      XCTAssertTrue(app.buttons["logDose"].waitForExistence(timeout: 15))
+      guard canFold else { return }
+      let deadline = Date().addingTimeInterval(attempt == attempts ? 45 : 20)
+      while !onTarget() && Date() < deadline {
+        RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+      }
+      if onTarget() { return }
+    }
+    XCTFail("Capture must use the full native \(pose) window after \(attempts) pose attempts")
+    throw NSError(domain: "DuoCapture", code: 3)
   }
 
   @MainActor private func launchFixture() -> XCUIApplication {
