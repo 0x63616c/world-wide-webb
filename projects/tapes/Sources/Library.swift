@@ -86,6 +86,8 @@ struct Playable: Identifiable, Hashable {
   let id: String
   let title: String
   let subtitle: String
+  /// The item whose artwork the player shows (a show for its episodes); nil when there is none.
+  let artID: String?
 }
 
 enum ContinueItem: Identifiable, Hashable {
@@ -321,16 +323,33 @@ final class Store {
 
   func play(_ movie: Movie) {
     nowPlaying = Playable(
-      id: movie.id, title: movie.title, subtitle: movie.year.map(String.init) ?? "")
+      id: movie.id, title: movie.title, subtitle: movie.year.map(String.init) ?? "",
+      artID: movie.hasArt ? movie.id : nil)
   }
 
   func play(_ episode: Episode, in show: Show) {
-    nowPlaying = Playable(
-      id: episode.id, title: episode.title, subtitle: "\(show.title) · \(episode.code)")
+    nowPlaying = playable(episode, in: show)
   }
 
   func play(_ set: DJSet) {
-    nowPlaying = Playable(id: set.id, title: set.djLine, subtitle: set.title)
+    nowPlaying = Playable(
+      id: set.id, title: set.djLine, subtitle: set.title, artID: set.hasArt ? set.id : nil)
+  }
+
+  private func playable(_ episode: Episode, in show: Show) -> Playable {
+    Playable(
+      id: episode.id, title: episode.title, subtitle: "\(show.title) · \(episode.code)",
+      artID: show.hasArt ? show.id : nil)
+  }
+
+  /// What plays automatically when `id` finishes: the show's next episode. Movies and sets stop.
+  func playable(after id: String) -> Playable? {
+    for show in shows {
+      guard let index = show.episodes.firstIndex(where: { $0.id == id }) else { continue }
+      let next = show.episodes.index(after: index)
+      return next < show.episodes.count ? playable(show.episodes[next], in: show) : nil
+    }
+    return nil
   }
 
   func play(_ item: ContinueItem) {
