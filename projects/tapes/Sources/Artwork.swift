@@ -189,6 +189,9 @@ struct PosterCell: View {
       .modifier(WatchOverlay(id: watchID))
       .clipShape(.rect(cornerRadius: Metrics.corner))
       .focusLift()
+      // The artwork has no text of its own, so VoiceOver would otherwise read only "Selected".
+      .accessibilityElement(children: .ignore)
+      .accessibilityLabel(title)
   }
 }
 
