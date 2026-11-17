@@ -128,7 +128,9 @@ class StatefulActivationTests(unittest.TestCase):
                 with self.assertRaisesRegex(RuntimeError, "injected"):
                     self.run_transaction(fail=phase)
                 self.assertEqual(self.events, events)
-                self.assertEqual(json.loads((self.root / "transaction").read_text())["phase"], phase)
+                journal = json.loads((self.root / "transaction").read_text())
+                self.assertEqual(journal["phase"], phase)
+                self.assertIn("failedAt", journal)
                 self.assertFalse((self.root / "last-success.json").exists())
 
     def test_verified_backup_stage_can_be_released_without_losing_its_journal(self):

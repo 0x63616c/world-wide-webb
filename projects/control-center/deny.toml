@@ -2,6 +2,12 @@
 all-features = true
 
 [advisories]
+# chrono and chrono-tz were declared unmaintained (not vulnerable) in Nov 2026; the
+# server-wide move to jiff is tracked in #1138. Remove these once it lands.
+ignore = [
+  { id = "RUSTSEC-2026-0543", reason = "chrono unmaintained; jiff migration tracked" },
+  { id = "RUSTSEC-2026-0555", reason = "chrono-tz unmaintained; jiff migration tracked" },
+]
 
 [licenses]
 allow = [

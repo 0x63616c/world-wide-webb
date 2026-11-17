@@ -112,6 +112,12 @@ struct LauncherGlassSurface: View {
     }
 }
 
+/// A notification can ask Home to open Settings on a specific page.
+@MainActor @Observable final class PanelSettingsRoute {
+    static let shared = PanelSettingsRoute()
+    var diagnosticsRequested = false
+}
+
 struct PanelSettingsPage: View {
     let back: () -> Void
     @Environment(\.homeIntegration) private var integration
@@ -186,6 +192,11 @@ struct PanelSettingsPage: View {
                 PanelEventLog.shared.record(
                     category: "navigation", action: "settings.\(page.rawValue.lowercased()).open")
             }
+        }
+        .onChange(of: PanelSettingsRoute.shared.diagnosticsRequested, initial: true) { _, requested in
+            guard requested else { return }
+            PanelSettingsRoute.shared.diagnosticsRequested = false
+            selection = .diagnostics
         }
         .task {
             #if DEBUG

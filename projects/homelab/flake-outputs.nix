@@ -52,6 +52,7 @@ let
         ./modules/operations.nix
         ./modules/backups.nix
         ./modules/health.nix
+        ./modules/host-status.nix
         ./modules/monitoring.nix
         (./hosts + "/${name}.nix")
       ];

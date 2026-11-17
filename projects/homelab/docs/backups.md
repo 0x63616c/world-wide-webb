@@ -75,6 +75,17 @@ not block ordinary application activation after local acceptance. Shared storage
 changes still wait for their own transaction's off-host point. Independent sets can
 publish even if an older set fails. `publication-status.json` records pending count,
 oldest capture and last scan failures; inspect it alongside launchd exit status.
+It also records the NAS state (`ok`/`failing`, first failure time and a short reason
+that separates a rejected login, an auto-blocked address and an unreachable NAS).
+Backup jobs append failures to `/var/lib/_containers/backup.log`, rotated by newsyslog.
+
+`homelab-host-status` (root, every minute) copies that NAS state, a stopped deploy
+(the activation journal's `failedAt` phase or a rejected image pull) and redacted
+500-line log tails (every container except Hindsight, deploys, backups, Colima) into
+`/var/lib/_containers/host-status`. Control Center mounts it read-only, serves it at
+`/api/v1/host/status` and `/api/v1/host/logs`, shows a persistent "NAS unavailable"
+or "Mini updates paused" notice after 15 minutes, and lists the logs in Diagnostics.
+Redaction strips query strings, Bearer/Basic values and `token=`/`password=`-style values.
 
 Transaction-scoped sets live under `backups/deployment/` and the matching NAS
 `/Homelab/backups/<host>/deployment/` namespace. They do not displace the seven full

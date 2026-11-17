@@ -1,9 +1,11 @@
 import Foundation
 
-/// Presentation order deliberately leaves the inbox's priority grouping unchanged.
+/// Presentation order deliberately leaves the inbox's priority grouping unchanged,
+/// except that Homelab notices stay on top so newer alerts never bury them.
 enum NotificationBannerStack {
     static func ordered(_ groups: [NotificationGroup]) -> [NotificationItem] {
         groups.flatMap(\.items).sorted {
+            if $0.isPersistentHost != $1.isPersistentHost { return $0.isPersistentHost }
             if $0.createdAt != $1.createdAt { return $0.createdAt > $1.createdAt }
             return $0.id < $1.id
         }

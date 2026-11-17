@@ -52,6 +52,7 @@ struct PanelRoot: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var session: PanelSession
     @State private var updateChecker: UpdateChecker
+    @State private var hostStatus: HostStatusChecker
     @State private var notifications: NotificationCenter
     @State private var store: LiveHomeDataSource
     @State private var navigation = PanelNavigation()
@@ -63,6 +64,8 @@ struct PanelRoot: View {
         _notifications = State(initialValue: center)
         _updateChecker = State(
             initialValue: UpdateChecker.live(configuration: PanelConfiguration(), notifications: center))
+        _hostStatus = State(
+            initialValue: HostStatusChecker.live(configuration: PanelConfiguration(), notifications: center))
         #if DEBUG
             if ProcessInfo.processInfo.arguments.contains("-hybridFixtures") {
                 // Fixture transport keeps launch tests off the live server.
@@ -291,12 +294,21 @@ struct PanelRoot: View {
             guard scenePhase == .active else { return }
             await updateChecker.run()
         }
+        .task(id: scenePhase) {
+            guard scenePhase == .active else { return }
+            await hostStatus.run()
+        }
         .environment(notifications)
         .modifier(PanelTimeZoneEnvironment())
         .onAppear {
             notifications.setOpenHandler { [store, session, navigation, timer] item in
                 if item.deepLink == PanelNotifications.timerDeepLink {
                     Self.openTimer(timer: timer, navigation: navigation)
+                    return true
+                }
+                if item.deepLink == PanelNotificationLinks.diagnostics {
+                    if !navigation.showingHome { navigation.returnHome() }
+                    PanelSettingsRoute.shared.diagnosticsRequested = true
                     return true
                 }
                 return PanelNotifications.open(item, store: store, navigation: navigation)

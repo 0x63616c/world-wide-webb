@@ -1442,3 +1442,101 @@ async fn tesla_history_reads_discovered_odometer_statistics_and_converts_km() {
     assert!((body["points"][0]["miles"].as_f64().unwrap() - 10000.0).abs() < 0.001);
     task.await.unwrap();
 }
+async fn host_fixture(dir: &std::path::Path) -> Router {
+    let db = storage::open(&dir.join("test.sqlite")).await.unwrap();
+    let mut state = AppState::new(db, dir.join("media"));
+    state.config = std::sync::Arc::new(www_server::config::Config {
+        host_dir: Some(dir.join("host")),
+        ..Default::default()
+    });
+    http::router(state)
+}
+#[tokio::test]
+async fn host_status_reports_homelab_checks_and_staleness() {
+    let dir = tempfile::tempdir().unwrap();
+    let app = host_fixture(dir.path()).await;
+    let (status, body) = call(&app, "GET", "/api/v1/host/status", Value::Null).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["stale"], true);
+    assert_eq!(body["nas"]["state"], "unknown");
+    std::fs::create_dir_all(dir.path().join("host")).unwrap();
+    let write = |updated: chrono::DateTime<chrono::Utc>, nas_state: &str| {
+        std::fs::write(
+            dir.path().join("host/status.json"),
+            json!({
+                "format": 1,
+                "updatedAt": updated,
+                "nas": {"state": nas_state, "since": "2026-11-17T01:00:00Z", "reason": "The NAS rejected the Mini’s login"},
+                "deploy": {"state": "blocked", "since": "2026-11-17T01:05:00Z", "reason": "The backup step failed"},
+            })
+            .to_string(),
+        )
+        .unwrap();
+    };
+    write(chrono::Utc::now(), "failing");
+    let (_, body) = call(&app, "GET", "/api/v1/host/status", Value::Null).await;
+    assert_eq!(body["stale"], false);
+    assert_eq!(body["nas"]["state"], "failing");
+    assert_eq!(body["nas"]["reason"], "The NAS rejected the Mini’s login");
+    assert_eq!(body["deploy"]["state"], "blocked");
+    write(
+        chrono::Utc::now() - chrono::Duration::minutes(10),
+        "failing",
+    );
+    assert_eq!(
+        call(&app, "GET", "/api/v1/host/status", Value::Null)
+            .await
+            .1["stale"],
+        true
+    );
+    write(chrono::Utc::now(), "on-fire");
+    let (_, body) = call(&app, "GET", "/api/v1/host/status", Value::Null).await;
+    assert_eq!(
+        (body["stale"].clone(), body["nas"]["state"].clone()),
+        (json!(true), json!("unknown"))
+    );
+}
+#[tokio::test]
+async fn host_logs_list_and_tail_only_exported_sources() {
+    let dir = tempfile::tempdir().unwrap();
+    let app = host_fixture(dir.path()).await;
+    assert_eq!(
+        call(&app, "GET", "/api/v1/host/logs", Value::Null).await.1,
+        json!({"sources": []})
+    );
+    let logs = dir.path().join("host/logs");
+    std::fs::create_dir_all(&logs).unwrap();
+    let lines: Vec<String> = (0..600).map(|n| format!("line {n}")).collect();
+    std::fs::write(logs.join("deploy.log"), lines.join("\n")).unwrap();
+    std::fs::write(logs.join("www-control-center-www-1.log"), "error: boom\n").unwrap();
+    std::fs::write(logs.join("Not Allowed.log"), "x").unwrap();
+    std::fs::write(dir.path().join("host/status.json"), "{}").unwrap();
+    let (status, body) = call(&app, "GET", "/api/v1/host/logs", Value::Null).await;
+    assert_eq!(status, StatusCode::OK);
+    let names: Vec<&str> = body["sources"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|s| s["name"].as_str().unwrap())
+        .collect();
+    assert_eq!(names, ["deploy", "www-control-center-www-1"]);
+    let (status, body) = call(&app, "GET", "/api/v1/host/logs/deploy", Value::Null).await;
+    assert_eq!(status, StatusCode::OK);
+    let tail = body["lines"].as_array().unwrap();
+    assert_eq!(tail.len(), 500);
+    assert_eq!(
+        (tail[0].clone(), tail[499].clone()),
+        (json!("line 100"), json!("line 599"))
+    );
+    for path in [
+        "/api/v1/host/logs/missing",
+        "/api/v1/host/logs/..%2Fstatus",
+        "/api/v1/host/logs/Not%20Allowed",
+    ] {
+        assert_eq!(
+            call(&app, "GET", path, Value::Null).await.0,
+            StatusCode::NOT_FOUND,
+            "{path}"
+        );
+    }
+}

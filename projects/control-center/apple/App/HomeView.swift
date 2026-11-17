@@ -287,6 +287,11 @@ struct HomeView: View {
             try? await Task.sleep(for: .seconds(3))
             dismissSplash()
         }
+        .onChange(of: PanelSettingsRoute.shared.diagnosticsRequested, initial: true) { _, requested in
+            // Settings consumes the request once it is on screen.
+            guard requested, selected?.route != .settings, let app = catalog.app(id: "settings") else { return }
+            open(app)
+        }
         .onChange(of: timer.openRequested, initial: true) { _, requested in
             guard requested, let app = catalog.app(id: "timer") else { return }
             timer.openRequested = false

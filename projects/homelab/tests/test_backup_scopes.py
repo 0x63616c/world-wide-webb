@@ -301,3 +301,24 @@ class TransactionPublicationTests(unittest.TestCase):
         self.assertIsInstance(error, RuntimeError)
         self.assertEqual(sleep.call_count, attempts - 1)
         self.assertIn("NasApiError (NAS SYNO.API.Auth.login error 119)", logged)
+        nas = json.loads((self.root / "publication-status.json").read_text())["nas"]
+        self.assertEqual((nas["state"], nas["reason"]), ("failing", "The NAS rejected the Mini’s login"))
+
+    def test_nas_state_keeps_first_failure_time_and_clears_on_success(self):
+        failing = backup.nas_state(None, True, "The Mini can’t reach the NAS", "t1")
+        self.assertEqual(failing, {"state": "failing", "since": "t1", "reason": "The Mini can’t reach the NAS"})
+        self.assertEqual(backup.nas_state(failing, True, "The Mini can’t reach the NAS", "t2")["since"], "t1")
+        self.assertEqual(backup.nas_state(failing, False, None, "t2"), failing)
+        self.assertEqual(backup.nas_state(failing, True, None, "t3"), {"state": "ok", "since": "t3"})
+
+    def test_nas_failure_reasons_distinguish_login_from_reachability(self):
+        def api(code, operation="SYNO.API.Auth.login"):
+            error = RuntimeError(f"NAS {operation} error {code}")
+            error.code = code
+            return error
+
+        self.assertIn("blocked", backup.nas_failure(api(407)))
+        self.assertEqual(backup.nas_failure(api(400)), "The NAS rejected the Mini’s login")
+        self.assertEqual(backup.nas_failure(TimeoutError()), "The Mini can’t reach the NAS")
+        self.assertEqual(backup.nas_failure(RuntimeError("NAS HTTP status 502")), "Uploads to the NAS are failing")
+        self.assertIsNone(backup.nas_failure(ValueError("Unsafe backup root")))

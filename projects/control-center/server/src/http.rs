@@ -1,8 +1,8 @@
 use crate::{
     AppState,
     features::{
-        alarms, booth, climate, diagnostics, lights, notifications, profiles, releases, settings,
-        sound, tesla, weather,
+        alarms, booth, climate, diagnostics, host, lights, notifications, profiles, releases,
+        settings, sound, tesla, weather,
     },
 };
 use axum::{
@@ -78,6 +78,9 @@ pub fn router(state: AppState) -> Router {
             get(diagnostics::list).post(diagnostics::submit),
         )
         .route("/api/v1/diagnostics/status", get(diagnostics::status))
+        .route("/api/v1/host/status", get(host::status))
+        .route("/api/v1/host/logs", get(host::sources))
+        .route("/api/v1/host/logs/{source}", get(host::logs))
         .route(
             "/api/v1/diagnostics/events",
             get(diagnostics::events).post(diagnostics::submit_events),

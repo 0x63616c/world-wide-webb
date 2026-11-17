@@ -94,6 +94,13 @@ struct PanelDiagnosticsView: View {
     @State private var eventFilter = "All"
     @State private var shareFile: DiagnosticShareFile?
     @State private var shareError: String?
+    @State private var host: HostStatus?
+    @State private var hostProblem: String?
+    @State private var logSources: [String] = []
+    @State private var logSource = ""
+    @State private var hostLog: HostLog?
+    @State private var logFilter = "All"
+    @State private var logProblem: String?
     @AppStorage("panel.diagnostics.deviceLabel") private var deviceLabel = ""
     @AppStorage("panel.diagnostics.lastUpload") private var lastUpload = ""
     @AppStorage("panel.diagnostics.lastUploadedEventID") private var lastUploadedEventID = ""
@@ -270,6 +277,61 @@ struct PanelDiagnosticsView: View {
                         }
                         .listRowInsets(EdgeInsets())
                     }
+                    Section {
+                        VStack(spacing: 0) {
+                            let rows =
+                                hostProblem.map { [HostRow(title: "Mini", status: $0, state: "unknown")] }
+                                ?? host.map { Self.hostRows($0, now: Date()) } ?? []
+                            ForEach(Array(rows.enumerated()), id: \.offset) { index, row in
+                                statusRow(title: row.title, status: row.status, state: row.state, reason: row.reason)
+                                if index < rows.count - 1 { Divider() }
+                            }
+                        }
+                        .listRowInsets(EdgeInsets())
+                        .accessibilityIdentifier("diagnostics-mini-status")
+                    } header: {
+                        Text("Mini status")
+                    } footer: {
+                        if let updatedAt = host?.updatedAt {
+                            Text("Updated \(updatedAt, format: .relative(presentation: .named))")
+                        }
+                    }
+                    Section("Mini logs") {
+                        if let logProblem {
+                            Text(logProblem).foregroundStyle(.secondary)
+                        } else if logSources.isEmpty {
+                            Text("No logs exported yet").foregroundStyle(.secondary)
+                        } else {
+                            Picker("Source", selection: $logSource) {
+                                ForEach(logSources, id: \.self) { Text($0).tag($0) }
+                            }
+                            .accessibilityIdentifier("diagnostics-log-source")
+                            Picker("Show", selection: $logFilter) {
+                                Text("All").tag("All")
+                                Text("Errors").tag("Errors")
+                            }.pickerStyle(.segmented)
+                            if let hostLog {
+                                let lines = logFilter == "Errors" ? hostLog.errors : hostLog.lines
+                                if lines.isEmpty {
+                                    Text(logFilter == "Errors" ? "No errors in the last 500 lines" : "No lines yet")
+                                        .foregroundStyle(.secondary)
+                                } else {
+                                    // Newest first, like the client events below.
+                                    ScrollView {
+                                        Text(lines.reversed().joined(separator: "\n"))
+                                            .font(.caption.monospaced())
+                                            .textSelection(.enabled)
+                                            .frame(maxWidth: .infinity, alignment: .leading)
+                                    }
+                                    .frame(maxHeight: 420)
+                                    .accessibilityIdentifier("diagnostics-log-lines")
+                                }
+                            } else {
+                                Text("Couldn’t load this log").foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                    .onChange(of: logSource) { Task { await loadLog() } }
                     Section("Control actions (last 500)") {
                         ForEach(commands) { entry in
                             VStack(alignment: .leading, spacing: 4) {
@@ -430,6 +492,7 @@ struct PanelDiagnosticsView: View {
             backend = "reachable"
         } catch {
             backend = "unreachable"
+            hostProblem = "Server unreachable"
             PanelEventLog.shared.record(category: "diagnostics", action: "connection.check", outcome: "error")
             return
         }
@@ -437,6 +500,77 @@ struct PanelDiagnosticsView: View {
             let health = try await store.diagnosticsClient.get("diagnostics/status", as: Health.self)
             homeAssistant = health.homeAssistant
         } catch { homeAssistant = "unknown" }
+        await loadHost(HostStatusAPI(client: store.diagnosticsClient))
+    }
+
+    struct HostRow: Equatable {
+        let title: String
+        let status: String
+        let state: String
+        var reason: String? = nil
+    }
+
+    /// NAS uploads and Mini updates, as Homelab last reported them.
+    static func hostRows(_ status: HostStatus, now: Date) -> [HostRow] {
+        guard !status.stale else {
+            return [
+                HostRow(
+                    title: "Mini", status: "Not reporting", state: "unknown",
+                    reason: "Homelab hasn’t refreshed its status recently.")
+            ]
+        }
+        func detail(_ check: HostStatus.Check) -> String? {
+            let since = check.since.map {
+                "Since \(RelativeDateTimeFormatter().localizedString(for: $0, relativeTo: now))."
+            }
+            let text = [check.reason.map { $0.hasSuffix(".") ? $0 : $0 + "." }, since].compactMap { $0 }
+            return text.isEmpty ? nil : text.joined(separator: " ")
+        }
+        let nas: HostRow =
+            switch status.nas.state {
+            case "ok": HostRow(title: "NAS", status: "Connected", state: "connected")
+            case "failing":
+                HostRow(title: "NAS", status: "Unavailable", state: "unavailable", reason: detail(status.nas))
+            default: HostRow(title: "NAS", status: "Unknown", state: "unknown")
+            }
+        let deploy: HostRow =
+            switch status.deploy.state {
+            case "ok": HostRow(title: "Mini updates", status: "Installing", state: "live")
+            case "blocked":
+                HostRow(title: "Mini updates", status: "Paused", state: "unavailable", reason: detail(status.deploy))
+            default: HostRow(title: "Mini updates", status: "Unknown", state: "unknown")
+            }
+        return [nas, deploy]
+    }
+
+    @MainActor private func loadHost(_ api: HostStatusAPI) async {
+        do {
+            host = try await api.status()
+            hostProblem = nil
+        } catch let error as PanelAPIError where error.isNotFound {
+            host = nil
+            hostProblem = "Server update pending"
+        } catch {
+            host = nil
+            hostProblem = "Unavailable"
+        }
+        do {
+            logSources = try await api.logSources()
+            logProblem = nil
+            if !logSources.contains(logSource) {
+                logSource = logSources.first { $0.contains("control-center") } ?? logSources.first ?? ""
+            }
+        } catch let error as PanelAPIError where error.isNotFound {
+            logProblem = "Server update pending"
+        } catch {
+            logProblem = "Logs unavailable"
+        }
+        await loadLog()
+    }
+
+    @MainActor private func loadLog() async {
+        guard let store, !logSource.isEmpty else { return }
+        hostLog = try? await HostStatusAPI(client: store.diagnosticsClient).log(logSource)
     }
 
     @MainActor private func share() {
