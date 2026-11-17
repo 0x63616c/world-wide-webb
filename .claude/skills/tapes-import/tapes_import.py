@@ -1,10 +1,18 @@
-"""Imports downloads into the Tapes library on the NAS, with TMDB artwork.
+"""Imports downloads into the Tapes library on the NAS, with TMDB artwork, and DJ sets from YouTube.
 
   tapes_import.py search tv|movie "<query>"
   tapes_import.py show <download folder> --show "<title>" --years 2005–2008 --tmdb tv/<id-slug>
                   [--title S03E10="Short title" ...] [--pattern REGEX] [--dry-run]
   tapes_import.py movie <download folder or file> --title "<title>" --year 2010 --tmdb movie/<id-slug>
                   [--dry-run]
+  tapes_import.py set <YouTube URL or video file> --dj "<DJ>" [--dj "<b2b DJ>"] --title "<event>" [--date YYYY-MM-DD]
+                  [--quality h264|1080|4k] [--max-height 1080] [--dry-run]
+
+set downloads a YouTube video with yt-dlp into ~/Downloads/<slug>/ (YouTube thumbnail as the artwork)
+or takes a local file (a same-named .jpg beside it is the artwork, else a frame), imports it, checks
+the NAS copy's duration (±2 s) and trashes the download (local files only when under ~/Downloads). --quality picks the
+YouTube stream: h264 (default) is 1080p H.264 that plays as-is; 1080 and 4k take VP9/AV1, which
+tapes import re-encodes to HEVC (add --max-height 1080 to shrink a 4k source).
 
 show/movie wait for downloads to finish, import each video as its size settles, set the poster
 (and episode stills, matched by title), check the NAS copy's duration (±2 s) and delete the local
@@ -357,6 +365,71 @@ def movie(a):
         run.log(f"KEPT {a.title}: NAS length {copy} vs {length}")
 
 
+QUALITY = {  # yt-dlp format selectors; AAC audio so tapes import copies it
+    "h264": "bv*[vcodec^=avc1][height<=1080]+ba[ext=m4a]/b[vcodec^=avc1]",
+    "1080": "bv*[height<=1080]+ba[ext=m4a]/bv*[height<=1080]+ba",
+    "4k": "bv*+ba[ext=m4a]/bv*+ba",
+}
+
+
+def download(url, fmt, folder, run):
+    run.log(f"downloading {url} to {folder}")
+    # Paced like a person: YouTube answers bulk downloads with "Sign in to confirm you're not a bot".
+    dl = subprocess.run(["yt-dlp", "-q", "--no-progress", "--no-playlist", "-f", fmt,
+                         "--sleep-requests", "1", "--sleep-interval", "30", "--max-sleep-interval", "90",
+                         "--merge-output-format", "mkv", "--write-thumbnail", "--convert-thumbnails", "jpg",
+                         "-o", os.path.join(folder, "set.%(ext)s"), url], capture_output=True, text=True)
+    src = os.path.join(folder, "set.mkv")
+    if dl.returncode != 0 or not os.path.exists(src):
+        run.log(f"FAIL download: {' | '.join((dl.stderr or dl.stdout).strip().splitlines()[-3:])}")
+        return None
+    return src
+
+
+def dj_set(a):
+    name = f"{' b2b '.join(a.dj)} {a.title}"
+    run = Run(slugify(name))
+    folder = os.path.expanduser(f"~/Downloads/{slugify(name)}")
+    fmt = QUALITY[a.quality]
+    if os.path.isfile(a.source):
+        src = os.path.abspath(a.source)
+        downloads = os.path.expanduser("~/Downloads") + os.sep
+        folder = src if src.startswith(downloads) else None
+        if a.dry_run:
+            r = subprocess.run(["tapes", "import", "set", src, "--dj", a.dj[0], "--title", a.title, "--dry-run",
+                                "--json"], env=ENV, capture_output=True, text=True)
+            plan = json.loads(r.stdout.strip().splitlines()[-1])["plan"]
+            print(f"set: {name}\nsource: {src}\nvideo: {plan['video']}\naudio: {plan['audio']}")
+            return
+    elif a.dry_run:
+        out = subprocess.run(["yt-dlp", "-f", fmt, "--print", "%(title)s | upload %(upload_date)s | "
+                              "%(duration_string)s | %(format)s | ~%(filesize_approx)s bytes", a.source],
+                             capture_output=True, text=True)
+        print(f"set: {name}\ndownload: {folder}\n{(out.stdout or out.stderr).strip()}")
+        return
+    else:
+        src = download(a.source, fmt, folder, run)
+        if not src:
+            return
+    wait_for_library(run)
+    length = duration(src)
+    args = ["set", src, "--title", a.title] + [x for dj in a.dj for x in ("--dj", dj)]
+    if a.date:
+        args += ["--date", a.date]
+    if a.max_height:
+        args += ["--max-height", str(a.max_height)]
+    dest, error = tapes_import(args)
+    if error:
+        run.log(f"FAIL {name}: {error}")
+        return
+    copy = duration(os.path.join(dest, "video.mp4"))
+    if copy and length and abs(copy - length) <= 2:
+        run.log(f"ok {name} ({copy:.0f} s, {os.path.getsize(os.path.join(dest, 'video.mp4')) / 1e9:.1f} GB)")
+        trash([p for p in (folder, run.art) if p], run)
+    else:
+        run.log(f"KEPT {name}: NAS length {copy} vs {length}")
+
+
 def search(a):
     from urllib.parse import quote
     page = curl(f"https://www.themoviedb.org/search/{a.kind}?query={quote(a.query)}").decode()
@@ -386,5 +459,13 @@ s.add_argument("--title", required=True)
 s.add_argument("--year", required=True, type=int)
 s.add_argument("--tmdb", required=True)
 s.add_argument("--dry-run", action="store_true")
+s = sub.add_parser("set")
+s.add_argument("source", help="YouTube URL or local video file")
+s.add_argument("--dj", action="append", required=True, help="repeat for back-to-back sets")
+s.add_argument("--title", required=True, help="the event or venue, for example \"EDC Las Vegas 2024\"")
+s.add_argument("--date", help="performance date, YYYY-MM-DD")
+s.add_argument("--quality", choices=QUALITY, default="h264")
+s.add_argument("--max-height", type=int)
+s.add_argument("--dry-run", action="store_true")
 a = p.parse_args()
-{"search": search, "show": show, "movie": movie}[a.cmd](a)
+{"search": search, "show": show, "movie": movie, "set": dj_set}[a.cmd](a)
