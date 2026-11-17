@@ -178,8 +178,6 @@ enum LinkedPage: Hashable {
 
 func minutesOf(_ seconds: Double) -> Int { max(1, Int((seconds / 60).rounded())) }
 
-func count(_ n: Int, _ noun: String) -> String { n == 1 ? "1 \(noun)" : "\(n) \(noun)s" }
-
 /// File size as Finder shows it ("8.3 GB").
 func size(_ bytes: Int64) -> String { bytes.formatted(.byteCount(style: .file)) }
 
@@ -215,6 +213,10 @@ final class Store {
   private(set) var shows: [Show] = []
   private(set) var sets: [DJSet] = []
   private(set) var progress: [String: WatchProgress] = [:]
+  /// When the library last loaded from the server.
+  private(set) var lastRefreshed: Date?
+  /// Why the latest refresh failed, while the screen keeps the last good copy; nil once one works.
+  private(set) var refreshFailure: String?
   /// Running time of every playable item, for turning positions into fractions.
   private var durations: [String: Double] = [:]
   var nowPlaying: Playable?
@@ -232,11 +234,15 @@ final class Store {
     do {
       apply(try await server.library())
       phase = .ready
+      lastRefreshed = .now
+      refreshFailure = nil
       if let link = pendingLink { open(link) }
     } catch is LibraryUnreadable {
       if phase != .ready { phase = .unreadable }
+      refreshFailure = "The server can't read the library on the NAS."
     } catch {
       if phase != .ready { phase = .failed(failureReason(error)) }
+      refreshFailure = failureReason(error)
     }
   }
 
@@ -268,32 +274,15 @@ final class Store {
     }
   }
 
-  /// "3 shows · 290 GB": the count and total size of one section.
+  /// "3 (16.02 GB)", or "0" for an empty section: how many items one section holds and their size.
   func summary(_ section: LibrarySection) -> String {
-    switch section {
-    case .movies:
-      [count(movies.count, "movie"), size(movies.reduce(0) { $0 + $1.bytes })]
-        .joined(separator: " · ")
-    case .shows:
-      [count(shows.count, "show"), size(shows.reduce(0) { $0 + $1.bytes })]
-        .joined(separator: " · ")
-    case .sets:
-      [count(sets.count, "DJ set"), size(sets.reduce(0) { $0 + $1.bytes })]
-        .joined(separator: " · ")
-    }
-  }
-
-  /// "1 movie · 3 shows · 2 DJ sets · 389 GB": everything in the library.
-  var summary: String {
-    let total =
-      movies.reduce(0) { $0 + $1.bytes } + shows.reduce(0) { $0 + $1.bytes }
-      + sets.reduce(0) { $0 + $1.bytes }
-    let counts = [
-      movies.isEmpty ? nil : count(movies.count, "movie"),
-      shows.isEmpty ? nil : count(shows.count, "show"),
-      sets.isEmpty ? nil : count(sets.count, "DJ set"),
-    ]
-    return (counts.compactMap { $0 } + [size(total)]).joined(separator: " · ")
+    let (n, bytes): (Int, Int64) =
+      switch section {
+      case .movies: (movies.count, movies.reduce(0) { $0 + $1.bytes })
+      case .shows: (shows.count, shows.reduce(0) { $0 + $1.bytes })
+      case .sets: (sets.count, sets.reduce(0) { $0 + $1.bytes })
+      }
+    return n == 0 ? "0" : "\(n) (\(size(bytes)))"
   }
 
   func position(_ id: String) -> Double { progress[id]?.seconds ?? 0 }
@@ -316,6 +305,15 @@ final class Store {
 
   func setWatched(_ ids: [String], _ watched: Bool) {
     for id in ids { save(id, WatchProgress(seconds: 0, watched: watched)) }
+  }
+
+  /// Items with a saved position or marked watched.
+  var watchHistoryCount: Int { progress.values.filter { $0.watched || $0.seconds > 0 }.count }
+
+  /// Every item back to unwatched from the start, on every device.
+  func resetWatchHistory() {
+    let ids = progress.filter { $0.value.watched || $0.value.seconds > 0 }.map(\.key)
+    setWatched(ids, false)
   }
 
   /// Records where playback stopped. Near the end counts as watched and starts over next time.

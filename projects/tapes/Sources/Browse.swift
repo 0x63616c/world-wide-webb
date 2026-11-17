@@ -12,9 +12,24 @@ struct RootTabs: View {
   }
 }
 
-/// The app's pages, in tab order.
+/// The app's pages, in the order of the Mac and Apple TV bar: Search first, as in the TV app.
 enum Page: Hashable, CaseIterable {
-  case home, movies, shows, sets, search
+  case search, home, movies, shows, sets, settings
+
+  /// The Mac's Command-key shortcut: 1 to 4 for the library pages, F for Search, comma for Settings.
+  var shortcut: KeyEquivalent {
+    switch self {
+    case .home: "1"
+    case .movies: "2"
+    case .shows: "3"
+    case .sets: "4"
+    case .search: "f"
+    case .settings: ","
+    }
+  }
+
+  /// Search and Settings show just their icon in the bar.
+  var iconOnly: Bool { self == .search || self == .settings }
 
   var title: String {
     switch self {
@@ -23,6 +38,7 @@ enum Page: Hashable, CaseIterable {
     case .shows: LibrarySection.shows.rawValue
     case .sets: LibrarySection.sets.rawValue
     case .search: "Search"
+    case .settings: "Settings"
     }
   }
 
@@ -33,6 +49,7 @@ enum Page: Hashable, CaseIterable {
     case .shows: LibrarySection.shows.symbol
     case .sets: LibrarySection.sets.symbol
     case .search: "magnifyingglass"
+    case .settings: "gearshape"
     }
   }
 }
@@ -67,6 +84,7 @@ private struct PageStack: View {
               .searchable(text: $query, prompt: "Movies, shows and DJs")
             #endif
         #endif
+      case .settings: SettingsView()
       }
     }
   }
@@ -104,7 +122,7 @@ private struct FollowsLinks: ViewModifier {
 
     var body: some View {
       TabView(selection: $page) {
-        ForEach([Page.home, .movies, .shows, .sets], id: \.self) { each in
+        ForEach([Page.home, .movies, .shows, .sets, .settings], id: \.self) { each in
           Tab(value: each) {
             PageStack(page: each, query: $query, zoom: zoom, path: $paths.path(each))
           } label: {
@@ -113,13 +131,13 @@ private struct FollowsLinks: ViewModifier {
         }
         Tab(value: Page.search, role: .search) {
           PageStack(page: .search, query: $query, zoom: zoom, path: $paths.path(.search))
+            // On the Search tab only, so Home and the other pages have no search field.
+            .searchable(text: $query, prompt: "Movies, shows and DJs")
         } label: {
           Label("Search", systemImage: "magnifyingglass")
         }
       }
       .tabViewStyle(.sidebarAdaptable)
-      // On iPhone the search tab turns into the search field, so the field belongs to the tab view.
-      .searchable(text: $query, prompt: "Movies, shows and DJs")
       .tabBarMinimizeBehavior(.onScrollDown)
       .modifier(FollowsLinks(page: $page, homePath: $paths.path(.home)))
     }
@@ -137,6 +155,11 @@ private struct FollowsLinks: ViewModifier {
       @FocusState private var barFocus: Page?
     #endif
 
+    #if os(macOS)
+      /// True when the window is too narrow for the bar's page names; it shows icons only.
+      @State private var narrow = false
+    #endif
+
     /// True on a page's first screen; opening a movie or show hides the Apple TV bar.
     private var atRoot: Bool { paths[page]?.isEmpty ?? true }
 
@@ -147,10 +170,17 @@ private struct FollowsLinks: ViewModifier {
     @ViewBuilder private var bar: some View {
       #if os(macOS)
         pages
+          // Below this width the full bar no longer fits between the window buttons and the
+          // edge, and macOS would fold it into an overflow menu.
+          .onGeometryChange(for: Bool.self) {
+            $0.size.width < 760
+          } action: {
+            narrow = $0
+          }
           .toolbar {
             ToolbarItem(placement: .principal) {
               // A little below the window buttons' line, so the bar has room above it.
-              TopBar(page: $page).offset(y: 6)
+              TopBar(page: $page, iconsOnly: narrow).offset(y: 6)
             }
             .sharedBackgroundVisibility(.hidden)
           }
@@ -193,9 +223,12 @@ private struct FollowsLinks: ViewModifier {
 
   /// Icon then name for each page; Search is just the magnifying glass. A white pill with dark
   /// text marks the chosen page and slides to the new tab when the page changes. On the Mac,
-  /// Command-1 to 5 switch; on Apple TV, moving focus onto a tab opens its page.
+  /// Command-1 to 4 open the library pages, Command-F Search and Command-comma Settings; on
+  /// Apple TV, moving focus onto a tab opens its page.
   private struct TopBar: View {
     @Binding var page: Page
+    /// Icons without names, for a narrow Mac window; hovering a tab shows its name.
+    var iconsOnly = false
     #if os(tvOS)
       var focus: FocusState<Page?>.Binding
     #endif
@@ -214,16 +247,22 @@ private struct FollowsLinks: ViewModifier {
     var body: some View {
       GlassEffectContainer {
         HStack(spacing: 2) {
-          ForEach(Array(Page.allCases.enumerated()), id: \.element) { index, each in
+          ForEach(Page.allCases, id: \.self) { each in
             let chosen = each == page
             Button {
               withAnimation(.spring(duration: 0.35, bounce: 0.2)) { page = each }
             } label: {
-              if each == .search {
-                Image(systemName: each.symbol).accessibilityLabel(each.title)
-              } else {
-                Label(each.title, systemImage: each.symbol).labelStyle(.titleAndIcon)
+              Group {
+                if each.iconOnly || iconsOnly {
+                  Image(systemName: each.symbol).accessibilityLabel(each.title)
+                } else {
+                  Label(each.title, systemImage: each.symbol).labelStyle(.titleAndIcon)
+                }
               }
+              // Inside the label, so the whole pill takes the click, not just the text.
+              .padding(.horizontal, each.iconOnly || iconsOnly ? 10 : 14)
+              .padding(.vertical, 6)
+              .contentShape(.capsule)
             }
             #if os(tvOS)
               // Focus shows as the pill itself, not the system's lift.
@@ -231,19 +270,17 @@ private struct FollowsLinks: ViewModifier {
               .focused(focus, equals: each)
             #else
               .buttonStyle(.plain)
-              .keyboardShortcut(KeyEquivalent(Character(String(index + 1))), modifiers: .command)
+              .keyboardShortcut(each.shortcut, modifiers: .command)
+              .help(each.title)
             #endif
             .font(.body.weight(.semibold))
             .foregroundStyle(chosen && lit ? Color.black : Color.white)
-            .padding(.horizontal, each == .search ? 10 : 14)
-            .padding(.vertical, 6)
             .background {
               if chosen {
                 Capsule().fill(.white.opacity(lit ? 1 : 0.2))
                   .matchedGeometryEffect(id: "pill", in: pill)
               }
             }
-            .contentShape(.capsule)
           }
         }
         .padding(4)
@@ -286,7 +323,7 @@ struct HomeView: View {
   let zoom: Namespace.ID
 
   var body: some View {
-    LibraryPage(title: "Home", empty: store.isEmpty ? .library : nil, footer: store.summary) {
+    LibraryPage(title: "Home", empty: store.isEmpty ? .library : nil) {
       shelves
     }
   }
@@ -302,14 +339,8 @@ struct HomeView: View {
         .foregroundStyle(.secondary)
         .padding(.horizontal, Metrics.gutter)
       }
-      if let first = store.continueWatching.first {
-        ContinueCard(item: first, eyebrow: "Continue Watching").padding(.horizontal, Metrics.gutter)
-      } else if let pick = store.featured() {
-        ContinueCard(item: pick, eyebrow: "From the Library").padding(.horizontal, Metrics.gutter)
-      }
-      let moreToContinue = Array(store.continueWatching.dropFirst())
-      if !moreToContinue.isEmpty {
-        Shelf(title: "Continue Watching", items: moreToContinue) { item in
+      if !store.continueWatching.isEmpty {
+        Shelf(title: "Continue Watching", items: store.continueWatching) { item in
           Button {
             store.play(item)
           } label: {
@@ -322,7 +353,10 @@ struct HomeView: View {
       if !store.movies.isEmpty {
         Shelf(title: "Movies", items: store.movies) { movie in
           NavigationLink(value: movie) {
-            PosterCell(seed: movie.id, title: movie.title, watchID: movie.id).frame(
+            PosterCell(
+              seed: movie.id, title: movie.title, detail: movie.year.map(String.init),
+              watchID: movie.id
+            ).frame(
               width: Metrics.poster)
           }
           .artworkButton()
@@ -332,7 +366,8 @@ struct HomeView: View {
       if !store.shows.isEmpty {
         Shelf(title: "Shows", items: store.shows) { show in
           NavigationLink(value: show) {
-            PosterCell(seed: show.id, title: show.title).frame(width: Metrics.poster)
+            PosterCell(seed: show.id, title: show.title, detail: show.years).frame(
+              width: Metrics.poster)
           }
           .artworkButton()
           .zoomSource(show.id, in: zoom)
@@ -359,8 +394,6 @@ private struct LibraryPage<Content: View>: View {
   @Environment(Store.self) private var store
   let title: String
   let empty: EmptyState?
-  /// A quiet line at the very end of the page, such as the item count and total size.
-  var footer: String?
   @ViewBuilder var content: Content
 
   var body: some View {
@@ -369,15 +402,7 @@ private struct LibraryPage<Content: View>: View {
         // Inside the scroll view, filling the page, so pull to refresh still works.
         empty.containerRelativeFrame([.horizontal, .vertical])
       } else {
-        content
-        if let footer {
-          Text(footer)
-            .font(.footnote)
-            .foregroundStyle(.secondary)
-            .frame(maxWidth: .infinity)
-            .padding(.top, Metrics.spacing)
-            .padding(.bottom, Metrics.spacing * 2)
-        }
+        content.padding(.bottom, Metrics.spacing * 2)
       }
     }
     .refreshable { await store.load() }
@@ -455,105 +480,6 @@ private struct Shelf<Item: Identifiable, Cell: View>: View {
   }
 }
 
-/// The large card at the top of Home: the thing you were last watching, or a pick from the
-/// library when nothing is in progress. `eyebrow` names which.
-private struct ContinueCard: View {
-  @Environment(Store.self) private var store
-  @Environment(\.horizontalSizeClass) private var sizeClass
-  let item: ContinueItem
-  let eyebrow: String
-
-  private var isWideArt: Bool {
-    if case .set = item { return true }
-    return false
-  }
-
-  var body: some View {
-    if sizeClass == .compact { tall } else { banner }
-  }
-
-  private var text: some View {
-    VStack(alignment: .leading, spacing: 6) {
-      Text(item.title).font(.largeTitle.bold())
-      Text(item.detail).font(.subheadline).foregroundStyle(.secondary)
-    }
-  }
-
-  private func resume(fullWidth: Bool) -> some View {
-    Button {
-      store.play(item)
-    } label: {
-      Label(
-        store.isInProgress(item.id)
-          ? "Resume · \(runtime(store.minutesLeft(item.id, of: item.minutes))) left"
-          : "Play · \(runtime(item.minutes))",
-        systemImage: "play.fill"
-      )
-      .font(.headline)
-      .frame(maxWidth: fullWidth ? .infinity : nil)
-      .padding(.vertical, 6)
-      .padding(.horizontal, fullWidth ? 0 : 28)
-    }
-    .buttonStyle(.glassProminent)
-    .tint(.white)
-    .foregroundStyle(.black)
-  }
-
-  /// iPhone: artwork fills the card, text and button over its lower half.
-  private var tall: some View {
-    Artwork(seed: item.artID, alignment: .top, small: false)
-      .aspectRatio(4 / 5, contentMode: .fit)
-      .overlay {
-        LinearGradient(
-          stops: [
-            .init(color: .clear, location: 0.35),
-            .init(color: .black.opacity(0.95), location: 0.82),
-          ],
-          startPoint: .top, endPoint: .bottom)
-      }
-      .overlay(alignment: .bottomLeading) {
-        VStack(alignment: .leading, spacing: 16) {
-          text
-          resume(fullWidth: true)
-        }
-        .padding(20)
-      }
-      .clipShape(.rect(cornerRadius: 28))
-  }
-
-  /// Mac and Apple TV: artwork beside the text on a blurred wash of the same image.
-  private var banner: some View {
-    HStack(spacing: 40) {
-      Artwork(seed: item.artID, small: false)
-        .aspectRatio(isWideArt ? 16 / 9 : 2 / 3, contentMode: .fit)
-        .frame(height: Metrics.poster * 1.5)
-        .clipShape(.rect(cornerRadius: Metrics.corner))
-        .shadow(radius: 20, y: 8)
-      VStack(alignment: .leading, spacing: 20) {
-        Text(eyebrow).font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
-        text
-        resume(fullWidth: false)
-      }
-      Spacer(minLength: 0)
-    }
-    .padding(40)
-    #if os(tvOS)
-      // Up from any shelf reaches the Play button, wherever it sits across the card.
-      .focusSection()
-    #endif
-    .background {
-      // Dark enough that light artwork (a mostly white poster) doesn't wash the card out grey.
-      Artwork(seed: item.artID).blur(radius: 70)
-        .overlay(.black.opacity(0.6))
-        .overlay {
-          LinearGradient(
-            colors: [.black.opacity(0.5), .clear], startPoint: .leading, endPoint: .trailing)
-        }
-    }
-    .clipShape(.rect(cornerRadius: 28))
-  }
-}
-
 // MARK: - Section pages
 
 struct SectionGrid: View {
@@ -574,8 +500,7 @@ struct SectionGrid: View {
 
   var body: some View {
     LibraryPage(
-      title: section.rawValue, empty: store.isEmpty(section) ? EmptyState(section) : nil,
-      footer: store.summary(section)
+      title: section.rawValue, empty: store.isEmpty(section) ? EmptyState(section) : nil
     ) {
       grid
     }
@@ -589,7 +514,9 @@ struct SectionGrid: View {
         LazyVGrid(columns: posterColumns, spacing: Metrics.spacing) {
           ForEach(store.movies) { movie in
             NavigationLink(value: movie) {
-              PosterCell(seed: movie.id, title: movie.title, watchID: movie.id)
+              PosterCell(
+                seed: movie.id, title: movie.title, detail: movie.year.map(String.init),
+                watchID: movie.id)
             }
             .artworkButton()
             .gridFocus($focused, movie.id)
@@ -599,10 +526,12 @@ struct SectionGrid: View {
       case .shows:
         LazyVGrid(columns: posterColumns, spacing: Metrics.spacing) {
           ForEach(store.shows) { show in
-            NavigationLink(value: show) { PosterCell(seed: show.id, title: show.title) }
-              .artworkButton()
-              .gridFocus($focused, show.id)
-              .zoomSource(show.id, in: zoom)
+            NavigationLink(value: show) {
+              PosterCell(seed: show.id, title: show.title, detail: show.years)
+            }
+            .artworkButton()
+            .gridFocus($focused, show.id)
+            .zoomSource(show.id, in: zoom)
           }
         }
       case .sets:
@@ -688,57 +617,95 @@ struct SearchResults: View {
   let query: String
 
   var body: some View {
-    let movies = store.movies.filter { matches($0.title) }
-    let shows = store.shows.filter { matches($0.title) }
+    let trimmed = query.trimmingCharacters(in: .whitespaces)
+    let titles =
+      (store.movies.filter { matches($0.title) }.map(Hit.movie)
+      + store.shows.filter { matches($0.title) }.map(Hit.show))
+      .sorted { $0.title.localizedStandardCompare($1.title) == .orderedAscending }
     let sets = store.sets.filter { matches($0.title) || matches($0.djLine) }
-    List {
-      if !movies.isEmpty {
-        Section("Movies") {
-          ForEach(movies) { movie in
-            NavigationLink(value: movie) {
-              MediaRow(
-                seed: movie.id, title: movie.title, detail: movie.year.map(String.init) ?? "")
+    ScrollView {
+      VStack(alignment: .leading, spacing: Metrics.spacing * 1.5) {
+        if !titles.isEmpty {
+          LazyVGrid(
+            columns: [
+              GridItem(.adaptive(minimum: Metrics.poster * 0.84), spacing: Metrics.spacing)
+            ],
+            spacing: Metrics.spacing
+          ) {
+            ForEach(titles) { hit in
+              NavigationLink(value: hit.destination) {
+                PosterCell(seed: hit.id, title: hit.title, detail: hit.year, watchID: hit.watchID)
+              }
+              .artworkButton()
+            }
+          }
+        }
+        if !sets.isEmpty {
+          LazyVGrid(
+            columns: [
+              GridItem(.adaptive(minimum: Metrics.wide * 0.75), spacing: Metrics.spacing)
+            ],
+            spacing: Metrics.spacing * 1.5
+          ) {
+            ForEach(sets) { set in
+              NavigationLink(value: set) {
+                WideCell(seed: set.id, title: set.djLine, detail: set.title, watchID: set.id)
+              }
+              .artworkButton()
             }
           }
         }
       }
-      if !shows.isEmpty {
-        Section("Shows") {
-          ForEach(shows) { show in
-            NavigationLink(value: show) {
-              MediaRow(seed: show.id, title: show.title, detail: show.years ?? "")
-            }
-          }
-        }
-      }
-      if !sets.isEmpty {
-        Section("DJ Sets") {
-          ForEach(sets) { set in
-            NavigationLink(value: set) {
-              MediaRow(seed: set.id, title: set.djLine, detail: set.title, wide: true)
-            }
-          }
-        }
-      }
+      .padding(.horizontal, Metrics.gutter)
     }
-    .listStyle(.plain)
-    #if os(macOS)
-      // A plain Mac list runs to the window edge; line it up with the search field above.
-      .contentMargins(.horizontal, Metrics.gutter - 8, for: .scrollContent)
-    #endif
+    // Fills the page even with nothing in it, so the message below gets the full width.
+    .frame(maxWidth: .infinity, maxHeight: .infinity)
     .blackPage()
     .overlay {
-      if movies.isEmpty && shows.isEmpty && sets.isEmpty {
-        if store.isEmpty {
-          EmptyState.library
-        } else {
-          ContentUnavailableView.search(text: query)
-        }
+      if store.isEmpty {
+        EmptyState.library
+      } else if !trimmed.isEmpty && titles.isEmpty && sets.isEmpty {
+        ContentUnavailableView.search(text: trimmed)
       }
     }
   }
 
+  /// A movie or show in the poster grid; DJ sets follow as wide cards.
+  private enum Hit: Identifiable {
+    case movie(Movie)
+    case show(Show)
+
+    var id: String {
+      switch self {
+      case .movie(let m): m.id
+      case .show(let s): s.id
+      }
+    }
+    var title: String {
+      switch self {
+      case .movie(let m): m.title
+      case .show(let s): s.title
+      }
+    }
+    var year: String? {
+      switch self {
+      case .movie(let m): m.year.map(String.init)
+      case .show(let s): s.years
+      }
+    }
+    /// Only movies show watch progress on their poster, as on the Movies page.
+    var watchID: String? { if case .movie(let m) = self { m.id } else { nil } }
+    var destination: AnyHashable {
+      switch self {
+      case .movie(let m): m
+      case .show(let s): s
+      }
+    }
+  }
+
+  /// An empty query matches nothing: the page waits for you to type.
   private func matches(_ text: String) -> Bool {
-    query.isEmpty || text.localizedCaseInsensitiveContains(query)
+    let trimmed = query.trimmingCharacters(in: .whitespaces)
+    return !trimmed.isEmpty && text.localizedCaseInsensitiveContains(trimmed)
   }
 }

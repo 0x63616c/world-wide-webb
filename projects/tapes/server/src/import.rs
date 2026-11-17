@@ -34,6 +34,7 @@ pub struct Stream {
     #[serde(default)]
     pub codec_name: String,
     pub profile: Option<String>,
+    pub width: Option<u32>,
     pub height: Option<u32>,
     pub channels: Option<u32>,
     pub color_transfer: Option<String>,
@@ -96,6 +97,16 @@ const COPY_VIDEO: [&str; 2] = ["h264", "hevc"];
 const COPY_AUDIO: [&str; 3] = ["aac", "ac3", "eac3"];
 const TEXT_SUBS: [&str; 6] = ["subrip", "ass", "ssa", "mov_text", "webvtt", "text"];
 
+/// "4K", "1080p", "720p" or "SD". Either side counts, so a 3840 x 1600 widescreen film is 4K.
+pub fn resolution(width: u32, height: u32) -> &'static str {
+    match (width, height) {
+        (w, h) if w >= 3200 || h >= 2000 => "4K",
+        (w, h) if w >= 1800 || h >= 1000 => "1080p",
+        (w, h) if w >= 1200 || h >= 700 => "720p",
+        _ => "SD",
+    }
+}
+
 /// Decides what to do with each stream. Pure, so the rules are testable without ffmpeg.
 pub fn plan(probe: &Probe, max_height: Option<u32>) -> Result<Plan> {
     let Some(video) = probe.video() else {
@@ -148,9 +159,12 @@ pub fn plan(probe: &Probe, max_height: Option<u32>) -> Result<Plan> {
             bitrate: bitrate.into(),
         }
     };
-    if out_height >= 2000 {
-        badges.insert(0, "4K".into());
-    }
+    // A scaled encode keeps the aspect ratio, so the width shrinks with the height.
+    let out_width = match video.width.unwrap_or(0) {
+        w if too_tall && height > 0 => w * out_height / height,
+        w => w,
+    };
+    badges.insert(0, resolution(out_width, out_height).into());
     if matches!(
         video.color_transfer.as_deref(),
         Some("smpte2084" | "arib-std-b67")
@@ -548,7 +562,17 @@ mod tests {
                 bitrate: "8M".into()
             }
         );
-        assert!(p.badges.is_empty());
+        assert_eq!(p.badges, ["1080p"]);
+    }
+
+    #[test]
+    fn resolution_counts_either_side() {
+        assert_eq!(resolution(3840, 1600), "4K");
+        assert_eq!(resolution(1920, 800), "1080p");
+        assert_eq!(resolution(1440, 1080), "1080p");
+        assert_eq!(resolution(1280, 534), "720p");
+        assert_eq!(resolution(720, 480), "SD");
+        assert_eq!(resolution(0, 0), "SD");
     }
 
     #[test]
@@ -600,7 +624,7 @@ mod tests {
         ];
         assert_eq!(
             plan(&probe_of(vec![v.clone()]), None).unwrap().badges,
-            ["Dolby Vision"]
+            ["SD", "Dolby Vision"]
         );
         v.side_data_list = vec![
             serde_json::json!({"side_data_type": "DOVI configuration record", "dv_profile": 7}),

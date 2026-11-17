@@ -10,7 +10,8 @@ Distributed through TestFlight only.
   - `tapes serve` is the HTTP API on port 4300: library, artwork, streaming and progress.
   - `tapes import movie|episode|set` converts files into the library format. Video becomes
     HEVC `hvc1` and audio AAC, because the Apple TV 4K (2nd gen) has no AV1 decoding.
-    Subtitles become `tx3g`.
+    Subtitles become `tx3g`. It records the resolution and HDR, Dolby Vision and Atmos as
+    badges, which the movie page shows.
   - `tapes list`, `tapes edit`, `tapes remove`, `tapes init` and `tapes openapi` manage the
     library and API description. Add `--json` to any command.
   - Whole downloaded shows and movies, with TMDB artwork, go in through the `tapes-import`
@@ -30,6 +31,10 @@ Distributed through TestFlight only.
     the day's pick when nothing is in progress. It shares `Sources/Library.swift` and
     `Sources/Server.swift` with the app. Items open `tapes://open/<id>` (the item's page) or
     `tapes://play/<id>` (plays it); the app handles both on every platform.
+  - Debug builds use the `AppIconDev` icon, with a red DEV banner; TestFlight builds use
+    Release and the normal icon.
+  - The app refreshes the library every minute while it is open. Settings, the last tab,
+    shows what the library holds and can reset watch history on every device.
   - The app connects to `http://homelab-mac-mini.local:4300`. Use the `-server URL` launch
     argument to point it somewhere else.
 

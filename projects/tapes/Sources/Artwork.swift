@@ -177,10 +177,12 @@ private struct WatchOverlay: ViewModifier {
   }
 }
 
-/// 2:3 poster with its title beneath. `watchID` is the item whose watched state it shows.
+/// 2:3 poster with its title and year beneath. `watchID` is the item whose watched state it shows.
 struct PosterCell: View {
   let seed: String
   let title: String
+  /// "2010" for a movie, "2005–2013" for a show.
+  var detail: String?
   var watchID: String?
 
   var body: some View {
@@ -191,10 +193,13 @@ struct PosterCell: View {
         .clipShape(.rect(cornerRadius: Metrics.corner))
         .focusLift()
       Text(title).font(.subheadline.weight(.semibold)).lineLimit(1)
+      if let detail {
+        Text(detail).font(.footnote).foregroundStyle(.secondary).lineLimit(1)
+      }
     }
-    // One element read as the title, not "Selected" plus the caption.
+    // One element read as the title and year, not "Selected" plus the caption.
     .accessibilityElement(children: .ignore)
-    .accessibilityLabel(title)
+    .accessibilityLabel([title, detail].compactMap { $0 }.joined(separator: ", "))
   }
 }
 
