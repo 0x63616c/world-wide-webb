@@ -39,7 +39,7 @@ build = ReleaseBuild.find!(asc, APP_ID, TARGET, BUILD_NUMBER)
 
 def versions(asc)
   asc.get(
-    "v1/projects/#{APP_ID}/appStoreVersions",
+    "v1/apps/#{APP_ID}/appStoreVersions",
     { "filter[platform]" => "IOS", "limit" => 50 }
   ).body[
     "data"
