@@ -35,10 +35,17 @@ final class DuoHostControlTests: XCTestCase {
     // Device Hub streams the simulator continuously. XCTest activation can
     // wait indefinitely for it to idle; AppKit sends activation without that
     // quiescence wait, and the process-state assertion still verifies focus.
-    XCTAssertTrue(running.activate(options: []))
-    XCTAssertTrue(
-      hub.wait(for: .runningForeground, timeout: 15),
-      "The selected Xcode's Device Hub must be running")
+    // A just-launched Device Hub on a busy hosted runner can miss a single
+    // activation. Re-send it until it is frontmost, within one bound.
+    func bringToFront() -> Bool {
+      let deadline = Date().addingTimeInterval(60)
+      repeat {
+        _ = running.activate(options: [])
+        if hub.wait(for: .runningForeground, timeout: 5) { return true }
+      } while Date() < deadline
+      return false
+    }
+    XCTAssertTrue(bringToFront(), "The selected Xcode's Device Hub must be running")
     try stage("finding_window")
     try stage("reading_initial_hierarchy")
     try Data(hub.debugDescription.utf8).write(
@@ -90,8 +97,7 @@ final class DuoHostControlTests: XCTestCase {
         continue
       }
       previous = id
-      XCTAssertTrue(running.activate(options: []))
-      XCTAssertTrue(hub.wait(for: .runningForeground, timeout: 15))
+      XCTAssertTrue(bringToFront(), "Device Hub must be frontmost before a control")
       if let pose = request["pose"] {
         XCTAssertTrue(["inner", "outer"].contains(pose))
         let control = window.buttons[pose == "inner" ? "Open" : "Closed"]
