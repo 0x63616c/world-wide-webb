@@ -110,10 +110,11 @@ private struct FollowsLinks: ViewModifier {
           let shown = each == page
           PageStack(
             page: each, query: $query, searchActive: shown, zoom: zoom,
-            path: each == .home ? $homePath : nil)
-            .opacity(shown ? 1 : 0)
-            .allowsHitTesting(shown)
-            .accessibilityHidden(!shown)
+            path: each == .home ? $homePath : nil
+          )
+          .opacity(shown ? 1 : 0)
+          .allowsHitTesting(shown)
+          .accessibilityHidden(!shown)
         }
       }
       .animation(.easeInOut(duration: 0.2), value: page)
