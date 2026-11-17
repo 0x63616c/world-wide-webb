@@ -114,8 +114,8 @@ for profile in "${profiles[@]}"; do
   security cms -D -i "$profile" > "$signing/profile.plist"
   uuid=$(/usr/libexec/PlistBuddy -c 'Print :UUID' "$signing/profile.plist")
   [[ "$uuid" =~ ^[[:xdigit:]]{8}(-[[:xdigit:]]{4}){3}-[[:xdigit:]]{12}$ ]] || exit 1
-  app_id=$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:application-identifier' "$signing/profile.plist" 2> /dev/null ||
-    /usr/libexec/PlistBuddy -c 'Print :Entitlements:com.apple.application-identifier' "$signing/profile.plist")
+  app_id=$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:application-identifier' "$signing/profile.plist" 2> /dev/null \
+    || /usr/libexec/PlistBuddy -c 'Print :Entitlements:com.apple.application-identifier' "$signing/profile.plist")
   profile_uuids+=("$uuid")
   profile_map+="${profile_map:+,}${app_id#*.}=$uuid"
   if [[ "${app_id#*.}" == "${bundle_ids[0]}" ]]; then
