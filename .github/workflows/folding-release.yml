@@ -159,7 +159,6 @@ jobs:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
           ASC_PRIVATE_KEY: ${{ secrets.FOLDING_ASC_PRIVATE_KEY }}
-          DUO_HOST_CONTROL: "1"
         run: |
           ../../scripts/ci/apple-desktop.sh bundle exec fastlane ios promote "receipt:$GITHUB_WORKSPACE/build/beta-receipt.json"
     name: publish

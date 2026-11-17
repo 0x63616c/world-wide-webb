@@ -3,6 +3,7 @@ import XCTest
 
 /// Capture the running fixture app's actual simulator screen, including native
 /// safe areas, status/navigation bars and system-composited Liquid Glass.
+/// A fresh iPhone Duo simulator shows its outer display; nothing here folds it.
 @MainActor final class StorefrontCaptureTests: XCTestCase {
   struct Display: Decodable {
     let id: String
@@ -50,9 +51,6 @@ import XCTest
         // full-screen app window. The captured sheets still use native presentation.
         try show(first, in: app)
       }
-      if display.id.hasPrefix("duo-") {
-        try selectPose(display.id == "duo-inner" ? "inner" : "outer", environment: env)
-      }
       if !launched {
         app.launch()
         launched = true
@@ -68,17 +66,8 @@ import XCTest
         XCTWaiter.wait(for: [geometry], timeout: 45), .completed,
         "The app must occupy the selected physical simulator display")
       for scene in scenes where scene.deviceID == nil || scene.deviceID == display.id {
-        if display.id.hasPrefix("duo-") {
-          try request("appearance", name: scene.appearance, environment: env)
-        }
         try show(scene, in: app)
         print("STOREFRONT_SCREEN=\(locale)/\(display.id)/\(scene.id)")
-        if display.id.hasPrefix("duo-") {
-          try request(
-            "capture", name: "storefront-\(locale)-\(display.id)-\(scene.id)".lowercased(),
-            environment: env)
-          continue
-        }
         let screens = XCUIScreen.screens.map { $0.screenshot() }
         let matches = screens.filter {
           $0.image.cgImage?.width == display.pixelWidth
@@ -122,30 +111,5 @@ import XCTest
       throw NSError(domain: "FoldingCapture", code: 2)
     }
     RunLoop.current.run(until: Date().addingTimeInterval(1.5))
-  }
-
-  private func selectPose(_ pose: String, environment: [String: String]) throws {
-    try request("pose", name: pose, environment: environment)
-  }
-
-  private func request(_ action: String, name: String, environment: [String: String]) throws {
-    let directory = URL(fileURLWithPath: try XCTUnwrap(environment["DUO_HOST_CONTROL_DIR"]))
-    let id = UUID().uuidString
-    let request = try JSONSerialization.data(
-      withJSONObject: ["id": id, "action": action, "name": name])
-    try request.write(to: directory.appendingPathComponent("request.json"), options: .atomic)
-    let deadline = Date().addingTimeInterval(120)
-    while Date() < deadline {
-      if let data = try? Data(contentsOf: directory.appendingPathComponent("response.json")),
-        let response = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-        response["id"] as? String == id
-      {
-        XCTAssertTrue(response["ok"] as? Bool == true, "\(response)")
-        return
-      }
-      RunLoop.current.run(until: Date().addingTimeInterval(0.1))
-    }
-    XCTFail("Native capture \(action) \(name) was not acknowledged")
-    throw NSError(domain: "FoldingCapture", code: 1)
   }
 }

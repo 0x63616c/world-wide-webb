@@ -1,5 +1,4 @@
 require_relative "release_manifest"
-require_relative "../../../../scripts/duo-host"
 
 module FoldingRelease
   module Assets
@@ -164,7 +163,6 @@ module FoldingRelease
           name = "Folding Capture #{SecureRandom.hex(6)}"
           device =
             FoldingRelease.run("xcrun", "simctl", "create", name, type, runtime)
-          controller = nil
           begin
             puts JSON.generate(
                    {
@@ -201,18 +199,6 @@ module FoldingRelease
               "--batteryLevel",
               "100"
             )
-            native_directory = File.join(output, "native-control")
-            if group.any? { |display| display.fetch("id").start_with?("duo-") }
-              controller =
-                DuoHost.new(
-                  directory: native_directory,
-                  device_name: name,
-                  device_id: device
-                ).start
-              controller.capture_bridge(
-                output: File.join(output, "raw", "native-displays")
-              )
-            end
             LOCALES.each do |locale|
               if review_only && locale.fetch("storefront_locale") != "en-US"
                 next
@@ -258,9 +244,7 @@ module FoldingRelease
                 "TEST_RUNNER_FOLDING_CAPTURE_LOCALE" =>
                   locale.fetch("app_locale"),
                 "TEST_RUNNER_FOLDING_CAPTURE_REGION" =>
-                  locale.fetch("test_region"),
-                "TEST_RUNNER_DUO_HOST_CONTROL_DIR" =>
-                  controller ? native_directory : nil
+                  locale.fetch("test_region")
               }
               previous = environment.keys.to_h { |key| [key, ENV[key]] }
               begin
@@ -320,27 +304,6 @@ module FoldingRelease
               group.each do |display|
                 find_capture =
                   lambda do |scene|
-                    if controller
-                      pose = display.fetch("id").delete_prefix("duo-")
-                      name =
-                        "storefront-#{locale.fetch("app_locale")}-#{display.fetch("id")}-#{scene.fetch("id")}".downcase
-                      path =
-                        File.join(
-                          output,
-                          "raw",
-                          "native-displays",
-                          "#{pose}-#{scene.fetch("appearance", "light")}-#{name}.png"
-                        )
-                      unless File.file?(path) &&
-                               png_size(path) ==
-                                 display.values_at(
-                                   "pixel_width",
-                                   "pixel_height"
-                                 )
-                        raise "Missing/wrong native display capture: #{name}"
-                      end
-                      next path
-                    end
                     prefix =
                       "storefront-#{locale.fetch("app_locale")}-#{display.fetch("id")}-#{scene.fetch("id")}_"
                     matches =
@@ -383,7 +346,6 @@ module FoldingRelease
               end
             end
           ensure
-            controller&.close
             system(
               "xcrun",
               "simctl",
@@ -538,12 +500,7 @@ module FoldingRelease
           "screenshots",
           locale.fetch("storefront_locale"),
           "%02d-%s-%s.png" %
-            [
-              scenario.fetch("order") * 2 -
-                (display.fetch("id") == "duo-inner" ? 0 : 1),
-              display.fetch("id"),
-              scenario.fetch("id")
-            ]
+            [scenario.fetch("order"), display.fetch("id"), scenario.fetch("id")]
         )
       FileUtils.mkdir_p(File.dirname(destination))
       unless png_size(raw) == display.values_at("pixel_width", "pixel_height")

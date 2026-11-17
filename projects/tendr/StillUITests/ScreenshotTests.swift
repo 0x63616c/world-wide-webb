@@ -1,55 +1,46 @@
 import XCTest
 
-/// Captures the App Store screens from the `--screenshots` fixture. `scripts/capture-screenshots.sh`
-/// sets the simulator status bar and appearance, then collects the PNGs written to
-/// `SCREENSHOT_DIR` (passed as `TEST_RUNNER_SCREENSHOT_DIR`). Without it, images are only attached.
+/// Captures the App Store screens from the `--screenshots` fixture. `fastlane ios screenshots`
+/// (fastlane snapshot) runs this on iPhone 18 Pro Max and iPhone Duo in light and dark, sets the
+/// 9:41 status bar and collects each `snapshot(_:)`. Run directly, it only checks the journey.
 final class ScreenshotTests: XCTestCase {
   @MainActor func testAppStoreScreens() throws {
     continueAfterFailure = false
     let app = XCUIApplication()
-    app.launchArguments = ["--demo", "--screenshots", "-accentColor", "Graphite"]
+    setupSnapshot(app)
+    app.launchArguments += ["--demo", "--screenshots", "-accentColor", "Graphite"]
     app.launch()
     XCTAssertTrue(app.buttons["logDose"].waitForExistence(timeout: 15))
-    snap("home")
+    snapshot("home", timeWaitingForIdle: 0)
 
     app.buttons["logDose"].tap()
     let amount = app.textFields["doseAmount"]
     XCTAssertTrue(amount.waitForExistence(timeout: 5))
     amount.tap()
     amount.typeText("7.5")
-    snap("log-dose")
+    snapshot("log-dose", timeWaitingForIdle: 0)
     app.buttons["Cancel"].tap()
 
-    app.buttons["Progress"].tap()
+    select("Progress", in: app)
     XCTAssertTrue(app.descendants(matching: .any)["currentWeightCard"].waitForExistence(timeout: 5))
-    snap("progress")
+    snapshot("progress", timeWaitingForIdle: 0)
 
-    app.buttons["Journal"].tap()
+    select("Journal", in: app)
     XCTAssertTrue(app.staticTexts["pageHeader-Journal"].waitForExistence(timeout: 5))
     // Daily weigh-ins would push every dose off screen; show the titration instead.
     app.buttons["Doses"].tap()
     XCTAssertTrue(
       app.staticTexts["7.5 mg · Weekly medication"].firstMatch.waitForExistence(timeout: 5))
-    snap("journal")
+    snapshot("journal", timeWaitingForIdle: 0)
 
-    app.buttons["Settings"].tap()
+    select("Settings", in: app)
     XCTAssertTrue(app.staticTexts["pageHeader-Settings"].waitForExistence(timeout: 5))
-    snap("settings")
+    snapshot("settings", timeWaitingForIdle: 0)
   }
 
-  @MainActor private func snap(_ name: String) {
-    // Let sheet, navigation and chart animations settle.
-    Thread.sleep(forTimeInterval: 1.5)
-    let shot = XCUIScreen.main.screenshot()
-    let attachment = XCTAttachment(screenshot: shot)
-    attachment.name = name
-    attachment.lifetime = .keepAlways
-    add(attachment)
-    guard let directory = ProcessInfo.processInfo.environment["SCREENSHOT_DIR"], !directory.isEmpty
-    else { return }
-    let url = URL(fileURLWithPath: directory, isDirectory: true)
-    try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
-    XCTAssertNoThrow(
-      try shot.pngRepresentation.write(to: url.appendingPathComponent("\(name).png")))
+  /// iPhone shows a tab bar; Duo exposes its vertical rail as plain buttons.
+  @MainActor private func select(_ section: String, in app: XCUIApplication) {
+    let tab = app.tabBars.buttons[section]
+    (tab.exists ? tab : app.buttons[section].firstMatch).tap()
   }
 }

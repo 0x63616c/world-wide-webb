@@ -72,7 +72,7 @@ jobs:
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
         with:
           python-version: 3.15.2
-      - run: python3 -m pip install -r scripts/requirements.txt -r scripts/requirements-screenshots.txt
+      - run: python3 -m pip install -r scripts/requirements.txt
       - uses: ./.github/actions/ruby-tools
       # Root tooling tests are discovered by name, so a new test file needs no workflow edit.
       # scripts/homelab and scripts/distribution run in their owners' workflows.
