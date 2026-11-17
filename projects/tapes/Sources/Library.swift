@@ -81,8 +81,6 @@ enum LibrarySection: String, CaseIterable, Identifiable, Hashable {
     }
   }
 
-  var label: some View { Label(rawValue, systemImage: symbol) }
-
   var emptyTitle: String { "No \(rawValue) Yet" }
   var emptyMessage: String { "\(rawValue) appear here once they're imported into the library." }
 }
