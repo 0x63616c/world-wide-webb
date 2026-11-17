@@ -18,7 +18,7 @@ SKIP_PARTS = {
     "fixtures",
     "vendor",
     "generated",
-    ".agents",
+    ".claude",
     "docs",
     "Assets.xcassets",
     "secrets",

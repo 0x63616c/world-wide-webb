@@ -4,7 +4,7 @@ Native SwiftUI home control for iPad and iPhone/Duo, with a Rust backend, SQLite
 The shared clock-first interface retains the iPad app's components and slide-up launcher.
 
 Start with [CODEBASE_OVERVIEW.md](CODEBASE_OVERVIEW.md) for source locations and
-[the root agent instructions](../../AGENTS.md) for workflow rules. Migration status is recorded in
+[the root agent instructions](../../CLAUDE.md) for workflow rules. Migration status is recorded in
 [the progress tracker](docs/plans/native-rust-progress.md) and [delivery issue #941](https://github.com/0x63616c/world-wide-webb/issues/941).
 
 Install the pinned Rust toolchain, OpenTofu, Xcode 27.2, XcodeGen and standalone Lefthook.

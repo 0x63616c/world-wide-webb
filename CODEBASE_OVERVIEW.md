@@ -19,8 +19,7 @@ release details. Shared code owns selection and common entrypoints.
 | `scripts/ci` and `.github` | Repository selection, verification and product delivery workflows. [Policy](scripts/ci/units.json) |
 | `scripts`, `fastlane`, `tools` | Local entrypoints and standard iOS delivery. [Development](docs/DEVELOPMENT.md) |
 | `docs` | Shared developer, release and historical migration records. |
-| `.agents/skills` | Vendored guidance and its [source record](.agents/skills/SOURCES.md), plus repo-owned skills listed there. |
-| `.codex` | Shared agent and repository tool configuration. |
+| `.claude/skills` | Claude Code project skills: vendored guidance and its [source record](.claude/skills/SOURCES.md), plus repo-owned skills listed there. |
 
 The old root `apps`, `homelab` and `bootstrap` content now lives in `projects`.
 The root `mise.toml` and `mise.lock` pin shared developer tools.

@@ -17,14 +17,18 @@ def matches(path, patterns):
     return any(fnmatch.fnmatchcase(path, pattern) for pattern in patterns)
 
 
+# Agent configuration, including the retired Codex paths, is docs-only.
+AGENT_DIRS = (".claude/", ".agents/", ".codex/")
+
+
 def documentation(path):
     parts = PurePosixPath(path).parts
-    if "docs" in parts or path.startswith(".agents/"):
+    if "docs" in parts or path.startswith(AGENT_DIRS):
         return True
     # Listing/capture assets are product inputs even when their source is Markdown.
     if any(part in {"fastlane", "listing", "metadata", "screenshots"} for part in parts):
         return False
-    return "docs" in parts or path.endswith(".md") or path.startswith(".agents/")
+    return "docs" in parts or path.endswith(".md") or path.startswith(AGENT_DIRS)
 
 
 def validate(config):

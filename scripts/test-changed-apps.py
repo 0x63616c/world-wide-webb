@@ -77,7 +77,7 @@ with tempfile.TemporaryDirectory(prefix="affected-") as directory:
         expect(change(path), ["tendr"])
     for path in [
         "README.md",
-        "AGENTS.md",
+        "CLAUDE.md",
         "docs/guide.md",
         "scripts/README.md",
         "projects/tendr/docs/guide.md",

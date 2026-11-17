@@ -12,13 +12,13 @@ existing Comin, SOPS and registry-auth setup.
 
 ## Working
 
-Use `wtp add -b codex/<task> origin/main` before edits; use absolute worktree paths. `wtp add`
+Use `wtp add -b claude/<task> origin/main` before edits; use absolute worktree paths. `wtp add`
 only resolves from `~/Documents/ChatGPT/world-wide-webb`; from any other checkout use the
 `git worktree add` fallback in `docs/DEVELOPMENT.md`.
 When resuming, check that the worktree path exists. Hourly cleanup removes clean merged
 worktrees and their branches; clean, fully pushed worktrees may be removed after 24 hours
 of observed inactivity while keeping their branches. From the main checkout, recreate a
-missing worktree with `wtp add codex/<task>`; fetch origin first if the branch is remote-only.
+missing worktree with `wtp add claude/<task>`; fetch origin first if the branch is remote-only.
 If the branch was merged and deleted, create a new follow-up branch from fresh `origin/main`.
 Keep durable release evidence outside disposable worktrees; use `git worktree lock --reason
 'retain' <path>` for worktrees that must stay.
@@ -56,8 +56,8 @@ retain runtimes required by actual product tools.
 - Prefer one shared toolchain pin. Root `mise.toml` owns common CLIs; do not add per-project mise
   overrides without a locked product reason, and prefer removing that reason. Rust stays on each
   product's `rust-toolchain.toml`.
-- Codex is the agent surface here (`.codex`, `AGENTS.md`). Do not add OpenCode, Claude-Code, or
-  similar repo agent configs.
+- Claude Code is the agent surface here: `CLAUDE.md` and `.claude/` (skills in `.claude/skills`).
+  Keep agent configuration there only.
 - Verify proportionately: run relevant existing checks and one or two representative core flows for
   the completed batch. Reuse valid passing evidence. Expand testing for changed behavior, real failures
   or concrete unresolved risks; do not routinely add exhaustive matrices, repeated broad suites,
@@ -114,7 +114,7 @@ These working rules supersede heavier review and verification procedures in hist
   checks remain enforced until their replacements are verified and the ruleset is migrated.
 
 For SwiftUI changes consult the vendored SwiftUI expert, Apple HIG, animation and platform glass
-guidance. Keep vendored skills unchanged and record upstream updates in `.agents/skills/SOURCES.md`.
+guidance. Keep vendored skills unchanged and record upstream updates in `.claude/skills/SOURCES.md`.
 Product copy states each point once, with clear actions and concrete destructive consequences.
 
 ## Preservation and credentials

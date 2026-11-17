@@ -23,8 +23,8 @@ boundaries. Product READMEs give the commands and deeper docs for their own area
 Create a worktree from the current main branch, then set up the project:
 
 ```sh
-wtp add -b codex/my-change origin/main
-cd "$(wtp cd codex/my-change)"
+wtp add -b claude/my-change origin/main
+cd "$(wtp cd claude/my-change)"
 scripts/dev list
 scripts/dev setup tendr
 scripts/dev check tendr
@@ -73,7 +73,7 @@ documentation and tests alone do not request an app release.
 - [Development](docs/DEVELOPMENT.md): worktrees, local checks, CI and ownership.
 - [Releases](docs/RELEASE.md): product channels, App Store review and publication.
 - [New app](docs/NEW-APP.md): copy a living app, then wire identity and delivery.
-- [Agent instructions](AGENTS.md): repository rules for automated work.
+- [Agent instructions](CLAUDE.md): repository rules for automated work.
 
 The five repositories consolidated into this one were archived and deleted. Their
 old checkouts are historical; active development and publication happen here. The
