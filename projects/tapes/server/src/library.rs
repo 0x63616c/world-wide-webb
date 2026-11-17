@@ -91,6 +91,8 @@ pub struct Entry {
     pub dir: PathBuf,
     pub has_art: bool,
     pub has_video: bool,
+    /// Size of the video file in bytes; 0 without one.
+    pub bytes: u64,
 }
 
 /// Everything found by one scan. Episodes are grouped under their show's id.
@@ -230,6 +232,7 @@ fn read_entry(dir: &Path, expected: Kind, problems: &mut Vec<String>) -> Option<
         Ok(info) if info.kind == expected => Some(Entry {
             has_art: dir.join(ART).is_file(),
             has_video: dir.join(VIDEO).is_file(),
+            bytes: std::fs::metadata(dir.join(VIDEO)).map_or(0, |m| m.len()),
             info,
             dir: dir.to_path_buf(),
         }),

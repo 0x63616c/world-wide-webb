@@ -247,6 +247,12 @@
           "has_art"
         ],
         "properties": {
+          "bytes": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Size of the video file in bytes. Optional so apps built before it still decode.",
+            "minimum": 0
+          },
           "date": {
             "type": [
               "string",
@@ -292,6 +298,12 @@
           "has_art"
         ],
         "properties": {
+          "bytes": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Size of the video file in bytes. Optional so apps built before it still decode.",
+            "minimum": 0
+          },
           "has_art": {
             "type": "boolean"
           },
@@ -403,6 +415,12 @@
             "items": {
               "type": "string"
             }
+          },
+          "bytes": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Size of the video file in bytes. Optional so apps built before it still decode.",
+            "minimum": 0
           },
           "has_art": {
             "type": "boolean"

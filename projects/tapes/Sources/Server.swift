@@ -82,7 +82,7 @@ extension LibrarySnapshot {
       return Movie(
         id: movie.id, title: movie.title, year: movie.year.map(Int.init),
         seconds: movie.seconds ?? 0,
-        badges: movie.badges, hasArt: movie.hasArt)
+        badges: movie.badges, hasArt: movie.hasArt, bytes: movie.bytes ?? 0)
     }
     shows = response.shows.map { show in
       Show(
@@ -92,14 +92,14 @@ extension LibrarySnapshot {
           return Episode(
             id: episode.id, season: Int(episode.season), number: Int(episode.number),
             title: episode.title,
-            seconds: episode.seconds ?? 0)
+            seconds: episode.seconds ?? 0, bytes: episode.bytes ?? 0)
         })
     }
     sets = response.sets.map { set in
       keep(set.id, set.progress)
       return DJSet(
         id: set.id, djs: set.djs, title: set.title, date: set.date, seconds: set.seconds ?? 0,
-        hasArt: set.hasArt)
+        hasArt: set.hasArt, bytes: set.bytes ?? 0)
     }
     available = response.available
     self.progress = progress

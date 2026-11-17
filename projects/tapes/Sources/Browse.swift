@@ -71,7 +71,9 @@ struct HomeView: View {
   let zoom: Namespace.ID
 
   var body: some View {
-    LibraryPage(title: "Home", empty: store.isEmpty ? .library : nil) { shelves }
+    LibraryPage(title: "Home", empty: store.isEmpty ? .library : nil, footer: store.summary) {
+      shelves
+    }
   }
 
   private var shelves: some View {
@@ -149,6 +151,8 @@ private struct LibraryPage<Content: View>: View {
   @Environment(Store.self) private var store
   let title: String
   let empty: EmptyState?
+  /// A quiet line at the very end of the page, such as the item count and total size.
+  var footer: String?
   @ViewBuilder var content: Content
 
   var body: some View {
@@ -158,6 +162,14 @@ private struct LibraryPage<Content: View>: View {
         empty.containerRelativeFrame([.horizontal, .vertical])
       } else {
         content
+        if let footer {
+          Text(footer)
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+            .frame(maxWidth: .infinity)
+            .padding(.top, Metrics.spacing)
+            .padding(.bottom, Metrics.spacing * 2)
+        }
       }
     }
     .refreshable { await store.load() }
@@ -326,8 +338,10 @@ struct SectionGrid: View {
   let zoom: Namespace.ID
 
   var body: some View {
-    LibraryPage(title: section.rawValue, empty: store.isEmpty(section) ? EmptyState(section) : nil)
-    {
+    LibraryPage(
+      title: section.rawValue, empty: store.isEmpty(section) ? EmptyState(section) : nil,
+      footer: store.summary(section)
+    ) {
       grid
     }
     .scrollClipDisabled()

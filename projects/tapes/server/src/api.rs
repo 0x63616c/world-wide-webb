@@ -132,6 +132,9 @@ pub struct Movie {
     pub seconds: Option<f64>,
     pub badges: Vec<String>,
     pub has_art: bool,
+    /// Size of the video file in bytes. Optional so apps built before it still decode.
+    #[schema(nullable = false)]
+    pub bytes: Option<u64>,
     /// Absent until first played or marked.
     #[schema(nullable = false)]
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -155,6 +158,9 @@ pub struct Episode {
     pub title: String,
     pub seconds: Option<f64>,
     pub has_art: bool,
+    /// Size of the video file in bytes. Optional so apps built before it still decode.
+    #[schema(nullable = false)]
+    pub bytes: Option<u64>,
     /// Absent until first played or marked.
     #[schema(nullable = false)]
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -170,6 +176,9 @@ pub struct DjSet {
     pub date: Option<String>,
     pub seconds: Option<f64>,
     pub has_art: bool,
+    /// Size of the video file in bytes. Optional so apps built before it still decode.
+    #[schema(nullable = false)]
+    pub bytes: Option<u64>,
     /// Absent until first played or marked.
     #[schema(nullable = false)]
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -207,6 +216,7 @@ async fn get_library(State(state): State<Arc<AppState>>) -> Response {
                 seconds: e.info.seconds,
                 badges: e.info.badges.clone(),
                 has_art: e.has_art,
+                bytes: Some(e.bytes),
                 progress: p(&e.info.id),
             })
             .collect(),
@@ -229,6 +239,7 @@ async fn get_library(State(state): State<Arc<AppState>>) -> Response {
                         title: e.info.title.clone(),
                         seconds: e.info.seconds,
                         has_art: e.has_art,
+                        bytes: Some(e.bytes),
                         progress: p(&e.info.id),
                     })
                     .collect(),
@@ -245,6 +256,7 @@ async fn get_library(State(state): State<Arc<AppState>>) -> Response {
                 date: e.info.date.clone(),
                 seconds: e.info.seconds,
                 has_art: e.has_art,
+                bytes: Some(e.bytes),
                 progress: p(&e.info.id),
             })
             .collect(),
@@ -476,6 +488,7 @@ mod tests {
         let library: LibraryResponse = serde_json::from_slice(&body).unwrap();
         assert!(library.available);
         assert_eq!(library.movies.len(), 1);
+        assert_eq!(library.movies[0].bytes, Some(10));
         let saved = library.movies[0].progress.clone().unwrap();
         assert_eq!((saved.seconds, saved.watched), (61.5, false));
     }
