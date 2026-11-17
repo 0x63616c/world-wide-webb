@@ -23,6 +23,7 @@ case "${1:-all}" in
   apple)
     swift test --package-path apple/Packages/PanelKit
     swift test --package-path apple
+    swift test --package-path ../../packages/StudioSplash
     bash tools/test_canvas_layout.sh
     ;;
   integration)

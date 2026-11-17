@@ -278,6 +278,11 @@
         "**/StorefrontTests/**"
       ]
     },
+    "studio-splash": {
+      "paths": ["packages/StudioSplash/**"],
+      "verify_dependents": ["control-center.native", "tapes.native"],
+      "delivery": null
+    },
     "sites.folding": {
       "paths": ["projects/folding/site/**"],
       "delivery": "site",
@@ -628,7 +633,8 @@
       "paths": [
         "projects/control-center/apple/**",
         "projects/control-center/.swift-format",
-        "projects/control-center/contracts/**"
+        "projects/control-center/contracts/**",
+        "packages/StudioSplash/**"
       ],
       "exclude": [
         "projects/control-center/tools/infra_apply.py",
