@@ -90,6 +90,9 @@ struct RootView: View {
       }
     #endif
     .task { await store.load() }
+    .onOpenURL { url in
+      if let link = DeepLink(url) { store.open(link) }
+    }
     .onChange(of: scenePhase) { _, phase in
       // Pick up imports and progress saved on other devices.
       if phase == .active && store.phase == .ready && store.nowPlaying == nil {

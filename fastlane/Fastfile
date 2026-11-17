@@ -388,14 +388,42 @@ platform :ios do
       UI.user_error!("CI requires an installed read-only Match profile")
     end
     unless profile_uuid.to_s.empty?
+      # Extensions (app.yml `extensions`, target => bundle ID) need their own profiles, so the
+      # profile is set per target instead of once for the whole build.
+      extensions = app.fetch("extensions", {}).fetch(platform, {})
+      profiles = { app["bundle_id"] => profile_uuid }
       xcargs +=
-        " CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY='Apple Distribution' PROVISIONING_PROFILE_SPECIFIER=#{Shellwords.escape(profile_uuid)}"
+        " CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY='Apple Distribution'"
+      if extensions.empty?
+        xcargs +=
+          " PROVISIONING_PROFILE_SPECIFIER=#{Shellwords.escape(profile_uuid)}"
+      else
+        installed =
+          ENV
+            .fetch("R_PROFILE_UUIDS", "")
+            .split(",")
+            .to_h { |pair| pair.split("=", 2) }
+        { scheme => app["bundle_id"] }.merge(extensions)
+          .each do |target, bundle_id|
+            uuid =
+              installed.fetch(bundle_id) do
+                UI.user_error!("No Match profile installed for #{bundle_id}")
+              end
+            profiles[bundle_id] = uuid
+            update_code_signing_settings(
+              path: File.join(app["dir"], app["project"]),
+              targets: [target],
+              use_automatic_signing: false,
+              code_sign_identity: "Apple Distribution",
+              profile_name: uuid,
+              bundle_identifier: bundle_id
+            )
+          end
+      end
       export_options = {
         signingStyle: "manual",
         signingCertificate: "Apple Distribution",
-        provisioningProfiles: {
-          app["bundle_id"] => profile_uuid
-        }
+        provisioningProfiles: profiles
       }
       if platform == "macos"
         export_options[

@@ -20,10 +20,11 @@ case "$product" in
     extension=mobileprovision
     ;;
   tapes-tvos)
+    # The app and its Top Shelf extension each have a profile.
     branch=tapes
     type=appstore
     platform=tvos
-    bundle_id=co.worldwidewebb.tapes
+    bundle_id=co.worldwidewebb.tapes,co.worldwidewebb.tapes.TopShelf
     extension=mobileprovision
     ;;
   tapes-macos)
@@ -54,6 +55,7 @@ umask 077
 signing=$(mktemp -d "${RUNNER_TEMP:-${TMPDIR:-/tmp}}/www-match.XXXXXXXX")
 keychain="$signing/signing.keychain-db"
 profile_uuid=
+profile_uuids=()
 security list-keychains -d user > "$signing/search-list"
 cleanup() {
   python3 - "$signing/search-list" << 'PY'
@@ -66,8 +68,10 @@ keys = shlex.split(Path(sys.argv[1]).read_text())
 subprocess.run(["security", "list-keychains", "-d", "user", "-s", *keys], check=True)
 PY
   security delete-keychain "$keychain" > /dev/null 2>&1 || true
-  if [[ -n "$profile_uuid" && -n "${RUNNER_TEMP:-}" ]]; then
-    rm -f "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles/$profile_uuid.$extension"
+  if [[ -n "${RUNNER_TEMP:-}" ]]; then
+    for uuid in ${profile_uuids[@]+"${profile_uuids[@]}"}; do
+      rm -f "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles/$uuid.$extension"
+    done
   fi
   rm -rf "$signing"
 }
@@ -96,15 +100,33 @@ bundle exec fastlane match "$type" --readonly true --platform "$platform" \
   --clone_branch_directly true --app_identifier "$bundle_id" --team_id X9E4HG27NK \
   --keychain_name "$keychain" --output_path "$signing" ${extra_certs[@]+"${extra_certs[@]}"}
 shopt -s nullglob
+IFS=, read -r -a bundle_ids <<< "$bundle_id"
 profiles=("$signing/"*."$extension")
-[[ "${#profiles[@]}" -eq 1 ]] || {
-  echo "Expected one Match profile for $product" >&2
+[[ "${#profiles[@]}" -eq "${#bundle_ids[@]}" ]] || {
+  echo "Expected ${#bundle_ids[@]} Match profiles for $product" >&2
   exit 1
 }
-security cms -D -i "${profiles[0]}" > "$signing/profile.plist"
-/usr/libexec/PlistBuddy -c 'Print :UUID' "$signing/profile.plist" > "$signing/profile.uuid"
-read -r profile_uuid < "$signing/profile.uuid"
-[[ "$profile_uuid" =~ ^[[:xdigit:]]{8}(-[[:xdigit:]]{4}){3}-[[:xdigit:]]{12}$ ]] || exit 1
+# R_PROFILE_UUIDS maps each bundle ID to its profile ("id=uuid,id=uuid"); R_PROFILE_UUID and
+# MATCH_PROFILE_PATH are the app's own.
+profile_map=
+main_profile=
+for profile in "${profiles[@]}"; do
+  security cms -D -i "$profile" > "$signing/profile.plist"
+  uuid=$(/usr/libexec/PlistBuddy -c 'Print :UUID' "$signing/profile.plist")
+  [[ "$uuid" =~ ^[[:xdigit:]]{8}(-[[:xdigit:]]{4}){3}-[[:xdigit:]]{12}$ ]] || exit 1
+  app_id=$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:application-identifier' "$signing/profile.plist" 2> /dev/null \
+    || /usr/libexec/PlistBuddy -c 'Print :Entitlements:com.apple.application-identifier' "$signing/profile.plist")
+  profile_uuids+=("$uuid")
+  profile_map+="${profile_map:+,}${app_id#*.}=$uuid"
+  if [[ "${app_id#*.}" == "${bundle_ids[0]}" ]]; then
+    profile_uuid=$uuid
+    main_profile=$profile
+  fi
+done
+[[ -n "$profile_uuid" ]] || {
+  echo "No Match profile for ${bundle_ids[0]}" >&2
+  exit 1
+}
 security find-identity -v -p codesigning "$keychain" | /usr/bin/grep -Eq '^ *1 valid identities found$' || {
   echo "Expected one valid signing identity for $product" >&2
   exit 1
@@ -115,4 +137,4 @@ unset MATCH_PASSWORD MATCH_GIT_BASIC_AUTHORIZATION MATCH_KEYCHAIN_PASSWORD
 # The build runs with the caller's umask: under 077 a Mac installer package holds files only root
 # can read, which App Store Connect rejects (error 90255).
 umask "$original_umask"
-R_PROFILE_UUID="$profile_uuid" MATCH_PROFILE_PATH="${profiles[0]}" MATCH_KEYCHAIN_PATH="$keychain" "$@"
+R_PROFILE_UUID="$profile_uuid" R_PROFILE_UUIDS="$profile_map" MATCH_PROFILE_PATH="$main_profile" MATCH_KEYCHAIN_PATH="$keychain" "$@"

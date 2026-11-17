@@ -37,15 +37,18 @@ enum Page: Hashable, CaseIterable {
   }
 }
 
-/// One page with its own navigation, so it keeps its place when another tab is chosen.
+/// One page with its own navigation, so it keeps its place when another tab is chosen. Home's
+/// path belongs to the tabs, so a Top Shelf link can open a page there.
 private struct PageStack: View {
   let page: Page
   @Binding var query: String
   var searchActive = false
   let zoom: Namespace.ID
+  var path: Binding<NavigationPath>?
+  @State private var ownPath = NavigationPath()
 
   var body: some View {
-    NavigationStack {
+    NavigationStack(path: path ?? $ownPath) {
       switch page {
       case .home: HomeView(zoom: zoom).libraryDestinations(zoom)
       case .movies: SectionGrid(section: .movies, zoom: zoom).libraryDestinations(zoom)
@@ -70,6 +73,28 @@ private struct PageStack: View {
   }
 }
 
+/// Follows a `tapes://open` link: switches to Home and shows the linked page there.
+private struct FollowsLinks: ViewModifier {
+  @Environment(Store.self) private var store
+  @Binding var page: Page
+  @Binding var homePath: NavigationPath
+
+  func body(content: Content) -> some View {
+    content.onChange(of: store.linkedPage, initial: true) { _, linked in
+      guard let linked else { return }
+      var path = NavigationPath()
+      switch linked {
+      case .movie(let movie): path.append(movie)
+      case .show(let show): path.append(show)
+      case .set(let set): path.append(set)
+      }
+      page = .home
+      homePath = path
+      store.linkedPage = nil
+    }
+  }
+}
+
 #if os(macOS)
   /// The Mac draws its own bar across the top: the system tab bar shows titles only, with no
   /// icons. Every page stays alive underneath, so each keeps its place between tabs.
@@ -77,15 +102,19 @@ private struct PageStack: View {
     @Namespace private var zoom
     @State private var page = Page.home
     @State private var query = ""
+    @State private var homePath = NavigationPath()
 
     var body: some View {
       ZStack {
         ForEach(Page.allCases, id: \.self) { each in
           let shown = each == page
-          PageStack(page: each, query: $query, searchActive: shown, zoom: zoom)
-            .opacity(shown ? 1 : 0)
-            .allowsHitTesting(shown)
-            .accessibilityHidden(!shown)
+          PageStack(
+            page: each, query: $query, searchActive: shown, zoom: zoom,
+            path: each == .home ? $homePath : nil
+          )
+          .opacity(shown ? 1 : 0)
+          .allowsHitTesting(shown)
+          .accessibilityHidden(!shown)
         }
       }
       .animation(.easeInOut(duration: 0.2), value: page)
@@ -96,6 +125,7 @@ private struct PageStack: View {
         }
         .sharedBackgroundVisibility(.hidden)
       }
+      .modifier(FollowsLinks(page: $page, homePath: $homePath))
     }
   }
 
@@ -142,17 +172,20 @@ private struct PageStack: View {
   private struct SystemTabs: View {
     @Namespace private var zoom
     @State private var query = ""
+    @State private var page = Page.home
+    @State private var homePath = NavigationPath()
 
     var body: some View {
-      TabView {
+      TabView(selection: $page) {
         ForEach([Page.home, .movies, .shows, .sets], id: \.self) { each in
-          Tab {
-            PageStack(page: each, query: $query, zoom: zoom)
+          Tab(value: each) {
+            PageStack(
+              page: each, query: $query, zoom: zoom, path: each == .home ? $homePath : nil)
           } label: {
             Label(each.title, systemImage: each.symbol)
           }
         }
-        Tab(role: .search) {
+        Tab(value: Page.search, role: .search) {
           PageStack(page: .search, query: $query, zoom: zoom)
         } label: {
           #if os(tvOS)
@@ -171,6 +204,7 @@ private struct PageStack: View {
       #else
         .tabViewStyle(.tabBarOnly)
       #endif
+      .modifier(FollowsLinks(page: $page, homePath: $homePath))
     }
   }
 #endif

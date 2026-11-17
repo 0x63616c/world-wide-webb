@@ -9,6 +9,10 @@ platforms:
   tvos: Tapes-tvOS
   macos: Tapes-macOS
 bundle_id: co.worldwidewebb.tapes
+# App extensions per platform (target: bundle ID), each signed with its own Match profile.
+extensions:
+  tvos:
+    Tapes-TopShelf: co.worldwidewebb.tapes.TopShelf
 version: 1.0.1
 testflight: true
 testflight_group: Owner Preview
