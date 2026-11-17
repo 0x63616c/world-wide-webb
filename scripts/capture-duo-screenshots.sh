@@ -194,7 +194,10 @@ ENTITLEMENTSPY
   python3 - "$work" "$host_worker" << 'HOSTPY'
 import os, pathlib, subprocess, sys, time
 folder, process = pathlib.Path(sys.argv[1]), int(sys.argv[2])
-for _ in range(120):
+# Each accessibility snapshot of the streaming Device Hub takes ~25s on hosted
+# runners, so a healthy start ranges from ~40s to over 2 minutes. An exited
+# controller still fails immediately below.
+for _ in range(300):
     if (folder / "host-ready").exists():
         break
     try:
