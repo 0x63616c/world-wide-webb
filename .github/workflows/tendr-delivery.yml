@@ -38,7 +38,6 @@ jobs:
       FASTLANE_HIDE_CHANGELOG: "1"
       FASTLANE_SKIP_DOCS: "1"
       APP: tendr
-      DUO_HOST_CONTROL: "1"
       RELEASE_MANIFEST: ${{ github.workspace }}/build/beta-receipt.json
       SOURCE_SHA: ${{ inputs.source }}
       CHANNEL: ${{ inputs.channel }}
@@ -141,14 +140,7 @@ jobs:
         if: inputs.channel == 'store' && env.RELEASE_SKIP != 'true'
         run: |
           export GITHUB_SHA="$SOURCE_SHA"
-          python3 -m pip install -r scripts/requirements-screenshots.txt
-          selected=$(python3 scripts/select-duo-xcode.py "$DEVELOPER_DIR")
-          export DEVELOPER_DIR="$selected"
-          scripts/ci/apple-desktop.sh scripts/capture-screenshots.sh "$APP"
-          scripts/frame-screenshots.sh "$APP"
-          scripts/ci/apple-desktop.sh scripts/capture-duo-screenshots.sh "$APP"
-          python3 scripts/stage-duo-screenshots.py "projects/$APP/screenshots.json" \
-            "build/duo-screenshots/$APP/raw" "projects/$APP/fastlane/screenshots/en-US"
+          scripts/ci/apple-desktop.sh bundle exec fastlane ios screenshots app:"$APP"
       - name: Upload listing, verify Apple received images, and submit app with purchases
         if: inputs.channel == 'store' && env.RELEASE_SKIP != 'true'
         env:
@@ -192,8 +184,6 @@ jobs:
             build/release-state.json
             build/review-status.txt
             projects/tendr/fastlane/screenshots/en-US/*.png
-            build/duo-screenshots/tendr/raw/diagnostics
-            build/screenshots/tendr/*.xcresult
             build/screenshots/tendr/raw
           if-no-files-found: ignore
     name: publish

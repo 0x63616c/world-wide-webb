@@ -18,13 +18,6 @@
       "upload_display_type": "APP_IPHONE_DUO"
     },
     {
-      "id": "duo-inner",
-      "model": "iPhone Duo",
-      "pixel_width": 2853,
-      "pixel_height": 2007,
-      "upload_display_type": "APP_IPHONE_DUO"
-    },
-    {
       "id": "iphone-medium",
       "model": "iPhone 18 Pro",
       "device_type": "com.apple.CoreSimulator.SimDeviceType.iPhone-18-Pro",

@@ -127,9 +127,15 @@
     let renderer = ImageRenderer(content: view.frame(width: size.width, height: size.height))
     renderer.scale = 1
     renderer.proposedSize = ProposedViewSize(size)
-    guard let image = renderer.cgImage,
+    guard let image = renderer.cgImage else { throw CocoaError(.fileWriteUnknown) }
+    try writeOpaque(image, to: url)
+  }
+
+  func writeOpaque(_ image: CGImage, to url: URL) throws {
+    let size = CGSize(width: image.width, height: image.height)
+    guard
       let context = CGContext(
-        data: nil, width: Int(size.width), height: Int(size.height), bitsPerComponent: 8,
+        data: nil, width: image.width, height: image.height, bitsPerComponent: 8,
         bytesPerRow: 0,
         space: CGColorSpace(name: CGColorSpace.sRGB)!,
         bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue)
@@ -143,6 +149,20 @@
     guard CGImageDestinationFinalize(destination) else { throw CocoaError(.fileWriteUnknown) }
   }
 
+  /// Loads a raw capture and fails unless it has one of the expected pixel sizes.
+  func capture(_ url: URL, sizes: [CGSize]) throws -> CGImage {
+    guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
+      let image = CGImageSourceCreateImageAtIndex(source, 0, nil)
+    else { throw CocoaError(.fileReadNoSuchFile, userInfo: [NSFilePathErrorKey: url.path]) }
+    let size = CGSize(width: image.width, height: image.height)
+    guard sizes.contains(size) else {
+      throw CocoaError(
+        .fileReadCorruptFile,
+        userInfo: [NSLocalizedDescriptionKey: "\(url.path) is \(image.width)x\(image.height)"])
+    }
+    return image
+  }
+
   @main struct RFrame {
     @MainActor static func main() throws {
       let arguments = Array(CommandLine.arguments.dropFirst())
@@ -151,12 +171,21 @@
           Data("usage: rframe <screenshots.json> <raw-dir> <output-dir> [overview.png]\n".utf8))
         exit(64)
       }
-      let shots = try JSONDecoder().decode(
-        RFrameConfig.self, from: Data(contentsOf: URL(fileURLWithPath: arguments[0]))
-      ).shots
+      let config = try JSONDecoder().decode(
+        RFrameConfig.self, from: Data(contentsOf: URL(fileURLWithPath: arguments[0])))
       let raw = URL(fileURLWithPath: arguments[1])
       let output = URL(fileURLWithPath: arguments[2])
       let overview = arguments.count > 3 ? URL(fileURLWithPath: arguments[3]) : nil
+      // Read and size-check every capture before replacing the staged set.
+      let phone = try config.shots.map {
+        try capture($0.capture.source(in: raw, device: RFrameConfig.phone), sizes: [canvas])
+      }
+      let duoSize = CGSize(width: 1398, height: 2034)
+      let duo = try config.duoShots.map {
+        try capture(
+          $0.source(in: raw, device: RFrameConfig.duo),
+          sizes: [duoSize, CGSize(width: duoSize.height, height: duoSize.width)])
+      }
       let files = FileManager.default
       try files.createDirectory(at: output, withIntermediateDirectories: true)
       for stale in try files.contentsOfDirectory(at: output, includingPropertiesForKeys: nil)
@@ -164,18 +193,21 @@
         try files.removeItem(at: stale)
       }
       var framed: [NSImage] = []
-      for (index, shot) in shots.enumerated() {
-        let source = raw.appendingPathComponent(shot.appearance).appendingPathComponent(
-          "\(shot.screen).png")
-        guard let screen = NSImage(contentsOf: source) else {
-          throw CocoaError(.fileReadNoSuchFile, userInfo: [NSFilePathErrorKey: source.path])
-        }
+      for (index, shot) in config.shots.enumerated() {
+        let screen = NSImage(cgImage: phone[index], size: canvas)
         let name = shot.appearance == "light" ? shot.screen : "\(shot.screen)-\(shot.appearance)"
         let destination = output.appendingPathComponent(
           String(format: "%02d-%@.png", index + 1, name))
         try render(Frame(shot: shot, screen: screen), size: canvas, to: destination)
         framed.append(NSImage(contentsOf: destination)!)
         print("Framed \(destination.path)")
+      }
+      // deliver files these in the APP_IPHONE_DUO gallery by their pixel size.
+      for (index, shot) in config.duoShots.enumerated() {
+        let destination = output.appendingPathComponent(
+          String(format: "duo-%02d-%@.png", index + 1, shot.screen))
+        try writeOpaque(duo[index], to: destination)
+        print("Staged \(destination.path)")
       }
       if let overview {
         try files.createDirectory(

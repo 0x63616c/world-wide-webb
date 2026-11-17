@@ -1,23 +1,17 @@
 #!/usr/bin/env python3
-"""Portable release regressions: inputs, Duo PNG export, and submission with a fake ASC."""
+"""Portable release regressions: screenshot build metadata, release target, and submission with a fake ASC."""
 
 import importlib.util
 import json
 import os
-from pathlib import Path
-import shutil
 import subprocess
 import sys
 import tempfile
 import unittest
-
-from PIL import Image
+from pathlib import Path
 
 sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parent.parent
-spec = importlib.util.spec_from_file_location("stage_duo", ROOT / "scripts/stage-duo-screenshots.py")
-duo = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(duo)
 settings_spec = importlib.util.spec_from_file_location(
     "screenshot_settings", ROOT / "scripts/screenshot-build-settings.py"
 )
@@ -105,127 +99,6 @@ class ReleaseTests(unittest.TestCase):
             with self.subTest(override=override), self.assertRaises(ValueError):
                 screenshot_settings.build_settings("tendr", override)
 
-    def test_phone_capture_passes_release_metadata_to_xcode(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            scripts, binaries = root / "scripts", root / "bin"
-            scripts.mkdir()
-            binaries.mkdir()
-            (root / "projects/tendr").mkdir(parents=True)
-            (root / "projects/tendr/project.yml").write_text("fixture project spec\n")
-            for name in ("capture-screenshots.sh", "boot-simulator.sh", "screenshot-build-settings.py"):
-                shutil.copy2(ROOT / "scripts" / name, scripts / name)
-            tool = binaries / "tool"
-            tool.write_text("""#!/usr/bin/env python3
-import json, os, pathlib, sys
-name, args = pathlib.Path(sys.argv[0]).name, sys.argv[1:]
-if name == "ruby":
-    print({"project_path":"fixture project.xcodeproj", "scheme":"Fixture", "screenshot_test":"FixtureTests", "name":"Fixture"}[args[-1]])
-elif name == "xcodegen":
-    pathlib.Path(os.environ["PROJECT_GENERATED_RECORD"]).write_text(str(pathlib.Path.cwd()))
-elif name == "xcrun" and args[:2] == ["simctl", "create"]:
-    assert pathlib.Path(os.environ["PROJECT_GENERATED_RECORD"]).exists(), "Generate before boot"
-    print("fixture-simulator")
-elif name == "xcodebuild":
-    pathlib.Path(os.environ["SCREENSHOT_BUILD_RECORD"]).write_text(json.dumps(args))
-    sys.exit(42)
-""")
-            tool.chmod(0o755)
-            for name in ("ruby", "xcrun", "xcodebuild", "xcodegen"):
-                (binaries / name).symlink_to(tool)
-            record = root / "build.json"
-            environment = {
-                key: value
-                for key, value in os.environ.items()
-                if key not in ("RELEASE_MANIFEST", "RELEASE_VERSION", "RELEASE_BUILD")
-            }
-            environment.update(
-                PATH=f"{binaries}:{environment['PATH']}",
-                RELEASE_VERSION="1.1.1",
-                RELEASE_BUILD="1",
-                SCREENSHOT_BUILD_RECORD=str(record),
-                PROJECT_GENERATED_RECORD=str(root / "generated-project"),
-            )
-            result = subprocess.run(
-                ["bash", str(scripts / "capture-screenshots.sh"), "tendr"],
-                env=environment,
-                capture_output=True,
-                text=True,
-                timeout=15,
-            )
-            self.assertEqual(result.returncode, 42, result.stdout + result.stderr)
-            self.assertEqual((root / "generated-project").read_text(), str((root / "projects/tendr").resolve()))
-            arguments = json.loads(record.read_text())
-            self.assertIn("MARKETING_VERSION=1.1.1", arguments)
-            self.assertIn("CURRENT_PROJECT_VERSION=1", arguments)
-            self.assertIn("fixture project.xcodeproj", arguments)
-
-    def test_phone_capture_recovers_shutdown_between_appearances(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            scripts, binaries = root / "scripts", root / "bin"
-            scripts.mkdir()
-            binaries.mkdir()
-            for name in ("capture-screenshots.sh", "boot-simulator.sh", "screenshot-build-settings.py"):
-                shutil.copy2(ROOT / "scripts" / name, scripts / name)
-            tool = binaries / "tool"
-            tool.write_text("""#!/usr/bin/env python3
-import json, os, pathlib, struct, sys
-name, args = pathlib.Path(sys.argv[0]).name, sys.argv[1:]
-state = pathlib.Path(os.environ["SIMULATOR_STATE"])
-with open(os.environ["COMMAND_RECORD"], "a") as log:
-    log.write(json.dumps([name, *args]) + "\\n")
-if name == "ruby":
-    print({"project_path":"fixture.xcodeproj", "scheme":"Fixture", "screenshot_test":"FixtureTests", "name":"Fixture"}[args[-1]])
-elif name == "xcrun":
-    command = args[1]
-    if command == "create":
-        state.write_text("Shutdown")
-        print("owned-simulator")
-    elif command == "boot":
-        state.write_text("Booted")
-    elif command in ("ui", "status_bar", "bootstatus"):
-        if state.read_text() != "Booted":
-            sys.exit("Unable to lookup in current state: Shutdown")
-elif name == "xcodebuild" and args[0] == "test-without-building":
-    assert state.read_text() == "Booted"
-    output = pathlib.Path(os.environ["TEST_RUNNER_SCREENSHOT_DIR"])
-    (output / "home.png").write_bytes(b"\\x89PNG\\r\\n\\x1a\\n" + b"\\x00" * 8 + struct.pack(">II", 1320, 2868))
-    state.write_text("Shutdown")  # Reproduce the state observed after the hosted test session.
-""")
-            tool.chmod(0o755)
-            for name in ("ruby", "xcrun", "xcodebuild"):
-                (binaries / name).symlink_to(tool)
-            environment = {
-                key: value
-                for key, value in os.environ.items()
-                if key not in ("RELEASE_MANIFEST", "RELEASE_VERSION", "RELEASE_BUILD")
-            }
-            environment.update(
-                PATH=f"{binaries}:{environment['PATH']}",
-                SIMULATOR_STATE=str(root / "state"),
-                COMMAND_RECORD=str(root / "commands"),
-            )
-            result = subprocess.run(
-                ["bash", str(scripts / "capture-screenshots.sh"), "tendr"],
-                env=environment,
-                capture_output=True,
-                text=True,
-                timeout=15,
-            )
-            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-            for appearance in ("light", "dark"):
-                self.assertTrue((root / "build/screenshots/tendr/raw" / appearance / "home.png").is_file())
-            commands = [json.loads(line) for line in (root / "commands").read_text().splitlines()]
-            self.assertEqual(sum(command[:3] == ["xcrun", "simctl", "create"] for command in commands), 1)
-            builds = [command for command in commands if command[:2] == ["xcodebuild", "build-for-testing"]]
-            self.assertEqual(len(builds), 1)
-            sessions = [command for command in commands if command[:2] == ["xcodebuild", "test-without-building"]]
-            self.assertEqual(len(sessions), 2)
-            for session in sessions:
-                index = session.index("-parallel-testing-enabled")
-                self.assertEqual(session[index + 1], "NO")
-
     def run_ruby(self, script, env, args=()):
         # No real Apple credentials are used, including when this runs on a release Mac.
         base = {key: value for key, value in os.environ.items() if key != "GITHUB_OUTPUT"}
@@ -301,73 +174,6 @@ elif name == "xcodebuild" and args[0] == "test-without-building":
                 body for path, body in calls if body.get("data", {}).get("attributes", {}).get("releaseType")
             )
             self.assertEqual(release_call["data"]["attributes"]["releaseType"], "AFTER_APPROVAL")
-
-    def test_duo_landscape_export(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            raw, output = root / "raw", root / "output"
-            raw.mkdir()
-            config = root / "screenshots.json"
-            config.write_text(json.dumps({"duo_shots": [{"screen": "home", "appearance": "dark"}]}))
-            (raw / "plan.json").write_text('{"mode":"fold"}')
-            for pose, size in (("inner", (2853, 2007)), ("outer", (2034, 1398))):
-                image = Image.new("RGB", size, (23, 23, 23))
-                image.putpixel((1, 1), (240, 240, 240))
-                image.save(raw / f"{pose}-dark-home.png")
-            duo.stage(config, raw, output)
-            files = list(output.glob("*.png"))
-            self.assertEqual(len(files), 2)
-            for path in files:
-                with Image.open(path) as image:
-                    self.assertGreater(image.width, image.height)
-                    self.assertEqual(image.getpixel((1, 1)), (240, 240, 240))
-
-    def test_duo_export(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            raw, output = root / "raw", root / "output"
-            raw.mkdir()
-            output.mkdir()
-            config = root / "screenshots.json"
-            config.write_text(json.dumps({"duo_shots": [{"screen": "home", "appearance": "dark"}]}))
-            (raw / "plan.json").write_text('{"mode":"fold"}')
-            (output / "duo-stale.png").write_text("stale")
-            ordinary = output / "01-home.png"
-            ordinary.write_text("ordinary screenshot")
-            for pose, size in (("inner", (2007, 2853)), ("outer", (1398, 2034))):
-                image = Image.new("RGBA", size, (23, 23, 23, 255))
-                image.putpixel((1, 1), (240, 240, 240, 255))
-                image.save(raw / f"{pose}-dark-home.png")
-            duo.stage(config, raw, output)
-            files = list(output.glob("duo-*.png"))
-            self.assertEqual(len(files), 2)
-            self.assertTrue(ordinary.exists())
-            for path in files:
-                with Image.open(path) as image:
-                    self.assertEqual(image.mode, "RGB")
-                    self.assertEqual(image.getpixel((0, 0)), (23, 23, 23))
-            before = {p.name: p.read_bytes() for p in output.iterdir()}
-            for mode in ("default", "unknown"):
-                (raw / "plan.json").write_text(json.dumps({"mode": mode}))
-                with self.assertRaises(ValueError):
-                    duo.stage(config, raw, output)
-            (raw / "plan.json").write_text('{"mode":"displays"}')
-            for image in (
-                Image.new("RGB", (100, 100)),
-                Image.new("RGBA", (2007, 2853), (0, 0, 0, 0)),
-                Image.new("RGB", (2007, 2853)),
-            ):
-                image.save(raw / "inner-dark-home.png")
-                with self.assertRaises(ValueError):
-                    duo.stage(config, raw, output)
-            (raw / "inner-dark-home.png").unlink()
-            with self.assertRaises(FileNotFoundError):
-                duo.stage(config, raw, output)
-            config.write_text(json.dumps({"duo_shots": [{"screen": "home", "appearance": "dark"}] * 6}))
-            with self.assertRaises(ValueError):
-                duo.stage(config, raw, output)
-            self.assertEqual(before, {p.name: p.read_bytes() for p in output.iterdir()})
-
 
 if __name__ == "__main__":
     unittest.main()

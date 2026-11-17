@@ -2,7 +2,7 @@ name: Folding
 delivery_handler: folding
 platform: ios
 testflight: true
-version: 1.0.2
+version: 1.0.3
 ci_workflow: folding-ci.yml
 release_workflow: folding-release.yml
 uses: []

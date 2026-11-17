@@ -44,13 +44,13 @@ The Swift package tests cover calculations, validation, local calendar schedulin
 
 Compact windows retain the five tabs. On supported systems, adaptive system navigation presents those same sections in a sidebar when space permits; navigation, filters and editor drafts stay in the same view hierarchy during resize. Portrait and landscape are enabled.
 
-From the repository root on macOS with the Duo simulator installed:
+App Store screenshots come from fastlane snapshot. From the repository root on macOS with Xcode 27.2 and the iPhone Duo runtime installed:
 
 ```sh
-DEVELOPER_DIR=/Applications/Xcode_27.2.app/Contents/Developer scripts/capture-duo-screenshots.sh tendr
+bundle exec fastlane ios screenshots app:tendr
 ```
 
-Release capture launches the app fresh on each Duo display and takes the five configured shots there, switching appearance in place. Interaction and rotation tests run separately. Device Hub operates on the hosted runner so capture does not take over a developer’s desktop. See [Duo validation](docs/DUO.md) for display detection, raw captures and the native resize checklist.
+It runs `StillUITests/ScreenshotTests` on fresh iPhone 18 Pro Max and iPhone Duo simulators in light and dark, then `Tools/rframe` frames the iPhone shots and stages the Duo (outer display) shots in `fastlane/screenshots/en-US`. See [Duo validation](docs/DUO.md) for the manual fold checklist.
 
 ## Monorepo
 

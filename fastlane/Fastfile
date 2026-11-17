@@ -317,6 +317,105 @@ platform :ios do
     )
   end
 
+  desc "Capture App Store screenshots with snapshot (iPhone 18 Pro Max and iPhone Duo, light and dark), then frame and stage them with the app's rframe tool"
+  lane :screenshots do |options|
+    app = r_app(options)
+    raw = File.join(REPO_ROOT, "build", "screenshots", app["slug"], "raw")
+    # Disposable simulators with fixed names: snapshot selects devices by name and
+    # prefixes each PNG with it. A fresh Duo shows its outer (1398x2034) display.
+    simulators = {
+      "Screenshots iPhone 18 Pro Max" => %w[
+        com.apple.CoreSimulator.SimDeviceType.iPhone-18-Pro-Max
+        com.apple.CoreSimulator.SimRuntime.iOS-27-2
+      ],
+      "Screenshots iPhone Duo" => %w[
+        com.apple.CoreSimulator.SimDeviceType.iPhone-Duo
+        com.apple.CoreSimulator.SimRuntime.iOS-27-2-iPhone19-4
+      ]
+    }
+    created =
+      JSON
+        .parse(sh("xcrun", "simctl", "list", "devices", "-j", log: false))
+        .fetch("devices")
+        .values
+        .flatten
+        .select { |device| simulators.key?(device["name"]) }
+        .map { |device| device["udid"] }
+    begin
+      created.each { |udid| sh("xcrun", "simctl", "delete", udid) }
+      created = []
+      simulators.each do |name, (type, runtime)|
+        created << sh(
+          "xcrun",
+          "simctl",
+          "create",
+          name,
+          type,
+          runtime,
+          log: false
+        ).strip
+      end
+      xcargs =
+        sh(
+          "python3",
+          File.join(REPO_ROOT, "scripts/screenshot-build-settings.py"),
+          app["slug"],
+          log: false
+        ).split
+      FileUtils.rm_rf(raw)
+      %w[light dark].each_with_index do |appearance, index|
+        capture_ios_screenshots(
+          project: File.join(app["dir"], app["project"]),
+          scheme: app["scheme"],
+          devices: simulators.keys,
+          languages: ["en-US"],
+          dark_mode: appearance == "dark",
+          only_testing: [app["screenshot_test"]],
+          output_directory: File.join(raw, appearance),
+          derived_data_path:
+            File.join(
+              REPO_ROOT,
+              "build",
+              "screenshots",
+              app["slug"],
+              "DerivedData"
+            ),
+          test_without_building: index.positive?,
+          xcargs: (["CODE_SIGNING_ALLOWED=NO"] + xcargs).join(" "),
+          override_status_bar: true,
+          override_status_bar_arguments:
+            "--time 9:41 --dataNetwork wifi --wifiMode active --wifiBars 3 --cellularMode active --cellularBars 4 --operatorName '' --batteryState discharging --batteryLevel 100",
+          reinstall_app: true,
+          app_identifier: app["bundle_id"],
+          stop_after_first_error: true,
+          # One simulator at a time: hosted runners are too slow for two at once.
+          # No retry, so a failure keeps its result bundle.
+          concurrent_simulators: false,
+          number_of_retries: 0,
+          skip_open_summary: true,
+          result_bundle: true
+        )
+      end
+    ensure
+      created.each do |udid|
+        system("xcrun", "simctl", "delete", udid, err: File::NULL)
+      end
+    end
+    sh(
+      "swift",
+      "run",
+      "--package-path",
+      File.join(app["dir"], "Tools", "rframe"),
+      "-c",
+      "release",
+      "rframe",
+      File.join(app["dir"], "screenshots.json"),
+      raw,
+      File.join(app["screenshots_path"], "en-US"),
+      File.join(REPO_ROOT, "build", "screenshots", app["slug"], "overview.png")
+    )
+  end
+
   desc "Assign an already processed build to the app's TestFlight group"
   lane :distribute_existing do |options|
     app = r_app(options)
@@ -587,7 +686,7 @@ platform :ios do
         JSON
           .parse(File.read(File.join(config["dir"], "screenshots.json")))
           .fetch("duo_shots")
-          .length * 2
+          .length
       directory = File.join(config["screenshots_path"], "en-US")
       ReleasePipeline.staged!(directory, count)
       replacement =
