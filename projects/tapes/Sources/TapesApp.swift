@@ -14,30 +14,9 @@ struct TapesApp: App {
     }
     #if os(macOS)
       .defaultSize(width: 1280, height: 820)
-      .commands {
-        // The sidebar's own toggle, moved from the system default Control-Command-S to Command-B.
-        CommandGroup(replacing: .sidebar) {
-          Button("Toggle Sidebar") { toggleSidebar() }
-          .keyboardShortcut("b", modifiers: .command)
-        }
-      }
     #endif
   }
 }
-
-#if os(macOS)
-  /// Asks the window's split view directly: once the sidebar is hidden, nothing in the focus chain
-  /// answers the standard toggle action, so sending it the usual way only ever hides.
-  private func toggleSidebar() {
-    func split(in view: NSView?) -> NSSplitView? {
-      guard let view else { return nil }
-      if let found = view as? NSSplitView { return found }
-      return view.subviews.lazy.compactMap { split(in: $0) }.first
-    }
-    let window = NSApp.keyWindow ?? NSApp.mainWindow ?? NSApp.windows.first { $0.isVisible }
-    (split(in: window?.contentView)?.delegate as? NSSplitViewController)?.toggleSidebar(nil)
-  }
-#endif
 
 struct RootView: View {
   @Environment(\.scenePhase) private var scenePhase
@@ -65,6 +44,8 @@ struct RootView: View {
         RootTabs()
       }
     }
+    // Fill the window, so a small screen like the load failure isn't a black box on grey.
+    .frame(maxWidth: .infinity, maxHeight: .infinity)
     .animation(.easeOut(duration: 0.4), value: store.phase)
     .environment(store)
     .background(Color.black.ignoresSafeArea())
@@ -73,7 +54,10 @@ struct RootView: View {
     .scrollIndicators(.never)
     .tint(.white)
     #if os(macOS)
-      // The player fills the window, so the sidebar button and page title must not sit over it.
+      // Every screen sits on the black page: no grey title strip and no "Tapes" title above it.
+      .toolbar(removing: .title)
+      .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
+      // The player fills the window, so the tabs must not sit over it.
       .toolbarVisibility(store.nowPlaying == nil ? .automatic : .hidden, for: .windowToolbar)
       .overlay {
         if let playable = store.nowPlaying {

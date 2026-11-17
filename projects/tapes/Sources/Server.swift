@@ -1,5 +1,6 @@
 // The Tapes server on the home network, through the client generated from `openapi.json`.
 import Foundation
+import OpenAPIRuntime
 import OpenAPIURLSession
 import TapesAPI
 
@@ -49,6 +50,13 @@ struct Server: Sendable {
       throw ServerError("Saving progress failed with error \(status).")
     }
   }
+}
+
+/// One plain sentence for why a request failed. The generated client wraps the network error in
+/// a long description of the operation, the transport and every underlying error.
+func failureReason(_ error: Error) -> String {
+  if let client = error as? ClientError { return client.underlyingError.localizedDescription }
+  return error.localizedDescription
 }
 
 /// The server is up but has not read the library on the NAS since it started.
