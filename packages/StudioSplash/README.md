@@ -22,8 +22,9 @@ the wave; the bar keeps moving because it is the loading indicator.
 
 ## Sheets for other apps
 
-Everything lives in `Sources/StudioSplash/Resources` as plain PNG and JSON, so a game or web app
-can load it without Swift:
+Everything lives in `Sheets/` as plain PNG and JSON, so a game or web app can load it without
+Swift. The Swift package compiles the same bytes in (`EmbeddedSheets.swift`) instead of shipping a
+resource bundle, which would need its own signing settings when an app archives.
 
 - `globe.png`: 8 frames of 41 × 41 in a row, 8 fps. Rows 0 and 40 are empty.
 - `wordmark.png`: 65 × 5. `letters` in the manifest gives each letter's first and last column.
@@ -55,4 +56,5 @@ uv run packages/StudioSplash/Design/generate.py
 
 It refuses to write a bar that leaves the palette or moves more than 1 px between frames (the
 stepped chevron design moves a whole chevron at a time on purpose). `swift test --package-path
-packages/StudioSplash` checks the sheets against the manifest and the layout spacing.
+packages/StudioSplash` checks the sheets against the manifest, the layout spacing, and that the
+embedded copy matches `Sheets/`.
