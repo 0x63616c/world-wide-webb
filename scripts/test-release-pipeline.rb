@@ -187,8 +187,8 @@ class ReleasePipelineTest < Minitest::Test
       events.clear
       FileUtils.mkdir_p(File.join(dir, "en-US"))
       shots =
-        %w[inner outer].map do |pose|
-          name = "duo-01-#{pose}-home.png"
+        %w[outer].map do |pose|
+          name = "duo-01-home.png"
           File.write(File.join(dir, "en-US", name), "fixture-#{pose}")
           {
             "attributes" => {
@@ -274,10 +274,10 @@ class ReleasePipelineTest < Minitest::Test
 
   def test_screenshot_verification_checks_apple_bytes_state_and_gallery
     Dir.mktmpdir do |dir|
-      File.write(File.join(dir, "duo-01-inner-home.png"), "fixture")
+      File.write(File.join(dir, "duo-01-home.png"), "fixture")
       shot = {
         "attributes" => {
-          "fileName" => "duo-01-inner-home.png",
+          "fileName" => "duo-01-home.png",
           "sourceFileChecksum" => Digest::MD5.hexdigest("fixture"),
           "assetDeliveryState" => {
             "state" => "COMPLETE"
