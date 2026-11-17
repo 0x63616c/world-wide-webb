@@ -17,6 +17,14 @@ module UI
   end
 end
 
+module CredentialsManager
+  class AppfileConfig
+    def self.try_fetch_value(key)
+      { team_id: "TEAMID1234" }[key]
+    end
+  end
+end
+
 module Spaceship
   class ConnectAPI
     module Platform
@@ -130,15 +138,24 @@ raise "uploaded without signing" if check.calls.assoc(:upload)
 check.calls.clear
 profile_uuid = "12345678-1234-1234-1234-123456789ABC"
 ENV["R_PROFILE_UUID"] = profile_uuid
+check.define_singleton_method(:update_code_signing_settings) do |**args|
+  @calls << [:signing, args]
+end
 check.beta({ app: "tendr" })
-unless check.calls.map(&:first) == %i[sh latest build upload]
+unless check.calls.map(&:first) == %i[sh latest signing build upload]
   raise "release order"
 end
+signing = check.calls.assoc(:signing).last
+unless signing[:targets] == ["Still"] &&
+         signing[:profile_name] == profile_uuid &&
+         signing[:bundle_identifier] == "com.calumwebb.still"
+  raise "CI target signing"
+end
 build = check.calls.assoc(:build).last
+# Swift package resource bundles reject a build-wide profile and need the team set globally.
 unless build[:xcargs].include?("CODE_SIGN_STYLE=Manual") &&
-         build[:xcargs].include?(
-           "PROVISIONING_PROFILE_SPECIFIER=#{profile_uuid}"
-         )
+         build[:xcargs].include?("DEVELOPMENT_TEAM=TEAMID1234") &&
+         !build[:xcargs].include?("PROVISIONING_PROFILE_SPECIFIER")
   raise "CI archive signing"
 end
 unless build[:export_options][:provisioningProfiles] ==
@@ -155,9 +172,6 @@ ENV["R_PROFILE_UUID"] = app_profile
 ENV[
   "R_PROFILE_UUIDS"
 ] = "co.worldwidewebb.tapes=#{app_profile},co.worldwidewebb.tapes.TopShelf=#{shelf_profile}"
-check.define_singleton_method(:update_code_signing_settings) do |**args|
-  @calls << [:signing, args]
-end
 check.beta({ app: "tapes", platform: "tvos", skip_tests: true })
 signed =
   check
