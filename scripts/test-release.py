@@ -175,5 +175,6 @@ class ReleaseTests(unittest.TestCase):
             )
             self.assertEqual(release_call["data"]["attributes"]["releaseType"], "AFTER_APPROVAL")
 
+
 if __name__ == "__main__":
     unittest.main()
