@@ -226,7 +226,7 @@ HOSTPY
     done
     kill "$host_worker" "$host_application_worker" 2> /dev/null || true
     wait "$host_worker" "$host_application_worker" 2> /dev/null || true
-    host_worker= host_application_worker=
+    host_worker='' host_application_worker=''
     pkill -x DeviceHub 2> /dev/null || true
     if ((host_attempt == 3)); then
       echo "Device Hub controller failed to start after $host_attempt attempts" >&2
