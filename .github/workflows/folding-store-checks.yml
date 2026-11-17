@@ -48,15 +48,6 @@ jobs:
         with:
           name: folding-store-native-capture-failure-${{ github.run_attempt }}
           path: |
-            projects/folding/build/store-assets/**/assets/native-control/build.log
-            projects/folding/build/store-assets/**/assets/native-control/controller.log
-            projects/folding/build/store-assets/**/assets/native-control/application.log
-            projects/folding/build/store-assets/**/assets/native-control/host-stage.txt
-            projects/folding/build/store-assets/**/assets/native-control/host-hierarchy.txt
-            projects/folding/build/store-assets/**/assets/native-control/capture.log
-            projects/folding/build/store-assets/**/assets/native-control/plan.json
-            projects/folding/build/store-assets/**/assets/native-control/simctl-capabilities.txt
-            projects/folding/build/store-assets/**/assets/raw/native-displays
             projects/folding/build/store-assets/**/assets/results/*.xcresult
             projects/folding/build/store-assets/**/assets/logs
           if-no-files-found: ignore
