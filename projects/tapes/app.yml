@@ -13,7 +13,7 @@ bundle_id: co.worldwidewebb.tapes
 extensions:
   tvos:
     Tapes-TopShelf: co.worldwidewebb.tapes.TopShelf
-version: 1.0.1
+version: 1.1.0
 testflight: true
 testflight_group: Owner Preview
 beta_description: Tapes plays your own movies, shows and DJ sets from the Mac mini at home.
