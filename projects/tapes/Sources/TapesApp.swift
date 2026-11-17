@@ -5,6 +5,13 @@ import SwiftUI
 
 @main
 struct TapesApp: App {
+  #if !os(macOS)
+    init() {
+      // Film sound: plays with the ring/silent switch on, routes to AirPlay and allows PiP.
+      try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .moviePlayback)
+    }
+  #endif
+
   var body: some Scene {
     WindowGroup {
       RootView()
@@ -117,32 +124,54 @@ private struct LoadFailure: View {
 }
 
 /// Owns the AVPlayer for one viewing and writes the position back while playing and when it ends.
+/// When an episode plays to the end, the show's next episode starts in the same player.
 final class PlayerSession {
-  let playable: Playable
+  private(set) var playable: Playable
   let store: Store
-  let player: AVPlayer
+  let player = AVPlayer()
   private var observer: Any?
+  private var endObserver: NSObjectProtocol?
+  private var artwork: Task<Void, Never>?
 
   init(playable: Playable, store: Store) {
     self.playable = playable
     self.store = store
-    let item = AVPlayerItem(url: store.server.mediaURL(playable.id))
-    #if !os(macOS)
-      item.externalMetadata = [
-        Self.metadata(.commonIdentifierTitle, playable.title),
-        Self.metadata(.iTunesMetadataTrackSubTitle, playable.subtitle),
-      ]
-    #endif
-    player = AVPlayer(playerItem: item)
-    if store.isInProgress(playable.id) {
-      player.seek(to: CMTime(seconds: store.position(playable.id), preferredTimescale: 600))
-    }
     // Save every 15 seconds so a crash or a dropped connection loses little.
     observer = player.addPeriodicTimeObserver(
       forInterval: CMTime(seconds: 15, preferredTimescale: 1), queue: .main
     ) {
       [weak self] _ in
       MainActor.assumeIsolated { self?.save() }
+    }
+    start(playable)
+  }
+
+  private func start(_ playable: Playable) {
+    self.playable = playable
+    let item = AVPlayerItem(url: store.server.mediaURL(playable.id))
+    #if !os(macOS)
+      item.externalMetadata = Self.metadata(playable, artwork: nil)
+      artwork?.cancel()
+      if let artID = playable.artID {
+        let url = store.server.artURL(artID, small: false)
+        // The info panel and the remote's Now Playing show the poster once it arrives.
+        artwork = Task { [weak item] in
+          guard let (data, response) = try? await URLSession.shared.data(from: url),
+            (response as? HTTPURLResponse)?.statusCode == 200, !Task.isCancelled, let item
+          else { return }
+          item.externalMetadata = Self.metadata(playable, artwork: data)
+        }
+      }
+    #endif
+    if let endObserver { NotificationCenter.default.removeObserver(endObserver) }
+    endObserver = NotificationCenter.default.addObserver(
+      forName: AVPlayerItem.didPlayToEndTimeNotification, object: item, queue: .main
+    ) { [weak self] _ in
+      MainActor.assumeIsolated { self?.playNext() }
+    }
+    player.replaceCurrentItem(with: item)
+    if store.isInProgress(playable.id) {
+      player.seek(to: CMTime(seconds: store.position(playable.id), preferredTimescale: 600))
     }
     player.play()
   }
@@ -153,23 +182,48 @@ final class PlayerSession {
       playable.id, seconds: player.currentTime().seconds, duration: item.duration.seconds)
   }
 
+  /// Marks the finished item watched and moves on to the next episode, if there is one.
+  private func playNext() {
+    let duration = player.currentItem?.duration.seconds ?? .nan
+    store.record(playable.id, seconds: duration, duration: duration)
+    if let next = store.playable(after: playable.id) { start(next) }
+  }
+
   func finish() {
     if let observer { player.removeTimeObserver(observer) }
     observer = nil
+    if let endObserver { NotificationCenter.default.removeObserver(endObserver) }
+    endObserver = nil
+    artwork?.cancel()
     player.pause()
     let duration = player.currentItem?.duration.seconds ?? .nan
     store.record(playable.id, seconds: player.currentTime().seconds, duration: duration)
   }
 
-  private static func metadata(_ identifier: AVMetadataIdentifier, _ value: String)
-    -> AVMetadataItem
-  {
-    let item = AVMutableMetadataItem()
-    item.identifier = identifier
-    item.value = value as NSString
-    item.extendedLanguageTag = "und"
-    return item
-  }
+  #if !os(macOS)
+    private static func metadata(_ playable: Playable, artwork: Data?) -> [AVMetadataItem] {
+      var items = [
+        metadata(.commonIdentifierTitle, playable.title as NSString),
+        metadata(.iTunesMetadataTrackSubTitle, playable.subtitle as NSString),
+      ]
+      if let artwork {
+        let item = metadata(.commonIdentifierArtwork, artwork as NSData)
+        item.dataType = kCMMetadataBaseDataType_JPEG as String
+        items.append(item)
+      }
+      return items
+    }
+
+    private static func metadata(
+      _ identifier: AVMetadataIdentifier, _ value: NSCopying & NSObjectProtocol
+    ) -> AVMutableMetadataItem {
+      let item = AVMutableMetadataItem()
+      item.identifier = identifier
+      item.value = value
+      item.extendedLanguageTag = "und"
+      return item
+    }
+  #endif
 }
 
 /// The system player on each platform.
