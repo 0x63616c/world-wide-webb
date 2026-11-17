@@ -22,7 +22,8 @@ trashes the download folder once everything has gone in cleanly. `--help` has th
      `--title S03E18="Sozin's Comet"`;
    - movies: the plan's video action and audio make sense (see Preferences).
 4. **Run** each item as its own background command, without `--dry-run`. It can start while the
-   download is still going; it finishes 30 minutes after the last file settles.
+   download is still going. A show run finishes 30 minutes after its last file settles; a movie run
+   finishes once its one file is imported and checked.
 5. **Report** from `~/.local/state/tapes-import/<slug>/log.txt` when it exits: counts, and every
    `FAIL`, `KEPT` or `SKIP` line. A run with any FAIL/KEPT, or files left, keeps the download folder
    for the user to decide.
