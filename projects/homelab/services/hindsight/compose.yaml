@@ -4,6 +4,9 @@ services:
     image: ghcr.io/vectorize-io/hindsight@sha256:a88678c038b0e4340822b02a5efc566c56d8176b5bffa731bc433fd37f978e4c
     container_name: hindsight
     restart: unless-stopped
+    # The embedded Postgres builds vector indexes in parallel with
+    # maintenance_work_mem=512MB held in /dev/shm; Docker's 64 MiB default fails.
+    shm_size: 1g
     # Preserve existing exposure during migration; narrowing it is a separate change.
     ports:
       - "8888:8888"
