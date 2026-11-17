@@ -177,21 +177,24 @@ private struct WatchOverlay: ViewModifier {
   }
 }
 
-/// 2:3 poster. `watchID` is the item whose watched state it shows.
+/// 2:3 poster with its title beneath. `watchID` is the item whose watched state it shows.
 struct PosterCell: View {
   let seed: String
   let title: String
   var watchID: String?
 
   var body: some View {
-    Artwork(seed: seed, title: title)
-      .aspectRatio(2 / 3, contentMode: .fit)
-      .modifier(WatchOverlay(id: watchID))
-      .clipShape(.rect(cornerRadius: Metrics.corner))
-      .focusLift()
-      // The artwork has no text of its own, so VoiceOver would otherwise read only "Selected".
-      .accessibilityElement(children: .ignore)
-      .accessibilityLabel(title)
+    VStack(alignment: .leading, spacing: Metrics.caption) {
+      Artwork(seed: seed, title: title)
+        .aspectRatio(2 / 3, contentMode: .fit)
+        .modifier(WatchOverlay(id: watchID))
+        .clipShape(.rect(cornerRadius: Metrics.corner))
+        .focusLift()
+      Text(title).font(.subheadline.weight(.semibold)).lineLimit(1)
+    }
+    // One element read as the title, not "Selected" plus the caption.
+    .accessibilityElement(children: .ignore)
+    .accessibilityLabel(title)
   }
 }
 

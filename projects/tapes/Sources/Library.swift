@@ -181,7 +181,7 @@ final class Store {
     } catch is LibraryUnreadable {
       if phase != .ready { phase = .unreadable }
     } catch {
-      if phase != .ready { phase = .failed(error.localizedDescription) }
+      if phase != .ready { phase = .failed(failureReason(error)) }
     }
   }
 

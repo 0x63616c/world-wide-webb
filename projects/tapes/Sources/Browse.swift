@@ -1,5 +1,5 @@
-// The chosen structure: a Home page, then a page per section, with side navigation
-// on Mac, Apple TV and wide iPhone screens (a tab bar on narrow ones).
+// The chosen structure: a Home page, then a page per section. Apple TV and Mac have a tab bar
+// across the top; iPhone has the bottom tab bar (a sidebar on wide screens).
 import SwiftUI
 
 struct RootTabs: View {
@@ -8,31 +8,59 @@ struct RootTabs: View {
 
   var body: some View {
     TabView {
-      Tab("Home", systemImage: "house") {
+      Tab {
         NavigationStack { HomeView(zoom: zoom).libraryDestinations(zoom) }
+      } label: {
+        TabLabel(title: "Home", systemImage: "house")
       }
       ForEach(LibrarySection.allCases) { section in
         Tab {
           NavigationStack { SectionGrid(section: section, zoom: zoom).libraryDestinations(zoom) }
         } label: {
-          section.label
+          TabLabel(title: section.rawValue, systemImage: section.symbol)
         }
       }
       Tab(role: .search) {
         NavigationStack {
-          SearchResults(query: query).navigationTitle("Search").libraryDestinations(zoom)
-            #if !os(iOS)
-              .searchable(text: $query, prompt: "Movies, shows and DJs")
-            #endif
+          #if os(macOS)
+            // The Mac's own search field would sit at the right of the toolbar on every page,
+            // apart from the Search tab, so the field lives at the top of this page instead.
+            VStack(spacing: 0) {
+              SearchField(query: $query)
+              SearchResults(query: query)
+            }
+            .navigationTitle("Search")
+            .libraryDestinations(zoom)
+          #else
+            SearchResults(query: query).navigationTitle("Search").libraryDestinations(zoom)
+              #if os(tvOS)
+                .searchable(text: $query, prompt: "Movies, shows and DJs")
+              #endif
+          #endif
         }
       }
     }
-    .tabViewStyle(.sidebarAdaptable)
     #if os(iOS)
+      .tabViewStyle(.sidebarAdaptable)
       // On iPhone the search tab turns into the search field, so the field belongs to the tab view.
       .searchable(text: $query, prompt: "Movies, shows and DJs")
       .tabBarMinimizeBehavior(.onScrollDown)
+    #else
+      .tabViewStyle(.tabBarOnly)
     #endif
+  }
+}
+
+/// A tab's icon and title side by side; the Apple TV and Mac top tab bar otherwise shows titles only.
+private struct TabLabel: View {
+  let title: String
+  let systemImage: String
+
+  var body: some View {
+    HStack(spacing: 6) {
+      Image(systemName: systemImage)
+      Text(title)
+    }
   }
 }
 
@@ -277,7 +305,15 @@ private struct ContinueCard: View {
       Spacer(minLength: 0)
     }
     .padding(40)
-    .background { Artwork(seed: item.artID).blur(radius: 70).overlay(.black.opacity(0.5)) }
+    .background {
+      // Dark enough that light artwork (a mostly white poster) doesn't wash the card out grey.
+      Artwork(seed: item.artID).blur(radius: 70)
+        .overlay(.black.opacity(0.6))
+        .overlay {
+          LinearGradient(
+            colors: [.black.opacity(0.5), .clear], startPoint: .leading, endPoint: .trailing)
+        }
+    }
     .clipShape(.rect(cornerRadius: 28))
   }
 }
@@ -344,6 +380,36 @@ struct SectionGrid: View {
 
 // MARK: - Search
 
+#if os(macOS)
+  /// The Mac search field, focused when the Search tab opens.
+  private struct SearchField: View {
+    @Binding var query: String
+    @FocusState private var focused: Bool
+
+    var body: some View {
+      HStack(spacing: 8) {
+        Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+        TextField("Movies, shows and DJs", text: $query)
+          .textFieldStyle(.plain)
+          .focused($focused)
+        if !query.isEmpty {
+          Button("Clear", systemImage: "xmark.circle.fill") { query = "" }
+            .labelStyle(.iconOnly)
+            .buttonStyle(.plain)
+            .foregroundStyle(.secondary)
+        }
+      }
+      .font(.title3)
+      .padding(.horizontal, 14)
+      .padding(.vertical, 10)
+      .background(Color(white: 0.14), in: .capsule)
+      .padding(.horizontal, Metrics.gutter)
+      .padding(.vertical, Metrics.spacing)
+      .onAppear { focused = true }
+    }
+  }
+#endif
+
 struct SearchResults: View {
   @Environment(Store.self) private var store
   let query: String
@@ -383,6 +449,10 @@ struct SearchResults: View {
       }
     }
     .listStyle(.plain)
+    #if os(macOS)
+      // A plain Mac list runs to the window edge; line it up with the search field above.
+      .contentMargins(.horizontal, Metrics.gutter - 8, for: .scrollContent)
+    #endif
     .blackPage()
     .overlay {
       if movies.isEmpty && shows.isEmpty && sets.isEmpty {
