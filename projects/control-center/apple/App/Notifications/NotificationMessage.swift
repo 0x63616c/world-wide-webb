@@ -5,6 +5,8 @@ struct NotificationCardContent: View {
     let item: NotificationItem
     let source: NotificationSource
     @Environment(\.dynamicTypeSize) private var typeSize
+    /// The icon is a square as tall as the text, so its top, leading and bottom insets match.
+    @State private var textHeight: CGFloat = 38
     private var style: String {
         #if DEBUG
             UserDefaults.standard.string(forKey: "previewNotificationStyle") ?? "classic"
@@ -15,7 +17,7 @@ struct NotificationCardContent: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: style == "airy" ? 18 : 12) {
-            NotificationSourceIcon(source: source, side: style == "airy" ? 48 : 38)
+            NotificationSourceIcon(source: source, side: min(72, max(style == "airy" ? 48 : 38, textHeight)))
             VStack(alignment: .leading, spacing: 4) {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                     Text(style == "compact" ? source.name : item.title)
@@ -34,6 +36,11 @@ struct NotificationCardContent: View {
                         .lineLimit(typeSize.isAccessibilitySize ? nil : 2)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
+            }
+            .onGeometryChange(for: CGFloat.self) {
+                $0.size.height
+            } action: {
+                textHeight = $0
             }
         }
         .padding(style == "airy" ? 20 : 16)

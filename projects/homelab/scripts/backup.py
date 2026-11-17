@@ -273,11 +273,39 @@ def publication_failure(destination, error):
     return "Pending publication failed: " + destination.name + ": " + type(error).__name__ + detail
 
 
+def nas_failure(error):
+    """A short reason Control Center can show when the error came from the NAS; None otherwise."""
+    code = getattr(error, "code", None)
+    if code == 407:
+        return "The NAS blocked the Mini after repeated failed logins"
+    if code is not None and "Auth.login" in str(error):
+        return "The NAS rejected the Mini’s login"
+    if code is not None:
+        return f"The NAS refused an upload (error {code})"
+    if isinstance(error, OSError):
+        return "The Mini can’t reach the NAS"
+    if isinstance(error, RuntimeError) and str(error).startswith("NAS "):
+        return "Uploads to the NAS are failing"
+    return None
+
+
+def nas_state(previous, attempted, reason, now):
+    """Keep the first failure time so Control Center can wait out brief blips."""
+    previous = previous if isinstance(previous, dict) else {"state": "unknown"}
+    if not attempted:
+        return previous
+    if reason is None:
+        return {"state": "ok", "since": previous.get("since") if previous.get("state") == "ok" else now}
+    since = previous.get("since") if previous.get("state") == "failing" else now
+    return {"state": "failing", "since": since, "reason": reason}
+
+
 def publish_pending(config, transaction=None, wait=False, sleep=time.sleep):
     root = Path(config["root"])
     if root.is_symlink() or not root.is_dir() or root.stat().st_uid != os.geteuid() or root.stat().st_mode & 0o077:
         raise ValueError("Unsafe backup root")
     failed = 0
+    nas_reason = None
     with backup_publish.publication_lock(root, blocking=transaction is not None or wait):
         destinations = list(backup_publish.pending_sets(root, include_verified=transaction is not None))
         if transaction:
@@ -322,16 +350,24 @@ def publish_pending(config, transaction=None, wait=False, sleep=time.sleep):
                     prune_verified(destination.parent, config["keepLocal"])
             except Exception as error:
                 failed += 1
+                nas_reason = nas_failure(error) or nas_reason
                 print(publication_failure(destination, error), file=sys.stderr)
         remaining = list(backup_publish.pending_sets(root))
+        status_path = root / "publication-status.json"
+        try:
+            previous = json.loads(status_path.read_text()).get("nas")
+        except (OSError, ValueError, AttributeError):
+            previous = None
+        now = datetime.datetime.now(datetime.timezone.utc).isoformat()
         snapshot.durable.write_json(
-            root / "publication-status.json",
+            status_path,
             {
                 "format": 1,
                 "pending": len(remaining),
                 "oldestPending": min((p.name for p in remaining), default=None),
                 "failed": failed,
-                "checkedAt": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                "checkedAt": now,
+                "nas": nas_state(previous, bool(destinations), nas_reason, now),
             },
         )
     if failed:

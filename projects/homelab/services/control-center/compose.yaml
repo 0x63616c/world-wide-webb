@@ -17,6 +17,7 @@ services:
       BEDROOM_SWITCH_INPUT_VERIFIED: ${BEDROOM_SWITCH_INPUT_VERIFIED:-off}
       BEDROOM_SWITCH_INPUT_ENTITY_ID: ${BEDROOM_SWITCH_INPUT_ENTITY_ID:-}
       MEDIA_STORAGE_DIR: /app/media
+      HOST_STATUS_DIR: /run/host-status
     volumes:
       - type: bind
         source: ${WWW_SECRETS_DIR:?Set the secrets directory}
@@ -29,6 +30,11 @@ services:
       - type: bind
         source: ${WWW_DATA_DIR:?Restore the persistent media directory}/media
         target: /app/media
+        bind: { create_host_path: false }
+      - type: bind
+        source: /var/lib/_containers/host-status
+        target: /run/host-status
+        read_only: true
         bind: { create_host_path: false }
     ports:
       - 127.0.0.1:${WWW_PORT:-4202}:4201

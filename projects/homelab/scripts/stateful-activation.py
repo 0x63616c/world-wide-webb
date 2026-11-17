@@ -239,6 +239,10 @@ def transaction(
         durable.write_json(journal, record)
         try:
             action()
+        except BaseException:
+            # Lets the host-status exporter tell a stopped update from one still running.
+            record["failedAt"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
+            raise
         finally:
             timing["durationSeconds"] = round(time.monotonic() - started, 6)
             timing["finishedAt"] = datetime.datetime.now(datetime.timezone.utc).isoformat()

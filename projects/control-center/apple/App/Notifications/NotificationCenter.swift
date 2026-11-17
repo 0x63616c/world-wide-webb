@@ -14,6 +14,10 @@ struct NotificationItem: Identifiable, Equatable, Codable, Sendable {
     var readAt: Date?
     let remote: Bool
     var isPersistentUpdate: Bool { !remote && sourceModule == "updates" && deepLink == "module/updates/testflight" }
+    /// Host notices stay until the Mini recovers, like the TestFlight notice stays until installed.
+    var isPersistentHost: Bool { !remote && sourceModule == NotificationItem.hostSource }
+    var isPersistent: Bool { isPersistentUpdate || isPersistentHost }
+    static let hostSource = "homelab"
 
     init(_ row: PanelNotification) {
         id = row.id
@@ -43,6 +47,10 @@ struct NotificationItem: Identifiable, Equatable, Codable, Sendable {
         readAt = nil
         remote = false
     }
+}
+
+enum PanelNotificationLinks {
+    static let diagnostics = "settings/diagnostics"
 }
 
 struct NotificationGroup: Identifiable, Equatable {
@@ -211,13 +219,13 @@ struct NotificationGroup: Identifiable, Equatable {
     func open(_ id: String) async {
         guard let item = items[id], openHandler?(item) != false else { return }
         historyPresented = false
-        if !item.isPersistentUpdate { hideBanner(id) }
+        if !item.isPersistent { hideBanner(id) }
         openFeedback += 1
         await markRead(id)
     }
 
     func dismiss(_ id: String) async {
-        guard let item = items[id], !item.isPersistentUpdate else { return }
+        guard let item = items[id], !item.isPersistent else { return }
         hideBanner(id)
         dismissFeedback += 1
         do {
@@ -241,7 +249,7 @@ struct NotificationGroup: Identifiable, Equatable {
             if failed { lastError = "Some notifications couldn’t be cleared. Try again." }
             return
         }
-        let snapshot = history.filter { !$0.isPersistentUpdate }
+        let snapshot = history.filter { !$0.isPersistent }
         do {
             if snapshot.contains(where: \.remote), let api { _ = try await api.dismissAll() }
             // A local post arriving during the request must not be lost.
@@ -267,14 +275,14 @@ struct NotificationGroup: Identifiable, Equatable {
     /// The banner stack exposes newest items across sources; inbox ordering stays unchanged.
     func advanceBanners(by elapsed: TimeInterval, visibleIDs: Set<String>, paused: Bool = false) {
         guard !historyPresented, !paused, elapsed > 0, elapsed.isFinite else { return }
-        for id in visibleIDs where banners.contains(id) && items[id]?.isPersistentUpdate != true {
+        for id in visibleIDs where banners.contains(id) && items[id]?.isPersistent != true {
             guard let seconds = remaining[id] else { continue }
             if seconds <= elapsed { hideBanner(id) } else { remaining[id] = seconds - elapsed }
         }
     }
 
     func hideBanner(_ id: String) {
-        guard items[id]?.isPersistentUpdate != true else { return }
+        guard items[id]?.isPersistent != true else { return }
         banners.remove(id)
         remaining.removeValue(forKey: id)
     }
@@ -331,6 +339,24 @@ struct NotificationGroup: Identifiable, Equatable {
         persist()
     }
 
+    /// Show exactly the current host notices; recovered ones disappear without a tap.
+    func reconcileHost(_ notices: [HostNotice]) {
+        let keys = Set(notices.map(\.key))
+        for item in history where item.isPersistentHost && !keys.contains(item.dedupeKey ?? "") { remove(item.id) }
+        for notice in notices {
+            if let item = match(source: NotificationItem.hostSource, key: notice.key),
+                item.title == notice.title, item.body == notice.body
+            {
+                banners.insert(item.id)
+            } else {
+                _ = post(
+                    sourceModule: NotificationItem.hostSource, title: notice.title, body: notice.body,
+                    deepLink: PanelNotificationLinks.diagnostics, priority: .high, dedupeKey: notice.key)
+            }
+        }
+        persist()
+    }
+
     private func remove(_ id: String) {
         items.removeValue(forKey: id)
         hideBanner(id)
@@ -352,6 +378,7 @@ struct NotificationGroup: Identifiable, Equatable {
     }
 
     private static func ordered(_ a: NotificationItem, _ b: NotificationItem) -> Bool {
+        if a.isPersistentHost != b.isPersistentHost { return a.isPersistentHost }
         if a.priority != b.priority { return a.priority.rank > b.priority.rank }
         if a.createdAt != b.createdAt { return a.createdAt > b.createdAt }
         return a.id < b.id

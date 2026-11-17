@@ -14,6 +14,8 @@ pub struct Config {
     pub wifi_qr: Option<String>,
     pub alarm_snooze_minutes: i64,
     pub alarm_light_target: String,
+    /// Read-only folder Homelab fills with the Mini's status and redacted log tails.
+    pub host_dir: Option<PathBuf>,
 }
 fn value(key: &str) -> Result<Option<String>, Box<dyn std::error::Error>> {
     if let Ok(path) = env::var(format!("{key}_FILE")) {
@@ -118,6 +120,7 @@ impl Config {
             bedroom_input,
             alarm_snooze_minutes,
             alarm_light_target,
+            host_dir: value("HOST_STATUS_DIR")?.map(PathBuf::from),
         })
     }
 }
@@ -152,6 +155,7 @@ impl Default for Config {
             wifi_qr: None,
             alarm_snooze_minutes: 9,
             alarm_light_target: "light.bed_lamp_left,light.bed_lamp_right".into(),
+            host_dir: None,
         }
     }
 }

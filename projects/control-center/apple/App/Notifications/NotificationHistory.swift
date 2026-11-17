@@ -119,7 +119,7 @@ struct NotificationHistory: View {
                 .font(.title.bold()).accessibilityAddTraits(.isHeader)
                 .frame(maxWidth: .infinity, alignment: .leading)
             NotificationIconButton(label: "Clear all notifications", symbol: "xmark") { clear() }
-                .disabled(clearing || !center.history.contains(where: { !$0.isPersistentUpdate }))
+                .disabled(clearing || !center.history.contains(where: { !$0.isPersistent }))
                 .accessibilityIdentifier("notification-history-clear-all")
         }
         .buttonStyle(.plain)
@@ -191,16 +191,16 @@ private struct NotificationHistoryRow: View {
         .accessibilityHint("Opens \(source.name)")
         .accessibilityIdentifier("notification-history-item-\(item.id)")
         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-            if !item.isPersistentUpdate {
+            if !item.isPersistent {
                 Button("Clear", systemImage: "xmark", role: .destructive) { Task { await center.dismiss(item.id) } }
                     .tint(.gray)
             }
         }
         .accessibilityActions {
-            if !item.isPersistentUpdate { Button("Clear") { Task { await center.dismiss(item.id) } } }
+            if !item.isPersistent { Button("Clear") { Task { await center.dismiss(item.id) } } }
         }
         .contextMenu {
-            if !item.isPersistentUpdate {
+            if !item.isPersistent {
                 Button("Clear", systemImage: "xmark") { Task { await center.dismiss(item.id) } }
             }
         }

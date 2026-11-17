@@ -51,6 +51,7 @@ struct NotificationBanners: View {
     private var motion: Animation { .spring(duration: 0.36, bounce: 0.12) }
     private var items: [NotificationItem] { NotificationBannerStack.ordered(center.bannerGroups) }
     private var isActivePresenter: Bool { center.isActivePresenter(presenterID) }
+    private var peeks: Int { NotificationBannerStack.peekCount(items.count) }
     private var pauseTimers: Bool {
         #if DEBUG
             voiceOver || expanded || !interaction.touching.isEmpty
@@ -97,20 +98,27 @@ struct NotificationBanners: View {
                     // with a matched copy in the ScrollView also morphs its glass edge.
                     if let first = items.first {
                         banner(first)
+                            .background(alignment: .bottom) {
+                                if !expanded && peeks > 0 {
+                                    NotificationStackPeeks(count: peeks, total: items.count) {
+                                        withAnimation(motion) { expanded = true }
+                                    }
+                                }
+                            }
                     }
-                    if items.count > 1 {
+                    if expanded && items.count > 1 {
                         Button {
-                            withAnimation(motion) { expanded.toggle() }
+                            withAnimation(motion) { expanded = false }
                         } label: {
-                            Text(expanded ? "Show less" : "\(items.count - 1) more")
+                            Text("Show less")
                                 .font(.caption.weight(.semibold)).foregroundStyle(.secondary)
                                 .frame(minWidth: 80, minHeight: 44)
                                 .contentShape(.rect)
                         }
                         .buttonStyle(.plain)
                         .accessibilityValue("\(items.count) notifications")
-                        .accessibilityLabel(expanded ? "Collapse notifications" : "Expand notifications")
-                        .accessibilityIdentifier(expanded ? "notification-stack-collapse" : "notification-stack-expand")
+                        .accessibilityLabel("Collapse notifications")
+                        .accessibilityIdentifier("notification-stack-collapse")
                     }
                     if expanded && items.count > 1 {
                         ScrollView {
@@ -183,6 +191,39 @@ struct NotificationBanners: View {
     }
 }
 
+/// Collapsed stacks show the next cards as narrower edges below the first, like the system stack.
+/// The edges are the expand control; there is no separate "more" label.
+private struct NotificationStackPeeks: View {
+    static let step: CGFloat = 10
+    let count: Int
+    let total: Int
+    let expand: () -> Void
+
+    var body: some View {
+        Button(action: expand) {
+            ZStack(alignment: .bottom) {
+                ForEach((1...max(count, 1)).reversed(), id: \.self) { depth in
+                    if depth <= count {
+                        RoundedRectangle(cornerRadius: 22)
+                            .fill(.ultraThinMaterial)
+                            .overlay(RoundedRectangle(cornerRadius: 22).strokeBorder(.white.opacity(0.08)))
+                            .opacity(1 - Double(depth) * 0.25)
+                            .frame(height: 44)
+                            .padding(.horizontal, CGFloat(depth) * 16)
+                            .offset(y: CGFloat(depth) * Self.step)
+                    }
+                }
+            }
+            // The visible edges are thin; extend only the hit area below them.
+            .contentShape(.rect.offset(y: 24))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Expand notifications")
+        .accessibilityValue("\(total) notifications")
+        .accessibilityIdentifier("notification-stack-expand")
+    }
+}
+
 private struct NotificationBanner: View {
     @State private var translation: CGFloat = 0
     @State private var leaving = false
@@ -212,7 +253,7 @@ private struct NotificationBanner: View {
             .accessibilityIdentifier("notification-banner-\(item.sourceModule)")
             .accessibilityHint("Opens \(source.name). Swipe right to hide.")
             .accessibilityActions {
-                if !item.isPersistentUpdate { Button("Dismiss", action: dismiss) }
+                if !item.isPersistent { Button("Dismiss", action: dismiss) }
             }
         }
         .foregroundStyle(.primary)
@@ -242,7 +283,7 @@ private struct NotificationBanner: View {
                     } else {
                         withAnimation(.spring(duration: 0.3, bounce: 0.18)) { translation = 0 }
                     }
-                }, including: item.isPersistentUpdate ? .none : .all
+                }, including: item.isPersistent ? .none : .all
         )
         .onChange(of: dragging) { _, active in
             interaction.dragging = active

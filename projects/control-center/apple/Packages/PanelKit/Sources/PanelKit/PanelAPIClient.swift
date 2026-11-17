@@ -34,6 +34,15 @@ public enum PanelAPIError: Error, Sendable, Equatable, LocalizedError {
         }
     }
 
+    /// An endpoint the server does not have yet, usually because its update is still pending.
+    public var isNotFound: Bool {
+        switch self {
+        case .http(404): true
+        case .server(_, _, let status): status == 404
+        default: false
+        }
+    }
+
     public var errorDescription: String? {
         switch self {
         case .notConfigured: "Panel API is not configured."

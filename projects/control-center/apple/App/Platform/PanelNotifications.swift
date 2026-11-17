@@ -103,6 +103,9 @@ import UIKit
 
     static func source(_ id: String) -> NotificationSource {
         if id == "updates" { return NotificationSource(name: "Updates", symbol: "arrow.down.circle.fill") }
+        if id == NotificationItem.hostSource {
+            return NotificationSource(name: "Homelab", symbol: "externaldrive.fill.badge.exclamationmark")
+        }
         let module = module(for: "module/\(id)")
         let appID: String
         switch module {

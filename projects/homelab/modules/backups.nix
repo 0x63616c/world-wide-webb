@@ -6,6 +6,8 @@
 }:
 let
   cfg = config.homelab.backups;
+  # Failures only; Control Center shows its tail in Diagnostics.
+  log = "/var/lib/_containers/backup.log";
   services = import ../lib/assigned-services.nix config.homelab;
   hostTools = import ../packages/host.nix { inherit pkgs; };
   scopedHealth =
@@ -75,6 +77,7 @@ let
     serviceConfig = {
       UserName = "_containers";
       GroupName = "_containers";
+      StandardErrorPath = log;
       StartCalendarInterval = [ calendar ];
       ProcessType = "Background";
       LowPriorityIO = true;
@@ -87,6 +90,9 @@ in
   };
   config = lib.mkIf cfg.enable {
     environment.systemPackages = [ command ];
+    environment.etc."newsyslog.d/homelab-backup.conf".text = ''
+      ${log} _containers:_containers 600 3 1024 * NJ
+    '';
     assertions = [
       {
         assertion = services != [ ];
@@ -115,6 +121,7 @@ in
         serviceConfig = {
           UserName = "_containers";
           GroupName = "_containers";
+          StandardErrorPath = log;
           RunAtLoad = true;
           StartInterval = 60;
           ThrottleInterval = 30;
