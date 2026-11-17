@@ -179,19 +179,24 @@ ENTITLEMENTSPY
   fi
   developer_dir=${DEVELOPER_DIR:-$(xcode-select -p)}
   host_application="${developer_dir%/Developer}/Applications/DeviceHub.app"
-  "$host_application/Contents/MacOS/DeviceHub" \
-    > "$work/host-application.log" 2>&1 &
-  host_application_worker=$!
-  TEST_RUNNER_DUO_HOST_APPLICATION_PATH="$host_application" \
-    TEST_RUNNER_DUO_HOST_APPLICATION_PID="$host_application_worker" \
-    TEST_RUNNER_DUO_HOST_CONTROL_DIR="$work" TEST_RUNNER_DUO_HOST_DEVICE_NAME="$simulator_name" \
-    TEST_RUNNER_DUO_HOST_DEVICE_ID="$udid" \
-    xcodebuild test-without-building -project "$work/host-project/DuoCaptureHost.xcodeproj" \
-    -scheme DuoCaptureHost -destination 'platform=macOS' -derivedDataPath "$work/HostDerivedData" \
-    DUO_HOST_CONTROL_DIRECTORY="$work" -parallel-testing-enabled NO -test-timeouts-enabled NO -resultBundlePath "$work/DuoHostControl.xcresult" \
-    > "$work/host-control.log" 2>&1 &
-  host_worker=$!
-  python3 - "$work" "$host_worker" << 'HOSTPY'
+  # Device Hub start-up on hosted runners is intermittently stuck (no window,
+  # never frontmost, slow snapshots). Nothing has been captured yet, so a stuck
+  # controller is restarted with a fresh Device Hub, within three attempts.
+  for host_attempt in 1 2 3; do
+    rm -rf "$work/host-ready" "$work/host-stage.txt" "$work/DuoHostControl.xcresult"
+    "$host_application/Contents/MacOS/DeviceHub" \
+      > "$work/host-application.log" 2>&1 &
+    host_application_worker=$!
+    TEST_RUNNER_DUO_HOST_APPLICATION_PATH="$host_application" \
+      TEST_RUNNER_DUO_HOST_APPLICATION_PID="$host_application_worker" \
+      TEST_RUNNER_DUO_HOST_CONTROL_DIR="$work" TEST_RUNNER_DUO_HOST_DEVICE_NAME="$simulator_name" \
+      TEST_RUNNER_DUO_HOST_DEVICE_ID="$udid" \
+      xcodebuild test-without-building -project "$work/host-project/DuoCaptureHost.xcodeproj" \
+      -scheme DuoCaptureHost -destination 'platform=macOS' -derivedDataPath "$work/HostDerivedData" \
+      DUO_HOST_CONTROL_DIRECTORY="$work" -parallel-testing-enabled NO -test-timeouts-enabled NO -resultBundlePath "$work/DuoHostControl.xcresult" \
+      > "$work/host-control.log" 2>&1 &
+    host_worker=$!
+    if python3 - "$work" "$host_worker" << 'HOSTPY'; then
 import os, pathlib, subprocess, sys, time
 folder, process = pathlib.Path(sys.argv[1]), int(sys.argv[2])
 # Each accessibility snapshot of the streaming Device Hub takes ~25s on hosted
@@ -213,6 +218,23 @@ else:
     print((folder / "host-control.log").read_text()[-8000:])
     sys.exit(f"Device Hub controller did not start; see {folder}/host-control.log")
 HOSTPY
+      break
+    fi
+    for log in host-control.log host-application.log host-stage.txt; do
+      [[ -f "$work/$log" ]] || continue
+      cp "$work/$log" "$work/attempt-$host_attempt-$log"
+    done
+    kill "$host_worker" "$host_application_worker" 2> /dev/null || true
+    wait "$host_worker" "$host_application_worker" 2> /dev/null || true
+    host_worker='' host_application_worker=''
+    pkill -x DeviceHub 2> /dev/null || true
+    if ((host_attempt == 3)); then
+      echo "Device Hub controller failed to start after $host_attempt attempts" >&2
+      exit 1
+    fi
+    echo "Restarting the native Device Hub controller (attempt $((host_attempt + 1)) of 3)"
+    sleep 5
+  done
   python3 scripts/duo-simulator.py configure-host "$udid" "$work"
   echo "Device Hub controller ready; capturing active inner and outer displays"
 fi

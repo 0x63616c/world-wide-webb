@@ -45,7 +45,13 @@ final class DuoHostControlTests: XCTestCase {
       } while Date() < deadline
       return false
     }
-    XCTAssertTrue(bringToFront(), "The selected Xcode's Device Hub must be running")
+    if !bringToFront() {
+      // Name what held focus so a stuck start-up can be diagnosed from the run.
+      let front = NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? "none"
+      try stage("not_frontmost: \(front) is frontmost")
+      XCTFail("The selected Xcode's Device Hub must be running and frontmost (frontmost: \(front))")
+      return
+    }
     try stage("finding_window")
     try stage("reading_initial_hierarchy")
     try Data(hub.debugDescription.utf8).write(
