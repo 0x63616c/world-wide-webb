@@ -129,7 +129,19 @@ pub async fn logs(
     if !valid_source(&source) {
         return Err(ApiError::not_found());
     }
-    let path = dir.join("logs").join(format!("{source}.log"));
+    // Open only a file the export folder actually lists; the request never builds a path.
+    let wanted = format!("{source}.log");
+    let mut entries = tokio::fs::read_dir(dir.join("logs"))
+        .await
+        .map_err(|_| ApiError::not_found())?;
+    let mut path = None;
+    while let Ok(Some(entry)) = entries.next_entry().await {
+        if entry.file_name().to_str() == Some(wanted.as_str()) {
+            path = Some(entry.path());
+            break;
+        }
+    }
+    let path = path.ok_or_else(ApiError::not_found)?;
     let mut file = tokio::fs::File::open(&path)
         .await
         .map_err(|_| ApiError::not_found())?;
