@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
-cd "$(dirname "$0")/../projects/control-center"
+root=$(cd "$(dirname "$0")/.." && pwd)
+# The pre-commit formatter uses the root Prettier install.
+(cd "$root" && bun install --frozen-lockfile --silent)
+cd "$root/projects/control-center"
 exec bash tools/setup "$@"
