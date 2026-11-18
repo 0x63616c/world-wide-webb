@@ -2,6 +2,9 @@ pre-commit:
   commands:
     format-and-syntax:
       run: bash tools/check --staged
+    format:
+      run: python3 scripts/format-staged.py
+      stage_fixed: true
     no-home-address:
       run: bash scripts/check-no-home-address.sh {staged_files}
     no-personal-email:
