@@ -41,6 +41,7 @@ import struct FoldingData.SetupProgress
           .tint(FoldingTint.color)
         } else {
           FoldingRootView(model: fixture.model, actions: fixture.actions)
+            .modifier(OnboardingHingeWatcher(fixture: fixture.onboarding))
         }
       }
       .environment(\.locale, Locale(identifier: fixture.locale))
@@ -73,6 +74,7 @@ import struct FoldingData.SetupProgress
   static let fixedClock = "2026-11-02T10:09:00Z"
   let model: FoldingPresentation
   var actions: FoldingActions
+  var onboarding: OnboardingFixture?
   let locale: String
   let scenario: String
   let appearance: String
@@ -93,7 +95,8 @@ import struct FoldingData.SetupProgress
     guard
       [
         "today", "today-running", "today-live", "history", "history-month", "history-long",
-        "patterns", "milestones", "notifications", "leaderboard", "settings", "setup", "join",
+        "patterns", "milestones", "notifications", "leaderboard", "settings", "setup", "onboarding",
+        "join",
         "tipjar",
       ]
       .contains(scenario),
@@ -268,6 +271,16 @@ import struct FoldingData.SetupProgress
       loadPatterns: {
         try FoldingActivityPatterns.snapshot(events: fixtureEvents, analytics: analytics)
       }, deleteIncompleteEntry: { _ in throw Failure.readOnly })
+    if scenario == "onboarding" {
+      // Interactive walkthrough: setup lives in memory and Shortcuts opens for real.
+      let onboarding = OnboardingFixture(model: model)
+      model.showInitialSetup = true
+      self.onboarding = onboarding
+      self.actions.setup = { action in onboarding.advance(action) }
+      self.actions.openShortcuts = {
+        UIApplication.shared.open(URL(string: "shortcuts://")!)
+      }
+    }
     self.actions.loadOwnerMilestones = { MilestoneOwnerLoad(snapshot: owner, confirmed: true) }
     self.actions.featureMilestone = { _, _, _ in throw Failure.readOnly }
     self.actions.acknowledgeMilestones = { _, _ in throw Failure.readOnly }

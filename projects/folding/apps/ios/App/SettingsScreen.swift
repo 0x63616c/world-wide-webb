@@ -55,7 +55,9 @@ struct SettingsScreen: View {
               await model.command(
                 String(localized: "setup.starting", defaultValue: "Starting setup")
               ) {
-                model.setup = try await actions.setup(.restart)
+                // A rerun skips the welcome and opens on the first automation.
+                _ = try await actions.setup(.restart)
+                model.setup = try await actions.setup(.next)
                 model.present(.setup)
               }
             }

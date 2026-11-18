@@ -8779,402 +8779,6 @@
         }
       }
     },
-    "setup.hingeClosed": {
-      "comment": "Live iPhone hinge/setup guidance. AI translations require native review.",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Closed"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Geschlossen"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Fermé"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Cerrado"
-          }
-        },
-        "es-419": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Cerrado"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "閉じた状態"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "닫힘"
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Fechado"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "已合上"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "已闔上"
-          }
-        }
-      }
-    },
-    "setup.hingeOpen": {
-      "comment": "Live iPhone hinge/setup guidance. AI translations require native review.",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Open"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Offen"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ouvert"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Abierto"
-          }
-        },
-        "es-419": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Abierto"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "開いた状態"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "열림"
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Aberto"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "已展开"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "已展開"
-          }
-        }
-      }
-    },
-    "setup.hingePartlyOpen": {
-      "comment": "Live iPhone hinge/setup guidance. AI translations require native review.",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Partly open"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Teilweise offen"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Partiellement ouvert"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Parcialmente abierto"
-          }
-        },
-        "es-419": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Parcialmente abierto"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "半開き"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "부분적으로 열림"
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Parcialmente aberto"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "部分展开"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "部分展開"
-          }
-        }
-      }
-    },
-    "setup.manualClose": {
-      "comment": "Setup or profile UI: Start open. Then close your iPhone. Keep concise; preserve iPhone and Shortcuts product names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Start open. Then close your iPhone."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Geöffnet beginnen. Dann iPhone schließen."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Commencez ouvert, puis fermez votre iPhone."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Empieza abierto. Luego cierra tu iPhone."
-          }
-        },
-        "es-419": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Empieza abierto. Luego cierra tu iPhone."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "開いた状態からiPhoneを閉じてください。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "열린 상태에서 iPhone를 닫으세요."
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Comece aberto. Depois feche seu iPhone."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "先打开 iPhone，再合上。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "先打開 iPhone，再合上。"
-          }
-        }
-      }
-    },
-    "setup.manualOpen": {
-      "comment": "Setup or profile UI: Start closed. Then open your iPhone. Keep concise; preserve iPhone and Shortcuts product names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Start closed. Then open your iPhone."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Geschlossen beginnen. Dann iPhone öffnen."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Commencez fermé, puis ouvrez votre iPhone."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Empieza cerrado. Luego abre tu iPhone."
-          }
-        },
-        "es-419": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Empieza cerrado. Luego abre tu iPhone."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "閉じた状態からiPhoneを開いてください。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "닫힌 상태에서 iPhone를 여세요."
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Comece fechado. Depois abra seu iPhone."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "先合上 iPhone，再打开。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "先合上 iPhone，再打開。"
-          }
-        }
-      }
-    },
-    "setup.noEvent": {
-      "comment": "Setup UI: No event yet. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No event yet"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Noch kein Ereignis"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Aucun événement"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Aún no hay eventos"
-          }
-        },
-        "es-419": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Aún no hay eventos"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "イベントはまだありません"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "아직 이벤트 없음"
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ainda sem eventos"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "暂无事件"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "尚無事件"
-          }
-        }
-      }
-    },
     "setup.openDevice": {
       "comment": "Setup UI: Open your iPhone. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
       "extractionState": "manual",
@@ -9435,138 +9039,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "設定記錄"
-          }
-        }
-      }
-    },
-    "setup.startClosed": {
-      "comment": "Live iPhone hinge/setup guidance. AI translations require native review.",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Close your iPhone first."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Schließe zuerst dein iPhone."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Fermez d’abord votre iPhone."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Cierra tu iPhone primero."
-          }
-        },
-        "es-419": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Cierra tu iPhone primero."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "まずiPhoneを閉じてください。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "먼저 iPhone를 닫으세요."
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Feche seu iPhone primeiro."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "请先合上 iPhone。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "請先闔上 iPhone。"
-          }
-        }
-      }
-    },
-    "setup.startOpen": {
-      "comment": "Live iPhone hinge/setup guidance. AI translations require native review.",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Open your iPhone first."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Öffne zuerst dein iPhone."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ouvrez d’abord votre iPhone."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Abre tu iPhone primero."
-          }
-        },
-        "es-419": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Abre tu iPhone primero."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "まずiPhoneを開いてください。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "먼저 iPhone를 여세요."
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Abra seu iPhone primeiro."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "请先展开 iPhone。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "請先展開 iPhone。"
           }
         }
       }
@@ -9842,61 +9314,61 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Automation → Display → Closed"
+            "value": "Display → Closed"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Automation → Display → Schließen"
+            "value": "Display → Schließen"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Automatisation → Écran → Fermé"
+            "value": "Écran → Fermé"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Automatización → Pantalla → Cerrado"
+            "value": "Pantalla → Cerrado"
           }
         },
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "Automatización → Pantalla → Cerrado"
+            "value": "Pantalla → Cerrado"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "オートメーション → ディスプレイ → 閉じる"
+            "value": "ディスプレイ → 閉じる"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "자동화 → 디스플레이 → 닫힘"
+            "value": "디스플레이 → 닫힘"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Automação → Tela → Fechado"
+            "value": "Tela → Fechado"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "自动化 → 显示屏 → 关闭"
+            "value": "显示屏 → 关闭"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "自動化 → 顯示器 → 關閉"
+            "value": "顯示器 → 關閉"
           }
         }
       }
@@ -9908,61 +9380,61 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Automation → Display → Open"
+            "value": "Display → Open"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Automation → Display → Öffnen"
+            "value": "Display → Öffnen"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Automatisation → Écran → Ouvert"
+            "value": "Écran → Ouvert"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Automatización → Pantalla → Abierto"
+            "value": "Pantalla → Abierto"
           }
         },
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "Automatización → Pantalla → Abierto"
+            "value": "Pantalla → Abierto"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "オートメーション → ディスプレイ → 開く"
+            "value": "ディスプレイ → 開く"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "자동화 → 디스플레이 → 열림"
+            "value": "디스플레이 → 열림"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Automação → Tela → Aberto"
+            "value": "Tela → Aberto"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "自动化 → 显示屏 → 打开"
+            "value": "显示屏 → 打开"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "自動化 → 顯示器 → 開啟"
+            "value": "顯示器 → 開啟"
           }
         }
       }
@@ -10161,72 +9633,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "歡迎使用 Folding"
-          }
-        }
-      }
-    },
-    "setup.welcomeDetail": {
-      "comment": "Setup UI: Connect Shortcuts, then test both directions.. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Close your iPhone to begin. Then add and test both Shortcuts automations."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Schließe dein iPhone. Richte dann beide Kurzbefehle-Automationen ein und teste sie."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Fermez votre iPhone. Ajoutez puis testez les deux automatisations Raccourcis."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Cierra tu iPhone. Después, añade y prueba las dos automatizaciones de Atajos."
-          }
-        },
-        "es-419": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Cierra tu iPhone. Después, añade y prueba las dos automatizaciones de Atajos."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "iPhoneを閉じて開始します。次に両方のショートカットオートメーションを追加してテストします。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "iPhone를 닫고 시작하세요. 그런 다음 두 단축어 자동화를 추가하고 테스트하세요."
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Feche o iPhone para começar. Depois, adicione e teste as duas automações do Atalhos."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "先合上 iPhone，然后添加并测试两个快捷指令自动化。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "先闔上 iPhone，然後加入並測試兩個捷徑自動化。"
           }
         }
       }
@@ -14851,138 +14257,6 @@
         }
       }
     },
-    "action.continue": {
-      "comment": "Folding app UI. Non-English copy is a draft pending native-speaker review.",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Continue"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Weiter"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Continuer"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Continuar"
-          }
-        },
-        "es-419": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Continuar"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "続ける"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "계속"
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Continuar"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "继续"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "繼續"
-          }
-        }
-      }
-    },
-    "setup.confirmClosed": {
-      "comment": "Folding app UI. Non-English copy is a draft pending native-speaker review.",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "My iPhone is closed"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mein iPhone ist geschlossen"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mon iPhone est fermé"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mi iPhone está cerrado"
-          }
-        },
-        "es-419": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mi iPhone está cerrado"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "iPhoneを閉じました"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "iPhone를 닫았습니다"
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Meu iPhone está fechado"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "我的 iPhone 已合上"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "我的 iPhone 已闔上"
-          }
-        }
-      }
-    },
     "profile.account": {
       "comment": "Folding app UI. Non-English copy is a draft pending native-speaker review.",
       "extractionState": "manual",
@@ -15247,138 +14521,6 @@
         }
       }
     },
-    "setup.lockedHelp": {
-      "comment": "Manual setup guidance; generic trigger description, not an exact OS trigger label. AI translations require review.",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Allow the shortcut to run while locked."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Erlaube die Ausführung des Kurzbefehls im Sperrzustand."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Autorisez le raccourci à s’exécuter lorsque l’appareil est verrouillé."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Permite que el atajo se ejecute con el dispositivo bloqueado."
-          }
-        },
-        "es-419": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Permite que el atajo se ejecute con el dispositivo bloqueado."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ロック中のショートカット実行を許可してください。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "잠긴 상태에서 단축어 실행을 허용하세요."
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Permita a execução do atalho com o dispositivo bloqueado."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "允许快捷指令在锁定时运行。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "允許捷徑在鎖定時執行。"
-          }
-        }
-      }
-    },
-    "setup.existingHelp": {
-      "comment": "Manual setup guidance; generic trigger description, not an exact OS trigger label. AI translations require review.",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Edit existing automations to avoid duplicates."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Bearbeite vorhandene Automationen, um Duplikate zu vermeiden."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Modifiez les automatisations existantes pour éviter les doublons."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Edita las automatizaciones existentes para evitar duplicados."
-          }
-        },
-        "es-419": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Edita las automatizaciones existentes para evitar duplicados."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "重複を避けるため既存のオートメーションを編集してください。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "중복을 피하려면 기존 자동화를 편집하세요."
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Edite automações existentes para evitar duplicatas."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "编辑现有自动化以避免重复。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "編輯現有自動化以避免重複。"
-          }
-        }
-      }
-    },
     "notifications.resultDisableFailed": {
       "comment": "Shown when old result alerts could not be disabled on the server. Non-English copy is a draft.",
       "extractionState": "manual",
@@ -15441,6 +14583,798 @@
           "stringUnit": {
             "state": "translated",
             "value": "無法關閉結果提醒。請稍後再試。"
+          }
+        }
+      }
+    },
+    "setup.addInShortcuts": {
+      "comment": "Setup UI: Add this automation in Shortcuts. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add this automation in Shortcuts."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Füge diese Automation in Kurzbefehle hinzu."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajoutez cette automatisation dans Raccourcis."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Añade esta automatización en Atajos."
+          }
+        },
+        "es-419": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agrega esta automatización en Atajos."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ショートカットにこのオートメーションを追加します。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "단축어에 이 자동화를 추가하세요."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Adicione esta automação em Atalhos."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在“快捷指令”中添加此自动化。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在「捷徑」中加入此自動化操作。"
+          }
+        }
+      }
+    },
+    "setup.checkRecipe": {
+      "comment": "Setup UI: Check it matches, then try again. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check it matches, then try again."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prüfe, ob sie übereinstimmt, und versuch es erneut."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vérifiez qu’elle correspond, puis réessayez."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Comprueba que coincida y vuelve a intentarlo."
+          }
+        },
+        "es-419": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verifica que coincida y vuelve a intentarlo."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "内容が一致しているか確認して、もう一度お試しください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "일치하는지 확인한 후 다시 시도하세요."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Confira se está igual e tente de novo."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "检查是否一致，然后重试。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "確認內容相符後再試一次。"
+          }
+        }
+      }
+    },
+    "setup.closeThenOpen": {
+      "comment": "Setup UI: Close, then open. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Close, then open"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zuklappen, dann aufklappen"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fermez, puis ouvrez"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cierra y luego abre"
+          }
+        },
+        "es-419": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cierra y luego abre"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "閉じてから開く"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "닫은 다음 펼치기"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Feche e depois abra"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "先合上，再打开"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "先合上，再打開"
+          }
+        }
+      }
+    },
+    "setup.getStarted": {
+      "comment": "Setup UI: Get started. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Get started"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los geht’s"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Commencer"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Empezar"
+          }
+        },
+        "es-419": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Comenzar"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "はじめる"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "시작하기"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Começar"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "开始"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "開始"
+          }
+        }
+      }
+    },
+    "setup.missed": {
+      "comment": "Setup UI: Didn’t catch that. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Didn’t catch that"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nicht erkannt"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rien détecté"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se detectó"
+          }
+        },
+        "es-419": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se detectó"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "検出できませんでした"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "감지되지 않았습니다"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Não detectado"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未检测到"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未偵測到"
+          }
+        }
+      }
+    },
+    "setup.nowClose": {
+      "comment": "Setup UI: Now close it. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Now close it"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jetzt zuklappen"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fermez-le maintenant"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ahora ciérralo"
+          }
+        },
+        "es-419": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ahora ciérralo"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "閉じてください"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이제 닫으세요"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agora feche"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "现在合上"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "現在合上"
+          }
+        }
+      }
+    },
+    "setup.nowOpen": {
+      "comment": "Setup UI: Now open it. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Now open it"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jetzt aufklappen"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ouvrez-le maintenant"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ahora ábrelo"
+          }
+        },
+        "es-419": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ahora ábrelo"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "開いてください"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이제 펼치세요"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agora abra"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "现在打开"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "現在打開"
+          }
+        }
+      }
+    },
+    "setup.openThenClose": {
+      "comment": "Setup UI: Open, then close. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open, then close"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aufklappen, dann zuklappen"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ouvrez, puis fermez"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abre y luego cierra"
+          }
+        },
+        "es-419": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abre y luego cierra"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "開いてから閉じる"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "펼친 다음 닫기"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abra e depois feche"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "先打开，再合上"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "先打開，再合上"
+          }
+        }
+      }
+    },
+    "setup.runImmediately": {
+      "comment": "Setup UI: Run Immediately. Match the Shortcuts app label for this option. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Run Immediately"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sofort ausführen"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Exécuter immédiatement"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ejecutar inmediatamente"
+          }
+        },
+        "es-419": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ejecutar inmediatamente"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "すぐに実行"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "즉시 실행"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Executar Imediatamente"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "立即运行"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "立即執行"
+          }
+        }
+      }
+    },
+    "setup.tagline": {
+      "comment": "Setup UI: Count every fold. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Count every fold."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zähl jedes Aufklappen."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Comptez chaque pliage."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cuenta cada pliegue."
+          }
+        },
+        "es-419": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cuenta cada pliegue."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "すべての開閉を記録。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "모든 접기를 기록하세요."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conte cada dobra."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "记录每一次折叠。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "記錄每一次摺疊。"
+          }
+        }
+      }
+    },
+    "setup.tryAgain": {
+      "comment": "Setup UI: Try again. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Try again"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Erneut versuchen"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Réessayer"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reintentar"
+          }
+        },
+        "es-419": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reintentar"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "もう一度試す"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "다시 시도"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tentar de novo"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "重试"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "再試一次"
+          }
+        }
+      }
+    },
+    "setup.checking": {
+      "comment": "Setup UI: Checking…, shown after the fold while Shortcuts runs. Keep concise; preserve iPhone and Folding brand names. Non-English copy is an AI draft; see docs/localization.md for QA status.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Checking…"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wird geprüft …"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vérification…"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Comprobando…"
+          }
+        },
+        "es-419": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verificando…"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "確認中…"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "확인 중…"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verificando…"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在检查…"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在檢查…"
           }
         }
       }

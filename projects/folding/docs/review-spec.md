@@ -60,14 +60,14 @@ This keeps the fun distance idea without introducing an unreliable background se
 
 ## 3. Guided setup
 
-1. Show **Welcome to Folding** with the device closed. Require a closed hinge posture, or an explicit closed confirmation when hinge state is unavailable. Then show the opening automation and its exact Folding action, **Log iPhone Opened**. Open Shortcuts, then let the user confirm they added it. Returning from Shortcuts alone does not start a test.
-2. Prompt the physical opening and confirm the event. Start checking automatically when a known hinge posture shows the Duo is ready. If hinge state is unavailable or setup resumes at this step, offer a single **Start test** action with the starting posture shown.
+1. Show **Welcome to Folding** with an animated fold and one **Get started** action. Then show the opening automation as it reads in Shortcuts: the Display Open trigger, the exact Folding action **Log iPhone Opened** and **Run Immediately**. Offer **Open Shortcuts** and **I've added it**. Returning from Shortcuts alone does not start a test.
+2. **I've added it** starts the test at once; only the expected transition can pass it. The illustration follows the hinge when its posture is known: it asks for the start posture first, then the fold, then shows that it is checking. Without hinge state it shows the whole movement. A resumed test offers a single **Start test** action.
 3. Repeat for the closing automation, using **Log iPhone Closed**.
 4. Show a brief success state and the Analytics screen.
 
 Do not ask for competition login or notification permission before tracking works. If iCloud is unavailable, explain that local tracking works and sync can resume later.
 
-Preserve setup progress across app switches. The user should not watch a countdown. A manual test action is a fallback for unavailable hinge state or resumed setup. While checking, show which movement to make and that the app is waiting for Shortcuts. Failed tests offer Retry and a Shortcuts handoff. Returning users can run setup again from Settings without erasing data or creating duplicate automations unnecessarily. They can cancel a rerun from the bottom of the flow; first-time setup stays required.
+Preserve setup progress across app switches. The user should not watch a countdown. A manual test action is a fallback for unavailable hinge state or resumed setup. While checking, show which movement to make and that the app is waiting for Shortcuts. Failed tests show the automation again with Try again and a Shortcuts handoff. Returning users can run setup again from Settings, starting at the opening automation, without erasing data or creating duplicate automations unnecessarily. They can cancel a rerun from the toolbar; first-time setup stays required.
 
 Status shows “Setup tested,” individual open/close test results, and last received event. Do not imply direct knowledge of an automation's enabled state. No events for a while does not trigger an alarming failure message.
 
