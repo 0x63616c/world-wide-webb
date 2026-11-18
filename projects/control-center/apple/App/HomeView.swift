@@ -57,13 +57,12 @@ struct HomeView: View {
     private let runsTimer: Bool
     private var display = PanelDisplayPreferences()
     @AppStorage("panel.clockFace") private var clockFace = PanelClockFace.green
-    @GestureState private var faceDrag: CGFloat = 0
-    @State private var faceSettle: FaceSettle?
-
-    private struct FaceSettle {
-        let step: Int
-        var offset: CGFloat
-    }
+    /// Horizontal offset of the current face. A swipe commits the new face as soon as the
+    /// finger lifts and springs the offset back to zero, so the next swipe can start at once.
+    @State private var faceOffset: CGFloat = 0
+    /// True from the first horizontal drag until the last settle finishes; freezes the faces.
+    @State private var faceMoving = false
+    @State private var faceSettles = 0
     private var keepsAwake: Bool { timer.keepsScreenAwake }
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.motionPhase) private var inheritedMotionPhase
@@ -96,46 +95,55 @@ struct HomeView: View {
         return faces[(index + step + faces.count) % faces.count]
     }
 
-    private func settleFace(by step: Int, width: CGFloat, offset: CGFloat = 0, commit: Bool = true) {
-        guard faceSettle == nil else { return }
-        let next = adjacentFace(by: step)
-        faceSettle = FaceSettle(step: step, offset: offset)
+    private func settleFace(by step: Int, width: CGFloat, commit: Bool = true) {
+        if commit {
+            // Swap to the next face where it already sits, so nothing visibly moves.
+            var swap = Transaction()
+            swap.disablesAnimations = true
+            withTransaction(swap) {
+                clockFace = adjacentFace(by: step)
+                faceOffset += CGFloat(step) * (width + 24)
+            }
+        }
+        faceMoving = true
+        faceSettles += 1
+        let settle = faceSettles
         withAnimation(ClockLauncherMotion.swipePop.animation, completionCriteria: .removed) {
-            faceSettle?.offset = commit ? -CGFloat(step) * (width + 24) : 0
+            faceOffset = 0
         } completion: {
-            if commit { clockFace = next }
-            faceSettle = nil
+            // A newer swipe owns the motion now.
+            if settle == faceSettles { faceMoving = false }
         }
     }
 
     private func faceDragGesture(width: CGFloat) -> some Gesture {
         DragGesture(minimumDistance: 14)
-            .updating($faceDrag) { gesture, offset, _ in
-                guard faceSettle == nil,
-                    abs(gesture.translation.width) > abs(gesture.translation.height)
-                else { return }
-                offset = min(width, max(-width, gesture.translation.width))
+            .onChanged { gesture in
+                guard abs(gesture.translation.width) > abs(gesture.translation.height) else { return }
+                faceMoving = true
+                faceSettles += 1
+                // Retargets any settle still in flight instead of waiting for it to finish.
+                withAnimation(.interactiveSpring(duration: 0.18)) {
+                    faceOffset = min(width, max(-width, gesture.translation.width))
+                }
             }
             .onEnded { gesture in
                 let movement = gesture.translation
                 guard abs(movement.width) > abs(movement.height) else {
+                    if faceMoving { settleFace(by: 0, width: width, commit: false) }
                     if movement.height < -60 || gesture.predictedEndTranslation.height < -150 { home() }
                     return
                 }
                 let projected = gesture.predictedEndTranslation.width
                 let step = movement.width < 0 ? 1 : -1
                 let commit = abs(movement.width) >= width * 0.18 || -CGFloat(step) * projected >= width * 0.24
-                settleFace(
-                    by: step, width: width,
-                    offset: min(width, max(-width, movement.width)), commit: commit)
+                settleFace(by: step, width: width, commit: commit)
             }
     }
 
     @ViewBuilder private func clockSurface(width: CGFloat) -> some View {
-        let offset = faceSettle?.offset ?? faceDrag
-        let step = faceSettle?.step ?? (offset < 0 ? 1 : -1)
+        let offset = faceOffset
         let distance = width + 24
-        let progress = min(1, abs(offset) / max(1, distance))
 
         clockDial(clockFace)
             .id(clockFace)
@@ -143,15 +151,23 @@ struct HomeView: View {
             // Render-only transforms keep the concentric clip resolved at the
             // resting full-display frame, so swiping faces keep the display corners.
             .visualEffect { content, _ in
-                content.scaleEffect(1 - progress * 0.12).offset(x: offset)
+                content.scaleEffect(Self.faceScale(offset, distance)).offset(x: offset)
             }
 
-        if faceSettle != nil || offset != 0 {
-            clockDial(adjacentFace(by: step))
-                .visualEffect { content, _ in
-                    content.scaleEffect(0.88 + progress * 0.12).offset(x: offset + CGFloat(step) * distance)
-                }
+        if faceMoving || offset != 0 {
+            // Both neighbours, so a face is ready on whichever side an interrupted swipe reveals.
+            ForEach([-1, 1], id: \.self) { step in
+                let position = offset + CGFloat(step) * distance
+                clockDial(adjacentFace(by: step))
+                    .visualEffect { content, _ in
+                        content.scaleEffect(Self.faceScale(position, distance)).offset(x: position)
+                    }
+            }
         }
+    }
+
+    nonisolated private static func faceScale(_ position: CGFloat, _ distance: CGFloat) -> CGFloat {
+        1 - min(1, abs(position) / max(1, distance)) * 0.12
     }
 
     private func clockDial(_ face: PanelClockFace) -> some View {
@@ -164,7 +180,7 @@ struct HomeView: View {
     }
 
     private var clockIsStill: Bool {
-        selected == nil && showingClock && faceSettle == nil && faceDrag == 0
+        selected == nil && showingClock && !faceMoving
     }
 
     /// The splash stays up at least this long, even when the first weather response is quicker.
