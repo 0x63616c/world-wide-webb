@@ -18,6 +18,8 @@ struct TapesApp: App {
         #if os(macOS)
           // The narrowest window that still fits the icon-only bar beside the back button.
           .frame(minWidth: 560, minHeight: 400)
+          // A `tapes://` link goes to the open window; otherwise each one opens another.
+          .handlesExternalEvents(preferring: ["*"], allowing: ["*"])
         #endif
     }
     #if os(macOS)
@@ -84,6 +86,8 @@ struct RootView: View {
             .buttonStyle(.glass)
             .keyboardShortcut(.cancelAction)
             .padding(16)
+            // In the window's corner, not below the hidden title bar's space.
+            .ignoresSafeArea()
           }
         }
       }

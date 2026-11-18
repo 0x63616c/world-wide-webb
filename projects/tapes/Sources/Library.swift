@@ -169,11 +169,13 @@ enum DeepLink: Hashable {
   }
 }
 
-/// A page a link asks to show; Home pushes it.
-enum LinkedPage: Hashable {
+/// A page opened from a library page: a detail page or a DJ's sets. `tapes://open` links ask
+/// for one too, and Home shows it.
+enum Route: Hashable {
   case movie(Movie)
   case show(Show)
   case set(DJSet)
+  case dj(DJ)
 }
 
 func minutesOf(_ seconds: Double) -> Int { max(1, Int((seconds / 60).rounded())) }
@@ -221,7 +223,7 @@ final class Store {
   private var durations: [String: Double] = [:]
   var nowPlaying: Playable?
   /// The page a `tapes://open` link asked for, waiting for Home to show it.
-  var linkedPage: LinkedPage?
+  var linkedPage: Route?
   /// A link that arrived before the library loaded.
   private var pendingLink: DeepLink?
 
@@ -275,6 +277,7 @@ final class Store {
   }
 
   /// "3 (16.02 GB)", or "0" for an empty section: how many items one section holds and their size.
+  /// Shows also count their episodes: "5, 50 episodes (120.4 GB)".
   func summary(_ section: LibrarySection) -> String {
     let (n, bytes): (Int, Int64) =
       switch section {
@@ -282,7 +285,12 @@ final class Store {
       case .shows: (shows.count, shows.reduce(0) { $0 + $1.bytes })
       case .sets: (sets.count, sets.reduce(0) { $0 + $1.bytes })
       }
-    return n == 0 ? "0" : "\(n) (\(size(bytes)))"
+    guard n > 0 else { return "0" }
+    if section == .shows {
+      let episodes = shows.reduce(0) { $0 + $1.episodes.count }
+      return "\(n), \(episodes) \(episodes == 1 ? "episode" : "episodes") (\(size(bytes)))"
+    }
+    return "\(n) (\(size(bytes)))"
   }
 
   func position(_ id: String) -> Double { progress[id]?.seconds ?? 0 }

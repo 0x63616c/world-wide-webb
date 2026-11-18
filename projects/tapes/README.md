@@ -34,7 +34,12 @@ Distributed through TestFlight only.
   - Debug builds use the `AppIconDev` icon, with a red DEV banner; TestFlight builds use
     Release and the normal icon.
   - The app refreshes the library every minute while it is open. Settings, the last tab,
-    shows what the library holds and can reset watch history on every device.
+    shows what the library holds (shows with their episode count) and can reset watch history
+    on every device.
+  - Motion (`Sources/Motion.swift`): on the Mac and Apple TV, posters glide to their place on
+    the next tab. On the Mac, detail pages open in an in-window stack (`MacStack`, no push
+    slide) and a poster's artwork flies into its detail page and back. With Reduce Motion,
+    pages only fade.
   - The app connects to `http://homelab-mac-mini.local:4300`. Use the `-server URL` launch
     argument to point it somewhere else.
 

@@ -61,11 +61,18 @@ private struct PageStack: View {
   @Binding var query: String
   var searchActive = false
   let zoom: Namespace.ID
-  @Binding var path: NavigationPath
+  @Binding var path: [Route]
 
   var body: some View {
-    NavigationStack(path: $path) {
-      switch page {
+    #if os(macOS)
+      MacStack(path: $path, shown: searchActive) { root }
+    #else
+      NavigationStack(path: $path) { root }
+    #endif
+  }
+
+  @ViewBuilder private var root: some View {
+    switch page {
       case .home: HomeView(zoom: zoom).libraryDestinations(zoom)
       case .movies: SectionGrid(section: .movies, zoom: zoom).libraryDestinations(zoom)
       case .shows: SectionGrid(section: .shows, zoom: zoom).libraryDestinations(zoom)
@@ -86,27 +93,77 @@ private struct PageStack: View {
         #endif
       case .settings: SettingsView()
       }
-    }
   }
 }
+
+#if os(macOS)
+  extension EnvironmentValues {
+    /// Pushes a page onto the Mac's page stack.
+    @Entry var openRoute: (Route) -> Void = { _ in }
+  }
+
+  /// The Mac's page stack, drawn here rather than by `NavigationStack`, whose push slides the new
+  /// page in from the side however it's asked not to. The page underneath fades out as the new
+  /// one fades in, while the artwork flies across (`Hero`). Pages underneath stay alive, so they
+  /// keep their scroll position. Back is the toolbar button or Command-[.
+  private struct MacStack<Root: View>: View {
+    @Binding var path: [Route]
+    /// True for the page showing, the only one whose back button goes in the toolbar.
+    let shown: Bool
+    @ViewBuilder var root: Root
+    @Namespace private var zoom
+
+    var body: some View {
+      ZStack {
+        root.layer(showing: path.isEmpty)
+        ForEach(Array(path.enumerated()), id: \.offset) { index, route in
+          RouteView(route: route, zoom: zoom).layer(showing: index == path.count - 1)
+        }
+      }
+      .environment(\.openRoute) { path.append($0) }
+      .toolbar {
+        if shown && !path.isEmpty {
+          ToolbarItem(placement: .navigation) {
+            Button("Back", systemImage: "chevron.left") { path.removeLast() }
+              .keyboardShortcut("[", modifiers: .command)
+          }
+        }
+      }
+    }
+  }
+
+  extension View {
+    /// One page in the Mac's stack: only the top one shows and takes clicks.
+    fileprivate func layer(showing: Bool) -> some View { modifier(StackLayer(showing: showing)) }
+  }
+
+  /// Fades a page in when it opens or comes back to the top, and out when it's covered. Only the
+  /// opacity animates: animating the whole change also moved text around as a page first laid out.
+  private struct StackLayer: ViewModifier {
+    let showing: Bool
+    @State private var appeared = false
+
+    func body(content: Content) -> some View {
+      content
+        .animation(.smooth(duration: 0.3)) { $0.opacity(showing && appeared ? 1 : 0) }
+        .allowsHitTesting(showing)
+        .accessibilityHidden(!showing)
+        .onAppear { appeared = true }
+    }
+  }
+#endif
 
 /// Follows a `tapes://open` link: switches to Home and shows the linked page there.
 private struct FollowsLinks: ViewModifier {
   @Environment(Store.self) private var store
   @Binding var page: Page
-  @Binding var homePath: NavigationPath
+  @Binding var homePath: [Route]
 
   func body(content: Content) -> some View {
     content.onChange(of: store.linkedPage, initial: true) { _, linked in
       guard let linked else { return }
-      var path = NavigationPath()
-      switch linked {
-      case .movie(let movie): path.append(movie)
-      case .show(let show): path.append(show)
-      case .set(let set): path.append(set)
-      }
       page = .home
-      homePath = path
+      homePath = [linked]
       store.linkedPage = nil
     }
   }
@@ -118,7 +175,7 @@ private struct FollowsLinks: ViewModifier {
     @Namespace private var zoom
     @State private var query = ""
     @State private var page = Page.home
-    @State private var paths: [Page: NavigationPath] = [:]
+    @State private var paths: [Page: [Route]] = [:]
 
     var body: some View {
       TabView(selection: $page) {
@@ -150,7 +207,11 @@ private struct FollowsLinks: ViewModifier {
     @Namespace private var zoom
     @State private var page = Page.home
     @State private var query = ""
-    @State private var paths: [Page: NavigationPath] = [:]
+    @State private var paths: [Page: [Route]] = [:]
+    @Namespace private var morph
+    #if os(macOS)
+      @State private var hero = Hero()
+    #endif
     #if os(tvOS)
       @FocusState private var barFocus: Page?
     #endif
@@ -179,8 +240,9 @@ private struct FollowsLinks: ViewModifier {
           }
           .toolbar {
             ToolbarItem(placement: .principal) {
-              // A little below the window buttons' line, so the bar has room above it.
-              TopBar(page: $page, iconsOnly: narrow).offset(y: 6)
+              // A little below the window buttons' line, so the bar has room above it. Padding,
+              // not an offset: an offset moves the pill but leaves its clickable area behind.
+              TopBar(page: $page, iconsOnly: narrow).padding(.top, 12)
             }
             .sharedBackgroundVisibility(.hidden)
           }
@@ -208,6 +270,10 @@ private struct FollowsLinks: ViewModifier {
           PageStack(
             page: each, query: $query, searchActive: shown, zoom: zoom, path: $paths.path(each)
           )
+          .environment(
+            \.pageScope,
+            PageScope(page: each, morph: morph, leads: shown && (paths[each]?.isEmpty ?? true))
+          )
           .opacity(shown ? 1 : 0)
           .allowsHitTesting(shown)
           .accessibilityHidden(!shown)
@@ -217,7 +283,15 @@ private struct FollowsLinks: ViewModifier {
           #endif
         }
       }
-      .animation(.easeInOut(duration: 0.2), value: page)
+      // The pages crossfade while the posters both pages show glide from one place to the other.
+      .animation(.smooth(duration: 0.4), value: page)
+      #if os(macOS)
+        .overlay { HeroOverlay() }
+        .environment(\.hero, hero)
+        .onChange(of: atRoot) { _, root in
+          if root { hero.close(to: page) }
+        }
+      #endif
     }
   }
 
@@ -307,11 +381,11 @@ private struct FollowsLinks: ViewModifier {
   #endif
 #endif
 
-extension Binding<[Page: NavigationPath]> {
+extension Binding<[Page: [Route]]> {
   /// One page's navigation path, empty until something is opened.
-  func path(_ page: Page) -> Binding<NavigationPath> {
-    Binding<NavigationPath>(
-      get: { wrappedValue[page] ?? NavigationPath() },
+  func path(_ page: Page) -> Binding<[Route]> {
+    Binding<[Route]>(
+      get: { wrappedValue[page] ?? [] },
       set: { wrappedValue[page] = $0 })
   }
 }
@@ -352,7 +426,7 @@ struct HomeView: View {
       }
       if !store.movies.isEmpty {
         Shelf(title: "Movies", items: store.movies) { movie in
-          NavigationLink(value: movie) {
+          LibraryLink(.movie(movie)) {
             PosterCell(
               seed: movie.id, title: movie.title, detail: movie.year.map(String.init),
               watchID: movie.id
@@ -361,26 +435,29 @@ struct HomeView: View {
           }
           .artworkButton()
           .zoomSource(movie.id, in: zoom)
+          .libraryCell(movie.id)
         }
       }
       if !store.shows.isEmpty {
         Shelf(title: "Shows", items: store.shows) { show in
-          NavigationLink(value: show) {
+          LibraryLink(.show(show)) {
             PosterCell(seed: show.id, title: show.title, detail: show.years).frame(
               width: Metrics.poster)
           }
           .artworkButton()
           .zoomSource(show.id, in: zoom)
+          .libraryCell(show.id)
         }
       }
       if !store.sets.isEmpty {
         Shelf(title: "DJ Sets", items: store.sets) { set in
-          NavigationLink(value: set) {
+          LibraryLink(.set(set)) {
             WideCell(seed: set.id, title: set.djLine, detail: set.title, watchID: set.id)
               .frame(width: Metrics.wide)
           }
           .artworkButton()
           .zoomSource(set.id, in: zoom)
+          .libraryCell(set.id)
         }
       }
     }
@@ -513,7 +590,7 @@ struct SectionGrid: View {
       case .movies:
         LazyVGrid(columns: posterColumns, spacing: Metrics.spacing) {
           ForEach(store.movies) { movie in
-            NavigationLink(value: movie) {
+            LibraryLink(.movie(movie)) {
               PosterCell(
                 seed: movie.id, title: movie.title, detail: movie.year.map(String.init),
                 watchID: movie.id)
@@ -521,17 +598,19 @@ struct SectionGrid: View {
             .artworkButton()
             .gridFocus($focused, movie.id)
             .zoomSource(movie.id, in: zoom)
+          .libraryCell(movie.id)
           }
         }
       case .shows:
         LazyVGrid(columns: posterColumns, spacing: Metrics.spacing) {
           ForEach(store.shows) { show in
-            NavigationLink(value: show) {
+            LibraryLink(.show(show)) {
               PosterCell(seed: show.id, title: show.title, detail: show.years)
             }
             .artworkButton()
             .gridFocus($focused, show.id)
             .zoomSource(show.id, in: zoom)
+          .libraryCell(show.id)
           }
         }
       case .sets:
@@ -540,12 +619,13 @@ struct SectionGrid: View {
           spacing: Metrics.spacing * 1.5
         ) {
           ForEach(store.sets) { set in
-            NavigationLink(value: set) {
+            LibraryLink(.set(set)) {
               WideCell(seed: set.id, title: set.djLine, detail: set.title, watchID: set.id)
             }
             .artworkButton()
             .gridFocus($focused, set.id)
             .zoomSource(set.id, in: zoom)
+          .libraryCell(set.id)
           }
         }
       }
@@ -614,6 +694,7 @@ extension View {
 
 struct SearchResults: View {
   @Environment(Store.self) private var store
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
   let query: String
 
   var body: some View {
@@ -633,10 +714,11 @@ struct SearchResults: View {
             spacing: Metrics.spacing
           ) {
             ForEach(titles) { hit in
-              NavigationLink(value: hit.destination) {
+              LibraryLink(hit.destination) {
                 PosterCell(seed: hit.id, title: hit.title, detail: hit.year, watchID: hit.watchID)
               }
               .artworkButton()
+              .libraryCell(hit.id)
             }
           }
         }
@@ -648,15 +730,21 @@ struct SearchResults: View {
             spacing: Metrics.spacing * 1.5
           ) {
             ForEach(sets) { set in
-              NavigationLink(value: set) {
+              LibraryLink(.set(set)) {
                 WideCell(seed: set.id, title: set.djLine, detail: set.title, watchID: set.id)
               }
               .artworkButton()
+              .libraryCell(set.id)
             }
           }
         }
       }
       .padding(.horizontal, Metrics.gutter)
+      // Results that still match glide to their new places as you type; the rest fade out.
+      // Not when the results empty out: the last grid would collapse with its cells stretching.
+      .animation(
+        reduceMotion || (titles.isEmpty && sets.isEmpty) ? nil : .smooth(duration: 0.3),
+        value: titles.map(\.id) + sets.map(\.id))
     }
     // Fills the page even with nothing in it, so the message below gets the full width.
     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -695,10 +783,10 @@ struct SearchResults: View {
     }
     /// Only movies show watch progress on their poster, as on the Movies page.
     var watchID: String? { if case .movie(let m) = self { m.id } else { nil } }
-    var destination: AnyHashable {
+    var destination: Route {
       switch self {
-      case .movie(let m): m
-      case .show(let s): s
+      case .movie(let m): .movie(m)
+      case .show(let s): .show(s)
       }
     }
   }

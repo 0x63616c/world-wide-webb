@@ -84,7 +84,10 @@ struct Artwork: View {
   var body: some View {
     let url = store.server.artURL(seed, small: small)
     Group {
-      if let image = loaded ?? ImageCache.shared.cached(url) {
+      // A detail page shows the grid's smaller image, if it has it, while the full one loads.
+      if let image = loaded ?? ImageCache.shared.cached(url)
+        ?? (small ? nil : ImageCache.shared.cached(store.server.artURL(seed, small: true)))
+      {
         Color.clear
           .overlay(alignment: alignment) { image.resizable().scaledToFill() }
           .clipped()
@@ -192,6 +195,9 @@ struct PosterCell: View {
         .modifier(WatchOverlay(id: watchID))
         .clipShape(.rect(cornerRadius: Metrics.corner))
         .focusLift()
+        #if os(macOS)
+          .heroArtwork()
+        #endif
       Text(title).font(.subheadline.weight(.semibold)).lineLimit(1)
       if let detail {
         Text(detail).font(.footnote).foregroundStyle(.secondary).lineLimit(1)
@@ -217,6 +223,9 @@ struct WideCell: View {
         .modifier(WatchOverlay(id: watchID))
         .clipShape(.rect(cornerRadius: Metrics.corner))
         .focusLift()
+        #if os(macOS)
+          .heroArtwork()
+        #endif
       Text(title).font(.subheadline.weight(.semibold)).lineLimit(1)
       Text(detail).font(.footnote).foregroundStyle(.secondary).lineLimit(1)
     }

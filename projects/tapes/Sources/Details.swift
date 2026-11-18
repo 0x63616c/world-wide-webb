@@ -3,23 +3,69 @@ import SwiftUI
 
 extension View {
   /// Registers every push destination. `zoom` is the namespace artwork zooms out of.
-  func libraryDestinations(_ zoom: Namespace.ID) -> some View {
-    self
-      .navigationDestination(for: Movie.self) {
-        MovieDetail(movie: $0).zoomDestination($0.id, in: zoom)
+  /// The Mac draws its own stack (`MacStack`) and doesn't need this.
+  @ViewBuilder func libraryDestinations(_ zoom: Namespace.ID) -> some View {
+    #if os(macOS)
+      self
+    #else
+      self.navigationDestination(for: Route.self) { RouteView(route: $0, zoom: zoom) }
+    #endif
+  }
+}
+
+/// The page a route opens.
+struct RouteView: View {
+  let route: Route
+  let zoom: Namespace.ID
+
+  var body: some View {
+    switch route {
+    case .movie(let movie): MovieDetail(movie: movie).zoomDestination(movie.id, in: zoom)
+    case .show(let show): ShowDetail(show: show).zoomDestination(show.id, in: zoom)
+    case .set(let set): SetDetail(set: set).zoomDestination(set.id, in: zoom)
+    case .dj(let dj): DJPage(dj: dj)
+    }
+  }
+}
+
+/// Opens `route`: a navigation link on iPhone and Apple TV, a plain button into `MacStack` on
+/// the Mac.
+struct LibraryLink<Label: View>: View {
+  #if os(macOS)
+    @Environment(\.openRoute) private var openRoute
+    @Environment(\.hero) private var hero
+    @Environment(\.heroKey) private var heroKey
+  #endif
+  let route: Route
+  @ViewBuilder var label: Label
+
+  init(_ route: Route, @ViewBuilder label: () -> Label) {
+    self.route = route
+    self.label = label()
+  }
+
+  var body: some View {
+    #if os(macOS)
+      Button {
+        // Before the page opens, so its artwork knows where to fly from as soon as it appears.
+        if let heroKey { hero?.depart(heroKey) }
+        openRoute(route)
+      } label: {
+        label
       }
-      .navigationDestination(for: Show.self) {
-        ShowDetail(show: $0).zoomDestination($0.id, in: zoom)
-      }
-      .navigationDestination(for: DJSet.self) {
-        SetDetail(set: $0).zoomDestination($0.id, in: zoom)
-      }
-      .navigationDestination(for: DJ.self) { DJPage(dj: $0) }
+      .buttonStyle(.plain)
+    #else
+      NavigationLink(value: route) { label }
+    #endif
   }
 }
 
 struct DetailScaffold<Content: View>: View {
   @Environment(\.horizontalSizeClass) private var sizeClass
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
+  /// False until the page first appears; it then builds in from the artwork down. Coming back
+  /// from a page pushed on top doesn't replay it.
+  @State private var arrived = false
   let seed: String
   let title: String
   let meta: String
@@ -33,6 +79,14 @@ struct DetailScaffold<Content: View>: View {
       if sizeClass == .compact { phone } else { sideBySide }
     }
     .inlineTitle()
+    .coordinateSpace(.detailPage)
+    .onAppear { arrived = true }
+  }
+
+  /// One step of the entrance: the artwork, then the title, then the actions, each fading up a
+  /// few points a moment after the last. With Reduce Motion they only fade.
+  private func entrance(_ step: Int) -> some ViewModifier {
+    Entrance(arrived: arrived, step: step, rise: reduceMotion ? 0 : 8)
   }
 
   /// `showsTitle` is false over an iPhone poster, which already carries the title.
@@ -59,7 +113,7 @@ struct DetailScaffold<Content: View>: View {
       VStack(alignment: .leading, spacing: 0) {
         if wideArt {
           Artwork(seed: seed, small: false).aspectRatio(16 / 9, contentMode: .fit)
-          header().padding(.horizontal, 20).padding(.top, 20)
+          header().padding(.horizontal, 20).padding(.top, 20).modifier(entrance(1))
         } else {
           Artwork(seed: seed, alignment: .top, small: false)
             .frame(height: 540)
@@ -70,33 +124,55 @@ struct DetailScaffold<Content: View>: View {
             }
             .overlay(alignment: .bottomLeading) {
               header(showsTitle: false).padding(.horizontal, 20).padding(.bottom, 4)
+                .modifier(entrance(1))
             }
         }
-        VStack(alignment: .leading, spacing: 24) { content }.padding(20)
+        VStack(alignment: .leading, spacing: 24) { content }.padding(20).modifier(entrance(2))
       }
     }
     .ignoresSafeArea(edges: wideArt ? [] : .top)
     .background(.black)
   }
 
+  /// The artwork stays put on the left while the text and episodes scroll beside it.
   private var sideBySide: some View {
-    ScrollView {
-      HStack(alignment: .top, spacing: 48) {
-        Artwork(seed: seed, small: false)
-          .aspectRatio(wideArt ? 16 / 9 : 2 / 3, contentMode: .fit)
-          .frame(width: wideArt ? Metrics.detailWide : Metrics.detailPoster)
-          .clipShape(.rect(cornerRadius: 20))
-          .shadow(radius: 30, y: 10)
+    HStack(alignment: .top, spacing: 48) {
+      Artwork(seed: seed, small: false)
+        .aspectRatio(wideArt ? 16 / 9 : 2 / 3, contentMode: .fit)
+        .frame(width: wideArt ? Metrics.detailWide : Metrics.detailPoster)
+        .clipShape(.rect(cornerRadius: 20))
+        .shadow(radius: 30, y: 10)
+        .modifier(entrance(0))
+        #if os(macOS)
+          .heroDestination(seed)
+        #endif
+        .padding([.leading, .top], 48)
+      ScrollView {
         VStack(alignment: .leading, spacing: 28) {
-          header()
-          content
+          header().modifier(entrance(1))
+          content.modifier(entrance(2))
         }
         .frame(maxWidth: 760, alignment: .leading)
-        Spacer(minLength: 0)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding([.top, .bottom, .trailing], 48)
       }
-      .padding(48)
     }
+    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     .blackPage()
+  }
+}
+
+/// Hidden and a few points low until `arrived`, then eases into place after `step` beats.
+private struct Entrance: ViewModifier {
+  let arrived: Bool
+  let step: Int
+  let rise: CGFloat
+
+  func body(content: Content) -> some View {
+    // Scoped to the fade and rise, so nothing else laid out as the page opens animates with it.
+    content.animation(.smooth(duration: 0.375).delay(Double(step) * 0.075)) {
+      $0.opacity(arrived ? 1 : 0).offset(y: arrived ? 0 : rise)
+    }
   }
 }
 
@@ -317,7 +393,7 @@ struct SetDetail: View {
         Text(set.djs.count > 1 ? "More from these DJs" : "More from this DJ").font(.title3.bold())
           .padding(.bottom, 8)
         ForEach(set.djs, id: \.self) { name in
-          NavigationLink(value: DJ(name: name)) {
+          LibraryLink(.dj(DJ(name: name))) {
             HStack {
               Text(name).font(.body)
               Spacer()
@@ -345,7 +421,7 @@ struct DJPage: View {
 
   var body: some View {
     List(store.sets(for: dj)) { set in
-      NavigationLink(value: set) {
+      LibraryLink(.set(set)) {
         MediaRow(
           seed: set.id, title: set.title,
           detail: [set.djs.count > 1 ? set.djLine : nil, set.year, runtime(set.minutes)]
