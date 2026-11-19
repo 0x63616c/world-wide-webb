@@ -475,6 +475,7 @@ export class UI {
       s.sound = Number(q("sound").value);
       s.music = Number(q("music").value);
       s.effects = Number(q("effects").value);
+      if (s.crt !== q("crt").checked) s.crtChosen = true;
       s.crt = q("crt").checked;
       this.onSettings(s);
     };

@@ -3,7 +3,7 @@ import { TRAIL_LEN, type Game, type GameEvent } from "./game";
 import { EMPTY, GOLD, WALL } from "./grid";
 import { mulberry32 } from "./levels";
 import { formatNumber as fmt } from "./economy";
-import { PALETTE, rgba, shade } from "./palette";
+import { PALETTE, rgba } from "./palette";
 
 const CELL = 8; // pixel-layer texels per grid cell
 const MAX_PARTICLES = 1800;
@@ -95,7 +95,7 @@ export class Renderer {
   private slowFor = 0;
   private fastFor = 0;
   effects = 1;
-  crt = true;
+  crt = false;
   beatAt = -10;
   margins = { left: 120, top: 76, right: 96, bottom: 56 };
 
@@ -232,30 +232,24 @@ export class Renderer {
     p.clearRect(x, y, CELL, CELL);
     const k = g.kind[i];
     if (k === EMPTY) return;
+    // Cells are flat fills that cover their whole texel block, so neighbouring cells of the
+    // same colour merge into one solid shape at any zoom. No per-cell edges or tint jitter.
     if (k === WALL) {
       p.fillStyle = PALETTE.wall;
       p.fillRect(x, y, CELL, CELL);
-      p.fillStyle = "rgba(255,255,255,0.9)";
-      p.fillRect(x, y, CELL, 1);
-      p.fillStyle = "rgba(0,0,0,0.12)";
-      p.fillRect(x, y + CELL - 1, CELL, 1);
       return;
     }
     const showGold = k === GOLD && g.exposed(i);
-    const base = showGold ? PALETTE.golden : PALETTE.tiers[g.tier[i]];
-    const jitter = (((i * 2654435761) >>> 0) % 1000) / 1000;
-    p.fillStyle = shade(base, (jitter - 0.5) * 0.16);
+    p.fillStyle = showGold ? PALETTE.golden : PALETTE.tiers[g.tier[i]];
     p.fillRect(x, y, CELL, CELL);
-    p.fillStyle = "rgba(255,255,255,0.28)";
-    p.fillRect(x, y, CELL, 1);
-    p.fillRect(x, y, 1, CELL);
-    p.fillStyle = "rgba(0,0,0,0.32)";
-    p.fillRect(x, y + CELL - 1, CELL, 1);
-    p.fillRect(x + CELL - 1, y, 1, CELL);
     const stage = g.crackStage(i);
     if (stage > 0) {
       p.save();
       p.translate(x, y);
+      // Keep cracks off the cell border so they never line up into a grid.
+      p.beginPath();
+      p.rect(1.5, 1.5, CELL - 3, CELL - 3);
+      p.clip();
       p.strokeStyle = "rgba(0,0,0,0.75)";
       p.lineWidth = 0.9;
       p.stroke(this.cracks[(i * 7) % 4][stage - 1]);

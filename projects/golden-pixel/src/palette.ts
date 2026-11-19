@@ -51,13 +51,3 @@ export function rgba(hex: string, a: number): string {
   const [r, g, b] = hexToRgb(hex);
   return `rgba(${r},${g},${b},${a})`;
 }
-
-export function shade(hex: string, f: number): string {
-  const [r, g, b] = hexToRgb(hex);
-  const m = (c: number) =>
-    Math.max(
-      0,
-      Math.min(255, Math.round(f >= 0 ? c + (255 - c) * f : c * (1 + f))),
-    );
-  return `rgb(${m(r)},${m(g)},${m(b)})`;
-}

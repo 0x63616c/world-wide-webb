@@ -35,6 +35,8 @@ loadFonts();
 document.documentElement.style.setProperty("--gold", PALETTE.golden);
 
 const saved = readSave();
+// The CRT overlay used to default on; saves that never chose it start with it off.
+if (saved && !saved.settings.crtChosen) saved.settings.crt = false;
 const game = new Game(saved);
 const audio = new SoundEngine();
 const canvas = document.getElementById("game") as HTMLCanvasElement;
