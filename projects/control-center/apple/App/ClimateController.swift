@@ -139,6 +139,40 @@ struct ClimateController: View {
     }
 }
 
+/// Room-temperature marker: labels sit on the line at its quarter and three-quarter marks.
+private struct AmbientLine: View {
+    static let height: CGFloat = 32
+    let width: CGFloat
+    let ambient: Int
+    private let labelWidth: CGFloat = 104
+    private let gap: CGFloat = 10
+    private let color = Color.white.opacity(0.3)
+
+    var body: some View {
+        let edge = max(0, width / 4 - labelWidth / 2 - gap)
+        let middle = max(0, width / 2 - labelWidth - 2 * gap)
+        HStack(spacing: gap) {
+            segment(edge)
+            label("current")
+            segment(middle)
+            label("\(ambient)°")
+            segment(edge)
+        }
+        .frame(width: width, height: Self.height)
+    }
+
+    private func segment(_ length: CGFloat) -> some View {
+        Capsule().fill(color).frame(width: length, height: 3)
+    }
+
+    private func label(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 24, weight: .medium, design: .rounded)).monospacedDigit()
+            .foregroundStyle(color).lineLimit(1).minimumScaleFactor(0.6)
+            .frame(width: labelWidth)
+    }
+}
+
 private struct ClimateTemperatureSurface: View {
     let value: Int
     let ambient: Int
@@ -186,8 +220,8 @@ private struct ClimateTemperatureSurface: View {
                     .offset(y: -height * position)
                 // A faint line marks the current room temperature; unavailable data reports 0.
                 if ambient > 0 {
-                    Rectangle().fill(.white.opacity(0.22)).frame(height: 1)
-                        .offset(y: -height * fraction(for: Double(min(77, max(67, ambient)))))
+                    AmbientLine(width: proxy.size.width, ambient: ambient)
+                        .offset(y: -height * fraction(for: Double(min(77, max(67, ambient)))) + AmbientLine.height / 2)
                         .accessibilityHidden(true)
                 }
                 Capsule().fill(accent)
