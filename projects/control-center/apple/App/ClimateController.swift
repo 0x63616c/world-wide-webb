@@ -45,7 +45,7 @@ struct ClimateController: View {
                                 .padding(.trailing, contentInsets.trailing)
                         }
                         ClimateTemperatureSurface(
-                            value: target, midpoint: climate.ambient, range: bounds,
+                            value: target, ambient: climate.ambient, range: bounds,
                             mode: climate.mode, accent: levelColor,
                             title: climate.mode == .heatCool ? (editingLow ? "Heat to" : "Cool to") : "Set temperature",
                             commit: setTemperature
@@ -141,7 +141,7 @@ struct ClimateController: View {
 
 private struct ClimateTemperatureSurface: View {
     let value: Int
-    let midpoint: Int
+    let ambient: Int
     let range: ClosedRange<Int>
     let mode: ClimateMode
     let accent: Color
@@ -149,8 +149,8 @@ private struct ClimateTemperatureSurface: View {
     let commit: (Int) -> Void
     @State private var dragFraction: Double?
 
-    // Put the room temperature at the center while preserving the full setpoint range.
-    private var center: Double { Double(min(76, max(68, midpoint))) }
+    // 73° always sits at the vertical center; the full 67–77 setpoint range stays reachable.
+    private let center = 73.0
     private func fraction(for value: Double) -> Double {
         value <= center
             ? 0.5 * (value - 67) / (center - 67)
@@ -184,6 +184,12 @@ private struct ClimateTemperatureSurface: View {
                     .frame(height: height * position)
                 Rectangle().fill(accent.opacity(0.65)).frame(height: 1)
                     .offset(y: -height * position)
+                // A faint line marks the current room temperature; unavailable data reports 0.
+                if ambient > 0 {
+                    Rectangle().fill(.white.opacity(0.22)).frame(height: 1)
+                        .offset(y: -height * fraction(for: Double(min(77, max(67, ambient)))))
+                        .accessibilityHidden(true)
+                }
                 Capsule().fill(accent)
                     .frame(width: 112, height: 7)
                     .offset(y: -min(max(0, height - 9), max(9, height * position - 3.5)))
@@ -219,7 +225,10 @@ private struct ClimateTemperatureSurface: View {
                         }
                 )
                 .accessibilityElement(children: .contain)
-                .accessibilityLabel(title).accessibilityValue("\(mode.label) mode, \(displayed) degrees Fahrenheit")
+                .accessibilityLabel(title).accessibilityValue(
+                    "\(mode.label) mode, \(displayed) degrees Fahrenheit"
+                        + (ambient > 0 ? ", currently \(ambient) degrees" : "")
+                )
                 .accessibilityAdjustableAction { direction in
                     withAnimation(.smooth(duration: 0.22)) {
                         if direction == .increment {
