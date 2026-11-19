@@ -394,7 +394,7 @@ export class Renderer {
 
   private startZoomIn(): void {
     const to = {
-      scale: this.fit.scale * 3,
+      scale: this.fit.scale * 2.2,
       x: this.lastGold.x,
       y: this.lastGold.y,
     };

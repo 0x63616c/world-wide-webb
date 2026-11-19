@@ -95,7 +95,16 @@ class DispatchTests(unittest.TestCase):
         self.assertEqual(dispatch(["projects/tapes/Sources/Browse.swift"], CONFIGURATION)["products"], ["tapes"])
         needs = {
             name: {"result": "skipped"}
-            for name in ("control-center", "folding", "callkeep", "golink", "minecraft", "golden-pixel", "homelab", "sites")
+            for name in (
+                "control-center",
+                "folding",
+                "callkeep",
+                "golink",
+                "minecraft",
+                "golden-pixel",
+                "homelab",
+                "sites",
+            )
         }
         needs.update(
             {name: {"result": "skipped"} for name in ("typecheck", "test-unit", "security")},
