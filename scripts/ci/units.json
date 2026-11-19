@@ -25,6 +25,10 @@
       "paths": ["projects/golink-safari/**"],
       "delivery": null
     },
+    "golden-pixel.web": {
+      "paths": ["projects/golden-pixel/**"],
+      "delivery": null
+    },
     "tendr.native": {
       "paths": ["scripts/ci/with-match-signing.sh", "projects/tendr/**"],
       "exclude": [
