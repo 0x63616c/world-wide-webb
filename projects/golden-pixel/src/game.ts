@@ -28,6 +28,8 @@ export interface Settings {
   music: number;
   effects: number;
   crt: boolean;
+  /** Set once the player has touched the CRT toggle; older saves default to off. */
+  crtChosen?: boolean;
 }
 
 export interface SaveData {
@@ -99,7 +101,7 @@ export interface Ball {
 export const TRAIL_LEN = 14;
 
 export function defaultSettings(): Settings {
-  return { sound: 0.7, music: 0.45, effects: 1, crt: true };
+  return { sound: 0.7, music: 0.45, effects: 1, crt: false };
 }
 
 export function newSave(): SaveData {
