@@ -1,3 +1,4 @@
+use super::wall_switches::{self, DoubleAction, Gesture, Mode, Switch, TripleAction};
 use crate::{
     AppState,
     http::{ApiError, Result},
@@ -558,6 +559,8 @@ pub async fn command(State(s): State<AppState>, Json(c): Json<Command>) -> Resul
     }
     tx.commit().await?;
     drop(_gate);
+    // Apply now instead of waiting for the enforcer's next one-second tick.
+    s.light_wake.notify_one();
     get(State(s)).await
 }
 
@@ -700,15 +703,22 @@ pub async fn party(s: &AppState, clock: &mut PartyClock) -> Result<()> {
     Ok(())
 }
 
-/// Input watermark and all three lamp intents commit together. Reconnects and
-/// invalid samples rebaseline; only a contiguous HA old/new edge can act.
+/// Input watermark, gesture state, flip log and any lamp intents commit together. Reconnects
+/// and invalid samples rebaseline; only a contiguous HA old/new edge can act.
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct InputSample {
     state: String,
     changed: String,
+    /// Time (ms) of the last accepted, non-bounce edge.
     #[serde(default)]
     acted_at: Option<i64>,
+    /// Flips in the current gesture (1 after a single flip).
+    #[serde(default)]
+    count: u8,
+    /// Whether the switch's room lamps were on before the gesture's first flip toggled them.
+    #[serde(default)]
+    room_was_on: Option<bool>,
 }
 fn input_sample(
     entity: Option<&crate::integrations::homeassistant::Entity>,
@@ -735,13 +745,27 @@ fn input_sample(
             .with_timezone(&Utc)
             .to_rfc3339_opts(SecondsFormat::Micros, true),
         acted_at: None,
+        count: 0,
+        room_was_on: None,
     })
 }
-#[derive(Default)]
-pub struct BedroomInput {
+/// Work that runs after the checkpoint commits, so a replayed edge can never repeat it.
+enum After {
+    Command(Command),
+    StopAlarms,
+    Blink(Vec<&'static str>),
+}
+pub struct SwitchInput {
+    switch: Switch,
     previous: Option<InputSample>,
 }
-impl BedroomInput {
+impl SwitchInput {
+    pub fn new(switch: Switch) -> Self {
+        Self {
+            switch,
+            previous: None,
+        }
+    }
     pub async fn sample(
         &mut self,
         s: &AppState,
@@ -754,7 +778,7 @@ impl BedroomInput {
             self.previous = None;
             return Ok(());
         };
-        let _gate = s.light_gate.lock().await;
+        let gate = s.light_gate.lock().await;
         let mut tx = s.db.begin().await?;
         let saved: Option<String> =
             sqlx::query_scalar("SELECT value FROM input_checkpoint WHERE entity_id=?")
@@ -791,39 +815,242 @@ impl BedroomInput {
             .map_err(|_| unavailable())?
             .timestamp_millis();
         let mut next = next;
-        next.acted_at = saved.as_ref().and_then(|v| v.acted_at);
-        if edge && next.acted_at.is_none_or(|at| changed - at >= 150) {
-            let mut values = vec![];
-            for e in LIGHTS.iter().filter(|e| e.bedroom && e.lamp) {
-                let raw: Option<String> =
-                    sqlx::query_scalar("SELECT desired_state FROM device_state WHERE entity_id=?")
-                        .bind(e.entity)
-                        .fetch_optional(&mut *tx)
-                        .await?
-                        .flatten();
-                if let Some(v) = raw.and_then(|v| serde_json::from_str::<Light>(&v).ok()) {
-                    values.push((e.entity, v));
+        if let Some(v) = &saved {
+            next.acted_at = v.acted_at;
+            next.count = v.count;
+            next.room_was_on = v.room_was_on;
+        }
+        let mut after = vec![];
+        if edge {
+            let settings = wall_switches::load(&mut tx).await?;
+            let mode = settings.mode(self.switch);
+            let gap = next.acted_at.map(|at| changed - at);
+            let (gesture, action) = match wall_switches::classify(&settings, mode, gap, next.count)
+            {
+                Gesture::Bounce => ("bounce", "Ignored as contact bounce".to_owned()),
+                Gesture::Flip(n) => {
+                    next.acted_at = Some(changed);
+                    next.count = n;
+                    let action = if mode == Mode::Off {
+                        "Nothing: switch is off in Settings".to_owned()
+                    } else {
+                        match n {
+                            1 => {
+                                self.single(&mut tx, &settings, mode, &mut next, &mut after)
+                                    .await?
+                            }
+                            2 => self.double(&mut tx, &settings, &next, &mut after).await?,
+                            _ => triple(&settings, &mut after),
+                        }
+                    };
+                    (
+                        ["single", "double", "triple"][usize::from(n.clamp(1, 3)) - 1],
+                        action,
+                    )
                 }
-            }
-            if values.len() == 3 {
-                let on = !values.iter().any(|(_, v)| v.on);
-                let stamp = now();
-                let until = (Utc::now() + chrono::Duration::seconds(10))
-                    .to_rfc3339_opts(SecondsFormat::Micros, true);
-                for (entity, mut value) in values {
-                    value.on = on;
-                    sqlx::query("UPDATE device_state SET desired_state=?,desired_at_utc=?,desired_until_utc=?,updated_at_utc=? WHERE entity_id=?").bind(serde_json::to_string(&value).map_err(|_|unavailable())?).bind(&stamp).bind(&until).bind(&stamp).bind(entity).execute(&mut *tx).await?;
-                }
-                next.acted_at = Some(changed);
-            }
+            };
+            wall_switches::log(
+                &mut tx,
+                self.switch,
+                &next.state,
+                &next.changed,
+                gap,
+                gesture,
+                &action,
+            )
+            .await?;
         }
         sqlx::query("INSERT INTO input_checkpoint(entity_id,value) VALUES(?,?) ON CONFLICT(entity_id) DO UPDATE SET value=excluded.value").bind(id).bind(serde_json::to_string(&next).map_err(|_|unavailable())?).execute(&mut *tx).await?;
         tx.commit().await?;
         self.previous = Some(next);
+        drop(gate);
+        if edge {
+            s.light_wake.notify_one();
+        }
+        for work in after {
+            let result = match work {
+                After::Command(c) => command(State(s.clone()), Json(c)).await.map(|_| ()),
+                After::StopAlarms => super::alarms::stop_active(s, Utc::now()).await.map(|_| ()),
+                After::Blink(entities) => match s.config.ha.as_ref() {
+                    Some(ha) => ha
+                        .call(
+                            "light",
+                            "turn_on",
+                            json!({"entity_id":entities,"flash":"short"}),
+                        )
+                        .await
+                        .map(|_| ())
+                        .map_err(|_| unavailable()),
+                    None => Ok(()),
+                },
+            };
+            if result.is_err() {
+                tracing::warn!(worker = self.switch.worker(), "switch action failed");
+            }
+        }
         Ok(())
     }
-}
 
+    async fn single(
+        &self,
+        tx: &mut sqlx::SqliteConnection,
+        settings: &wall_switches::Settings,
+        mode: Mode,
+        next: &mut InputSample,
+        after: &mut Vec<After>,
+    ) -> Result<String> {
+        next.room_was_on = None;
+        if mode >= Mode::Smart {
+            if settings.smart_alarm {
+                let ringing: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM alarm_ring WHERE status IN ('ringing','snoozed') AND expires_at>?").bind(now()).fetch_one(&mut *tx).await?;
+                if ringing > 0 {
+                    after.push(After::StopAlarms);
+                    return Ok("Stopped the alarm".into());
+                }
+            }
+            if settings.smart_party {
+                let mode: Option<String> =
+                    sqlx::query_scalar("SELECT mode FROM lamp_mode WHERE id='singleton'")
+                        .fetch_optional(&mut *tx)
+                        .await?;
+                if mode.as_deref() == Some("party") {
+                    after.push(After::Command(Command::Scene {
+                        scene: "white".into(),
+                    }));
+                    return Ok("Ended party mode".into());
+                }
+            }
+        }
+        if self.switch == Switch::FrontDoor {
+            return Ok("Overheads toggled by the Shelly".into());
+        }
+        let mut values = vec![];
+        for e in LIGHTS.iter().filter(|e| e.bedroom && e.lamp) {
+            let raw: Option<String> =
+                sqlx::query_scalar("SELECT desired_state FROM device_state WHERE entity_id=?")
+                    .bind(e.entity)
+                    .fetch_optional(&mut *tx)
+                    .await?
+                    .flatten();
+            if let Some(v) = raw.and_then(|v| serde_json::from_str::<Light>(&v).ok()) {
+                values.push((e.entity, v));
+            }
+        }
+        if values.len() != 3 {
+            return Ok("Nothing: bedroom lamps not ready".into());
+        }
+        let was_on = values.iter().any(|(_, v)| v.on);
+        next.room_was_on = Some(was_on);
+        let on = !was_on;
+        let night = on && mode >= Mode::Smart && settings.smart_night && {
+            let zone: Option<String> = sqlx::query_scalar(
+                "SELECT json_extract(value,'$.timeZone') FROM settings WHERE id='singleton'",
+            )
+            .fetch_optional(&mut *tx)
+            .await?
+            .flatten();
+            let zone = zone
+                .and_then(|z| z.parse::<chrono_tz::Tz>().ok())
+                .unwrap_or(chrono_tz::America::Los_Angeles);
+            let local = Utc::now().with_timezone(&zone);
+            use chrono::Timelike;
+            settings.is_night(local.hour() * 60 + local.minute())
+        };
+        let stamp = now();
+        let until = (Utc::now() + chrono::Duration::seconds(10))
+            .to_rfc3339_opts(SecondsFormat::Micros, true);
+        for (entity, mut value) in values {
+            value.on = on;
+            if night {
+                value.brightness = Some((settings.night_brightness as f64 / 100.0 * 255.0).round());
+                value.color = Some(json!({"kelvin":settings.night_kelvin}));
+                value.transition_seconds = None;
+            }
+            sqlx::query("UPDATE device_state SET desired_state=?,desired_at_utc=?,desired_until_utc=?,updated_at_utc=? WHERE entity_id=?").bind(serde_json::to_string(&value).map_err(|_|unavailable())?).bind(&stamp).bind(&until).bind(&stamp).bind(entity).execute(&mut *tx).await?;
+        }
+        Ok(match (on, night) {
+            (true, true) => "Bedroom lamps on (night)",
+            (true, false) => "Bedroom lamps on",
+            _ => "Bedroom lamps off",
+        }
+        .into())
+    }
+
+    async fn double(
+        &self,
+        tx: &mut sqlx::SqliteConnection,
+        settings: &wall_switches::Settings,
+        next: &InputSample,
+        after: &mut Vec<After>,
+    ) -> Result<String> {
+        let key = if settings.include_relays {
+            "all"
+        } else {
+            "lamps"
+        };
+        let on = match settings.double_action {
+            DoubleAction::None => return Ok("Nothing: double flip is off".into()),
+            DoubleAction::AllOn => true,
+            DoubleAction::AllOff => false,
+            DoubleAction::ApartmentToggle => {
+                // The first flip already toggled this room; judge by how it was before the gesture.
+                let rows: Vec<Row> =
+                    sqlx::query_as("SELECT * FROM device_state WHERE kind IN ('light','switch')")
+                        .fetch_all(&mut *tx)
+                        .await?;
+                let mut any = next.room_was_on == Some(true);
+                for e in LIGHTS.iter().filter(|e| selected(e, key)) {
+                    if next.room_was_on.is_some() && e.bedroom && e.lamp {
+                        continue;
+                    }
+                    if let Some(r) = rows.iter().find(|r| r.entity_id == e.entity) {
+                        any |= effective(r).is_ok_and(|l| l.on);
+                    }
+                }
+                !any
+            }
+        };
+        if settings.confirm_blink && self.switch == Switch::Bedroom {
+            after.push(After::Blink(
+                LIGHTS
+                    .iter()
+                    .filter(|e| e.bedroom && e.lamp)
+                    .map(|e| e.entity)
+                    .collect(),
+            ));
+        }
+        after.push(After::Command(Command::Toggle {
+            key: key.into(),
+            on,
+        }));
+        Ok(if on {
+            "Everything on"
+        } else {
+            "Everything off"
+        }
+        .into())
+    }
+}
+fn triple(settings: &wall_switches::Settings, after: &mut Vec<After>) -> String {
+    let scene = match settings.triple_action {
+        TripleAction::None => return "Nothing: triple flip is off".into(),
+        TripleAction::Party => {
+            after.push(After::Command(Command::Mode {
+                mode: "party".into(),
+                speed: None,
+            }));
+            return "Started party mode".into();
+        }
+        TripleAction::White => "white",
+        TripleAction::Red => "red",
+        TripleAction::Blue => "blue",
+        TripleAction::Mood => "mood",
+    };
+    after.push(After::Command(Command::Scene {
+        scene: scene.into(),
+    }));
+    format!("Lamps to {scene}")
+}
 fn reported_light(entity: &crate::integrations::homeassistant::Entity) -> Light {
     let a = &entity.attributes;
     let color = if a.get("color_mode").and_then(Value::as_str) == Some("color_temp") {

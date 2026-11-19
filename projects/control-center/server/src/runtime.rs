@@ -1,6 +1,10 @@
 use crate::{
     AppState,
-    features::{climate, lights, weather},
+    features::{
+        climate, lights,
+        wall_switches::{self, Switch},
+        weather,
+    },
     now,
 };
 use serde::Serialize;
@@ -82,7 +86,8 @@ impl Runtime {
                 interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
                 loop {tokio::select! {
                     _=stopping.changed()=>break,
-                    _=interval.tick()=>{
+                    // A new intent (app command or wall switch) wakes the cycle instead of waiting for the tick.
+                    _=async { tokio::select! {_=interval.tick()=>{},_=s.light_wake.notified()=>{}} }=>{
                         let start=Instant::now();
                         let mut result=lights::party(&s,&mut party).await;
                         if result.is_ok(){result=lights::reconcile(&s).await;}
@@ -122,15 +127,27 @@ impl Runtime {
                 }
             })));
         }
-        if let Some(id) = s.config.bedroom_input.clone() {
+        let switches = [
+            (Switch::Bedroom, s.config.bedroom_input.clone()),
+            (
+                Switch::FrontDoor,
+                s.config
+                    .ha
+                    .as_ref()
+                    .map(|_| wall_switches::FRONT_DOOR_INPUT.to_owned()),
+            ),
+        ];
+        for (switch, id) in switches {
+            let Some(id) = id else { continue };
             s.workers
                 .write()
                 .expect("worker lock")
-                .insert("bedroom-switch-input".into(), WorkerHealth::default());
+                .insert(switch.worker().into(), WorkerHealth::default());
             tasks.push((
-                "bedroom-switch-input",
-                tokio::spawn(crate::features::bedroom_input::run(
+                switch.worker(),
+                tokio::spawn(crate::features::switch_input::run(
                     s.clone(),
+                    switch,
                     id,
                     stop.subscribe(),
                 )),

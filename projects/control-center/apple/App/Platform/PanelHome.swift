@@ -80,6 +80,7 @@ struct PanelHome: View {
     let navigation: PanelNavigation
     var panelPIN: PanelPINAPI? { store.panelPIN }
     var profilesAPI: ProfilesAPI? { store.profilesAPI }
+    var wallSwitchesAPI: WallSwitchesAPI? { store.wallSwitchesAPI }
     func photoBooth(close: @escaping () -> Void) -> AnyView? {
         AnyView(LivePhotoBoothModule(camera: store.photoBoothCamera, photos: store.photosProvider, close: close))
     }

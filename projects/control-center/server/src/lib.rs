@@ -19,6 +19,8 @@ pub struct AppState {
     pub diagnostics: Arc<std::sync::Mutex<std::collections::VecDeque<serde_json::Value>>>,
     pub light_gate: Arc<tokio::sync::Mutex<()>>,
     pub alarm_light_gate: Arc<tokio::sync::Mutex<()>>,
+    /// Wakes the light enforcer so a new light intent applies immediately.
+    pub light_wake: Arc<tokio::sync::Notify>,
 }
 impl AppState {
     pub fn new(db: sqlx::SqlitePool, media: PathBuf) -> Self {
@@ -31,6 +33,7 @@ impl AppState {
             diagnostics: Default::default(),
             alarm_light_gate: Default::default(),
             light_gate: Default::default(),
+            light_wake: Default::default(),
         }
     }
 }

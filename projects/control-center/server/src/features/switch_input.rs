@@ -1,3 +1,4 @@
+use super::wall_switches::Switch;
 use crate::{
     AppState,
     http::{ApiError, Result},
@@ -10,7 +11,7 @@ use tokio_tungstenite::tungstenite::Message;
 fn failed() -> ApiError {
     ApiError {
         status: axum::http::StatusCode::SERVICE_UNAVAILABLE,
-        message: "Bedroom switch connection interrupted",
+        message: "Wall switch connection interrupted",
     }
 }
 async fn send(socket: &mut crate::integrations::homeassistant::Socket, value: Value) -> Result<()> {
@@ -24,7 +25,7 @@ async fn send(socket: &mut crate::integrations::homeassistant::Socket, value: Va
 }
 /// Each connection creates a new continuity tracker, subscribes before taking a
 /// snapshot, and never infers an edge across a disconnect or heartbeat gap.
-pub async fn session(s: &AppState, id: &str) -> Result<()> {
+pub async fn session(s: &AppState, switch: Switch, id: &str) -> Result<()> {
     let mut socket = s
         .config
         .ha
@@ -38,7 +39,7 @@ pub async fn session(s: &AppState, id: &str) -> Result<()> {
         json!({"id":1,"type":"subscribe_events","event_type":"state_changed"}),
     )
     .await?;
-    let mut binding = super::lights::BedroomInput::default();
+    let mut binding = super::lights::SwitchInput::new(switch);
     let mut phase = 0;
     let mut pending_ping = None;
     let mut ping_id = 10;
@@ -70,17 +71,17 @@ pub async fn session(s: &AppState, id: &str) -> Result<()> {
                         let all:Vec<Entity>=serde_json::from_value(value["result"].clone()).map_err(|_|failed())?;
                         binding.sample(s,id,all.iter().find(|e|e.entity_id==id),true,None).await?;
                         phase=2;deadline=tokio::time::Instant::now()+Duration::from_secs(25);
-                        record(s,false);
+                        record(s,switch,false);
                     },
                     Some("pong") if pending_ping.is_some() && value["id"].as_u64()==pending_ping=>{
-                        pending_ping=None;deadline=tokio::time::Instant::now()+Duration::from_secs(25);record(s,false);
+                        pending_ping=None;deadline=tokio::time::Instant::now()+Duration::from_secs(25);record(s,switch,false);
                     },
                     Some("event") if phase==2 && value["id"]==1 && value["event"]["data"]["entity_id"]==id=>{
                         let data=&value["event"]["data"];
                         let current:Option<Entity>=serde_json::from_value(data["new_state"].clone()).map_err(|_|failed())?;
                         let old:Option<Entity>=serde_json::from_value(data["old_state"].clone()).map_err(|_|failed())?;
                         binding.sample(s,id,current.as_ref(),false,old.as_ref()).await?;
-                        record(s,false);
+                        record(s,switch,false);
                     },
                     _=>{}
                 }
@@ -88,9 +89,9 @@ pub async fn session(s: &AppState, id: &str) -> Result<()> {
         }
     }
 }
-fn record(s: &AppState, error: bool) {
+fn record(s: &AppState, switch: Switch, error: bool) {
     let mut workers = s.workers.write().expect("worker lock");
-    let health = workers.entry("bedroom-switch-input".into()).or_default();
+    let health = workers.entry(switch.worker().into()).or_default();
     health.last_run_at = Some(crate::now());
     health.total_runs += 1;
     health.consecutive_failures = if error {
@@ -99,12 +100,17 @@ fn record(s: &AppState, error: bool) {
         0
     };
 }
-pub async fn run(s: AppState, id: String, mut stop: tokio::sync::watch::Receiver<bool>) {
+pub async fn run(
+    s: AppState,
+    switch: Switch,
+    id: String,
+    mut stop: tokio::sync::watch::Receiver<bool>,
+) {
     loop {
         tokio::select! {
             _=stop.changed()=>return,
-            result=session(&s,&id)=>{
-                if result.is_err(){record(&s,true);tracing::warn!(worker="bedroom-switch-input","connection interrupted; rebaseline required");}
+            result=session(&s,switch,&id)=>{
+                if result.is_err(){record(&s,switch,true);tracing::warn!(worker=switch.worker(),"connection interrupted; rebaseline required");}
             }
         }
         tokio::select! {_=stop.changed()=>return,_=tokio::time::sleep(Duration::from_secs(5))=>{}}
