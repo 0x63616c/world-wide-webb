@@ -1,5 +1,4 @@
 pub mod alarms;
-pub mod bedroom_input;
 pub mod booth;
 pub mod climate;
 pub mod diagnostics;
@@ -10,5 +9,7 @@ pub mod profiles;
 pub mod releases;
 pub mod settings;
 pub mod sound;
+pub mod switch_input;
 pub mod tesla;
+pub mod wall_switches;
 pub mod weather;

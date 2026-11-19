@@ -123,12 +123,14 @@ struct PanelSettingsPage: View {
     @Environment(\.homeIntegration) private var integration
     private enum Page: String, CaseIterable, Identifiable {
         case display = "Display"
+        case wallSwitches = "Wall Switches"
         case security = "Security"
         case diagnostics = "Diagnostics"
         var id: String { rawValue }
         var symbol: String {
             switch self {
             case .display: "display"
+            case .wallSwitches: "lightswitch.on"
             case .security: "lock.shield"
             case .diagnostics: "waveform.path.ecg"
             }
@@ -150,7 +152,9 @@ struct PanelSettingsPage: View {
         } detail: {
             NavigationStack {
                 Group {
-                    if selection == .diagnostics {
+                    if selection == .wallSwitches {
+                        PanelWallSwitchSettings(api: integration?.wallSwitchesAPI)
+                    } else if selection == .diagnostics {
                         PanelDiagnosticsView(
                             store: (integration as? PanelHomePresentation)?.store, close: {}, embedded: true)
                     } else {
@@ -201,6 +205,7 @@ struct PanelSettingsPage: View {
         .task {
             #if DEBUG
                 if ProcessInfo.processInfo.arguments.contains("-previewDiagnostics") { selection = .diagnostics }
+                if ProcessInfo.processInfo.arguments.contains("-previewWallSwitches") { selection = .wallSwitches }
             #endif
         }
         .tint(.blue).preferredColorScheme(.dark)

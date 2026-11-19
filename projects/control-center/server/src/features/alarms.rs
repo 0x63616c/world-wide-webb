@@ -338,6 +338,25 @@ pub async fn act_at(s: &AppState, a: Act, now: DateTime<Utc>) -> Result<Json<Val
     tx.commit().await?;
     Ok(Json(json!({"id":a.id})))
 }
+/// A smart wall-switch flip stops every ringing or snoozed alarm, like pressing Stop on each.
+pub async fn stop_active(s: &AppState, now: DateTime<Utc>) -> Result<usize> {
+    let _gate = s.alarm_light_gate.lock().await;
+    let mut tx = s.db.begin().await?;
+    let rings:Vec<Ring>=sqlx::query_as("UPDATE alarm_ring SET status='stopped',version=version+1 WHERE status IN ('ringing','snoozed') AND expires_at>? RETURNING *").bind(stamp(now)).fetch_all(&mut *tx).await?;
+    for ring in &rings {
+        notice(
+            &mut tx,
+            &ring.id,
+            ring.version,
+            "stopped",
+            &ring.label,
+            "normal",
+        )
+        .await?;
+    }
+    tx.commit().await?;
+    Ok(rings.len())
+}
 async fn notice(
     conn: &mut SqliteConnection,
     id: &str,

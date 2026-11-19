@@ -908,7 +908,10 @@ async fn tesla_converts_real_telemetry_keeps_snapshot_and_checks_pin_before_comm
 
 #[tokio::test]
 async fn bedroom_input_edges_are_atomic_debounced_and_never_replayed_after_restart() {
-    use www_server::{features::lights::BedroomInput, integrations::homeassistant::Entity};
+    use www_server::{
+        features::{lights::SwitchInput, wall_switches::Switch},
+        integrations::homeassistant::Entity,
+    };
     let (dir, _, db) = fixture().await;
     let state = AppState::new(db.clone(), dir.path().join("media"));
     for (id, entity) in [
@@ -934,7 +937,7 @@ async fn bedroom_input_edges_are_atomic_debounced_and_never_replayed_after_resta
         .await
         .unwrap()
     };
-    let mut input = BedroomInput::default();
+    let mut input = SwitchInput::new(Switch::Bedroom);
     input
         .sample(&state, id, Some(&base), true, None)
         .await
@@ -956,7 +959,7 @@ async fn bedroom_input_edges_are_atomic_debounced_and_never_replayed_after_resta
         .unwrap();
     assert_eq!(on_count().await, 0);
     // Same durable snapshot on a new connection establishes continuity without replaying it.
-    let mut input = BedroomInput::default();
+    let mut input = SwitchInput::new(Switch::Bedroom);
     input
         .sample(&state, id, Some(&b), true, None)
         .await
@@ -996,12 +999,172 @@ async fn bedroom_input_edges_are_atomic_debounced_and_never_replayed_after_resta
 }
 
 #[tokio::test]
+async fn wall_switch_gestures_follow_settings_and_log_every_flip() {
+    use axum::{
+        Json,
+        extract::Path,
+        routing::{get, post},
+    };
+    use std::sync::{Arc, RwLock};
+    use www_server::{
+        config::Config,
+        features::{
+            lights::{self, SwitchInput},
+            wall_switches::Switch,
+        },
+        integrations::homeassistant::{Entity, HomeAssistant},
+    };
+    let (dir, _, db) = fixture().await;
+    let lights_off: Vec<Value> = [
+        "light.living_room_globe",
+        "light.living_room_corner_lamp",
+        "light.living_room_floor_lamp",
+        "light.kitchen_lamp",
+        "light.desk",
+        "light.bed_lamp_left",
+        "light.bed_lamp_right",
+        "light.mirror",
+        "switch.overhead_lights",
+        "switch.under_cabinet",
+    ]
+    .iter()
+    .map(|e| json!({"entity_id":e,"state":"off","attributes":{}}))
+    .collect();
+    let live = Arc::new(RwLock::new(Value::Array(lights_off)));
+    let read = live.clone();
+    let ha_app = Router::new()
+        .route(
+            "/api/states",
+            get(move || {
+                let x = read.clone();
+                async move { Json(x.read().unwrap().clone()) }
+            }),
+        )
+        .route(
+            "/api/services/{domain}/{service}",
+            post(|Path((_d, _s)): Path<(String, String)>| async { Json(json!([])) }),
+        );
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    let task = tokio::spawn(async move { axum::serve(listener, ha_app).await.unwrap() });
+    let mut s = AppState::new(db.clone(), dir.path().join("media"));
+    s.config = Arc::new(Config {
+        ha: Some(HomeAssistant::new(&format!("http://{addr}"), "fixture".into()).unwrap()),
+        ..Default::default()
+    });
+    lights::reconcile(&s).await.unwrap();
+    let app = http::router(s.clone());
+    let (status, body) = call(&app, "GET", "/api/v1/switches", Value::Null).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["settings"]["bedroomMode"], "room");
+    assert_eq!(body["settings"]["frontDoorMode"], "off");
+    let mut settings = body["settings"].clone();
+    settings["gestureWindowMs"] = json!(2001);
+    assert_eq!(
+        call(&app, "PATCH", "/api/v1/switches", settings.clone())
+            .await
+            .0,
+        StatusCode::BAD_REQUEST
+    );
+    settings["gestureWindowMs"] = json!(500);
+    settings["bedroomMode"] = json!("smart");
+    settings["smartNight"] = json!(false);
+    assert_eq!(
+        call(&app, "PATCH", "/api/v1/switches", settings).await.0,
+        StatusCode::OK
+    );
+
+    let id = "binary_sensor.bedroom_input";
+    let sample = |on: bool, time: &str| -> Entity {
+        serde_json::from_value(json!({"entity_id":id,"state":if on{"on"}else{"off"},"attributes":{},"last_changed":time})).unwrap()
+    };
+    let on_count = || async {
+        sqlx::query_scalar::<_, i64>(
+            "SELECT COUNT(*) FROM device_state WHERE json_extract(desired_state,'$.on')=1",
+        )
+        .fetch_one(&db)
+        .await
+        .unwrap()
+    };
+    let party = || async {
+        sqlx::query_scalar::<_, String>("SELECT mode FROM lamp_mode WHERE id='singleton'")
+            .fetch_optional(&db)
+            .await
+            .unwrap()
+    };
+    let flips = [
+        sample(false, "2026-11-07T10:00:00Z"),
+        sample(true, "2026-11-07T10:00:01Z"),
+        sample(false, "2026-11-07T10:00:01.300000Z"),
+        sample(true, "2026-11-07T10:00:01.700000Z"),
+        sample(false, "2026-11-07T10:00:05Z"),
+    ];
+    let mut input = SwitchInput::new(Switch::Bedroom);
+    input
+        .sample(&s, id, Some(&flips[0]), true, None)
+        .await
+        .unwrap();
+    // Single flip: bedroom lamps only.
+    input
+        .sample(&s, id, Some(&flips[1]), false, Some(&flips[0]))
+        .await
+        .unwrap();
+    assert_eq!(on_count().await, 3);
+    // Double flip inside the window: the apartment was dark before the gesture, so everything turns on.
+    input
+        .sample(&s, id, Some(&flips[2]), false, Some(&flips[1]))
+        .await
+        .unwrap();
+    assert_eq!(on_count().await, 10);
+    // Triple flip: the configured scene (party by default).
+    input
+        .sample(&s, id, Some(&flips[3]), false, Some(&flips[2]))
+        .await
+        .unwrap();
+    assert_eq!(party().await.as_deref(), Some("party"));
+    // A later single flip in Smart mode ends party mode instead of toggling the room.
+    input
+        .sample(&s, id, Some(&flips[4]), false, Some(&flips[3]))
+        .await
+        .unwrap();
+    assert_eq!(party().await.as_deref(), Some("none"));
+    assert_eq!(on_count().await, 10);
+
+    let (_, body) = call(&app, "GET", "/api/v1/switches", Value::Null).await;
+    let log: Vec<(String, String)> = body["flips"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .rev()
+        .map(|f| {
+            (
+                f["gesture"].as_str().unwrap().into(),
+                f["action"].as_str().unwrap().into(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        log,
+        [
+            ("single".into(), "Bedroom lamps on".into()),
+            ("double".into(), "Everything on".into()),
+            ("triple".into(), "Started party mode".into()),
+            ("single".into(), "Ended party mode".into()),
+        ]
+    );
+    assert_eq!(body["flips"][2]["gapMs"], 300);
+    task.abort();
+}
+
+#[tokio::test]
 async fn bedroom_websocket_subscribes_before_snapshot_and_ignores_early_events() {
     use futures_util::{SinkExt, StreamExt};
     use std::sync::Arc;
     use tokio_tungstenite::tungstenite::Message;
     use www_server::{
-        config::Config, features::bedroom_input, integrations::homeassistant::HomeAssistant,
+        config::Config,
+        features::{switch_input, wall_switches::Switch},
+        integrations::homeassistant::HomeAssistant,
     };
     let (dir, _, db) = fixture().await;
     let id = "binary_sensor.bedroom_input";
@@ -1060,7 +1223,7 @@ async fn bedroom_websocket_subscribes_before_snapshot_and_ignores_early_events()
     assert!(
         tokio::time::timeout(
             std::time::Duration::from_secs(3),
-            bedroom_input::session(&state, id)
+            switch_input::session(&state, Switch::Bedroom, id)
         )
         .await
         .unwrap()

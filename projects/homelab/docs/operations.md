@@ -10,6 +10,9 @@ Normal reconciliation recreates the app container when its environment changes; 
 does not reload settings. Set the option to `null` to disable the binding again.
 After activation, `/healthz` should include `bedroom-switch-input`; flip the physical switch
 to confirm the bedside lamps and Mirror respond. Other hosts leave the binding disabled.
+The front door switch needs no host option; Control Center listens to it whenever HA is
+configured (`front-door-switch-input` in `/healthz`). What each switch does is set in the app
+under Settings → Wall Switches ([wall switches](../../control-center/docs/controls/wall-switches.md)).
 
 ## Shared operation lock
 

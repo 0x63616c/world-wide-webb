@@ -6,6 +6,7 @@ import SwiftUI
 @MainActor protocol HomeIntegration: AnyObject {
     var panelPIN: PanelPINAPI? { get }
     var profilesAPI: ProfilesAPI? { get }
+    var wallSwitchesAPI: WallSwitchesAPI? { get }
     func photoBooth(close: @escaping () -> Void) -> AnyView?
     func artwork(_ room: SoundRoom) -> AnyView?
     func destination(_ tile: HomeTile, close: @escaping () -> Void) -> AnyView
@@ -15,6 +16,7 @@ extension HomeIntegration {
     func photoBooth(close: @escaping () -> Void) -> AnyView? { nil }
     var panelPIN: PanelPINAPI? { nil }
     var profilesAPI: ProfilesAPI? { nil }
+    var wallSwitchesAPI: WallSwitchesAPI? { nil }
     func artwork(_ room: SoundRoom) -> AnyView? { nil }
 }
 
