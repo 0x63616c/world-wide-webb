@@ -18,7 +18,6 @@ def verify(needs):
         "callkeep",
         "golink",
         "minecraft",
-        "golden-pixel",
         "homelab",
         "sites",
         "typecheck",

@@ -1,6 +1,7 @@
 {
   "version": 1,
   "retired_paths": [
+    "projects/golden-pixel/**",
     "projects/folding/.cursor/**",
     "projects/folding/.githooks/**",
     ".config/aseprite/**",
@@ -23,10 +24,6 @@
     },
     "golink.safari": {
       "paths": ["projects/golink-safari/**"],
-      "delivery": null
-    },
-    "golden-pixel.web": {
-      "paths": ["projects/golden-pixel/**"],
       "delivery": null
     },
     "tendr.native": {
