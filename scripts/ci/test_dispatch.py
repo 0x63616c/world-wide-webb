@@ -67,7 +67,6 @@ class DispatchTests(unittest.TestCase):
                 "callkeep",
                 "golink",
                 "minecraft",
-                "golden-pixel",
                 "homelab",
                 "sites",
                 "typecheck",
@@ -101,7 +100,6 @@ class DispatchTests(unittest.TestCase):
                 "callkeep",
                 "golink",
                 "minecraft",
-                "golden-pixel",
                 "homelab",
                 "sites",
             )

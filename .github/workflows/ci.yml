@@ -198,23 +198,6 @@ jobs:
           java-version: "25"
       - run: bash ./gradlew build --no-daemon
         working-directory: projects/minecraft
-  golden-pixel:
-    name: Golden Pixel
-    needs: changes
-    if: contains(fromJSON(needs.changes.outputs.products), 'golden-pixel')
-    runs-on: ubuntu-24.04-arm
-    timeout-minutes: 10
-    defaults:
-      run:
-        working-directory: projects/golden-pixel
-    steps:
-      - *id001
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
-        with:
-          bun-version: 1.4.4
-      - run: bun install --frozen-lockfile
-      - run: bun run test
-      - run: bun run build
   homelab:
     name: Homelab
     needs:
@@ -263,7 +246,6 @@ jobs:
       - callkeep
       - golink
       - minecraft
-      - golden-pixel
       - homelab
       - sites
       - security
