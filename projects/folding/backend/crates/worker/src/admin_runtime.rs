@@ -97,6 +97,9 @@ pub(crate) async fn dispatch(
     if request.path() == "/admin/bots" {
         return crate::bots_admin::admin(request, env, &db, &config, &admin, body).await;
     }
+    if request.path() == "/admin/analytics" || request.path().starts_with("/admin/analytics/") {
+        return crate::analytics_runtime::admin(request, &db).await;
+    }
     if request.path() == "/admin/jobs" || request.path().starts_with("/admin/jobs/") {
         return crate::jobs_admin::admin(request, &db, &config, &admin, body).await;
     }

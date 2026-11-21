@@ -79,6 +79,28 @@ Protected requests include `Authorization: Bearer …`, `X-Folding-Key-ID`, `X-F
 - `GET /v1/results?kind=week|month&cursor=…&limit=…`: → `Page<Result>` for the caller, descending end_ms.
 - `GET /v1/results/{period_id}/share`: → `{result:Result, profile:{nickname,avatar_id}}` for caller's current visible finalized entry. Never return another person's private self-history. UI can compose a live share preview from the current board's `you` plus date/time; it must not label it finalized.
 
+## Anonymous usage analytics
+
+`POST /v1/analytics/batches` accepts an
+[analytics batch](../../contracts/schemas/analytics-batch.schema.json) with
+`Content-Type: application/json; charset=utf-8` and `X-Folding-Build`. There is no
+session, account or App Attest: `analytics_id` is a random per-install UUID that is
+never joined to participants, and the network address is never stored. A batch holds
+1–256 events within the 256 KiB body limit. Context strings are at most 64
+characters; `detail` is null or `^[a-z0-9_.]{1,64}$`; `refs` holds at most two
+UUIDs and is only used by `entry_deleted` (the removed fold event IDs). An unknown
+`timezone_id` is treated as UTC. Unknown event kinds and unknown properties are
+ignored for forward compatibility; a malformed envelope returns 400
+`malformed_request`.
+
+The response is `200 {accepted, request_id}`, where `accepted` counts the batch's
+known-kind events. Retrying is safe: `(analytics_id, event_id)` is stored once. Per-IP
+burst limits apply, plus 600 batches per `analytics_id` per hour (429
+`rate_limited`). Migration 0026 stores the latest install context, raw events with
+local day/hour/weekday derived at ingest, and removed fold IDs; raw events have no
+retention purge. Administrators read it at `GET /admin/analytics?from&to&channel`
+and `GET /admin/analytics/installs/{analytics_id}`.
+
 ## Profile, content, and push
 
 - `PATCH /v1/profile`: `{operation_id, nickname}` → `{profile}`; safe validation errors 422. Operation ID idempotency applies to PATCH too.
@@ -94,7 +116,7 @@ Protected requests include `Authorization: Bearer …`, `X-Folding-Key-ID`, `X-F
 
 ## Admin forms
 
-Admin uses HTML responses rather than these mobile JSON contracts. GET routes `/admin/participants`, `/admin/participants/{id}`, `/admin/queue`, `/admin/periods/{id}`, `/admin/audit`. Paginated filters are bounded allowlisted values. Mutation POST routes `/admin/moderation`, `/admin/avatars/{id}/decision`, `/admin/names/{id}/decision`, `/admin/reports/{id}/decision`, `/admin/periods/{id}/corrections`, `/admin/config`.
+Admin uses HTML responses rather than these mobile JSON contracts. GET routes `/admin/participants`, `/admin/analytics`, `/admin/participants/{id}`, `/admin/queue`, `/admin/periods/{id}`, `/admin/audit`. Paginated filters are bounded allowlisted values. Mutation POST routes `/admin/moderation`, `/admin/avatars/{id}/decision`, `/admin/names/{id}/decision`, `/admin/reports/{id}/decision`, `/admin/periods/{id}/corrections`, `/admin/config`.
 
 Every POST has `operation_id`, `csrf_token`, `reason` (10–500 graphemes), `expected_revision`, and an allowlisted action. Participant actions: quarantine_submission/reinstate_submission/suspend/ban/unban; suspension requires `until_ms`. Content action: remove. There are no approval/rejection handlers or queues. Report decisions use close/reopen with the report revision (and subject participant ID); both decisions are audited and closing starts the 90-day case-evidence retention clock. Period correction posts a previously generated preview ID/hash bound to the admin, expected result version, and 10-minute expiry. A changed result version invalidates preview; never “apply whatever is current.” Config edits accept only the operational switches in release-and-operations.md. Success uses POST/Redirect/GET; stale revisions display a reload/review message without repeating the mutation.
 

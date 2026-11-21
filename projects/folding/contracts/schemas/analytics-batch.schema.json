@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://getfolding.app/contracts/v1/analytics-batch.schema.json",
+  "title": "Anonymous usage analytics batch",
+  "description": "POST /v1/analytics/batches. No account, session or App Attest. Unknown event kinds are accepted and ignored by the server; unknown properties are ignored for forward compatibility.",
+  "type": "object",
+  "$defs": {
+    "uuid": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "short": { "type": "string", "maxLength": 64 },
+    "event": {
+      "type": "object",
+      "properties": {
+        "event_id": { "$ref": "#/$defs/uuid" },
+        "kind": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "at_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "timezone_id": {
+          "type": "string",
+          "description": "IANA zone. An unknown zone is treated as UTC rather than rejected."
+        },
+        "backfill": { "type": "boolean" },
+        "detail": {
+          "type": ["string", "null"],
+          "pattern": "^[a-z0-9_.]{1,64}$"
+        },
+        "refs": {
+          "description": "Only meaningful for entry_deleted: the deleted fold event IDs.",
+          "type": ["array", "null"],
+          "items": { "$ref": "#/$defs/uuid" },
+          "maxItems": 2
+        }
+      },
+      "required": ["event_id", "kind", "at_ms", "timezone_id", "backfill"]
+    }
+  },
+  "properties": {
+    "schema_version": { "const": 1 },
+    "analytics_id": { "$ref": "#/$defs/uuid" },
+    "context": {
+      "type": "object",
+      "properties": {
+        "app_version": { "$ref": "#/$defs/short" },
+        "build": { "type": "integer", "minimum": 0, "maximum": 2147483647 },
+        "channel": { "enum": ["app_store", "testflight", "debug"] },
+        "os_version": { "$ref": "#/$defs/short" },
+        "device_model": { "$ref": "#/$defs/short" },
+        "region": { "type": ["string", "null"], "maxLength": 64 },
+        "locale": { "$ref": "#/$defs/short" },
+        "competition": { "type": "boolean" }
+      },
+      "required": [
+        "app_version",
+        "build",
+        "channel",
+        "os_version",
+        "device_model",
+        "locale",
+        "competition"
+      ]
+    },
+    "events": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/event" },
+      "minItems": 1,
+      "maxItems": 256
+    }
+  },
+  "required": ["schema_version", "analytics_id", "context", "events"]
+}

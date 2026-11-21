@@ -6,6 +6,10 @@ mod admin_auth;
 mod admin_mutations;
 #[cfg(target_arch = "wasm32")]
 mod admin_runtime;
+pub mod analytics;
+pub mod analytics_report;
+#[cfg(target_arch = "wasm32")]
+mod analytics_runtime;
 pub mod apns;
 #[cfg(target_arch = "wasm32")]
 mod apns_runtime;
