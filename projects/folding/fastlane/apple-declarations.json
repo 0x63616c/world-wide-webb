@@ -3,9 +3,18 @@
   "app_id": "6832059501",
   "verified_date": "2026-11-08",
   "privacy": {
-    "state": "published",
+    "state": "republish_required",
+    "pending_owner_action": "Usage analytics (on by default, pseudonymous Keychain analytics ID) adds Product Interaction and the Analytics purpose. The owner must update and republish App Privacy in App Store Connect, then set state back to published. Automatic submission stays blocked until then.",
     "policy_url": "https://getfolding.app/privacy/",
-    "purpose": "App Functionality",
+    "purposes": {
+      "App Functionality": "all linked_to_identity types and Other Diagnostic Data",
+      "Analytics": [
+        "Product Interaction",
+        "Other Usage Data",
+        "Other Diagnostic Data",
+        "Device ID"
+      ]
+    },
     "tracking": false,
     "linked_to_identity": [
       "Name",
@@ -15,7 +24,7 @@
       "Device ID",
       "Other Usage Data"
     ],
-    "not_linked_to_identity": ["Other Diagnostic Data"],
+    "not_linked_to_identity": ["Other Diagnostic Data", "Product Interaction"],
     "accuracy_declaration": "owner approved publication"
   },
   "age_rating": {
