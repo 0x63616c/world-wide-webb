@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "analytics_id": "6f1c2b0a-4d3e-4f5a-8b9c-0d1e2f3a4b5c",
+  "context": {
+    "app_version": "1.2.0",
+    "build": 123,
+    "channel": "app_store",
+    "os_version": "26.1",
+    "device_model": "iPhone17,1",
+    "region": "GB",
+    "locale": "en_GB",
+    "competition": false
+  },
+  "events": [
+    {
+      "event_id": "0b6a2a52-1f0e-4c1d-9d56-1a2b3c4d5e01",
+      "kind": "fold_open",
+      "at_ms": 1763700000000,
+      "timezone_id": "Europe/London",
+      "backfill": false,
+      "detail": null,
+      "refs": []
+    },
+    {
+      "event_id": "0b6a2a52-1f0e-4c1d-9d56-1a2b3c4d5e02",
+      "kind": "fold_close",
+      "at_ms": 1763700600000,
+      "timezone_id": "Europe/London",
+      "backfill": false,
+      "detail": null,
+      "refs": []
+    },
+    {
+      "event_id": "0b6a2a52-1f0e-4c1d-9d56-1a2b3c4d5e03",
+      "kind": "tab_viewed",
+      "at_ms": 1763700700000,
+      "timezone_id": "Europe/London",
+      "backfill": false,
+      "detail": "leaderboard",
+      "refs": []
+    },
+    {
+      "event_id": "0b6a2a52-1f0e-4c1d-9d56-1a2b3c4d5e04",
+      "kind": "entry_deleted",
+      "at_ms": 1763700800000,
+      "timezone_id": "Europe/London",
+      "backfill": false,
+      "detail": null,
+      "refs": [
+        "0b6a2a52-1f0e-4c1d-9d56-1a2b3c4d5e01",
+        "0b6a2a52-1f0e-4c1d-9d56-1a2b3c4d5e02"
+      ]
+    },
+    {
+      "event_id": "0b6a2a52-1f0e-4c1d-9d56-1a2b3c4d5e05",
+      "kind": "error",
+      "at_ms": 1763700900000,
+      "timezone_id": "Europe/London",
+      "backfill": false,
+      "detail": "upload.http_500"
+    }
+  ]
+}

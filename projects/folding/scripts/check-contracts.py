@@ -47,6 +47,7 @@ for stem in (
     "error",
     "entry-deletion-request",
     "entry-deletion-receipt",
+    "analytics-batch",
 ):
     valid(f"{stem}.schema.json", json.loads((FIXTURES / f"{stem}.json").read_text()))
 auth = json.loads((FIXTURES / "auth-requests.json").read_text())
@@ -98,6 +99,24 @@ for key, value in [
     changed = copy.deepcopy(deletion)
     changed[key] = value
     invalid("entry-deletion-request.schema.json", changed)
+
+analytics = json.loads((FIXTURES / "analytics-batch.json").read_text())
+changed = copy.deepcopy(analytics)
+changed["events"][0]["kind"] = "future_kind"
+valid("analytics-batch.schema.json", changed)  # Unknown kinds are ignored, not rejected.
+for mutate in [
+    lambda b: b.update(events=[]),
+    lambda b: b.update(schema_version=2),
+    lambda b: b.update(analytics_id="NOT-A-UUID"),
+    lambda b: b["context"].update(channel="beta"),
+    lambda b: b["context"].update(app_version="x" * 65),
+    lambda b: b["events"][0].update(detail="Upload HTTP 500"),
+    lambda b: b["events"][3].update(refs=b["events"][3]["refs"] * 2),
+    lambda b: b["events"][0].pop("at_ms"),
+]:
+    changed = copy.deepcopy(analytics)
+    mutate(changed)
+    invalid("analytics-batch.schema.json", changed)
 
 # Parse the complete fixture set; these lifecycle expectations are consumed by
 # later Swift/Rust integration tests, not claimed as executed implementation here.

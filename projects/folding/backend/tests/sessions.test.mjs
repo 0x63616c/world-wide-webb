@@ -186,6 +186,7 @@ test("actual Worker issues bounded challenges and rotates encrypted sessions wit
     "0023_published_ios_builds.sql",
     "0024_bot_simulation.sql",
     "0025_bot_simulation_always_on.sql",
+    "0026_usage_analytics.sql",
   ]) {
     const source = await readFile(`${root}migrations/${migration}`, "utf8");
     for (const sql of source.split(";").filter((s) => s.trim()))
@@ -1447,6 +1448,7 @@ test("admin root stays host-scoped and every admin view retains shared dark navi
     "/admin/queue?kind=cases",
     "/admin/queue?kind=ban_reviews",
     "/admin/bots",
+    "/admin/analytics",
   ];
   for (const path of pages) {
     const response = await authenticatedRuntime.dispatchFetch(
@@ -1527,6 +1529,81 @@ test("admin root stays host-scoped and every admin view retains shared dark navi
       .first("membership"),
     "joined",
   );
+});
+
+test("anonymous analytics batches dedupe and render on the admin dashboard", async () => {
+  const db = await authenticatedRuntime.getD1Database("DB");
+  const batch = JSON.parse(
+    await readFile(`${root}../contracts/fixtures/analytics-batch.json`, "utf8"),
+  );
+  const now = Date.now();
+  batch.events.forEach(
+    (event, i) => (event.at_ms = now - 3_600_000 + i * 60_000),
+  );
+  batch.events.push({
+    ...batch.events[2],
+    event_id: "0b6a2a52-1f0e-4c1d-9d56-1a2b3c4d5e06",
+    kind: "future_kind",
+  });
+  const post = (body, contentType = "application/json; charset=utf-8") =>
+    authenticatedRuntime.dispatchFetch(
+      "https://api.example/v1/analytics/batches",
+      {
+        method: "POST",
+        body: typeof body === "string" ? body : JSON.stringify(body),
+        headers: {
+          "Content-Type": contentType,
+          "X-Folding-Build": "123",
+          "CF-Connecting-IP": "192.0.2.90",
+        },
+      },
+    );
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const response = await post(batch);
+    assert.equal(response.status, 200, await response.clone().text());
+    assert.equal((await response.json()).accepted, 5);
+  }
+  const count = (sql) => db.prepare(sql).bind(batch.analytics_id).first("n");
+  assert.equal(
+    await count("SELECT count(*) n FROM analytics_events WHERE analytics_id=?"),
+    5,
+  );
+  assert.equal(
+    await count(
+      "SELECT count(*) n FROM analytics_removed_events WHERE analytics_id=?",
+    ),
+    2,
+  );
+  assert.equal(
+    await count(
+      "SELECT count(*) n FROM analytics_installs WHERE analytics_id=?",
+    ),
+    1,
+  );
+  const malformed = await post({ ...batch, events: [] });
+  assert.equal(malformed.status, 400);
+  assert.equal((await malformed.json()).code, "malformed_request");
+  assert.equal((await post(batch, "text/plain")).status, 400);
+  const jwt = appleToken({
+    iss: "https://folding-test.cloudflareaccess.com",
+    aud: ["local-admin"],
+    sub: "synthetic-admin",
+    email: "admin@example.test",
+    type: "app",
+  });
+  const get = (path) =>
+    authenticatedRuntime.dispatchFetch("https://admin.example" + path, {
+      headers: { "Cf-Access-Jwt-Assertion": jwt },
+    });
+  const dashboard = await get("/admin/analytics?channel=all");
+  assert.equal(dashboard.status, 200, await dashboard.clone().text());
+  const html = await dashboard.text();
+  assert.ok(html.includes(`/admin/analytics/installs/${batch.analytics_id}`));
+  assert.ok(html.includes("tab_viewed · leaderboard"));
+  const install = await get(`/admin/analytics/installs/${batch.analytics_id}`);
+  assert.equal(install.status, 200, await install.clone().text());
+  assert.ok((await install.text()).includes("excluded"));
+  assert.equal((await get("/admin/analytics?channel=beta")).status, 422);
 });
 
 test("admin minimum build is authenticated, audited, revision guarded and reversible", async () => {

@@ -162,6 +162,7 @@ pub async fn dispatch(
             "/v1/resets",
             "/v1/entry-deletions",
             "/v1/account/delete",
+            "/v1/analytics/batches",
         ]
         .contains(&request.path().as_str())
     {
@@ -227,6 +228,9 @@ pub async fn dispatch(
             crate::deletion_runtime::delete(request, &db, &config, body, request_id).await?
         }
         "/v1/auth/logout" => logout(request, &db, &config, body, request_id).await?,
+        "/v1/analytics/batches" => {
+            crate::analytics_runtime::submit(&db, &config, body, request_id).await?
+        }
         _ => return Ok(None),
     };
     Ok(Some(out))

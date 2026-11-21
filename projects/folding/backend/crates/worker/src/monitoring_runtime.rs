@@ -83,6 +83,7 @@ pub(crate) fn route(path: &str) -> &'static str {
         "/v1/capabilities" => "capabilities",
         "/v1/client-policy" => "client.policy",
         "/v1/health" => "health",
+        "/v1/analytics/batches" => "analytics.submit",
         "/v1/me" => "account.read",
         "/v1/milestones" => "milestones.read",
         "/v1/milestones/acknowledgments" => "milestones.acknowledge",
