@@ -27,4 +27,6 @@ enum FoldingTint {
     uiColor: UIColor { traits in
       traits.userInterfaceStyle == .dark ? .black : .white
     })
+  /// Switches keep the system green: a white "on" track hides the white thumb in dark mode.
+  static let toggle = Color.green
 }

@@ -143,7 +143,9 @@ struct SettingsScreen: View {
         Section {
           Toggle(
             String(localized: "settings.shareUsageData", defaultValue: "Share usage data"),
-            isOn: preference(\.shareUsageData))
+            isOn: preference(\.shareUsageData)
+          )
+          .tint(FoldingTint.toggle)
         } footer: {
           Text(
             String(

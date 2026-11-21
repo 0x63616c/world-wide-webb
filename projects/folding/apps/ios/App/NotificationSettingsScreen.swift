@@ -24,7 +24,7 @@ struct NotificationSettingsScreen: View {
           String(localized: "notifications.daily", defaultValue: "Daily limit reached"),
           isOn: preference(\.dailyLimit)
         )
-        .tint(.black)
+        .tint(FoldingTint.toggle)
         if model.notificationPreferences.dailyLimit {
           Stepper(value: dailyThreshold, in: 1...100_000, step: 10) {
             LabeledContent(
@@ -35,7 +35,9 @@ struct NotificationSettingsScreen: View {
         Toggle(
           String(localized: "notifications.badges", defaultValue: "Badges earned"),
           isOn: preference(\.badgesEarned)
-        ).disabled(!model.competitionJoined)
+        )
+        .tint(FoldingTint.toggle)
+        .disabled(!model.competitionJoined)
       }.disabled(actions.saveNotifications == nil || model.operation != nil)
     }
     .navigationTitle(String(localized: "notifications.title", defaultValue: "Notifications"))
