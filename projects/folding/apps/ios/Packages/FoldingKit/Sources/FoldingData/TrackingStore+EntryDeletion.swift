@@ -113,6 +113,12 @@ extension TrackingStore {
         .text(marker.deletionID.canonical), .text(try encode(marker)),
         .text(marker.epochIDs.isEmpty ? "acknowledged" : "pending"),
       ])
+    if marker.target.deviceID == deviceID {
+      try enqueueAnalyticsInTransaction(
+        UsageAnalyticsEvent(
+          eventID: marker.deletionID, kind: "entry_deleted", atMS: marker.createdAtMS,
+          timezoneID: TimeZone.current.identifier, refs: marker.eventIDs))
+    }
     try cancelDailyLimitWorkInTransaction()
     exportPurgePending = true
   }

@@ -6,6 +6,12 @@ import struct FoldingData.TrackingDiagnosticSnapshot
 
 extension AppController {
   func recordLifecycle(_ phase: ScenePhase) async {
+    if phase == .active, !usageForeground { recordUsage("app_opened") }
+    if phase == .active { usageForeground = true }
+    if phase == .background {
+      usageForeground = false
+      AnalyticsUploader.scheduleRefresh()
+    }
     await runtime.recordLifecycle(
       phase == .active ? .foreground : phase == .background ? .background : .inactive)
   }

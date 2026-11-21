@@ -201,6 +201,9 @@ actor TrackingRuntime {
     }
   }
 
+  /// Usage analytics share the intents' journal path, so a background run never connects CloudKit.
+  func analyticsStore() async throws -> TrackingStore { try await localCaptureStore() }
+
   /// Intents consume the app's durable account fence; they do not resolve CloudKit
   /// identity or load a replication mirror before saving an observation.
   private func localCaptureStore() async throws -> TrackingStore {

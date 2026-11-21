@@ -73,6 +73,10 @@ extension TrackingStore {
         ])
       try enqueue(
         "mirror_interruption", entity: marker.interruptionID, generation: marker.generation)
+      try enqueueAnalyticsInTransaction(
+        UsageAnalyticsEvent(
+          eventID: marker.interruptionID, kind: "interruption", atMS: marker.observedAtMS,
+          timezoneID: TimeZone.current.identifier, detail: marker.reason.rawValue))
     }
   }
 
@@ -171,6 +175,11 @@ extension TrackingStore {
       "INSERT INTO reset_markers VALUES (?,?,?)",
       [.text(marker.resetID.canonical), .integer(marker.revision), .integer(nowMS)])
     guard marker > old else { return }
+    // Usage analytics outlive a history reset; the reset itself is one of its events.
+    try enqueueAnalyticsInTransaction(
+      UsageAnalyticsEvent(
+        eventID: marker.resetID, kind: "reset", atMS: nowMS,
+        timezoneID: TimeZone.current.identifier))
     try database.execute("DELETE FROM settings WHERE key='tracking_diagnostics_v1'")
     exportPurgePending = true
     try database.execute("DELETE FROM settings WHERE key='competition_upload'")

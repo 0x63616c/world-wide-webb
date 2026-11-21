@@ -29,9 +29,10 @@ struct FoldingPreferences: Codable, Equatable {
   var homeTimezone = TimeZone.current.identifier
   var dailyLimit = 100
   var phoneNames: [String: String] = [:]
+  var shareUsageData = true
   init() {}
   enum CodingKeys: String, CodingKey {
-    case schemaVersion, appearance, metrics, homeTimezone, dailyLimit, phoneNames
+    case schemaVersion, appearance, metrics, homeTimezone, dailyLimit, phoneNames, shareUsageData
   }
   // Stored values from earlier builds may carry retired keys (metrics, cardOrder, accent,
   // travelUnit); they are ignored without discarding the timezone or other saved choices.
@@ -42,6 +43,7 @@ struct FoldingPreferences: Codable, Equatable {
     homeTimezone = try values.decode(String.self, forKey: .homeTimezone)
     dailyLimit = try values.decode(Int.self, forKey: .dailyLimit)
     phoneNames = try values.decodeIfPresent([String: String].self, forKey: .phoneNames) ?? [:]
+    shareUsageData = try values.decodeIfPresent(Bool.self, forKey: .shareUsageData) ?? true
   }
   func encode(to encoder: Encoder) throws {
     var values = encoder.container(keyedBy: CodingKeys.self)
@@ -52,6 +54,7 @@ struct FoldingPreferences: Codable, Equatable {
     try values.encode(homeTimezone, forKey: .homeTimezone)
     try values.encode(dailyLimit, forKey: .dailyLimit)
     try values.encode(phoneNames, forKey: .phoneNames)
+    try values.encode(shareUsageData, forKey: .shareUsageData)
   }
 }
 

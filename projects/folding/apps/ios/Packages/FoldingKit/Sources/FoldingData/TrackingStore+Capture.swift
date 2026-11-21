@@ -128,6 +128,7 @@ extension TrackingStore {
     if !event.isTest, let epoch = event.competitionEpochID, epoch == (try competitionEpoch()) {
       try enqueue("competition_event", entity: event.eventID, generation: event.generation)
     }
+    if !event.isTest { try enqueueAnalyticsInTransaction(Self.analyticsEvent(event)) }
     return RecordingReceipt(event: event, wasRetry: false)
   }
 

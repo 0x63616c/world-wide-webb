@@ -4,6 +4,7 @@ import SwiftUI
 import UIKit
 
 import struct FoldingData.SetupProgress
+import enum FoldingData.SetupStep
 import struct FoldingData.TrackingDiagnosticSnapshot
 
 @MainActor final class AppController {
@@ -39,6 +40,8 @@ import struct FoldingData.TrackingDiagnosticSnapshot
   var flushingEntryDeletions = false
   var deletionRetryAfter = Date.distantPast
   private let preferencesKey = "folding.preferences.v1"
+  /// Counts one app open per return from the background, not per inactive interruption.
+  var usageForeground = false
   lazy var milestoneCache = MilestoneCache(defaults: preferencesStore)
 
   init(
@@ -82,9 +85,15 @@ import struct FoldingData.TrackingDiagnosticSnapshot
             self.notifications.preferences,
             homeTimezone: preferences.homeTimezone)
         }
+        let previous = self.presentation.preferences
         let data = try JSONEncoder().encode(preferences)
         self.preferencesStore.set(data, forKey: self.preferencesKey)
         self.presentation.preferences = preferences
+        if !preferences.shareUsageData {
+          await AnalyticsUploader.shared.purge()
+        } else if preferences.dailyLimit != previous.dailyLimit {
+          self.recordUsage("daily_limit_set")
+        }
         await self.runtime.configureDailyLimit()
         try await self.refresh()
         await self.presentation.requestHistory(using: self.actions)
@@ -108,6 +117,7 @@ import struct FoldingData.TrackingDiagnosticSnapshot
           }
         }
         self.presentation.notificationPreferences = saved
+        if saved.dailyLimit, !previous.dailyLimit { self.recordUsage("daily_limit_set") }
         await self.configurePush()
         await self.runtime.configureDailyLimit()
         self.presentation.notificationAuthorization = await self.notifications.authorization()
@@ -145,7 +155,8 @@ import struct FoldingData.TrackingDiagnosticSnapshot
         await self.presentation.requestHistory(using: self.actions)
       },
       export: { choice in
-        try await self.runtime.prepareExport(
+        self.recordUsage("export", detail: choice == .json ? "json" : "csv")
+        return try await self.runtime.prepareExport(
           choice == .json ? .json : .csv,
           homeTimezone: self.presentation.preferences.homeTimezone)
       },
@@ -248,7 +259,11 @@ import struct FoldingData.TrackingDiagnosticSnapshot
         await self.presentation.requestLeaderboard(using: self.actions)
       },
       deleteCompetitionAccount: { try await self.beginAccountDeletion() },
-      signInCompetition: { try await self.signInToCompetition() },
+      signInCompetition: {
+        self.recordUsage("competition_sign_in", detail: "started")
+        try await self.signInToCompetition()
+        self.recordUsage("competition_sign_in", detail: "finished")
+      },
       loadPatterns: {
         try await self.refresh()
         guard let analytics = self.presentation.analytics else { throw AnalyticsError.invalidRange }
@@ -272,6 +287,44 @@ import struct FoldingData.TrackingDiagnosticSnapshot
       loadDiagnostics: { try await self.makeDiagnosticReport() },
       clearDiagnostics: { try await self.runtime.clearDiagnostics() },
       checkDiagnostics: { try await self.checkDiagnosticConnection() })
+  }
+
+  /// Anonymous usage analytics; nothing is recorded while "Share usage data" is off.
+  func recordUsage(_ kind: String, detail: String? = nil) {
+    guard presentation.preferences.shareUsageData, !accountChanging else { return }
+    Task { await AnalyticsUploader.record(kind, detail: detail) }
+  }
+
+  func recordTabUsage(_ tab: FoldingTab) {
+    let name =
+      switch tab {
+      case .today: "today"
+      case .history: "history"
+      case .leaderboard: "leaderboard"
+      case .settings: "settings"
+      }
+    recordUsage("tab_viewed", detail: name)
+    if tab == .leaderboard, presentation.competitionJoined { recordUsage("leaderboard_viewed") }
+  }
+
+  func recordSetupUsage(from old: SetupStep?, to new: SetupStep?) {
+    guard let old, let new, old != new else { return }
+    switch new {
+    case .openingInstructions where old == .welcome: recordUsage("setup", detail: "started")
+    case .openingPassed: recordUsage("setup", detail: "open_verified")
+    case .closingPassed: recordUsage("setup", detail: "close_verified")
+    case .complete: recordUsage("setup", detail: "finished")
+    case .openingRetry, .closingRetry: recordUsage("error", detail: "setup.timeout")
+    default: break
+    }
+  }
+
+  /// Uploads queued analytics every minute while the app is active.
+  func uploadAnalyticsWhileActive() async {
+    while !Task.isCancelled {
+      await AnalyticsUploader.shared.upload()
+      do { try await Task.sleep(for: .seconds(60)) } catch { return }
+    }
   }
 
   func claimReviewRequest() -> Bool {
