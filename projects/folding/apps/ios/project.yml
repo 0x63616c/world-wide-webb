@@ -52,7 +52,10 @@ targets:
           - UIInterfaceOrientationLandscapeRight
         ITSAppUsesNonExemptEncryption: false
         UIBackgroundModes:
+          - fetch
           - remote-notification
+        BGTaskSchedulerPermittedIdentifiers:
+          - app.getfolding.Folding.analytics
         FoldingAPIOrigin: "$(FOLDING_API_ORIGIN)"
         FoldingEnvironment: "$(FOLDING_ENVIRONMENT)"
         FoldingSourceCommit: "$(FOLDING_SOURCE_COMMIT)"

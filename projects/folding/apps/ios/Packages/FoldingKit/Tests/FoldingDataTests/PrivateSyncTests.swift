@@ -400,7 +400,7 @@ private func event(
     try db.execute("PRAGMA user_version=3")
   }
   let reopened = try TrackingStore(directory: root, installationID: identity)
-  #expect(try db.rows("PRAGMA user_version").first?["user_version"] == "9")
+  #expect(try db.rows("PRAGMA user_version").first?["user_version"] == "10")
   try await reopened.importMirrorBatch(
     [.reset(generation, createdAtMS: 1)], storeID: "m", checkpoint: nil)
   #expect(try await reopened.retainedEvents() == [waiting])

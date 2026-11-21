@@ -15378,6 +15378,138 @@
           }
         }
       }
+    },
+    "settings.shareUsageData": {
+      "comment": "Folding app UI. Non-English copy is a draft pending native-speaker review.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Share usage data"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nutzungsdaten teilen"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Partager les données d’utilisation"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Compartir datos de uso"
+          }
+        },
+        "es-419": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Compartir datos de uso"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用状況データを共有"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "사용 데이터 공유"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Compartilhar dados de uso"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "共享使用数据"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "分享使用資料"
+          }
+        }
+      }
+    },
+    "settings.shareUsageDataFooter": {
+      "comment": "Folding app UI. Non-English copy is a draft pending native-speaker review.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sends fold times and app usage to help improve Folding. Not linked to your Apple Account or competition profile."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sendet Klappzeiten und App-Nutzung, um Folding zu verbessern. Nicht mit deinem Apple Account oder Wettbewerbsprofil verknüpft."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Envoie les heures de pliage et l’utilisation de l’app pour améliorer Folding. Non associé à votre compte Apple ni à votre profil de compétition."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Envía las horas de plegado y el uso de la app para ayudar a mejorar Folding. No se vincula a tu cuenta de Apple ni a tu perfil de competición."
+          }
+        },
+        "es-419": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Envía las horas de plegado y el uso de la app para ayudar a mejorar Folding. No se vincula a tu cuenta de Apple ni a tu perfil de competencia."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Folding の改善のため、折りたたみの時刻とアプリの使用状況を送信します。Apple アカウントや競技プロフィールとは関連付けられません。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Folding 개선을 위해 접은 시간과 앱 사용 정보를 보냅니다. Apple 계정이나 대회 프로필과 연결되지 않습니다."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Envia horários de dobra e uso do app para ajudar a melhorar o Folding. Não é vinculado à sua Conta Apple nem ao seu perfil de competição."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "发送折叠时间和 App 使用情况以帮助改进 Folding。不会与你的 Apple 账户或竞赛资料关联。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "傳送摺疊時間和 App 使用情形以協助改善 Folding。不會與你的 Apple 帳號或競賽個人檔案連結。"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

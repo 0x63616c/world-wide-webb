@@ -140,6 +140,18 @@ struct SettingsScreen: View {
               defaultValue: "Export saves a copy. Reset deletes history, scores, medals and badges."
             ))
         }
+        Section {
+          Toggle(
+            String(localized: "settings.shareUsageData", defaultValue: "Share usage data"),
+            isOn: preference(\.shareUsageData))
+        } footer: {
+          Text(
+            String(
+              localized: "settings.shareUsageDataFooter",
+              defaultValue:
+                "Sends fold times and app usage to help improve Folding. Not linked to your Apple Account or competition profile."
+            ))
+        }
         Section(String(localized: "settings.support", defaultValue: "Support")) {
           NavigationLink(String(localized: "tips.title", defaultValue: "Tip jar")) {
             if let tipJar = actions.tipJar { tipJar() }

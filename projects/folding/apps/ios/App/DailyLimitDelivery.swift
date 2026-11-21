@@ -64,6 +64,7 @@ actor DailyLimitDelivery {
         }
         await FoldingDiagnostics.record(store, .notificationScheduled)
         try await store.acknowledgeDailyLimitNotification(lease)
+        await AnalyticsUploader.record("daily_limit_exceeded", in: store)
       } catch {
         await FoldingDiagnostics.record(store, .notificationFailed, error: error)
         try? await store.retryDailyLimitNotification(lease, atMS: TrackingRuntime.nowMS + 30_000)

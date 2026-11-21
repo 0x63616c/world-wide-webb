@@ -102,6 +102,8 @@ public actor TrackingStore {
           "DELETE FROM work_outbox WHERE kind IN ('competition_event','competition_reset','competition_history')"
         )
         try connection.execute("UPDATE setup_attempt SET status='cancelled' WHERE status='waiting'")
+        try connection.execute("DELETE FROM analytics_queue")
+        try connection.execute("DELETE FROM settings WHERE key='analytics_backfilled'")
       }
       try connection.execute(
         "INSERT INTO settings(key,value) VALUES ('installation_id',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",

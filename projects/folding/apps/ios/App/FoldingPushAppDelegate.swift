@@ -79,6 +79,12 @@ final class FoldingPushAppDelegate: NSObject, UIApplicationDelegate,
     _ center: UNUserNotificationCenter,
     didReceive response: UNNotificationResponse
   ) async {
+    let request = response.notification.request
+    let kind =
+      request.identifier.hasPrefix("folding.daily-limit.")
+      ? "daily_limit"
+      : ((request.content.userInfo["folding"] as? [String: Any])?["kind"] as? String ?? "other")
+    await AnalyticsUploader.record("notification_opened", detail: kind)
     guard response.actionIdentifier == UNNotificationDefaultActionIdentifier,
       let route = PushNotificationRoute.parse(response.notification.request.content.userInfo)
     else { return }

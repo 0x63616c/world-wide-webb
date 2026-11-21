@@ -13,6 +13,7 @@ struct RecordOpeningIntent: AppIntent {
   func perform() async throws -> some IntentResult {
     await StorageBackgroundExecution.install()
     try await TrackingRuntime.shared.record(.open)
+    await AnalyticsUploader.shared.uploadAfterRecording()
     return .result()
   }
 }
@@ -29,6 +30,7 @@ struct RecordClosingIntent: AppIntent {
   func perform() async throws -> some IntentResult {
     await StorageBackgroundExecution.install()
     try await TrackingRuntime.shared.record(.close)
+    await AnalyticsUploader.shared.uploadAfterRecording()
     return .result()
   }
 }

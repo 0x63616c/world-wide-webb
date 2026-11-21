@@ -32,6 +32,9 @@ import SwiftUI
         trackingContent
       #endif
     }
+    .backgroundTask(.appRefresh(AnalyticsUploader.refreshTaskIdentifier)) {
+      await AnalyticsUploader.shared.backgroundRefresh()
+    }
   }
 
   private var trackingContent: some View {
@@ -59,6 +62,16 @@ import SwiftUI
     }
     .task(id: scenePhase) {
       if scenePhase == .active { await controller.maintainCapturedObservations() }
+    }
+    .task(id: scenePhase) {
+      if scenePhase == .active { await controller.uploadAnalyticsWhileActive() }
+    }
+    .onChange(of: controller.presentation.selectedTab) { _, tab in controller.recordTabUsage(tab) }
+    .onChange(of: controller.presentation.setup?.step) { old, new in
+      controller.recordSetupUsage(from: old, to: new)
+    }
+    .onChange(of: controller.presentation.milestonesForeground) { _, visible in
+      if visible { controller.recordUsage("badges_viewed") }
     }
     .task(id: controller.presentation.competitionRemoval) { await controller.watchRemoval() }
     .task { await controller.synchronizePrivateHistory() }

@@ -4,7 +4,7 @@ extension SQLiteConnection {
   func migrate() throws {
     try transaction {
       let version = try rows("PRAGMA user_version").first?["user_version"]
-      guard let version, let schemaVersion = Int(version), (0...9).contains(schemaVersion) else {
+      guard let version, let schemaVersion = Int(version), (0...10).contains(schemaVersion) else {
         throw StoreError.incompatibleSchema
       }
       if schemaVersion == 0 { for statement in Self.schema { try execute(statement) } }
@@ -133,6 +133,12 @@ extension SQLiteConnection {
         try execute(
           "CREATE INDEX captured_pending ON captured_observations(state,device_id,sequence)")
         try execute("PRAGMA user_version=9")
+      }
+      if schemaVersion < 10 {
+        try execute(
+          "CREATE TABLE IF NOT EXISTS analytics_queue (seq INTEGER PRIMARY KEY AUTOINCREMENT, event_id TEXT NOT NULL UNIQUE, payload_json TEXT NOT NULL, created_at_ms INTEGER NOT NULL)"
+        )
+        try execute("PRAGMA user_version=10")
       }
       // Seed durable high-water marks for journals created before recovery diagnostics existed.
       if try rows("SELECT value FROM settings WHERE key='highest_reset_revision'").isEmpty {
