@@ -76,6 +76,7 @@
         "projects/folding/apps/ios/Screenshots/**",
         "projects/folding/apps/ios/StorefrontTests/**",
         "projects/folding/fastlane/screenshot-plan.json",
+        "projects/folding/fastlane/apple-declarations.json",
         "projects/folding/fastlane/lib/release_assets.rb",
         "projects/folding/fastlane/scripts/opaque-screen.swift"
       ],
