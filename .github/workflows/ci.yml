@@ -90,7 +90,7 @@ jobs:
       - *id001
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
         with:
-          bun-version: 1.4.4
+          bun-version: 1.4.5
       - uses: ./.github/actions/ruby-tools
       - run: bun install --frozen-lockfile
       - run: gem install syntax_tree -v 6.3.0 --no-document
